@@ -1,0 +1,127 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LedgerDefinition;
+
+import com.nspl.app.repository.LedgerDefinitionRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * REST controller for managing LedgerDefinition.
+ */
+@RestController
+@RequestMapping("/api")
+public class LedgerDefinitionResource {
+
+    private final Logger log = LoggerFactory.getLogger(LedgerDefinitionResource.class);
+
+    private static final String ENTITY_NAME = "ledgerDefinition";
+        
+    private final LedgerDefinitionRepository ledgerDefinitionRepository;
+
+    public LedgerDefinitionResource(LedgerDefinitionRepository ledgerDefinitionRepository) {
+        this.ledgerDefinitionRepository = ledgerDefinitionRepository;
+    }
+
+    /**
+     * POST  /ledger-definitions : Create a new ledgerDefinition.
+     *
+     * @param ledgerDefinition the ledgerDefinition to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new ledgerDefinition, or with status 400 (Bad Request) if the ledgerDefinition has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/ledger-definitions")
+    @Timed
+    public ResponseEntity<LedgerDefinition> createLedgerDefinition(@RequestBody LedgerDefinition ledgerDefinition) throws URISyntaxException {
+        log.debug("REST request to save LedgerDefinition : {}", ledgerDefinition);
+        if (ledgerDefinition.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new ledgerDefinition cannot already have an ID")).body(null);
+        }
+        LedgerDefinition result = ledgerDefinitionRepository.save(ledgerDefinition);
+        return ResponseEntity.created(new URI("/api/ledger-definitions/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /ledger-definitions : Updates an existing ledgerDefinition.
+     *
+     * @param ledgerDefinition the ledgerDefinition to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated ledgerDefinition,
+     * or with status 400 (Bad Request) if the ledgerDefinition is not valid,
+     * or with status 500 (Internal Server Error) if the ledgerDefinition couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/ledger-definitions")
+    @Timed
+    public ResponseEntity<LedgerDefinition> updateLedgerDefinition(@RequestBody LedgerDefinition ledgerDefinition) throws URISyntaxException {
+        log.debug("REST request to update LedgerDefinition : {}", ledgerDefinition);
+        if (ledgerDefinition.getId() == null) {
+            return createLedgerDefinition(ledgerDefinition);
+        }
+        LedgerDefinition result = ledgerDefinitionRepository.save(ledgerDefinition);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, ledgerDefinition.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /ledger-definitions : get all the ledgerDefinitions.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of ledgerDefinitions in body
+     */
+    @GetMapping("/ledger-definitions")
+    @Timed
+    public ResponseEntity<List<LedgerDefinition>> getAllLedgerDefinitions(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of LedgerDefinitions");
+        Page<LedgerDefinition> page = ledgerDefinitionRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/ledger-definitions");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /ledger-definitions/:id : get the "id" ledgerDefinition.
+     *
+     * @param id the id of the ledgerDefinition to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the ledgerDefinition, or with status 404 (Not Found)
+     */
+    @GetMapping("/ledger-definitions/{id}")
+    @Timed
+    public ResponseEntity<LedgerDefinition> getLedgerDefinition(@PathVariable Long id) {
+        log.debug("REST request to get LedgerDefinition : {}", id);
+        LedgerDefinition ledgerDefinition = ledgerDefinitionRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(ledgerDefinition));
+    }
+
+    /**
+     * DELETE  /ledger-definitions/:id : delete the "id" ledgerDefinition.
+     *
+     * @param id the id of the ledgerDefinition to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/ledger-definitions/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteLedgerDefinition(@PathVariable Long id) {
+        log.debug("REST request to delete LedgerDefinition : {}", id);
+        ledgerDefinitionRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+}

@@ -1,0 +1,147 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LinkedDataViews;
+
+import com.nspl.app.repository.LinkedDataViewsRepository;
+import com.nspl.app.repository.search.LinkedDataViewsSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing LinkedDataViews.
+ */
+@RestController
+@RequestMapping("/api")
+public class LinkedDataViewsResource {
+
+    private final Logger log = LoggerFactory.getLogger(LinkedDataViewsResource.class);
+
+    private static final String ENTITY_NAME = "linkedDataViews";
+        
+    private final LinkedDataViewsRepository linkedDataViewsRepository;
+
+    private final LinkedDataViewsSearchRepository linkedDataViewsSearchRepository;
+
+    public LinkedDataViewsResource(LinkedDataViewsRepository linkedDataViewsRepository, LinkedDataViewsSearchRepository linkedDataViewsSearchRepository) {
+        this.linkedDataViewsRepository = linkedDataViewsRepository;
+        this.linkedDataViewsSearchRepository = linkedDataViewsSearchRepository;
+    }
+
+    /**
+     * POST  /linked-data-views : Create a new linkedDataViews.
+     *
+     * @param linkedDataViews the linkedDataViews to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new linkedDataViews, or with status 400 (Bad Request) if the linkedDataViews has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/linked-data-views")
+    @Timed
+    public ResponseEntity<LinkedDataViews> createLinkedDataViews(@RequestBody LinkedDataViews linkedDataViews) throws URISyntaxException {
+        log.debug("REST request to save LinkedDataViews : {}", linkedDataViews);
+        if (linkedDataViews.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new linkedDataViews cannot already have an ID")).body(null);
+        }
+        LinkedDataViews result = linkedDataViewsRepository.save(linkedDataViews);
+        linkedDataViewsSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/linked-data-views/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /linked-data-views : Updates an existing linkedDataViews.
+     *
+     * @param linkedDataViews the linkedDataViews to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated linkedDataViews,
+     * or with status 400 (Bad Request) if the linkedDataViews is not valid,
+     * or with status 500 (Internal Server Error) if the linkedDataViews couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/linked-data-views")
+    @Timed
+    public ResponseEntity<LinkedDataViews> updateLinkedDataViews(@RequestBody LinkedDataViews linkedDataViews) throws URISyntaxException {
+        log.debug("REST request to update LinkedDataViews : {}", linkedDataViews);
+        if (linkedDataViews.getId() == null) {
+            return createLinkedDataViews(linkedDataViews);
+        }
+        LinkedDataViews result = linkedDataViewsRepository.save(linkedDataViews);
+        linkedDataViewsSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, linkedDataViews.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /linked-data-views : get all the linkedDataViews.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of linkedDataViews in body
+     */
+    @GetMapping("/linked-data-views")
+    @Timed
+    public List<LinkedDataViews> getAllLinkedDataViews() {
+        log.debug("REST request to get all LinkedDataViews");
+        List<LinkedDataViews> linkedDataViews = linkedDataViewsRepository.findAll();
+        return linkedDataViews;
+    }
+
+    /**
+     * GET  /linked-data-views/:id : get the "id" linkedDataViews.
+     *
+     * @param id the id of the linkedDataViews to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the linkedDataViews, or with status 404 (Not Found)
+     */
+    @GetMapping("/linked-data-views/{id}")
+    @Timed
+    public ResponseEntity<LinkedDataViews> getLinkedDataViews(@PathVariable Long id) {
+        log.debug("REST request to get LinkedDataViews : {}", id);
+        LinkedDataViews linkedDataViews = linkedDataViewsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(linkedDataViews));
+    }
+
+    /**
+     * DELETE  /linked-data-views/:id : delete the "id" linkedDataViews.
+     *
+     * @param id the id of the linkedDataViews to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/linked-data-views/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteLinkedDataViews(@PathVariable Long id) {
+        log.debug("REST request to delete LinkedDataViews : {}", id);
+        linkedDataViewsRepository.delete(id);
+        linkedDataViewsSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/linked-data-views?query=:query : search for the linkedDataViews corresponding
+     * to the query.
+     *
+     * @param query the query of the linkedDataViews search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/linked-data-views")
+    @Timed
+    public List<LinkedDataViews> searchLinkedDataViews(@RequestParam String query) {
+        log.debug("REST request to search LinkedDataViews for query {}", query);
+        return StreamSupport
+            .stream(linkedDataViewsSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+
+}

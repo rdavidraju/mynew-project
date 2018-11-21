@@ -1,0 +1,850 @@
+package com.nspl.app.service;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.ProcessDetails;
+import com.nspl.app.domain.ProgParametersSets;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.repository.AppModuleSummaryRepository;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.ProcessDetailsRepository;
+import com.nspl.app.repository.ProgParametersSetsRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.web.rest.JournalsHeaderDataResource;
+
+@Service
+public class DashBoardV3Service {
+
+	@Inject
+	AppModuleSummaryRepository appModuleSummaryRepository;
+	
+	
+	@Inject
+	ProcessDetailsRepository processDetailsRepository;
+	
+	@Inject
+	DashBoardV2Service dashBoardV2Service;
+	
+	@Inject
+	SchedulerDetailsRepository schedulerDetailsRepository;
+	
+	
+	@Inject
+	ApplicationProgramsRepository applicationProgramsRepository;
+	
+	@Inject
+	ProgParametersSetsRepository progParametersSetsRepository;
+	
+	private final Logger log = LoggerFactory.getLogger(JournalsHeaderDataResource.class);
+	
+	
+	public String dateFormat(String date) throws ParseException
+	{
+	 DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+	  Date fdate = df.parse(date);
+	  df = new SimpleDateFormat("dd-MMM-yy");
+	  log.info("df :"+df.format(fdate));
+	  String[] dt=df.format(fdate).toString().split("-");
+	  log.info("df[1] :"+dt[1]);
+	return dt[1];
+	}
+    
+    public LinkedHashMap datesMap(String startDate,String endDate)
+    {
+   
+		 LinkedHashMap dataMap=new LinkedHashMap();
+		 dataMap.put("startDate", startDate);
+		 dataMap.put("endDate", endDate);
+		 return dataMap;
+    }
+	
+	
+	public LinkedHashMap reconciliationAnalysisforGivenWeek(Long processId,LocalDate from1wDate,LocalDate till1wDate) throws SQLException, ParseException 
+	{ 
+
+		log.info("Rest Request to get aging analysis in service:start date :"+from1wDate +" and end date :"+till1wDate);
+		LinkedHashMap wmap=new LinkedHashMap();
+
+
+		/* ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+	 ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+	 log.info("fmDate :"+fmDate);
+	 log.info("toDate :"+toDate);
+	 java.time.LocalDate fDate=fmDate.toLocalDate();
+	 java.time.LocalDate tDate=toDate.toLocalDate();*/
+
+		DecimalFormat dform = new DecimalFormat("####0.00");
+
+		if(processId!=null)
+
+		{
+
+			ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+
+			// if(week.equalsIgnoreCase("OneWeek"))
+			// {
+
+
+
+
+			LocalDate till1wDateFrLoop=till1wDate;
+
+			List<LocalDate> datesList=new ArrayList<LocalDate>();
+
+
+
+			List<String> labelValue=new ArrayList<String>();
+
+			List<String> labelDates=new ArrayList<String>();
+
+			List<Double> recon=new ArrayList<Double>();
+
+			List<Double> unRecon=new ArrayList<Double>();
+			List<Double> reconAmtPer=new ArrayList<Double>();
+			List<Double> unReconAmtPer=new ArrayList<Double>();
+			log.info("for one week");
+
+			while(till1wDateFrLoop.isAfter(from1wDate)){
+				datesList.add(till1wDateFrLoop);
+				till1wDateFrLoop=till1wDateFrLoop.minusDays(1);
+				System.out.println("end of while till1wDateFrLoop :"+till1wDateFrLoop);
+			}
+
+			log.info("datesList :"+datesList);
+
+			log.info("fromDate befor query :"+from1wDate);
+
+			log.info("tillDate befor query :"+till1wDate);
+
+			List< Object[]> reconSummary=new ArrayList<Object[]>();
+
+			reconSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountWithDates(procesRecDet.getTypeId(),from1wDate,till1wDate);
+			log.info("reconSummary size :"+reconSummary.size());
+
+			//List<LinkedHashMap> datesMapList=new ArrayList<LinkedHashMap>();
+
+			Double totalReconAmt=0d;
+
+			Double totaldvAmt=0d;
+
+			Double totalUnReconAmt=0d;
+
+			Double totalUnReconAmtPer=0d;
+			Double totalUnReconCtPer=0d;
+
+			Double totalReconAmtPer=0d;
+
+			Double totalUnReconCt=0d;
+			Double totalReconCt=0d;
+
+			Double totalReconCtPer=0d;
+
+			Double totaldvCt=0d;
+
+			// Double totalUnReconPer=0d;
+
+
+			LinkedHashMap datesMap=new LinkedHashMap();
+
+			for(int i=0;i<reconSummary.size();i++)
+
+			{
+
+				if(reconSummary!=null)
+
+				{
+
+					log.info("reconSummary.get(i)[8].toString() :"+reconSummary.get(i)[8].toString());
+
+					log.info("reconSummary.get(i)[2].toString() :"+reconSummary.get(i)[2].toString());
+
+					log.info("reconSummary.get(i)[3].toString() :"+reconSummary.get(i)[3].toString());
+
+					log.info("reconSummary.get(i)[7].toString() :"+reconSummary.get(i)[7].toString());
+
+					log.info("reconSummary.get(i)[1].toString() :"+reconSummary.get(i)[1].toString());
+
+					totaldvCt=totaldvAmt+Double.valueOf(reconSummary.get(i)[0].toString());
+
+					totaldvAmt=totaldvAmt+Double.valueOf(reconSummary.get(i)[4].toString());
+
+					totalReconAmt=totalReconAmt+Double.valueOf(reconSummary.get(i)[5].toString());
+
+					totalReconAmtPer=totalReconAmtPer+Double.valueOf(reconSummary.get(i)[6].toString());
+
+					totalReconCt=totalReconCt+Double.valueOf(reconSummary.get(i)[1].toString());
+
+					totalReconCtPer=totalReconCtPer+Double.valueOf(reconSummary.get(i)[2].toString());
+
+					totalUnReconAmtPer=totalUnReconAmtPer+Double.valueOf(reconSummary.get(i)[7].toString());
+
+					totalUnReconCtPer=totalUnReconCtPer+Double.valueOf(reconSummary.get(i)[3].toString());
+
+					log.info("totalUnReconCtPer**** :"+totalUnReconCtPer );
+
+					datesMap.put(reconSummary.get(i)[8].toString()+"countPer", reconSummary.get(i)[2].toString()+","+reconSummary.get(i)[3].toString());
+					datesMap.put(reconSummary.get(i)[8].toString()+"amtPer", reconSummary.get(i)[6].toString()+","+reconSummary.get(i)[7].toString());
+
+
+
+
+				}
+
+
+
+			}
+
+
+
+			log.info("totalReconAmt :"+totalReconAmt); 
+
+			log.info("totaldvAmt :"+totaldvAmt); 
+
+			log.info("totalReconAmtPer :"+totalReconAmtPer); 
+
+			log.info("totalReconCt :"+totalReconCt); 
+
+
+			totalUnReconAmt=totaldvAmt-totalReconAmt;
+
+			log.info("totalUnReconAmt :"+totalUnReconAmt); 
+
+
+
+			log.info("datesMap :"+datesMap);
+
+
+
+			for(int d=0;d<datesList.size();d++)
+
+			{
+				log.info("datesList.get(d) reconciliation:"+datesList.get(d));
+
+				LocalDate dt=LocalDate.parse(datesList.get(d).toString());
+
+				String month=dateFormat(datesList.get(d).toString());
+
+				labelValue.add(dt.getDayOfMonth()+" "+month);
+
+				labelDates.add(datesList.get(d).toString());
+
+				if(datesMap.get(datesList.get(d).toString()+"countPer")!=null)
+
+				{
+
+					// DateFormatSymbols().getMonths()[month]
+
+					log.info("in if datesList.get(d)key :"+datesMap.get(datesList.get(d).toString()));
+
+					String[] split=datesMap.get(datesList.get(d).toString()+"countPer").toString().split(",");
+
+					log.info("split [0]"+split[0]);
+
+					log.info("split [1]"+split[1]);
+
+					recon.add(Double.valueOf(split[0]));
+
+					unRecon.add(Double.valueOf(split[1]));
+
+				}
+
+				else
+
+				{
+
+					log.info("in else ct per ");
+
+					Double l=0d;
+
+					recon.add(l);
+
+					unRecon.add(l);
+
+				}
+				if(datesMap.get(datesList.get(d).toString()+"amtPer")!=null)
+
+				{
+
+					// DateFormatSymbols().getMonths()[month]
+
+					log.info("in if datesList.get(d)key :"+datesMap.get(datesList.get(d).toString()));
+
+					String[] split=datesMap.get(datesList.get(d).toString()+"amtPer").toString().split(",");
+
+					log.info("split [0]"+split[0]);
+
+					log.info("split [1]"+split[1]);
+
+					reconAmtPer.add(Double.valueOf(split[0]));
+
+					unReconAmtPer.add(Double.valueOf(split[1]));
+
+				}
+				else
+
+				{
+					log.info("in else amt Per");
+
+					Double l=0d;
+
+					reconAmtPer.add(l);
+
+					unReconAmtPer.add(l);
+
+				}
+
+			}
+
+			LinkedHashMap map=new LinkedHashMap();
+
+			map.put("labelValue", labelValue);
+
+			map.put("labelDates", labelDates);
+
+			map.put("recon", recon);
+
+			map.put("unRecon", unRecon);
+
+			map.put("reconAmtPer", reconAmtPer);
+
+			map.put("unReconAmtPer", unReconAmtPer);
+
+
+			wmap.put("reconAmount", Double.valueOf(dform.format(totalReconAmt)));
+
+			Double totalReconAmtPerr=0d;
+			if(totaldvCt>0)
+				totalReconAmtPerr=(totalReconAmt/totaldvCt)*100;
+
+			log.info("totalReconAmtPer :"+totalReconAmtPerr);
+
+			wmap.put("reconPercentage", Double.valueOf(dform.format(totalReconAmtPerr)));
+
+			wmap.put("unReconAmount", Double.valueOf(dform.format(totalUnReconAmt)));
+
+		
+			log.info("totalUnReconAmtPer :"+totalUnReconAmtPer);
+			if(totaldvCt>0)
+				wmap.put("unReconPercentage",Double.valueOf(dform.format(100-totalReconAmtPer))); 
+			else
+				wmap.put("unReconPercentage",0); 
+
+			wmap.put("reconCt",totalReconCt);
+			log.info("totaldvCt :"+totaldvCt);
+			if(totaldvCt>0)
+			{
+				log.info("in if reconciliation count :"+totaldvCt);
+				log.info("in if reconciliation totalReconCt :"+totalReconCt);
+				// Double reconCtPer=(totalReconCt/totaldvCt)*100;
+				BigDecimal reconCtBD=BigDecimal.valueOf(totalReconCt);
+				log.info("in if reconciliation reconCtBD :"+reconCtBD);
+				BigDecimal totaldvCtBD=BigDecimal.valueOf(totaldvCt);
+				log.info("totaldvCtBD bigDecimal:"+totaldvCtBD);
+				BigDecimal totalPer=new BigDecimal(100);
+				BigDecimal reconCtPer=reconCtBD.divide(totaldvCtBD,2,BigDecimal.ROUND_FLOOR);
+				System.out.println("reconCtPer :"+reconCtPer);
+				reconCtPer=reconCtPer.multiply(totalPer);
+				System.out.println("final per :"+reconCtPer);
+				wmap.put("reconCtPer",Double.valueOf(dform.format(reconCtPer)));
+
+
+				BigDecimal unRecctPer=totalPer.subtract(reconCtPer);
+				wmap.put("unReconCtPer",Double.valueOf(dform.format(unRecctPer)));
+			
+			}
+			else
+			{
+				log.info("in else reconciliation");
+				wmap.put("reconCtPer",0); 
+			
+			}
+			Double unReconCt=(totaldvCt-totalReconCt);
+			wmap.put("unReconCt", Double.valueOf(dform.format(unReconCt)));
+	
+			wmap.put("detailedData", map);
+
+	
+		}
+		return wmap;
+
+	}
+	
+	public List<LinkedHashMap> datesService(LocalDate startDate,LocalDate endDate)
+	{
+		log.info("startDate in datesService:"+startDate);
+		log.info("endDate in datesService:"+endDate);
+		SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy");
+		Calendar cal = Calendar.getInstance();
+		cal.set(Calendar.DATE, startDate.getDayOfMonth());
+		cal.set(Calendar.MONTH, startDate.getMonthValue());
+		cal.set(Calendar.YEAR, startDate.getYear());
+		Date fromDate = cal.getTime();
+
+		Calendar endCal = Calendar.getInstance();
+		endCal.set(Calendar.DATE, endDate.getDayOfMonth());
+		endCal.set(Calendar.MONTH, endDate.getMonthValue());
+		endCal.set(Calendar.YEAR, endDate.getYear());
+		Date toDate = endCal.getTime();
+
+		List<Date> datesList = new ArrayList<Date>();
+		System.out.println("todate111: "+sdf.format(fromDate));
+		datesList.add(fromDate);
+
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(fromDate);
+		do {
+
+			calendar.add(Calendar.MONTH, 1);
+			calendar.set(Calendar.DAY_OF_MONTH, 1);
+			calendar.add(Calendar.DATE, -1);
+
+			if (calendar.getTime().before(toDate)) {
+				System.out.println("todate222: "+sdf.format(calendar.getTime()));
+				datesList.add(calendar.getTime());
+
+				calendar.add(Calendar.MONTH, 1);
+				calendar.set(Calendar.DAY_OF_MONTH, 1);
+				calendar.add(Calendar.DATE, 0);
+
+				if (calendar.getTime().before(toDate)) {
+					System.out.println("todate: "+sdf.format(calendar.getTime()));
+					datesList.add(calendar.getTime());
+
+				}
+
+			}
+
+		} while (calendar.getTime().before(toDate));
+		{
+			System.out.println("todate333: "+sdf.format(calendar.getTime()));
+			datesList.add(toDate);
+		}
+		log.info("datesList :"+datesList);
+		List<LinkedHashMap> dateMapList=new ArrayList<LinkedHashMap>();
+		for(int i=0;i<datesList.size();i=i+2)
+		{
+			LocalDate stDate=datesList.get(i).toInstant()
+					.atZone(ZoneId.systemDefault())
+					.toLocalDate();
+			LocalDate edDate= datesList.get(i+1).toInstant()
+					.atZone(ZoneId.systemDefault())
+					.toLocalDate();
+
+			String monthName=stDate.getMonth().getDisplayName(TextStyle.SHORT,Locale.ENGLISH);
+
+			LinkedHashMap lmp=new LinkedHashMap();
+			lmp.put("month", monthName);
+			lmp.put("startDate",stDate);
+			lmp.put("endDate",edDate);
+			dateMapList.add(lmp);
+		}
+		return dateMapList;
+}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	public List<LinkedHashMap> weeksOfAMonth(LocalDate tDate)
+	{
+		log.info("weeksOfAMonth in dashBoardV3 service :"+tDate);
+		List<LinkedHashMap> lhm=new ArrayList<LinkedHashMap>();
+		LinkedHashMap lhm1=new LinkedHashMap();
+		LinkedHashMap lhm2=new LinkedHashMap();
+		LinkedHashMap lhm3=new LinkedHashMap();
+		LinkedHashMap lhm4=new LinkedHashMap();
+		LinkedHashMap lhm5=new LinkedHashMap();
+		LocalDate from1wDate=tDate.minusDays(6);
+		LocalDate till1wDate=tDate;
+		lhm1.put("startDate", from1wDate);
+		lhm1.put("endDate", till1wDate);
+		lhm.add(lhm1);
+		log.info("from1wDate :"+from1wDate);//02-10
+		log.info("till1wDate :"+till1wDate);//02-17
+		LocalDate from2wDate=from1wDate.minusDays(7);//02-03s
+		log.info("from2wDate :"+from2wDate);
+		LocalDate till2wDate=from1wDate.minusDays(1);//02-10
+		log.info("till2wDate :"+till2wDate);
+		lhm2.put("startDate", from2wDate);
+		lhm2.put("endDate", till2wDate);
+		lhm.add(lhm2);
+		LocalDate from3wDate=from2wDate.minusDays(7);//01-27
+		log.info("from3wDate :"+from3wDate);
+		LocalDate till3wDate=from2wDate.minusDays(1);//02-03
+		log.info("till3wDate :"+till3wDate);
+		lhm3.put("startDate", from3wDate);
+		lhm3.put("endDate", till3wDate);
+		lhm.add(lhm3);
+		LocalDate from4wDate=from3wDate.minusDays(7);//01-20
+		log.info("from4wDate :"+from4wDate);
+		LocalDate till4wDate=from3wDate.minusDays(1);//01-27
+		log.info("till4wDate :"+till4wDate);
+		lhm4.put("startDate", from4wDate);
+		lhm4.put("endDate", till4wDate);
+		lhm.add(lhm4);
+		/*if(from4wDate.getMonthValue()==1 || from4wDate.getMonthValue()==3 || from4wDate.getMonthValue()==5 || from4wDate.getMonthValue()==7 ||from4wDate.getMonthValue()==8 
+				|| from4wDate.getMonthValue()==10 || from4wDate.getMonthValue()==12 )
+		{*/
+			log.info("from4wDate.getMonthValue() :"+from4wDate.getMonthValue());
+			LocalDate from5wDate=from4wDate.minusDays(2);//01-20
+			log.info("from5wDate :"+from5wDate);
+			LocalDate till5wDate=from4wDate.minusDays(1);//01-27
+			log.info("till5wDate :"+till5wDate);
+
+			lhm5.put("startDate", from5wDate);
+			lhm5.put("endDate", till5wDate);
+			lhm.add(lhm5);
+	//	}
+		/*else if(from4wDate.getMonthValue()==4 || from4wDate.getMonthValue()==6 || from4wDate.getMonthValue()==9 || from4wDate.getMonthValue()==11)
+		{
+			log.info("from4wDate.getMonthValue() :"+from4wDate.getMonthValue());
+			LocalDate from5wDate=from4wDate.minusDays(2);//01-20
+			log.info("from5wDate :"+from5wDate);
+			LocalDate till5wDate=from4wDate.minusDays(1);//01-27
+			log.info("till5wDate :"+till5wDate);
+
+			lhm5.put("startDate", from5wDate);
+			lhm5.put("endDate", till5wDate);
+			lhm.add(lhm5);
+		}
+		boolean isLeapYear = ((from4wDate.getYear() % 4 == 0) && (from4wDate.getYear() % 100 != 0) || (from4wDate.getYear() % 400 == 0));
+
+		if(isLeapYear && from4wDate.getMonthValue()==2)
+		{
+			log.info("from4wDate.getMonthValue() :"+from4wDate.getMonthValue());
+			LocalDate from5wDate=from4wDate.minusDays(1);//01-20
+			log.info("from5wDate :"+from5wDate);
+			LocalDate till5wDate=from4wDate.minusDays(1);//01-27
+			log.info("till5wDate :"+till5wDate);
+
+			lhm5.put("startDate", from5wDate);
+			lhm5.put("endDate", till5wDate);
+			lhm.add(lhm5);
+		}*/
+		return lhm;
+
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	     public LinkedHashMap extractionAnalysisforGivenPeriod(List<BigInteger> jobDetails,LocalDate fDate,LocalDate tDate,ZonedDateTime userToDate) throws SQLException, ParseException
+	     {
+
+
+	    	 Double finalCount=0d;
+	    	 Double extractedCount=0d;
+	    	 log.info("fDate in service ext:"+fDate);
+	    	 log.info("tDate in service ext:"+tDate);
+	    	 log.info("userToDate :"+userToDate);
+	    	 LocalDate tillFrLoop=tDate;
+	    	 log.info("tillFrLoop :"+tillFrLoop);
+
+	    	 List<String> labelValue=new ArrayList<String>();
+
+	    	 List<String> labelDates=new ArrayList<String>();
+
+	    	 List<Double> extracted=new ArrayList<Double>();
+
+	    	 List<Double> extractedFailed=new ArrayList<Double>();
+
+	    	 List<LocalDate> datesList=new ArrayList<LocalDate>();
+
+
+	    	 while(tillFrLoop.isAfter(fDate)){
+	    		 log.info("tillFrLoop in while in ext:"+tillFrLoop);
+	    		 datesList.add(tillFrLoop);
+	    		 LocalDate dt=tillFrLoop;
+
+	    		 String monthOf=dateFormat(tillFrLoop.toString());
+
+	    		 labelValue.add(dt.getDayOfMonth()+" "+monthOf);
+
+	    		 labelDates.add(tillFrLoop.toString());
+	    		 log.info("labelDates :"+labelDates);
+	    		 if(jobDetails.size()>0)
+	    		 {
+	    		 List<SchedulerDetails> schList=schedulerDetailsRepository.findSchedulersByJobIdIn(jobDetails,tillFrLoop+"%");
+	    		 if(schList.size()>0)
+	    		 {
+	    			 Double dateSpecificExtracted=0d;
+	    			 Double dateSpecificExtractedFailed=0d;
+	    			 for(SchedulerDetails sch:schList)
+	    			 {
+
+
+	    				 if(sch.getOozieJobId()!=null)
+	    				 {
+	    					 if(sch.getFrequency().equalsIgnoreCase("OnDemand"))
+	    					 {
+	    						 finalCount=finalCount+1;//how many has to performed
+	    						 extractedCount=extractedCount+1;//how many has performed
+	    						 dateSpecificExtracted=dateSpecificExtracted+1d;
+	    						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+0d;
+	    						 
+	    					 }
+	    					 if(sch.getFrequency().equalsIgnoreCase("OneTime"))
+	    					 {
+	    						 /** condition to check date**/
+	    						 finalCount=finalCount+1;
+	    						 extractedCount=extractedCount+1;
+	    						 dateSpecificExtracted=dateSpecificExtracted+1d;
+	    						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+0d;
+	    					 }
+
+
+	    					 if(sch.getFrequency().equalsIgnoreCase("hourly"))
+	    					 {
+	    						 log.info("sch.get(i).getHours() :"+sch.getHours());
+
+	    						 log.info("tDate.getDayOfWeek()1 :"+tDate.getDayOfWeek());
+	    						 if(userToDate.isBefore(sch.getEndDate()))
+	    						 {
+	    							 Long totalRuns=24/sch.getHours();
+	    							 log.info("totalRuns1 :"+totalRuns.intValue());
+	    							 finalCount=finalCount+totalRuns.intValue();
+	    							 int extractedFileCount=dashBoardV2Service.getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.getOozieJobId());
+	    							 extractedCount=extractedCount+extractedFileCount;
+	    							 double ActextFileCt=extractedFileCount;
+	    							
+	    							 Double extFailCt=totalRuns.intValue()-ActextFileCt;
+	    							
+	    							 
+	    							 dateSpecificExtracted=dateSpecificExtracted+ActextFileCt;
+	        						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+extFailCt;
+
+	    						 }
+
+	    					 }
+	    					 if(sch.getFrequency().equalsIgnoreCase("minutes"))
+	    					 {
+	    						 log.info("sch.get(i).getMinutes :"+sch.getMinutes());
+
+	    						 if(userToDate.isBefore(sch.getEndDate()))
+	    						 {
+	    							 Long totalRuns=24*60/sch.getMinutes();
+	    							 log.info("totalRuns1 :"+totalRuns);
+	    							 finalCount=finalCount+totalRuns.intValue();
+	    							 int extractedFileCount=dashBoardV2Service.getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.getOozieJobId());
+	    							 extractedCount=extractedCount+extractedFileCount;
+	    							 double ActextFileCt=extractedFileCount;
+	    							 
+	    							 Double extFailCt=totalRuns.intValue()-ActextFileCt;
+	    							 dateSpecificExtracted=dateSpecificExtracted+ActextFileCt;
+	        						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+extFailCt;
+
+
+	    						 }
+
+	    					 }
+
+	    					 if(sch.getFrequency().equalsIgnoreCase("Daily"))
+	    					 {
+	    						 log.info("sch.get(i).getMinutes :"+sch.getMinutes());
+
+	    						 if(userToDate.isBefore(sch.getEndDate()))
+	    						 {
+	    							 Long totalRuns=1l;
+	    							 log.info("totalRuns1 :"+totalRuns);
+	    							 finalCount=finalCount+totalRuns.intValue();
+	    							 int extractedFileCount=dashBoardV2Service.getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.getOozieJobId());
+	    							 extractedCount=extractedCount+extractedFileCount;
+	    							 double ActextFileCt=extractedFileCount;
+	    							
+	    							 Double extFailCt=totalRuns.intValue()-ActextFileCt;
+	    							 dateSpecificExtracted=dateSpecificExtracted+ActextFileCt;
+	        						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+extFailCt;
+	    						 }
+
+	    					 }
+	    					 if(sch.getFrequency().equalsIgnoreCase("weekly"))
+	    					 {
+
+	    						 log.info("sch.get(i).getWeekDay() :"+sch.getWeekDay());
+	    						 String weekDay=tDate.getDayOfWeek().toString();
+	    						 String day=weekDay.subSequence(0, 3).toString();
+	    						 log.info("tDate.getDayOfWeek() :"+weekDay.subSequence(0, 3));
+	    						 if(sch.getWeekDay().equalsIgnoreCase(day))
+	    						 {
+	    							 if(userToDate.isBefore(sch.getEndDate()))
+	    							 {
+	    								 Long weeks=1l;
+
+	    								 finalCount=finalCount+weeks.intValue();
+	    								 int extractedFileCount=dashBoardV2Service.getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.getOozieJobId());
+	    								 extractedCount=extractedCount+extractedFileCount;
+	    								 double ActextFileCt=extractedFileCount;
+	    								
+	    								 Double extFailCt=weeks.intValue()-ActextFileCt;
+	    								 dateSpecificExtracted=dateSpecificExtracted+ActextFileCt;
+	            						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+extFailCt;
+	    							 }
+	    						 }
+
+	    					 }
+	    					 if(sch.getFrequency().equalsIgnoreCase("MONTHLY"))
+	    					 {
+
+	    						 log.info("sch.get(i).getMonth() :"+sch.getMonth());
+	    						 String month=tDate.getMonth().toString();
+	    						 String mon=month.subSequence(0, 3).toString();
+	    						 log.info("tDate.getMonth() :"+mon.subSequence(0, 3));
+	    						 if(sch.getMonth().equalsIgnoreCase(mon))
+	    						 {
+	    							 if(userToDate.isBefore(sch.getEndDate()))
+	    							 {
+
+	    								 Long months=1l;
+	    								 finalCount=finalCount+months.intValue();
+	    								 int extractedFileCount=dashBoardV2Service.getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.getOozieJobId());
+	    								 extractedCount=extractedCount+extractedFileCount;
+	    								 double ActextFileCt=extractedFileCount;
+	    								
+	    								 Double extFailCt=months.intValue()-ActextFileCt;
+	    								 dateSpecificExtracted=dateSpecificExtracted+ActextFileCt;
+	            						 dateSpecificExtractedFailed=dateSpecificExtractedFailed+extFailCt;
+
+	    							 }
+	    						 }
+
+
+	    					 }
+	    				 }
+
+	    			 }
+	    			 extracted.add(dateSpecificExtracted);
+	    			 
+					 extractedFailed.add(dateSpecificExtractedFailed);
+
+	    		 }
+	    		 else
+	    		 {
+	    			 extracted.add(0d);
+	    			 extractedFailed.add(0d);
+	    		 }
+	    	 }
+	    		 else
+	    		 {
+	    			 extracted.add(0d);
+	    			 extractedFailed.add(0d);
+	    		 }
+	    		 tillFrLoop=tillFrLoop.minusDays(1);
+	    		 System.out.println("end of while tillFrLoop :"+tillFrLoop);
+	    	
+	    	 }
+
+	    	 log.info("datesList :"+datesList);
+
+	    	 LinkedHashMap valuesMap=new LinkedHashMap();
+
+	    	 valuesMap.put("labelValue", labelValue);
+
+	    	 valuesMap.put("labelDates", labelDates);
+
+	    	 valuesMap.put("extracted", extracted);
+
+	    	 valuesMap.put("extractionFailed", extractedFailed);
+
+
+	    	 DecimalFormat dform = new DecimalFormat("####0.00");
+	    	 // weekMap
+
+	    	 LinkedHashMap monthMap=new LinkedHashMap();
+
+	    	 Double totalExtractionFailed=finalCount-extractedCount;
+
+	    	 /* twomap.put("reconAmount", totalReconAmt);
+
+	     			 twomap.put("reconPercentage", totalReconAmtPer);*/
+
+	    	 monthMap.put("totalExtracted", extractedCount);
+	    	 
+	    	 Double totalExtractedPer=0d;
+	    	 if(finalCount>0)
+	    		 totalExtractedPer= (extractedCount/finalCount)*100;
+	    	 
+	    	 monthMap.put("totalExtractedPer",Double.valueOf(dform.format(totalExtractedPer)));
+
+	    	 monthMap.put("totalExtractionFailedCt", totalExtractionFailed);
+	    	 
+	    	 Double totalExtractionFailedCtPer=0d;
+	    	 if(finalCount>0)
+	    		 totalExtractionFailedCtPer =(totalExtractionFailed/finalCount)*100;
+	    	 
+	    	 
+	    	 monthMap.put("totalExtractionFailedCtPer",Double.valueOf(dform.format(totalExtractionFailedCtPer)));
+
+
+
+	    	 return monthMap;
+
+	     }
+	  
+	     public LinkedHashMap<String,Integer> dtTrOrExtParamMap(Long appId) throws SQLException, ParseException
+	     {
+	    	 LinkedHashMap<String,Integer> dtTrOrExtMAp=new LinkedHashMap<String,Integer>();
+	    	
+	    	 if(appId!=null && appId!=null)
+	    	 {
+
+	    		 List<ProgParametersSets> pPSList=progParametersSetsRepository.findByProgramId(appId);
+	    		 for(int i=0;i<pPSList.size();i++)
+	    		 {
+	    			 if(pPSList.get(i).getParameterName().equalsIgnoreCase("SourceProfileName"))
+	    				 dtTrOrExtMAp.put("SourceProfileName", i+1);
+	    			 if(pPSList.get(i).getParameterName().equalsIgnoreCase("TemplateName"))
+	    				 dtTrOrExtMAp.put("TemplateName", i+1);
+
+	    		 }
+
+	    	 }
+	   /* 	 
+	    	 String param2 = "parameterArguments";
+				String finalQuery="select id from JobDetails where tenantId="+process.getTenantId() +" and programmId ="+app.getId()+" and parameter_arguments_"+
+						dtTrOrExtMAp.get("SourceProfileName")+" ="+profileId+" and ("+param2 +"= " +tempId.getTemplateId()+" or "+param2 +" like '"+tempId.getTemplateId()+",%' or "+ param2 +" like '%,"+tempId.getTemplateId()+"%' or "+param2+" like '%,"+tempId.getTemplateId()+",%' )";
+				
+			*/	
+	    	 
+	    	 
+	    	 return dtTrOrExtMAp;
+	     }
+	     
+	   
+	     
+}
+
+

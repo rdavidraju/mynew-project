@@ -1,0 +1,77 @@
+package com.nspl.app.service;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.HashMap;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+
+import com.nspl.app.web.rest.ApprovalGroupMembersResource;
+
+@Service
+public class UserJdbcService {
+	  private final Logger log = LoggerFactory.getLogger(ApprovalGroupMembersResource.class);
+	
+	@Inject
+	private Environment env;
+	
+	public HashMap jdbcConnc(Long userId) throws SQLException, ClassNotFoundException {
+		String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		//	String host = parts[0].split("/")[2].split(":")[0];
+		//	String schemaName="agree_gateway_2909";
+		String schemaName= env.getProperty("spring.datasource.gatewayschema");
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+		HashMap map=new HashMap();
+		Connection conn = null;
+		Statement stmt = null;
+		ResultSet result2=null;
+		try{ 
+			Class.forName(jdbcDriver);
+			conn = DriverManager.getConnection(dbUrl, userName, password);
+			log.info("Connected database successfully...");
+			stmt = conn.createStatement();
+			result2=stmt.executeQuery("select * from "+schemaName+".jhi_user where id="+userId);
+
+			String loginName="";
+			String assigneeName="";
+
+			while(result2.next())
+			{
+				if(result2.getString("login")!=null)
+					loginName=result2.getString("login");
+				if(result2.getString("first_name")!=null)
+					assigneeName=assigneeName+result2.getString("first_name");
+				if(result2.getString("last_name")!=null)
+					assigneeName=assigneeName+result2.getString("last_name");
+
+			}
+			map.put("loginName", loginName);
+			map.put("assigneeName", assigneeName);
+		}
+		catch(SQLException se){
+
+		} 
+		finally{
+			if(conn!=null)
+				conn.close();
+			if(stmt!=null)
+				stmt.close();
+			if(result2!=null)
+				result2.close();
+
+		}
+		return map;
+	}
+}

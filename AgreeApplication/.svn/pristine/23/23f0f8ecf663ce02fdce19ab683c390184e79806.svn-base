@@ -1,0 +1,480 @@
+package com.nspl.app.jbpm.service;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.kie.api.runtime.KieSession;
+import org.kie.api.runtime.manager.RuntimeEngine;
+import org.kie.api.runtime.manager.RuntimeManager;
+import org.kie.api.runtime.process.ProcessInstance;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.domain.AccountingData;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.JournalApprovalInfo;
+import com.nspl.app.domain.NotificationBatch;
+import com.nspl.app.domain.Notifications;
+import com.nspl.app.domain.ReconciliationResult;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.domain.TenantConfig;
+import com.nspl.app.jbpm.util.EmailNotification;
+import com.nspl.app.repository.AccountingDataRepository;
+import com.nspl.app.repository.ApprovalRuleAssignmentRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.JournalApprovalInfoRepository;
+import com.nspl.app.repository.NotificationBatchRepository;
+import com.nspl.app.repository.NotificationsRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.TenantConfigRepository;
+import com.nspl.app.service.UserJdbcService;
+
+@Service
+//@Transactional
+public class ApprovalProcessService {
+	
+	@Autowired
+	RuntimeManager runtimeManager;
+	
+	@Inject
+	EvaluateRulesService evaluateRulesService;
+	
+	@Inject
+	NotificationBatchRepository notificationBatchRepository;
+	
+	@Inject
+	NotificationsRepository notificationsRepository;
+	
+	@Inject
+	RulesRepository rulesRepository;
+	
+	@Inject
+	DataViewsRepository dataViewsRepository;
+	
+	@Inject
+	ApprovalRuleAssignmentRepository approvalRuleAssignmentRepository;
+	
+	@Inject
+	ReconciliationResultRepository reconciliationResultRepository;
+	
+	@Inject
+	UserJdbcService userJdbcService;
+	
+	
+	@Inject
+	TenantConfigRepository tenantConfigRepository;
+	
+	@Inject
+	JournalApprovalInfoRepository journalApprovalInfoRepository;
+	
+	@Inject
+	AccountingDataRepository accountingDataRepository;
+	
+	@Inject
+    private Environment env;
+	
+	private final Logger log = LoggerFactory.getLogger(ApprovalProcessService.class);
+	
+	
+	/**
+	 * Author: Swetha
+	 * Function to set parameters to initiate for Approvals
+	 * @param batchId
+	 * @param approverslist
+	 * @param tenantId
+	 * @param userId
+	 * @return
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 */
+	public Long intiateApprovalProcess(String batchId, List approverslist, Long tenantId,Long userId,HttpServletRequest request) throws ClassNotFoundException, SQLException { //24,[],9
+		log.info("Method Called: intiateApprovalProcess with batchId: "+batchId+" approverslist: "+approverslist);
+		
+		NotificationBatch nfb=notificationBatchRepository.findOne(Long.valueOf(batchId));
+		
+		RuntimeEngine engine = runtimeManager.getRuntimeEngine(null);
+		KieSession ksession = engine.getKieSession();
+		ksession.getWorkItemManager().registerWorkItemHandler("Email",
+				new EmailNotification());
+		
+		
+		
+		HashMap user=userJdbcService.jdbcConnc(nfb.getCurrentApprover(),nfb.getTenantId());
+		log.info("userName :" +user.get("assigneeName"));
+		
+	    Rules rule=rulesRepository.findOne(nfb.getRuleId());
+	    log.info("rule :"+rule.getSourceDataViewId());
+	    DataViews dv=dataViewsRepository.findOne(rule.getSourceDataViewId());
+	    log.info("dv dataViewName :"+dv.getDataViewName());
+	    List<ReconciliationResult> reconciliationResultList=reconciliationResultRepository.findByApprovalBatchId(nfb.getId());
+	    log.info("reconciliationResultList size:"+reconciliationResultList.size());
+		Map<String, Object> parameters = new HashMap<String, Object>();
+		log.info("Approvers Count: " + approverslist.size());
+		if(batchId!=null){
+		parameters.put("batchId",batchId);
+		log.info("batchId "+batchId);
+		}
+		if(approverslist!=null)
+		parameters.put("list", approverslist);
+		parameters.put("loopiteration", 0);
+		if(approverslist!=null)
+		parameters.put("approverscount", approverslist.size());
+		parameters.put("appInitiatedData",new Date());
+		parameters.put("reassignTo", "admin");
+		parameters.put("reconciledDate",new Date());
+		parameters.put("expirationTime", "365d");
+		parameters.put("userId", nfb.getCurrentApprover());
+		parameters.put("tenantId", tenantId);
+		parameters.put("batchName",nfb.getNotificationName());
+		parameters.put("dataViewName",dv.getDataViewName());
+		parameters.put("count",reconciliationResultList.size());
+		parameters.put("userName",user.get("assigneeName"));
+		//TenantConfig tenConfig=tenantConfigRepository.findByTenantIdAndKey(tenantId, "Application URL");
+		 String applicationUrl=request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+		parameters.put("applicationUrl", applicationUrl);
+		log.info("parameters: "+parameters);
+		ProcessInstance processInstance = ksession.startProcess(
+				"com.approval.bpmn.process", parameters);
+		Long pId = processInstance.getId();
+		log.info("Process Instance Id: " + pId);
+		
+		/*if(engine != null)
+		runtimeManager.disposeRuntimeEngine(engine);*/
+		
+		return pId;
+	}
+	
+	/*
+	 * Initiating accounting process function
+	 */
+	public Long intiateAccountingApprovalProcess(String batchId, List approverslist, Long tenantId,Long userId,HttpServletRequest request) throws ClassNotFoundException, SQLException { //24,[],9
+		log.info("Method Called: intiateAccountingApprovalProcess with batchId: "+batchId+" approverslist: "+approverslist);
+		RuntimeEngine engine = runtimeManager.getRuntimeEngine(null);
+		KieSession ksession = engine.getKieSession();
+		ksession.getWorkItemManager().registerWorkItemHandler("Email",
+				new EmailNotification());
+		
+		
+		
+		NotificationBatch nfb=notificationBatchRepository.findOne(Long.valueOf(batchId));
+		HashMap user=userJdbcService.jdbcConnc(userId,nfb.getTenantId());
+		log.info("userName :" +user.get("assigneeName"));
+		log.info("nfb in intiateAccountingApprovalProcess is: "+nfb);
+		Map<String, Object> parameters = new HashMap<String, Object>();
+		log.info("Approvers Count: " + approverslist.size());
+		
+		Rules rule=rulesRepository.findOne(nfb.getRuleId());
+	    log.info("rule :"+rule.getSourceDataViewId());
+	    DataViews dv=dataViewsRepository.findOne(rule.getSourceDataViewId());
+	    log.info("dv dataViewName :"+dv.getDataViewName());
+	    List<AccountingData> reconciliationResultList=accountingDataRepository.findByApprovalBatchId(nfb.getId());
+	    log.info("reconciliationResultList size:"+reconciliationResultList.size());
+	    
+		if(batchId!=null){
+		parameters.put("batchId",batchId);
+		log.info("batchId "+batchId);
+		}
+		if(approverslist!=null)
+		parameters.put("list", approverslist);
+		parameters.put("loopiteration", 0);
+		if(approverslist!=null)
+		parameters.put("approverscount", approverslist.size());
+		parameters.put("appInitiatedData",new Date());
+		parameters.put("reassignTo", "admin");
+		parameters.put("AccountedDate",new Date());
+		parameters.put("expirationTime", "365d");
+		parameters.put("userId", userId);
+		parameters.put("tenantId", nfb.getTenantId());
+		parameters.put("batchName",nfb.getNotificationName());
+		parameters.put("dataViewName",dv.getDataViewName());
+		parameters.put("count",reconciliationResultList.size());
+		parameters.put("userName",user.get("assigneeName"));
+		//TenantConfig tenConfig=tenantConfigRepository.findByTenantIdAndKey(tenantId, "Application URL");
+		
+		 String applicationUrl=request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+		parameters.put("applicationUrl", applicationUrl);
+		log.info("parameters: "+parameters);
+		ProcessInstance processInstance = ksession.startProcess(
+				"com.accountingApproval.bpmn.process", parameters);
+		Long pId = processInstance.getId();
+		log.info("Process Instance Id: " + pId);
+		
+		/*if(engine != null)
+		runtimeManager.disposeRuntimeEngine(engine);*/
+		
+		return pId;
+	}
+	
+	
+	/**initiate journal approvals**/
+	
+	public Long intiateJournalApprovalProcess(String batchId, List approverslist, Long tenantId,Long userId,HttpServletRequest request) throws ClassNotFoundException, SQLException { //24,[],9
+		log.info("Method Called: intiateAccountingApprovalProcess with batchId: "+batchId+" approverslist: "+approverslist);
+		RuntimeEngine engine = runtimeManager.getRuntimeEngine(null);
+		KieSession ksession = engine.getKieSession();
+		ksession.getWorkItemManager().registerWorkItemHandler("Email",
+				new EmailNotification());
+		
+		
+		
+		NotificationBatch nfb=notificationBatchRepository.findOne(Long.valueOf(batchId));
+		HashMap user=userJdbcService.jdbcConnc(userId,nfb.getTenantId());
+		log.info("userName :" +user.get("assigneeName"));
+		log.info("nfb in intiateAccountingApprovalProcess is: "+nfb);
+		Map<String, Object> parameters = new HashMap<String, Object>();
+		log.info("Approvers Count: " + approverslist.size());
+		
+		Rules rule=rulesRepository.findOne(nfb.getRuleId());
+	    log.info("rule :"+rule.getSourceDataViewId());
+	    DataViews dv=dataViewsRepository.findOne(rule.getSourceDataViewId());
+	    log.info("dv dataViewName :"+dv.getDataViewName());
+	    List<JournalApprovalInfo> journalHeaderList=journalApprovalInfoRepository.findByApprovalBatchId(nfb.getId());
+	    log.info("journalHeaderList size:"+journalHeaderList.size());
+	    
+		if(batchId!=null){
+		parameters.put("batchId",batchId);
+		log.info("batchId "+batchId);
+		}
+		if(approverslist!=null)
+		parameters.put("list", approverslist);
+		parameters.put("loopiteration", 0);
+		if(approverslist!=null)
+		parameters.put("approverscount", approverslist.size());
+		parameters.put("appInitiatedData",new Date());
+		parameters.put("reassignTo", "admin");
+		parameters.put("AccountedDate",new Date());
+		parameters.put("expirationTime", "365d");
+		parameters.put("userId", userId);
+		parameters.put("tenantId", nfb.getTenantId());
+		parameters.put("batchName",nfb.getNotificationName());
+		parameters.put("dataViewName",dv.getDataViewName());
+		parameters.put("count",journalHeaderList.size());
+		parameters.put("userName",user.get("assigneeName"));
+		//TenantConfig tenConfig=tenantConfigRepository.findByTenantIdAndKey(tenantId, "Application URL");
+		
+		 String applicationUrl=request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort();
+		parameters.put("applicationUrl", applicationUrl);
+		log.info("parameters: "+parameters);
+	
+		ProcessInstance processInstance = ksession.startProcess(
+				//agree-application/src/main/resources/jbpm/processes/journalApprovalprocess.bpmn
+				"com.journalApproval.bpmn.process", parameters);
+		Long pId = processInstance.getId();
+		log.info("Process Instance Id: " + pId);
+		
+		/*if(engine != null)
+		runtimeManager.disposeRuntimeEngine(engine);*/
+		
+		return pId;
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	 public Long initiateApprovalsff(Long batchId ,Long ruleId,Long userId,Long tenantId, List approverList,HttpServletRequest request) throws ClassNotFoundException, SQLException {
+    	log.debug("REST request to initiateApprovals with approvers for batchId: "+batchId);
+    	NotificationBatch batch=notificationBatchRepository.findOne(batchId);
+    	log.info("batch: "+batch);
+    	Rules ruleData=rulesRepository.findOne(ruleId);
+    	Long viewId=ruleData.getSourceDataViewId();
+    	DataViews dv=dataViewsRepository.findById(viewId);
+    	String viewName=dv.getDataViewName();
+    	 log.info("finalApproverlist: "+approverList);
+    	
+		Long pid = intiateApprovalProcess(batchId.toString(), approverList,tenantId,userId,request);
+		log.info("Approval Process initiated with pid: "+pid);
+		batch.setProcessInstanceId(pid);
+		notificationBatchRepository.save(batch);
+		log.info("updated batch with processInstanceId");
+		Notifications notification=new Notifications();
+		notification.setModule("APPROVALS");
+		notification.setMessage("DataView "+viewName+" Requires your approval");
+		notification.setUserId(userId);
+		notification.isViewed(false);
+		notification.setActionType("Notification Batch");
+		notification.setActionValue(batchId.toString());
+		notification.setTenantId(tenantId);
+		notification.setCreatedBy(userId);
+		notification.setLastUpdatedBy(userId);
+		notification.setCreationDate(ZonedDateTime.now());
+		notification.setLastUpdatedDate(ZonedDateTime.now());
+		Notifications newNotif=notificationsRepository.save(notification);
+		log.info("new notification created with id: "+newNotif.getId());
+		return pid;
+    } 
+	
+	 /**
+	  * Identify if user exist with RoleAdmin
+	  * @param userId
+	  * @param tenantId
+	  * @return
+	  * @throws ClassNotFoundException
+	  * @throws SQLException
+	  */
+	 public HashMap getUserInfo(Long userId,Long tenantId) throws ClassNotFoundException, SQLException{
+		 
+	 String gatewayUrl=env.getProperty("spring.datasource.gatewayUrl");
+		String[] parts=gatewayUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+		   Connection conn = null;
+		   Statement stmt = null;
+		   Statement stmt2 = null;
+		   ResultSet result = null;
+		   ResultSet rs=null;
+		   List<HashMap> mapList2=new ArrayList<HashMap>();
+		   List<HashMap> mapList3=new ArrayList<HashMap>();
+		   HashMap finalMap=new HashMap();
+		   HashMap<String,String> map2=new HashMap<String,String>();
+		try{
+		      Class.forName(jdbcDriver);
+		      conn = DriverManager.getConnection(gatewayUrl, userName, password);
+		      log.info("Connected database successfully...");
+		      stmt = conn.createStatement();
+		      
+		      String query="SELECT * FROM "+schemaName+".user_role_assignment where role_id = (select id from "+schemaName+".roles where role_name='ROLE_ADMIN' and tenant_id="+tenantId+") and user_id="+userId;
+		
+		      stmt2 = conn.createStatement();
+		      String count = null;
+		      result=stmt2.executeQuery(query);
+		     
+			   rs=stmt2.getResultSet();
+			   
+			   int sz=rs.getFetchSize();
+			   log.info("getUserInfo result set size: "+sz);
+			   
+			   if(rs!=null){
+				   log.info("User with Role Admin exists");
+			   }
+			
+			  ResultSetMetaData rsmd2 = result.getMetaData();
+			int columnsNumber = rsmd2.getColumnCount();
+			int columnCount = rsmd2.getColumnCount();
+			 
+			while(rs.next()){
+			
+			for (int i = 1; i <= columnCount; i++ ) {
+				  String name = rsmd2.getColumnName(i); 
+			 for(int t=0,num=1;t<columnsNumber;t++, num++){ 
+				 String Val=rs.getString(num);
+			 }
+			 map2.put(name, rs.getString(i));
+			}
+			
+			log.info("map2: "+map2);
+			} 
+		}catch(SQLException se){
+
+		}
+			finally{
+				result.close();
+				rs.close();
+				stmt.close();
+				stmt2.close();
+				conn.close();
+			}
+		return map2;
+	 }
+	 
+	 
+/*	 public HashMap getUserListData(Long tenantId) throws ClassNotFoundException, SQLException{
+		 
+		 log.info("tenantId in getUserListData:"+tenantId);
+		 String gatewayUrl=env.getProperty("spring.datasource.gatewayUrl");
+			String[] parts=gatewayUrl.split("[\\s@&?$+-]+");
+			String host = parts[0].split("/")[2].split(":")[0];
+			String schemaName=parts[0].split("/")[3];
+			String userName = env.getProperty("spring.datasource.username");
+			String password = env.getProperty("spring.datasource.password");
+			String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+			   Connection conn = null;
+			   Statement stmt = null;
+			   Statement stmt2 = null;
+			   ResultSet result = null;
+			   ResultSet rs=null;
+			   List<HashMap> mapList2=new ArrayList<HashMap>();
+			   List<HashMap> mapList3=new ArrayList<HashMap>();
+			   HashMap finalMap=new HashMap();
+			   HashMap map3=new HashMap<String,String>();
+			try{
+			      Class.forName(jdbcDriver);
+			      conn = DriverManager.getConnection(gatewayUrl, userName, password);
+			      log.info("Connected database successfully...");
+			      stmt = conn.createStatement();
+			      
+			      String query="SELECT * FROM "+schemaName+".jhi_user where tenant_id="+tenantId;
+			      stmt2 = conn.createStatement();
+			      String count = null;
+			      result=stmt2.executeQuery(query);
+			     
+				   rs=stmt2.getResultSet();
+				   
+				   int sz=rs.getFetchSize();
+				   log.info("getUserInfo result set size: "+sz);
+				   
+				   if(rs!=null){
+					   log.info("User with Role Admin exists");
+				   }
+				
+				  ResultSetMetaData rsmd2 = result.getMetaData();
+				int columnsNumber = rsmd2.getColumnCount();
+				int columnCount = rsmd2.getColumnCount();
+				String name=null;
+				 String Val=null;
+				while(rs.next()){
+					 HashMap<String,String> map2=new HashMap<String,String>();
+				for (int i = 1; i <= columnCount; i++ ) {
+					  name = rsmd2.getColumnName(i); 
+					 Val=rs.getString(i);
+					 map2.put(name, Val);
+				}
+				map3.put(rs.getString(1), map2);
+				} 
+				log.info("map3: "+map3);
+				
+			}catch(SQLException se){
+
+			}
+				finally{
+					if(result!=null)
+					result.close();
+					if(rs!=null)
+					rs.close();
+					if(stmt!=null)
+					stmt.close();
+					if(stmt2!=null)
+					stmt2.close();
+					if(conn!=null)
+					conn.close();
+				}
+			return map3;
+		 }*/
+	
+}

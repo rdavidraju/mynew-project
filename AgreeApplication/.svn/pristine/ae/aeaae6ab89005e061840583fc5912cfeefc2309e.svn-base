@@ -1,0 +1,1562 @@
+package com.nspl.app.web.rest;
+
+import java.io.IOException;
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.DecimalFormat;
+import java.text.ParseException;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.sql.DataSource;
+import javax.ws.rs.core.MultivaluedHashMap;
+
+import org.apache.commons.collections.MultiHashMap;
+import org.apache.commons.collections.MultiMap;
+import org.apache.commons.collections4.MultiValuedMap;
+import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.config.ApplicationContextProvider;
+import com.nspl.app.domain.ApprovalRuleAssignment;
+import com.nspl.app.domain.BucketDetails;
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.NotificationBatch;
+import com.nspl.app.domain.ProcessDetails;
+import com.nspl.app.domain.Processes;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.repository.AccountedSummaryRepository;
+import com.nspl.app.repository.AccountingDataRepository;
+import com.nspl.app.repository.AppModuleSummaryRepository;
+import com.nspl.app.repository.ApprovalRuleAssignmentRepository;
+import com.nspl.app.repository.BucketDetailsRepository;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.NotificationBatchRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.service.DashBoardV4Service;
+import com.nspl.app.service.FileExportService;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.service.UserJdbcService;
+
+
+@RestController
+@RequestMapping("/api")
+public class DashBoardResourceV4 {
+
+	private final Logger log = LoggerFactory.getLogger(AppModuleSummaryResource.class);
+
+
+	@Inject
+	RuleGroupRepository ruleGroupRepository;
+
+
+	@Inject
+	UserJdbcService userJdbcService;
+
+	@Inject
+	AppModuleSummaryRepository appModuleSummaryRepository;
+
+
+	@Inject
+	LookUpCodeRepository lookUpCodeRepository;
+
+	@Inject
+	DashBoardV4Service dashBoardV4Service;
+
+
+	@Inject
+	RuleGroupDetailsRepository ruleGroupDetailsRepository;
+
+
+	@Inject
+	RulesRepository rulesRepository;
+
+
+	@Inject
+	DataViewsRepository dataViewsRepository;
+
+
+	@Inject
+	ReconciliationResultRepository reconciliationResultRepository;
+
+
+	@Inject
+	BucketDetailsRepository bucketDetailsRepository;
+	
+	
+	@Inject
+	AccountedSummaryRepository accountedSummaryRepository;
+	
+	
+	@Inject
+	ReconciliationResultService reconciliationResultService;
+	
+	
+	@Inject
+	DataViewsColumnsRepository dataViewsColumnsRepository;
+	
+	@Inject
+	FileTemplateLinesRepository fileTemplateLinesRepository;
+	
+	@Inject
+	NotificationBatchRepository notificationBatchRepository;
+	
+	
+	@Inject
+	ApprovalRuleAssignmentRepository approvalRuleAssignmentRepository;
+	
+	@Inject
+	 AccountingDataRepository accountingDataRepository;
+	
+	@Inject
+	FileExportService fileExportService;
+	
+	@PersistenceContext(unitName="default")
+  	private EntityManager em;
+
+
+
+
+
+	private DecimalFormat dform = new DecimalFormat("####0.00");
+
+	@PostMapping("/reconciliationRuleGroupSpecificInformationV4")
+	@Timed
+	public List<LinkedHashMap> reconciliationRuleGroupSpecificInformationV4(@RequestBody HashMap dates,HttpServletRequest request) throws SQLException, ParseException 
+	{
+		log.info("Rest Request to get aging analysis in service:"+dates);
+
+		HashMap map0=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map0.get("tenantId").toString());
+
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+
+
+		LocalDate fDate=fmDate.toLocalDate();
+
+		LocalDate tDate=toDate.toLocalDate();
+
+
+		List<LinkedHashMap> finallist=new ArrayList<LinkedHashMap>();
+		
+		List<LinkedHashMap> notReconciledList=new ArrayList<LinkedHashMap>();
+
+		List<BigInteger> ruleGrpIds=ruleGroupRepository.fetchRuleGrpIdsByTenantIdAndRulePurpose(tenantId, "RECONCILIATION");
+		log.info("ruleGrpIds :"+ruleGrpIds.size());
+
+		List<BigInteger> ruleGrpIdsAMS=appModuleSummaryRepository.findDistinctRuleGroupIdByModuleAndFileDateBetween(ruleGrpIds,"RECONCILIATION",fDate,tDate);
+
+		log.info("ruleGrpIdsAMS :"+ruleGrpIdsAMS.size());
+		for(BigInteger rgId:ruleGrpIdsAMS)
+		{
+			LinkedHashMap monthMap=new LinkedHashMap();
+			RuleGroup rg=ruleGroupRepository.findOne(rgId.longValue());
+			
+			monthMap=dashBoardV4Service.getCurrencyCodeStatusAndValueFromAppModuleSummary(rg.getId(), fDate, tDate, tenantId);
+			log.info("monthMap at rule groupId :"+rgId+" is "+monthMap);
+			if(monthMap.get("multiCurrency").toString().equalsIgnoreCase("false"))
+			{
+				List<String> currencyCode=appModuleSummaryRepository.findDistinctCurrencyCodeByRuleGroupId(rg.getId(),fDate,tDate);
+				monthMap.put("currencyCode", currencyCode);
+			}
+			
+			
+			monthMap.put("ruleGroupId", rgId);
+			monthMap.put("ruleGroupIdForDisplay", rg.getIdForDisplay());
+			monthMap.put("ruleGroupName", rg.getName());
+
+		//	if(ruleGrpIdsAMS.contains(rgId))
+		//	{
+				List<Object[]> recon1WSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountBetweenGivenDates(rgId.longValue(), fDate, tDate);
+
+				LinkedHashMap recon=new LinkedHashMap();
+				recon.put("amount", Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[8].toString()))));
+				recon.put("amountPer", Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[3].toString()))));
+				recon.put("count",  Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[10].toString()))));
+				recon.put("countPer", Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[1].toString()))));
+				monthMap.put("recon", recon);
+				LinkedHashMap unRecon=new LinkedHashMap();
+				unRecon.put("amount", Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[5].toString()))));
+				unRecon.put("amountPer",Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[4].toString()))));
+				unRecon.put("count", Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[9].toString()))));
+				unRecon.put("countPer", Double.valueOf(dform.format(Double.valueOf(recon1WSummary.get(0)[2].toString()))));
+				monthMap.put("unRecon", unRecon);
+				finallist.add(monthMap);
+
+
+		//	}
+			/*else
+			{
+				LinkedHashMap recon=new LinkedHashMap();
+				recon.put("amount", 0);
+				recon.put("amountPer", 0);
+				recon.put("count", 0);
+				recon.put("countPer", 0);
+				monthMap.put("recon", recon);
+				LinkedHashMap unRecon=new LinkedHashMap();
+				unRecon.put("amount", 0);
+				unRecon.put("amountPer",0);
+				unRecon.put("count", 0);
+				unRecon.put("countPer",0);
+				monthMap.put("unRecon", unRecon);
+				notReconciledList.add(monthMap);
+
+			}*/
+			
+
+		}
+		finallist.addAll(notReconciledList);
+		
+		return finallist;
+
+	}
+
+
+
+	@PostMapping("/accountingRuleGroupSpecificInformationV4")
+	@Timed
+	public List<LinkedHashMap> accountingRuleGroupSpecificInformationV4(@RequestBody HashMap dates,HttpServletRequest request) throws SQLException, ParseException 
+	{
+		log.info("Rest Request to get aging analysis in service:"+dates);
+
+		HashMap map0=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map0.get("tenantId").toString());
+
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+
+
+		LocalDate fDate=fmDate.toLocalDate();
+
+		LocalDate tDate=toDate.toLocalDate();
+
+
+		List<LinkedHashMap> finallist=new ArrayList<LinkedHashMap>();
+		
+		List<LinkedHashMap> unaccountedList=new ArrayList<LinkedHashMap>();
+
+
+		List<BigInteger> actRuleGrpIds=ruleGroupRepository.fetchRuleGrpIdsByTenantIdAndRulePurpose(tenantId, "ACCOUNTING");
+		log.info("actRuleGrpIds :"+actRuleGrpIds.size());
+
+		List<BigInteger> ruleGrpIdsAMS=appModuleSummaryRepository.findDistinctRuleGroupIdByModuleAndFileDateBetween(actRuleGrpIds,"ACCOUNTING",fDate,tDate);
+
+		log.info("ruleGrpIdsAMS :"+ruleGrpIdsAMS.size());
+		for(BigInteger rgId:ruleGrpIdsAMS)
+		{
+
+
+
+
+			LinkedHashMap monthMap=new LinkedHashMap();
+			LinkedHashMap currencyMap=new LinkedHashMap();
+			RuleGroup rg=ruleGroupRepository.findOne(rgId.longValue());
+			currencyMap=dashBoardV4Service.getCurrencyCodeStatusAndValueFromAppModuleSummary(rg.getId(), fDate, tDate, tenantId);
+			log.info("monthMap at rule groupId :"+rgId+" is "+monthMap);
+			
+
+		//	if(ruleGrpIdsAMS.contains(rgId))
+		//	{
+				
+				monthMap=dashBoardV4Service.accountingRuleGroupSpecificInformationV4Service(fDate.toString(),tDate.toString(), request, rgId.longValue(),null);
+				monthMap.put("multiCurrency", currencyMap.get("multiCurrency"));
+				if(currencyMap.get("multiCurrency").toString().equalsIgnoreCase("false"))
+				{
+					List<String> currencyCode=appModuleSummaryRepository.findDistinctCurrencyCodeByRuleGroupId(rg.getId(),fDate,tDate);
+					monthMap.put("currencyCode", currencyCode);
+				}
+				monthMap.put("ruleGroupId", rgId);
+				monthMap.put("ruleGroupName", rg.getName());
+				monthMap.put("ruleGroupIdForDisplay", rg.getIdForDisplay());
+				finallist.add(monthMap);
+
+		//	}
+		/*	else
+			{
+				LinkedHashMap acctMap=new LinkedHashMap();
+				acctMap.put("amount", 0);
+				acctMap.put("count", 0);
+				acctMap.put("amountPer",  0);
+				acctMap.put("countPer", 0);
+				monthMap.put("accounted", acctMap);
+
+
+				LinkedHashMap notActMap=new LinkedHashMap();
+				notActMap.put("amount", 0);
+				notActMap.put("count", 0);
+				notActMap.put("amountPer",  0);
+				notActMap.put("countPer",0);
+				monthMap.put("notAccounted", notActMap);
+
+				LinkedHashMap finalActMap=new LinkedHashMap();
+				finalActMap.put("amount",0);
+				finalActMap.put("count", 0);
+				finalActMap.put("amountPer", 0);
+				finalActMap.put("countPer", 0);
+				monthMap.put("finalAccounted", finalActMap);
+				RuleGroup rg=ruleGroupRepository.findOne(rgId.longValue());
+				monthMap.put("ruleGroupId", rgId);
+				monthMap.put("ruleGroupName", rg.getName());
+				
+				unaccountedList.add(monthMap);
+				
+			}*/
+		
+
+			
+		}
+		finallist.addAll(unaccountedList);
+
+		return finallist;
+
+	}
+
+
+	@PostMapping("/agingAnalysisForUnReconciliationOrUnAccounted")
+	@Timed
+	public List<LinkedHashMap> agingAnalysisForUnReconciliationOrUnAccounted(@RequestBody HashMap dates,@RequestParam Long ruleGroupId,@RequestParam Long bucketId,HttpServletRequest request,@RequestParam String type,
+			@RequestParam(value="viewId",required=false) Long viewId) throws SQLException
+	{
+		log.info("API to fetch for aging analysis for agingAnalysisOfReconciliation");
+		log.info("**startTime****"+ZonedDateTime.now());
+
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+
+
+		LocalDate fDate=fmDate.toLocalDate();
+
+		LocalDate tDate=toDate.toLocalDate();
+
+
+
+
+		HashMap map0=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map0.get("tenantId").toString());
+
+		List<Long> recRuleIds= ruleGroupDetailsRepository.fetchByRuleGroupIdAndTenantId(ruleGroupId,tenantId);
+
+		List<BigInteger> allDataViewIds=new ArrayList<BigInteger>();
+
+		if(viewId!=null)
+			allDataViewIds.add(BigInteger.valueOf(viewId));
+		else
+		{
+		List<BigInteger> srcViewId=rulesRepository.fetchDistictSrcViewIdsByRuleId(recRuleIds);
+		allDataViewIds.addAll(srcViewId);
+
+		List<BigInteger> trgViewId=rulesRepository.fetchDistictTargetViewIdsByRuleId(recRuleIds);
+		allDataViewIds.addAll(trgViewId);
+		}
+		allDataViewIds=allDataViewIds.stream().distinct().collect(Collectors.toList());
+
+		log.info("allDataViewIds :"+allDataViewIds);
+
+		List<BigInteger> totalSrcIdsList=new ArrayList<BigInteger>();
+
+		//	List<LinkedHashMap> finalMap=new ArrayList<LinkedHashMap>();
+
+		List<LinkedHashMap> finalMap=new ArrayList<LinkedHashMap>();
+
+		for(int i=0;i<allDataViewIds.size();i++)
+		{
+
+			List<LinkedHashMap> ruleAge=dashBoardV4Service.agiganalysisForUnReconciledDataOrUnAccounted(fDate.toString(), tDate.toString(), allDataViewIds.get(i).longValue(), ruleGroupId,type,bucketId);
+			//log.info("ruleAge at "+i+" is "+ruleAge);
+			finalMap.addAll(ruleAge);
+
+		}
+		log.info("finalMap :"+finalMap);
+		LinkedHashMap ageMap=new LinkedHashMap();
+		for(int i=0;i<finalMap.size();i++)
+		{
+
+
+			if(i==0)
+			{
+				ageMap.put(finalMap.get(i).get("age"), finalMap.get(i));
+			}
+			else
+			{
+				if(ageMap.containsKey(finalMap.get(i).get("age")))
+				{
+					LinkedHashMap eachMap=(LinkedHashMap) ageMap.get(finalMap.get(i).get("age"));
+					//log.info("eachMap at i:"+i+"is "+eachMap);
+					Long count=Long.valueOf(eachMap.get("count").toString())+Long.valueOf(finalMap.get(i).get("count").toString());
+					Double amount=Double.valueOf(eachMap.get("amount").toString())+Double.valueOf(finalMap.get(i).get("amount").toString());
+					eachMap.put("count", count);
+					eachMap.put("amount", amount);
+					ageMap.put(finalMap.get(i).get("age"), eachMap);
+
+				}
+			}
+
+		}
+
+		log.info("ageMap :"+ageMap);
+
+
+
+
+		List<BucketDetails> buckDetails=bucketDetailsRepository.findByBucketId(bucketId);
+		//List<LinkedHashMap> finalBucketList=new ArrayList<LinkedHashMap>();
+
+
+
+
+		List<LinkedHashMap> finalUnProcessData=new ArrayList<LinkedHashMap>();
+		for(BucketDetails buck:buckDetails)
+		{
+			//log.info("at bucket :"+buck);
+			LinkedHashMap map=new LinkedHashMap();
+			if(buck.getFromValue()!=null && buck.getToValue()!=null)
+			{
+
+				if(ageMap.containsKey(buck.getFromValue()+"-"+buck.getToValue()))
+				{
+					log.info("no need to add zero");
+					map=(LinkedHashMap) ageMap.get(buck.getFromValue()+"-"+buck.getToValue());
+					finalUnProcessData.add(map);
+				}
+				else
+				{
+					log.info("add zero at buck :"+buck);
+					map.put("age", buck.getFromValue()+"-"+buck.getToValue());
+					map.put("count",0);
+					map.put("amount",0);
+					finalUnProcessData.add(map);
+
+				}
+			}
+			else if(buck.getToValue()==null && buck.getFromValue()!=null)
+			{
+				if(ageMap.containsKey(">="+buck.getFromValue()))
+				{
+					log.info("no need to add zero");
+					log.info("finalBucketList.get>="+ageMap.get(">="+buck.getFromValue()));
+					map=(LinkedHashMap) ageMap.get(">="+buck.getFromValue());
+					finalUnProcessData.add(map);
+				}
+				else
+				{
+
+					map.put("age", ">="+buck.getFromValue());
+					map.put("count",0);
+					map.put("amount",0);
+					finalUnProcessData.add(map);
+
+				}
+			}
+			else if(buck.getFromValue()==null && buck.getToValue()!=null)
+			{
+				if(ageMap.containsKey("<="+buck.getToValue()))
+				{
+					log.info("no need to add zero");
+					log.info("finalBucketList.get>="+ageMap.get("<="+buck.getToValue()));
+					map=(LinkedHashMap) ageMap.get("<="+buck.getToValue());
+					finalUnProcessData.add(map);
+				}
+				else
+				{
+
+					map.put("age", "<="+buck.getToValue());
+					map.put("count",0);
+					map.put("amount",0);
+					finalUnProcessData.add(map);
+
+				}
+			}
+			
+		}
+		if(ageMap.containsKey("Others"))
+		{
+			log.info("else if others :"+ageMap);
+			LinkedHashMap map=(LinkedHashMap) ageMap.get("Others");
+			finalUnProcessData.add(map);
+		}
+
+		log.info("**endTime****"+ZonedDateTime.now());
+		return finalUnProcessData;
+
+
+	}
+	
+	
+	
+	/**
+	 * @param ruleGroupId
+	 * @param viewId
+	 * @param viewType
+	 * @param rgType
+	 * @param dates
+	 * @param request
+	 * @param page
+	 * @param size
+	 * @param groupByColumnNames
+	 * @param age
+	 * @param violation
+	 * @return
+	 * @throws SQLException
+	 * @throws ParseException
+	 * Desc :Api to fectch dv records by applying group by columns 
+	 * @throws IOException 
+	 */
+	@PostMapping("/getProcessedORUnProcesseGroupByColumnsInfoV4")
+	@Timed 
+	public LinkedHashMap getProcessedORUnProcesseGroupByColumnsInfoV4(@RequestParam String ruleGroupId,@RequestParam Long viewId,@RequestParam String viewType,@RequestParam String rgType,
+			@RequestBody HashMap dates,HttpServletRequest request,@RequestParam(value = "page" , required = false) Integer page,
+    		@RequestParam(value = "per_page", required = false) Integer size,@RequestParam List<String> groupByColumnNames,@RequestParam(value = "age", required = false) String age,
+    		@RequestParam(value = "violation", required = false) Integer violation,
+    		@RequestParam(value="fileExport",required=false) boolean fileExport,@RequestParam(value="fileType",required=false) String fileType,HttpServletResponse response,@RequestParam(value = "bucketId", required = false) Long bucketId, @RequestParam(required=false) String filterKey,@RequestParam(required=false) List<String> filterValues) throws SQLException, ParseException, IOException
+	{
+		log.info("Rest Request to getUnReconciledOrUnAccountedGroupByInfoV4 with ruleGroupId: "+ruleGroupId+" viewId: "+viewId+" and  groupType: "+rgType+" viewType: "+viewType);
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		RuleGroup rgId=ruleGroupRepository.findByIdForDisplayAndTenantId(ruleGroupId, tenantId);
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+
+		java.time.LocalDate fDate=fmDate.toLocalDate();
+		java.time.LocalDate tDate=toDate.toLocalDate();
+
+		String amountQualifier=reconciliationResultService.getQualifier(BigInteger.valueOf(viewId));
+		log.info("amountQualifier :"+amountQualifier);
+
+
+		List<BigInteger> reconciledOrAccountedIds=new ArrayList<BigInteger>();
+		if(rgType.equalsIgnoreCase("un-reconciled") || rgType.equalsIgnoreCase("reconciled"))
+		{
+
+			if(viewType.equalsIgnoreCase("source"))
+			{
+				List<BigInteger> orginalRowIds=reconciliationResultRepository.fetchOrginalRowIdsByRuleGroupId(rgId.getId(),viewId);
+				log.info("orginalRowIds :"+orginalRowIds.size());
+				reconciledOrAccountedIds.addAll(orginalRowIds);
+			}
+
+			else if(viewType.equalsIgnoreCase("target"))
+			{
+				List<BigInteger> targetRowIds=reconciliationResultRepository.fetchTargetRowIdsByRuleGroupId(rgId.getId(),viewId);
+				log.info("targetRowIds :"+targetRowIds.size());
+				reconciledOrAccountedIds.addAll(targetRowIds);
+			}
+		}
+		else if(rgType.equalsIgnoreCase("un-accounted") || rgType.equalsIgnoreCase("JE Pending"))
+		{
+			List<BigInteger> accountedRowIds=accountedSummaryRepository.fetchJEPendingIdsByStatusNGroupIdNViewId(rgId.getId(), viewId,"ACCOUNTED");
+			reconciledOrAccountedIds.addAll(accountedRowIds);
+		}
+		else if(rgType.equalsIgnoreCase("Je Created"))
+		{
+			List<BigInteger> accountedRowIds=accountedSummaryRepository.fetchPostedRowIdsByRuleGrpIdAndViewId(rgId.getId(), viewId);
+			reconciledOrAccountedIds.addAll(accountedRowIds);
+		}
+		else if(rgType.equalsIgnoreCase("approvals"))
+		{
+			List<BigInteger> appInprocRowIds=accountingDataRepository.fetchDistinctApprovedInProcessRowIds(rgId.getId(), viewId,"IN_PROCESS");
+			reconciledOrAccountedIds.addAll(appInprocRowIds);
+		}
+
+		String reconciledOrAccountedIdList=reconciledOrAccountedIds.toString().replaceAll("\\[", "").replaceAll("\\]", "");
+		log.info("finalSrcIdList :"+reconciledOrAccountedIds.size());
+		LinkedHashMap groupByColumns=new LinkedHashMap();
+		groupByColumns=dashBoardV4Service.getDVGroupByColumns(viewId);
+
+		LinkedHashMap finalColumnsList=new LinkedHashMap();
+		finalColumnsList.put("amtQualifier", groupByColumns.get("amtQualifier"));
+		
+
+
+		List<LinkedHashMap> finalGroupByColumnList=new ArrayList<LinkedHashMap>();
+		for(int i=0;i<groupByColumnNames.size();i++)
+		{
+			List<LinkedHashMap> lmp=(List<LinkedHashMap>) groupByColumns.get("columnsList");
+			for(int c=0;c<lmp.size();c++)
+			{
+				String columnName=(lmp.get(c).get("columnAliasName")).toString();
+				if(columnName.equalsIgnoreCase(groupByColumnNames.get(i)))
+				{
+					LinkedHashMap column=new LinkedHashMap();
+					column.put("columnName", lmp.get(c).get("columnName"));
+					column.put("columnAliasName",  groupByColumnNames.get(i));
+					column.put("dataType", lmp.get(c).get("dataType"));
+					if(!lmp.get(c).get("dataType").toString().equalsIgnoreCase("Decimal"))
+					column.put("align", "left");
+					else
+						column.put("align", "right");
+					column.put("width", "150px");
+					
+					finalGroupByColumnList.add(column);
+				}
+			}
+		}
+		finalColumnsList.put("columnsList", finalGroupByColumnList);
+
+		String groupByColNames =	groupByColumnNames.stream().collect(Collectors.joining("`,`", "`", "`"));
+		log.info("groupByColNames :"+groupByColNames);
+		Connection conn = null;
+		Statement stmtDv = null;
+		Statement stmtTcAndAmtDv = null;
+
+		/* Filtration */
+		/*if(filterObj!=null && !(filterObj.isEmpty())){
+			Set keyset=filterObj.keySet();
+			Iterator entries2 = filterObj.entrySet().iterator();
+	     	String filterQuery="";
+	     	int keysetSz=keyset.size();
+	     	if(keysetSz>0){
+	     		filterQuery=filterQuery+" where ";
+	     	}
+	     	int count=0;
+			while (entries2.hasNext()) {
+				count++;
+				String filterSubQuery="";
+			    Map.Entry entry = (Map.Entry) entries2.next();
+			    String key = (String)entry.getKey();
+			    List<String> valueList = (List<String>) entry.getValue();
+			    System.out.println("key = " + key + ", valueList = " + valueList);
+			    String valStr=valueList.stream().collect(Collectors.joining("','", "'", "'"));
+			    filterSubQuery=filterSubQuery+key+" in ("+valStr+")";
+			    filterQuery=filterQuery+filterSubQuery;
+			    if(count>=0 && count<=keysetSz-1){
+			    	filterQuery=filterQuery+" and ";
+			    }
+			    System.out.println("filterQuery at count : "+count+" is: "+filterQuery);
+			}
+		
+			log.info("Final filterQuery: "+filterQuery);
+			
+		}*/
+		String filterQuery="";
+		if(filterKey!=null){
+			 String valStr=filterValues.stream().collect(Collectors.joining("','", "'", "'"));
+			filterQuery=" and "+filterKey+" in ("+valStr+")";
+		}
+
+		DataSource ds = (DataSource)ApplicationContextProvider.getApplicationContext().getBean("dataSource");
+		conn = ds.getConnection();
+		log.info("Connected database successfully...");
+		stmtDv = conn.createStatement();
+		stmtTcAndAmtDv = conn.createStatement();
+
+		ResultSet resultDv=null;
+		ResultSet resultTcAndAmtDv=null;
+		//	ResultSet resultAct=null;
+		DataViews dvName=dataViewsRepository.findOne(viewId);
+		LinkedHashMap lhm=new LinkedHashMap();
+
+
+
+		String query="";
+		String totalCtAndTotalAmt="";
+		List<LinkedHashMap> finalMap=new ArrayList<LinkedHashMap>();
+
+		log.info("age :"+age);
+
+		String totalAmtCountQuery="select count(scrIds) as count,case when sum(`"+amountQualifier+"`) is null then 0 else sum(`"+amountQualifier+"`) end as amount from "
+				+ "`"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"'";
+		
+		Integer totalCount=0;
+		Double totalAmount=0d;
+		//log.info("totalAmtCountQuery :"+totalAmtCountQuery);
+		resultTcAndAmtDv=stmtTcAndAmtDv.executeQuery(totalAmtCountQuery);
+		while(resultTcAndAmtDv.next())
+		{
+			totalCount=totalCount+Integer.valueOf(resultTcAndAmtDv.getString("count"));
+			totalAmount=totalAmount+Double.valueOf(resultTcAndAmtDv.getString("amount"));
+		}
+		log.info("totalCount :"+totalCount);
+		log.info("totalAmount :"+totalAmount);
+		if(reconciledOrAccountedIds.size()>0)
+		{
+			if(page!=null && size!=null)
+			{
+				if(rgType.equalsIgnoreCase("un-reconciled") || rgType.equalsIgnoreCase("un-accounted"))
+				{
+					/**for violation query And ageing**/
+
+					if(violation!=null || age!=null)
+					{
+						query="select DATEDIFF(CURDATE(), `fileDate`) as age,"+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+								+ " and scrIds not in ("+reconciledOrAccountedIdList+") "+filterQuery+" group by "+groupByColNames+",age order by age desc   Limit "+(page-1) * size+", "+size;
+					}
+					else if(violation==null && age==null)
+					{
+						query="select "+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+								+ " and scrIds not in ("+reconciledOrAccountedIdList+") "+filterQuery+" group by "+groupByColNames+" order by `"+amountQualifier+"` desc  Limit "+(page-1) * size+", "+size;
+					}
+				}
+				else if(rgType.equalsIgnoreCase("reconciled") || rgType.equalsIgnoreCase("JE Created") || rgType.equalsIgnoreCase("approvals") || rgType.equalsIgnoreCase("JE Pending"))
+				{
+					query="select "+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+							+ " and scrIds in ("+reconciledOrAccountedIdList+") "+filterQuery+" group by "+groupByColNames+" order by `"+amountQualifier+"` desc  Limit "+(page-1) * size+", "+size;
+				}
+				
+				
+			}
+			else
+			{
+				if(rgType.equalsIgnoreCase("un-reconciled") || rgType.equalsIgnoreCase("un-accounted"))
+				{
+					if(violation!=null || age!=null)
+					{
+						query="select DATEDIFF(CURDATE(), `fileDate`) as age,"+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+								+ " and scrIds not in ("+reconciledOrAccountedIdList+") "+filterQuery+" group by "+groupByColNames+",age order by age desc";
+					}
+					else if(violation==null && age==null)
+					{
+						query="select "+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+								+ " and scrIds not in ("+reconciledOrAccountedIdList+")  "+filterQuery+" group by "+groupByColNames+" order by `"+amountQualifier+"` desc";
+					}
+				}
+				else if(rgType.equalsIgnoreCase("reconciled") || rgType.equalsIgnoreCase("JE Created") || rgType.equalsIgnoreCase("approvals") || rgType.equalsIgnoreCase("JE Pending"))
+				{
+					query="select "+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+							+ " and scrIds in ("+reconciledOrAccountedIdList+") "+filterQuery+" group by "+groupByColNames+" order by `"+amountQualifier+"` desc";
+				}
+			}
+
+		}
+		else
+		{
+
+			if(page!=null && size!=null)
+			{
+
+
+				if((violation!=null || age !=null) && !(rgType.equalsIgnoreCase("reconciled") || rgType.equalsIgnoreCase("JE Created") || rgType.equalsIgnoreCase("JE Pending")))
+				{
+					query="select DATEDIFF(CURDATE(), `fileDate`) as age,"+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "+filterQuery
+							+ "group by "+groupByColNames+",age order by age desc  Limit "+(page-1) * size+", "+size;
+				}
+				else if(violation==null && age ==null && !(rgType.equalsIgnoreCase("reconciled") || rgType.equalsIgnoreCase("JE Created") || rgType.equalsIgnoreCase("JE Pending")))
+				{
+					query="select "+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+							+filterQuery+ "group by "+groupByColNames+" order by `"+amountQualifier+"` desc  Limit "+(page-1) * size+", "+size;
+				}
+			}
+			else
+			{
+				if((violation!=null || age!=null) && !(rgType.equalsIgnoreCase("reconciled") || rgType.equalsIgnoreCase("JE Created") || rgType.equalsIgnoreCase("JE Pending")))
+				{
+					query="select DATEDIFF(CURDATE(), `fileDate`) as age,"+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+							+filterQuery+ "group by "+groupByColNames+",age order by age desc";
+				}
+				else if((violation==null && age==null) && !(rgType.equalsIgnoreCase("reconciled") || rgType.equalsIgnoreCase("JE Created") || rgType.equalsIgnoreCase("JE Pending")))
+				{
+					query="select "+groupByColNames+",round(sum(`"+amountQualifier+"`),2) as `"+amountQualifier+"`,count(scrIds) as count,round((count(scrIds)/"+totalCount+"*100),2) as countPer,round((sum(`"+amountQualifier+"`)/"+totalAmount+"*100),2) as amtPer from `"+dvName.getDataViewName().toLowerCase().toLowerCase()+"` where Date(fileDate) >= '"+fDate+"' and Date(fileDate) <='"+tDate+"' "
+							+filterQuery+" group by "+groupByColNames+" order by `"+amountQualifier+"` desc";
+				}
+			}
+
+		}
+		
+		log.info("query: "+query);
+
+
+		if(!query.isEmpty())
+		{
+			
+			resultDv=stmtDv.executeQuery(query);
+			ResultSetMetaData rsmd2 = resultDv.getMetaData();
+			int columnCount = rsmd2.getColumnCount();
+//log.info("after executing query");
+			while(resultDv.next())
+			{
+				LinkedHashMap map2=new LinkedHashMap();
+				for (int i = 1; i <= columnCount; i++ ) {  
+					String name=rsmd2.getColumnName(i);
+					if(name.equalsIgnoreCase(amountQualifier))
+					{
+						if(resultDv.getString(rsmd2.getColumnName(i))!=null)
+							map2.put(rsmd2.getColumnName(i), Double.valueOf(resultDv.getString(rsmd2.getColumnName(i))));
+						else
+							map2.put(rsmd2.getColumnName(i), 0d);
+					}
+					else if(name.equalsIgnoreCase("count"))
+						map2.put(rsmd2.getColumnName(i), Integer.valueOf(resultDv.getString(rsmd2.getColumnName(i))));
+					else if(name.equalsIgnoreCase("countPer"))
+					{
+
+						if(resultDv.getString(rsmd2.getColumnName(i))!=null)
+							map2.put(rsmd2.getColumnName(i), Double.valueOf(resultDv.getString(rsmd2.getColumnName(i))));
+						else
+							map2.put(rsmd2.getColumnName(i), 0d);
+					}
+					else if(name.equalsIgnoreCase("amtPer"))
+					{
+						if(resultDv.getString(rsmd2.getColumnName(i))!=null)
+							map2.put(rsmd2.getColumnName(i), Double.valueOf(resultDv.getString(rsmd2.getColumnName(i))));
+						else
+							map2.put(rsmd2.getColumnName(i), 0d);
+					}
+					else
+					{
+						if(resultDv.getString(rsmd2.getColumnName(i))!=null)
+							map2.put(rsmd2.getColumnName(i), resultDv.getString(rsmd2.getColumnName(i)));
+						else
+							map2.put(rsmd2.getColumnName(i), "blank");
+					}
+
+				}
+				if(violation!=null && age==null)
+				{
+					int ruleAge=Integer.valueOf(resultDv.getString("age").toString());
+					if(ruleAge>=violation)
+						finalMap.add(map2);
+				}
+				else if(violation==null && age!=null)
+				{
+					Integer ruleAge=Integer.valueOf(resultDv.getString("age").toString());
+					if(age.contains("-"))
+					{
+						log.info("age contains -");
+						String[] str=age.split("-");
+						log.info("str at 0:"+str[0]);
+						log.info("str at 1:"+str[1]);
+						if(ruleAge>=Integer.valueOf(str[0]) && ruleAge<=Integer.valueOf(str[1]))
+						{
+							finalMap.add(map2);
+						}
+					}
+					else if(age.contains(">") || (age.contains("<")))
+					{
+						String[] str=age.split("=");
+
+						if(age.contains(">") )
+						{
+							if(ruleAge>=Integer.valueOf(str[1]))
+							{
+								finalMap.add(map2);
+							}
+						}
+						else if(age.contains("<"))
+						{
+							if(ruleAge<=Integer.valueOf(str[1]))
+							{
+								finalMap.add(map2);
+							}
+						}
+					}
+					else if(age.equalsIgnoreCase("others"))
+					{     log.info("in others group");
+					Boolean others=true;
+					List<BucketDetails> buckDetails=bucketDetailsRepository.findByBucketId(bucketId);
+
+					for(int j=0;j<buckDetails.size();j++){
+						int buckVal=j+1;
+						BucketDetails bucketDet=buckDetails.get(j);
+						Long bucketDetId =bucketDet.getId();
+						if(bucketDet!=null)
+						{
+							Integer frmVal=0;
+							Integer toVal=0;
+							Integer from=0;
+							Integer to=0;
+							from=bucketDet.getFromValue();
+							to=bucketDet.getToValue();
+							log.info("from: "+from+" to: "+to);
+
+							if(from!=null && to!=null){
+								if(from>to){
+
+									frmVal=to;
+									toVal=from;
+								}
+								else{
+									frmVal=from;
+									toVal=to;
+								}
+
+								if(!(ruleAge>=frmVal && ruleAge<=toVal))
+									others=true;
+								else
+									others=false;
+
+							}
+							else{
+
+								log.info("any one of the bucket limits are null");
+
+								if(to==null){
+									String recAge=">="+from;
+									if(!(ruleAge>=frmVal))
+										others=true;
+									else
+										others=false;
+								}
+								if(from==null){
+									String recAge="<="+to;
+									if(!(ruleAge<=to))
+										others=true;
+									else
+										others=false;
+								}
+
+
+							}
+						}
+					}
+					if(others)
+						finalMap.add(map2);          
+}
+				}
+				else
+					finalMap.add(map2);
+			}
+		}
+
+
+		lhm.put("columnNames", finalColumnsList);
+		lhm.put("detailList", finalMap);
+
+		if(resultDv!=null)
+			resultDv.close();
+		if(resultTcAndAmtDv!=null)
+			resultTcAndAmtDv.close();
+		if(stmtDv!=null)
+			stmtDv.close();
+		if(stmtTcAndAmtDv!=null)
+			stmtTcAndAmtDv.close();
+		if(conn!=null)
+			conn.close();
+
+		
+		if(fileExport)
+		{
+			Set<String> keyset=finalMap.get(0).keySet();
+			List<String> keyList = new ArrayList<String>(keyset);
+        	log.info("keyList :"+keyList);
+        
+    	    	
+        	if(fileType.equalsIgnoreCase("csv"))
+        	{
+        		response.setContentType ("application/csv");
+        		response.setHeader ("Content-Disposition", "attachment; filename=\"groupedData.csv\"");
+
+        		fileExportService.jsonToCSV(finalMap,keyList,response.getWriter());
+        	}
+        	else if(fileType.equalsIgnoreCase("excel"))
+        	{
+        		response.setContentType("application/vnd.ms-excel");
+        		response.setHeader(
+        				"Content-Disposition",
+        				"attachment; filename=\"groupedData.xlsx\""
+        				);
+        		fileExportService.jsonToCSV(finalMap, keyList,response.getWriter());
+        	}
+    	
+		}
+		//else
+		return lhm;
+
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	@PostMapping("/getSrcTargetCombinationViewsByRuleGrpOfUnReconForViolationAndAging")
+    @Timed
+    public List<HashMap> getSrcTargetCombinationViewsByRuleGrpOfUnReconForViolationAndAging(HttpServletRequest request,@RequestParam String groupId, @RequestBody HashMap dates,
+    		@RequestParam(value="age",required=false) String age,@RequestParam(value="violation",required=false) Integer violation,@RequestParam(value="bucketId",required=false) Long bucketId) throws SQLException{
+		log.info("Rest API to getSrcTargetCombinationViewsByRuleGrp for "+ "rule group id: "+ groupId);
+
+		/** formatting date**/
+
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+		log.info("fmDate :"+fmDate);
+		log.info("toDate :"+toDate);
+		java.time.LocalDate fDate=fmDate.toLocalDate();
+		java.time.LocalDate tDate=toDate.toLocalDate();
+		log.info("fDate :"+fDate);
+		log.info("tDate :"+tDate);
+
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		List<HashMap> finalMap = new ArrayList<HashMap>();
+
+		RuleGroup ruleGrp = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+
+		if(ruleGrp != null)
+		{
+			List<HashMap> source = new ArrayList<HashMap>();
+
+			log.info("Rule Group Name: "+ ruleGrp.getName());
+
+			// Fetching Distinct Source and Target View Ids
+			HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(ruleGrp.getId(), tenantId);
+			List<BigInteger> distSrcIds = distinctViewIdMap.get("sourceViewIds");
+		
+			List<Long> ruleIds = ruleGroupDetailsRepository.fetchByRuleGroupIdAndTenantId(ruleGrp.getId(), tenantId);
+			Connection conn = null;
+		
+
+			log.info("ruleIds: "+ruleIds);
+			if(distSrcIds.size()>0)
+			{
+				for(BigInteger srcViewId : distSrcIds)
+				{
+					log.info("srcViewId: "+srcViewId);
+
+					HashMap sourceMap = new HashMap();
+					List<HashMap> innerTargetViews = new ArrayList<HashMap>();
+					DataViews dv = dataViewsRepository.findOne(srcViewId.longValue());
+					if(dv != null)
+					{
+						
+						// Fetching Inner Target Views
+						List<BigInteger> innerTrgtViews = rulesRepository.fetchDistinctTargetViewIdsBySourceId(srcViewId.longValue(), tenantId, ruleIds);
+						log.info("innerTrgtViews: "+innerTrgtViews);
+						if(innerTrgtViews.size()>0)
+						{
+							for(BigInteger innerTrgtViewId : innerTrgtViews)
+							{       
+								//log.info("Shv");
+								LinkedHashMap srcTrgCombinationMap=dashBoardV4Service.getSrcTargetCombinationViewsByRuleGrpofUnReconciledForViolationAndAgingService(fDate, tDate, srcViewId, innerTrgtViewId.longValue(), ruleGrp.getId(), age, violation,bucketId);
+								finalMap.add(srcTrgCombinationMap);
+							}
+
+						}
+					}
+
+				}
+			}
+
+		}
+		return finalMap;
+	}  
+	
+	
+	
+	@PostMapping("/getSrcViewsOfUnAccountedOrAccountedOrJeEnteredOrViolationAndAging")
+    @Timed
+    public List<HashMap> getSrcViewsOfUnAccountedOrAccountedOrJeEnteredOrViolationAndAging(HttpServletRequest request,@RequestParam String groupId, @RequestBody HashMap dates,
+    		@RequestParam(value="age",required=false) String age,@RequestParam(value="violation",required=false) Integer violation,@RequestParam String type,@RequestParam(value="bucketId",required=false) Long bucketId) throws SQLException{
+		log.info("Rest API to getSrcTargetCombinationViewsByRuleGrp for "+ "rule group id: "+ groupId);
+
+		/** formatting date**/
+		log.info("**API startTime***"+ZonedDateTime.now());
+
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+		log.info("fmDate :"+fmDate);
+		log.info("toDate :"+toDate);
+		java.time.LocalDate fDate=fmDate.toLocalDate();
+		java.time.LocalDate tDate=toDate.toLocalDate();
+		log.info("fDate :"+fDate);
+		log.info("tDate :"+tDate);
+
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		List<HashMap> finalMap = new ArrayList<HashMap>();
+
+		RuleGroup ruleGrp = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+
+		if(ruleGrp != null)
+		{
+			List<HashMap> source = new ArrayList<HashMap>();
+
+			log.info("Rule Group Name: "+ ruleGrp.getName());
+
+			// Fetching Distinct Source and Target View Ids
+			HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(ruleGrp.getId(), tenantId);
+			List<BigInteger> distSrcIds = distinctViewIdMap.get("sourceViewIds");
+			log.info("distSrcIds :"+distSrcIds);
+
+			if(distSrcIds.size()>0)
+			{
+				for(BigInteger srcViewId : distSrcIds)
+				{
+					log.info("srcViewId: "+srcViewId);
+
+					HashMap sourceMap = new HashMap();
+					List<HashMap> innerTargetViews = new ArrayList<HashMap>();
+					DataViews dv = dataViewsRepository.findOne(srcViewId.longValue());
+					if(dv != null)
+					{
+						List<LinkedHashMap> srcMaps=new ArrayList<LinkedHashMap>();
+						if(age==null && violation==null)
+							srcMaps=dashBoardV4Service.getSrcTargetCombinationViewsByRuleGrpofUnAccountedOrAccountedOrJeCreated(fDate, tDate, srcViewId,  ruleGrp.getId(), type);
+						else
+							srcMaps=dashBoardV4Service.getSrcTargetCombinationViewsByRuleGrpofUnAccountedForViolationAndAgingService(fDate, tDate, srcViewId, ruleGrp.getId(), age, violation,type,bucketId);
+						finalMap.addAll(srcMaps);
+
+
+					}
+
+				}
+			}
+
+		}
+		log.info("**API endTime***"+ZonedDateTime.now());
+		return finalMap;
+	}  
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	//@PostMapping("/getSummaryInfoForReconciliationV4")
+	@PostMapping("/getSummaryInfoForReconciliationV4")
+	@Timed 
+	public LinkedHashMap getSummaryInfoForReconciliationV4(HttpServletRequest request ,@RequestBody HashMap dates,@RequestParam int violation,@RequestParam(value="ruleGroupId",required=false) Long ruleGroupId) throws SQLException, ParseException
+	{
+		log.info("Rest request to getSummaryInfoForReconciliationV2 for a ruleGroupId ");
+		HashMap tenMap=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(tenMap.get("tenantId").toString());
+		LinkedHashMap finalMap=new LinkedHashMap();
+		//List<LinkedHashMap> dataMap=new ArrayList<LinkedHashMap>();
+		Long recRuleGrpId=0l;
+		recRuleGrpId=ruleGroupId;
+		log.info("recRuleGrpId :"+recRuleGrpId);
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+
+		java.time.LocalDate fDate=fmDate.toLocalDate();
+		java.time.LocalDate tDate=toDate.toLocalDate();
+		List<String> rulesList=new ArrayList<String>();
+		List<Long> rulesIdList=new ArrayList<Long>();
+		List<Object[]> reconTotalDvAmountAndCount=appModuleSummaryRepository.fetchTotalDvCountAndAmount(recRuleGrpId,fDate,tDate);	
+		Double totaldvCount= 0d;
+		Double totaldvAmt=0d;
+		if(reconTotalDvAmountAndCount.size()>0)
+		{
+			totaldvCount= Double.valueOf(reconTotalDvAmountAndCount.get(0)[0].toString());
+			totaldvAmt= Double.valueOf(reconTotalDvAmountAndCount.get(0)[1].toString());
+		}
+
+		List<Object[]> reconTotalReconciledAmountAndCount=appModuleSummaryRepository.fetchTotalReconciledCountAndAmount(recRuleGrpId,fDate,tDate);	
+
+		Double totalReconciledDvCount= Double.valueOf(reconTotalReconciledAmountAndCount.get(0)[0].toString());
+		Double totalReconciledDvAmt= Double.valueOf(reconTotalReconciledAmountAndCount.get(0)[1].toString());
+		//	log.info("totalReconciledDvCount :"+totalReconciledDvCount);
+		//	log.info("totalReconciledDvAmt :"+totalReconciledDvAmt);
+
+		Double totalUnReconciledDvCount= totaldvCount-totalReconciledDvCount;
+		Double totalUnReconciledDvAmt= totaldvAmt-totalReconciledDvAmt;
+		//	log.info("totalUnReconciledDvCount :"+totalUnReconciledDvCount);
+		//	log.info("totalUnReconciledDvAmt :"+totalUnReconciledDvAmt);
+
+		Double totalUnReconciledCountPer=0d;
+		if(totaldvCount>0)
+			totalUnReconciledCountPer=(totalUnReconciledDvCount/totaldvCount)*100;
+		List<Object[]> reconSummary=appModuleSummaryRepository.fetchRecCountsByGroupIdAndFileDate(recRuleGrpId,fDate,tDate);
+		Double totalUnReconAmt=0d;
+		Double totalReconAmt=0d;
+		Double totalUnApprovedCt=0d;
+		Long violationCount=0l;
+		Long totalViolationCount=0l;
+		Double unApprovedCount=0d;
+		Double approvedCount=0d;
+		Double totalDVCount=0d;
+		Double totalDVAmt=0d;
+		for(int i=0;i<reconSummary.size();i++)
+		{
+
+			totalDVCount=totalDVCount+Double.valueOf(reconSummary.get(i)[0].toString());
+			//LinkedHashMap map=new LinkedHashMap();
+			log.info("**Double.valueOf(reconSummary.get(i)[10].toString()*****at ***"+i+"is "+Double.valueOf(reconSummary.get(i)[10].toString()));
+			totalDVAmt=totalDVAmt+Double.valueOf(reconSummary.get(i)[10].toString());
+			DataViews dv=dataViewsRepository.findOne(Long.valueOf(reconSummary.get(i)[5].toString()));
+
+
+			/*	Double amountPer= 0d;
+			if(totalReconciledDvAmt>0)
+				amountPer=	(Double.valueOf( reconSummary.get(i)[8].toString())/totalReconciledDvAmt)*100d;
+
+			Double countPer= 0d;
+			if(totalReconciledDvCount>0)
+				countPer=(Double.valueOf( reconSummary.get(i)[1].toString())/totalReconciledDvCount)*100d;*/
+
+			totalReconAmt=totalReconAmt+Double.valueOf(reconSummary.get(i)[8].toString());
+			totalUnReconAmt=totalUnReconAmt+Double.valueOf(reconSummary.get(i)[6].toString());
+
+			approvedCount=approvedCount+Double.valueOf(reconSummary.get(i)[9].toString());
+
+			totalUnApprovedCt=totalUnApprovedCt+Double.valueOf(reconSummary.get(i)[7].toString());
+
+
+			List<BigInteger> finalSrcIdList=new ArrayList<BigInteger>();
+			List<BigInteger> reconciliedSrcIds=reconciliationResultRepository.fetchReconciledSourceIds(tenantId, recRuleGrpId, dv.getId());	 
+			finalSrcIdList.addAll(reconciliedSrcIds);
+			List<BigInteger> reconciliedTrgIds=reconciliationResultRepository.fetchReconciledTargetIds(tenantId, recRuleGrpId, dv.getId());	 
+			finalSrcIdList.addAll(reconciliedTrgIds);
+
+
+
+
+			List<BigInteger> finalApprovedSrcIds=new ArrayList<BigInteger>();
+			List<BigInteger> approvedSrcIds=reconciliationResultRepository.fetchApprovedSourceIds(tenantId, recRuleGrpId, dv.getId());	
+			log.info("reconciliedSrcIds.size :"+approvedSrcIds.size());
+			finalApprovedSrcIds.addAll(approvedSrcIds);
+			List<BigInteger> approvedTrgIds=reconciliationResultRepository.fetchApprovedTargetIds(tenantId, recRuleGrpId, dv.getId());	
+			log.info("reconciliedTrgIds.size :"+approvedTrgIds.size());
+			finalApprovedSrcIds.addAll(approvedTrgIds);
+			List<LinkedHashMap>  dvRuleDetailList=new ArrayList<LinkedHashMap>();
+			log.info("ViewId :"+reconSummary.get(i)[5]);
+			//List<Object[]> ruleDetailsForView=appModuleSummaryRepository.findRuleIdAndTypeIdByRuleGroupIdAndViewId(recRuleGrpId,Long.valueOf(reconSummary.get(i)[5].toString()),fDate,tDate);
+
+
+
+
+			Connection conn = null;
+			Statement stmtDv = null;
+			Statement stmtApprovedAmt = null;
+
+			DataViewsColumns dvColumn=dataViewsColumnsRepository.findByDataViewIdAndQualifier(dv.getId(), "AMOUNT");
+			String ammountQualifier="";
+			if(dvColumn.getRefDvType()!=null &&dvColumn.getRefDvType().equalsIgnoreCase("File Template"))
+			{
+				FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.valueOf(dvColumn.getRefDvColumn()));
+				ammountQualifier=ftl.getColumnAlias();
+			}
+			else
+				ammountQualifier=dvColumn.getColumnName();
+			DataSource ds = (DataSource)ApplicationContextProvider.getApplicationContext().getBean("dataSource");
+			conn = ds.getConnection();
+
+			log.info("Connected database successfully...");
+			stmtDv = conn.createStatement();
+			stmtApprovedAmt = conn.createStatement();
+
+			ResultSet resultDv=null;
+			ResultSet resultTotalViolationQuery=null;
+			ResultSet resultApprovedAmt=null;
+			String query="";
+
+			if(finalSrcIdList!=null && !finalSrcIdList.isEmpty())
+			{
+				String finalSrcIds=finalSrcIdList.toString().replaceAll("\\[", "").replaceAll("\\]", "");
+
+				query="select DATEDIFF( SYSDATE(), `v`.`fileDate`) as `rule_age`,count(scrIds),sum(`"+ammountQualifier+"`) as `"+ammountQualifier+"` from `"+dv.getDataViewName().toLowerCase().toLowerCase()+"` v where fileDate between '"+fDate+"' and '"+tDate+"' "
+						+ " and scrIds not in ("+finalSrcIds+")group by rule_age";
+				//log.info("query in if  :"+query);
+
+			}
+			else
+			{
+				query="select DATEDIFF( SYSDATE(), `v`.`fileDate`) as `rule_age`,count(scrIds),sum(`"+ammountQualifier+"`) as `"+ammountQualifier+"` from `"+dv.getDataViewName().toLowerCase().toLowerCase()+"` v where fileDate between '"+fDate+"' and '"+tDate+"' "
+						+ "group by rule_age";
+				//log.info("query in else  :"+query);
+			}
+
+
+			String	TotalcountQuery="select count(scrIds) from `"+dv.getDataViewName().toLowerCase().toLowerCase()+"` v where fileDate between '"+fDate+"' and '"+tDate+"' ";
+			//log.info("query in TotalcountQuery  :"+TotalcountQuery);
+
+			//log.info("query :"+query);
+			resultTotalViolationQuery=stmtDv.executeQuery(TotalcountQuery);
+			while(resultTotalViolationQuery.next())
+			{
+				totalViolationCount=totalViolationCount+Long.valueOf(resultTotalViolationQuery.getString("count(scrIds)").toString());
+			}
+			log.info("totalViolationCount :"+totalViolationCount);
+			//log.info("query :"+query);
+			resultDv=stmtDv.executeQuery(query);
+			ResultSetMetaData rsmd2 = resultDv.getMetaData();
+			int columnCount = rsmd2.getColumnCount();
+
+			log.info("violation :"+violation);
+			while(resultDv.next())
+			{
+				log.info("resultDv.getString(rule_age) :"+resultDv.getString("rule_age"));
+				int ruleAge=Integer.valueOf(resultDv.getString("rule_age").toString());
+
+				// int ruleAge=1;
+
+				log.info("ruleAge :"+ruleAge+" and violation :"+violation);
+				if(ruleAge>=violation)
+				{
+					log.info("if rule age is greater than violation");
+
+					violationCount=violationCount+Long.valueOf(resultDv.getString("count(scrIds)").toString());
+
+				}
+				else
+				{
+
+				}
+			}
+
+			if(finalApprovedSrcIds!=null && !finalApprovedSrcIds.isEmpty())
+			{
+				String finalSrcIds=finalSrcIdList.toString().replaceAll("\\[", "").replaceAll("\\]", "");
+
+				query="select sum(`"+ammountQualifier+"`) as `"+ammountQualifier+"` from `"+dv.getDataViewName().toLowerCase().toLowerCase()+"` v where fileDate between '"+fDate+"' and '"+tDate+"' "
+						+ " and scrIds not in ("+finalSrcIds+")";
+
+			}
+			else
+			{
+				query="select sum(`"+ammountQualifier+"`) as `"+ammountQualifier+"` from `"+dv.getDataViewName().toLowerCase().toLowerCase()+"` v where fileDate between '"+fDate+"' and '"+tDate+"'";
+
+
+			}
+			//log.info("query for unapproved amt :"+query);
+			resultApprovedAmt=stmtApprovedAmt.executeQuery(query);
+
+
+			if(resultDv!=null)
+				resultDv.close();
+			if(resultApprovedAmt!=null)
+				resultApprovedAmt.close();
+			if(resultTotalViolationQuery!=null);
+			resultTotalViolationQuery.close();
+			if(stmtDv!=null)
+				stmtDv.close();
+			if(stmtApprovedAmt!=null)
+				stmtApprovedAmt.close();
+			if(conn!=null)
+				conn.close();
+		}
+		//	log.info("totalUnReconAmt :"+totalUnReconAmt);
+		//	log.info("totalDVAmt :"+totalDVAmt);
+		Double unReconItemsValuePer=0d;
+		Double unApprovedCtPer=0d;
+		double unReconItemsViolationPer=0l;
+		Double totalReconPer=0d;
+		if(totalReconAmt>0)
+		{
+			totalReconPer=(totalReconAmt/totalDVAmt)*100;
+			unReconItemsValuePer=100-totalReconPer;
+			//	unReconItemsValuePer=(totalUnReconAmt/totalDVAmt)*100;
+
+		}
+		if(totalDVCount>0)
+		{
+			log.info("totalDVCount :"+totalDVCount);
+			log.info("totalUnApprovedCt :"+totalUnApprovedCt);
+			unApprovedCtPer=(totalUnApprovedCt/totalDVCount)*100;
+		}
+		if(totalViolationCount>0)
+		{
+			//log.info("violationCount :"+violationCount);
+			//log.info("totalViolationCount :"+totalViolationCount);
+			unReconItemsViolationPer=((double)violationCount/totalViolationCount)*100;
+		}
+		//	log.info("rulesList :"+rulesList);
+		List<Object[]> reconTotalApprovalCount=appModuleSummaryRepository.fetchTotalApprovalCount(recRuleGrpId,fDate,tDate);	
+		Double totalApprovalCt=0d;
+		Double totalUnApprovalCt=0d;
+		Double totalUnApprovalCtPer=0d;
+		if(reconTotalApprovalCount.size()>0)
+		{
+			totalApprovalCt= Double.valueOf(reconTotalReconciledAmountAndCount.get(0)[0].toString());
+			totalUnApprovalCt= totaldvCount-totalApprovalCt;
+			totalUnApprovalCtPer=totalApprovalCt/totaldvCount*100;
+		}
+		log.info("****totalUnApprovalCtPer*:"+totalUnApprovalCtPer);
+
+		List< Object[]> reconSummaryForUnItemsByValue=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountBetweenGivenDates(recRuleGrpId,fDate,tDate);
+		if(reconSummaryForUnItemsByValue.size()>0)
+		{
+			finalMap.put("unReconItemsValue", reconSummaryForUnItemsByValue.get(0)[5]);
+			finalMap.put("unReconItemsValuePer", reconSummaryForUnItemsByValue.get(0)[4]);
+			finalMap.put("awaitingAppCount", reconSummaryForUnItemsByValue.get(0)[6]);
+			finalMap.put("awaitingAppCountPer",  reconSummaryForUnItemsByValue.get(0)[7]);
+		}
+		else
+		{
+			finalMap.put("unReconItemsValue", 0d);
+			finalMap.put("unReconItemsValuePer", 0d);
+			finalMap.put("awaitingAppCount", 0d);
+			finalMap.put("awaitingAppCountPer",  0d);
+		}
+
+		finalMap.put("rulesList", rulesList);
+		finalMap.put("rulesIdList", rulesIdList);
+
+		finalMap.put("unReconItemsViolation", violationCount);
+		finalMap.put("unReconItemsViolationPer", Double.valueOf(dform.format(unReconItemsViolationPer)));
+		finalMap.put("unReconItemsByCount", totalUnReconciledDvCount);
+		finalMap.put("unReconItemsByCountPer", Double.valueOf(dform.format( totalUnReconciledCountPer)));
+
+
+
+
+
+
+		log.info("******end Time : "+ZonedDateTime.now()+"*******");
+		return finalMap;
+	}
+	
+	
+	
+	@PostMapping("/awaitingApprovalsInfo")
+	@Timed
+	public List<LinkedHashMap> detailInformationForApprovals(HttpServletRequest request,@RequestParam String ruleGroupId,@RequestParam(value="viewId",required=false) Long viewId,@RequestBody HashMap dates,@RequestParam String module) throws ClassNotFoundException, SQLException
+	{ 
+		log.info("Rest Request to get aging analysis :"+dates);
+		
+		HashMap tenMap=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(tenMap.get("tenantId").toString());
+		
+		List<LinkedHashMap> finalMap=new ArrayList<LinkedHashMap>();
+
+		//HashMap map=userJdbcService.getuserInfoFromToken(request);
+		//Long tenantId=Long.parseLong(map.get("tenantId").toString());
+
+		ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+
+		ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+
+		log.info("fmDate :"+fmDate);
+
+		log.info("toDate :"+toDate);
+
+		LocalDate fDate=fmDate.toLocalDate();
+
+		LocalDate tDate=toDate.toLocalDate();
+		
+		List<BigInteger> viewIdsList=new ArrayList<BigInteger>();
+		RuleGroup rgId=ruleGroupRepository.findByIdForDisplayAndTenantId(ruleGroupId,tenantId);
+		if(viewId!=null)
+			viewIdsList.add(BigInteger.valueOf(viewId));
+		else 
+		{
+			List<Long> recRuleIds= ruleGroupDetailsRepository.fetchByRuleGroupIdAndTenantId(rgId.getId(),tenantId);
+			List<BigInteger> srcViewId=rulesRepository.fetchDistictSrcViewIdsByRuleId(recRuleIds);
+			viewIdsList.addAll(srcViewId);
+
+			List<BigInteger> trgViewId=rulesRepository.fetchDistictTargetViewIdsByRuleId(recRuleIds);
+			viewIdsList.addAll(trgViewId);
+
+			
+		}
+		
+		String allDataViewIds=viewIdsList.toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", "");
+		log.info("allDataViewIds :"+allDataViewIds);
+		
+			RuleGroup appRuleGrp=ruleGroupRepository.findOne(rgId.getId());
+			List<BigInteger> ruleIdList=ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(appRuleGrp.getApprRuleGrpId(), tenantId);
+
+			if(appRuleGrp.getApprRuleGrpId()!=null)
+			{
+				List<BigInteger> currentAppList=notificationBatchRepository.findCurrentApproversByRuleGroupId(appRuleGrp.getApprRuleGrpId());
+				
+
+				for(BigInteger currentApp:currentAppList)
+				{
+					List<NotificationBatch> notBatchList=notificationBatchRepository.findByCurrentApproverAndRuleGroupIdAndStatus(currentApp.longValue(),appRuleGrp.getApprRuleGrpId(),"IN_PROCESS");
+					for(NotificationBatch notBatch:notBatchList)
+					{
+						Integer I = null;
+						if(notBatch.getRefLevel()!=null)
+						{
+							I=notBatch.getRefLevel();
+						}
+						String refNum=String.valueOf(I);
+						if(refNum.length()<=1)
+							refNum="0"+refNum;
+						log.info("refNum :"+refNum);
+
+						String userAndBatchId =notBatch.getCurrentApprover()+"|"+notBatch.getId();
+						log.info("userAndBatchId :"+userAndBatchId);
+						String queryCount="";
+						if(module.equalsIgnoreCase("reconciliation"))
+							queryCount="select id from ReconciliationResult where reconciliationRuleGroupId="+rgId.getId()+" and (originalViewId in ("+allDataViewIds+") or targetViewId in ("+allDataViewIds+")) and apprRef"+refNum+" LIKE '"+userAndBatchId+"%'";
+						else
+							queryCount="select id from AccountingData where acctGroupId="+rgId.getId()+" and (originalViewId in ("+allDataViewIds+")) and apprRef"+refNum+" LIKE '"+userAndBatchId+"%'";
+
+						//log.info("queryCount :"+queryCount);
+						Query distReconRefQueryCount=em.createQuery(queryCount);
+						List count=distReconRefQueryCount.getResultList();
+						Integer appInprocessCt = null;
+						if(count.size()>0)
+						{
+							
+						String srcIds=count.toString().replaceAll("\\[", "").replaceAll("\\]", "");
+						
+						String totalInprocessQuery="select id from DataMaster "
+								+ "where id in ("+srcIds+") and DATE(file_date)>='"+fDate+"' and DATE(file_date) <='"+tDate+"'";
+						Query inprocessQuery=em.createQuery(totalInprocessQuery);
+						List countOfInprocess=inprocessQuery.getResultList();
+						appInprocessCt=countOfInprocess.size();
+						}
+						
+						log.info("count.get(0) :"+count.size());
+						log.info("appInprocessCt :"+appInprocessCt);
+						LinkedHashMap appMap=new LinkedHashMap();
+						appMap.put("batchId", notBatch.getId());
+						appMap.put("batchName", notBatch.getNotificationName());
+						HashMap map=userJdbcService.jdbcConnc(notBatch.getCurrentApprover(),notBatch.getTenantId());
+						if(map!=null && map.get("assigneeName")!=null)
+						{
+							appMap.put("currentApprover",map.get("assigneeName"));
+							appMap.put("count",count.size());
+							List<ApprovalRuleAssignment> appRuleAsnmtList=approvalRuleAssignmentRepository.findByRuleId(notBatch.getRuleId());
+							log.info("appRuleAsnmtList.size :"+appRuleAsnmtList.size());
+							if(appRuleAsnmtList.size()>notBatch.getRefLevel())
+							{
+								HashMap map2=userJdbcService.jdbcConnc(appRuleAsnmtList.get(notBatch.getRefLevel()).getAssigneeId(),notBatch.getTenantId());
+								appMap.put("nextApprover",map2.get("assigneeName"));
+							}
+							else
+								appMap.put("nextApprover","none");
+							if(appInprocessCt!=null && appInprocessCt>0)
+							finalMap.add(appMap);
+						}
+
+					}
+				}
+			}
+
+
+		//}
+
+		return finalMap;
+	}
+	
+	
+}
+

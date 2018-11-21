@@ -1,0 +1,224 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.TenantConfigModules;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.TenantConfigModulesRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.TenantConfigModulesDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+/**
+ * REST controller for managing TenantConfigModules.
+ */
+@RestController
+@RequestMapping("/api")
+public class TenantConfigModulesResource {
+
+    private final Logger log = LoggerFactory.getLogger(TenantConfigModulesResource.class);
+
+    private static final String ENTITY_NAME = "tenantConfigModules";
+        
+    private final TenantConfigModulesRepository tenantConfigModulesRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+
+    @Inject
+	UserJdbcService userJdbcService;
+    
+    public TenantConfigModulesResource(TenantConfigModulesRepository tenantConfigModulesRepository) {
+        this.tenantConfigModulesRepository = tenantConfigModulesRepository;
+    }
+
+    /**
+     * POST  /tenant-config-modules : Create a new tenantConfigModules.
+     *
+     * @param tenantConfigModules the tenantConfigModules to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new tenantConfigModules, or with status 400 (Bad Request) if the tenantConfigModules has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/tenant-config-modules")
+    @Timed
+    public ResponseEntity<TenantConfigModules> createTenantConfigModules(@RequestBody TenantConfigModules tenantConfigModules) throws URISyntaxException {
+        log.debug("REST request to save TenantConfigModules : {}", tenantConfigModules);
+        if (tenantConfigModules.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new tenantConfigModules cannot already have an ID")).body(null);
+        }
+        tenantConfigModules.setStartDate(tenantConfigModules.getStartDate().plusDays(1));
+        tenantConfigModules.setEndDate(tenantConfigModules.getEndDate().plusDays(1));
+        TenantConfigModules result = tenantConfigModulesRepository.save(tenantConfigModules);
+        return ResponseEntity.created(new URI("/api/tenant-config-modules/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+    @PostMapping("/tenant-config-modules-list")
+    @Timed
+    public void createTenantConfigModules(@RequestBody List<TenantConfigModules> tenantConfigModules) throws URISyntaxException {
+        log.debug("REST request to save TenantConfigModules : {}", tenantConfigModules);
+        List <TenantConfigModules> result=new ArrayList<TenantConfigModules>();
+        for(TenantConfigModules tenantConfig:tenantConfigModules)
+        {
+        	tenantConfig.setStartDate(tenantConfig.getStartDate().plusDays(1));
+        	tenantConfig.setEndDate(tenantConfig.getEndDate().plusDays(1));
+        	result.add(tenantConfig);
+        }
+        result = tenantConfigModulesRepository.save(result);
+       
+       
+    }
+
+    /**
+     * PUT  /tenant-config-modules : Updates an existing tenantConfigModules.
+     *
+     * @param tenantConfigModules the tenantConfigModules to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated tenantConfigModules,
+     * or with status 400 (Bad Request) if the tenantConfigModules is not valid,
+     * or with status 500 (Internal Server Error) if the tenantConfigModules couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/tenant-config-modules")
+    @Timed
+    public ResponseEntity<TenantConfigModules> updateTenantConfigModules(@RequestBody TenantConfigModules tenantConfigModules) throws URISyntaxException {
+        log.debug("REST request to update TenantConfigModules : {}", tenantConfigModules);
+        if (tenantConfigModules.getId() == null) {
+            return createTenantConfigModules(tenantConfigModules);
+        }
+        tenantConfigModules.setStartDate(tenantConfigModules.getStartDate().plusDays(1));
+        tenantConfigModules.setEndDate(tenantConfigModules.getEndDate().plusDays(1));
+        TenantConfigModules result = tenantConfigModulesRepository.save(tenantConfigModules);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, tenantConfigModules.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /tenant-config-modules : get all the tenantConfigModules.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of tenantConfigModules in body
+     */
+    @GetMapping("/tenant-config-modules")
+    @Timed
+    public ResponseEntity<List<TenantConfigModules>> getAllTenantConfigModules(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of TenantConfigModules");
+        Page<TenantConfigModules> page = tenantConfigModulesRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/tenant-config-modules");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /tenant-config-modules/:id : get the "id" tenantConfigModules.
+     *
+     * @param id the id of the tenantConfigModules to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the tenantConfigModules, or with status 404 (Not Found)
+     */
+    @GetMapping("/tenant-config-modules/{id}")
+    @Timed
+    public ResponseEntity<TenantConfigModules> getTenantConfigModules(@PathVariable Long id) {
+        log.debug("REST request to get TenantConfigModules : {}", id);
+        TenantConfigModules tenantConfigModules = tenantConfigModulesRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(tenantConfigModules));
+    }
+
+    /**
+     * DELETE  /tenant-config-modules/:id : delete the "id" tenantConfigModules.
+     *
+     * @param id the id of the tenantConfigModules to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/tenant-config-modules/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteTenantConfigModules(@PathVariable Long id) {
+        log.debug("REST request to delete TenantConfigModules : {}", id);
+        tenantConfigModulesRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * authour :ravali
+     * API to fetch Active details 
+     * @throws SQLException 
+     * @throws ClassNotFoundException 
+     */
+    /*@GetMapping("/getTenantConfigModulesByTenantId")
+    @Timed
+    public List<TenantConfigModules> getTenantConfigModulesByTenantId(@RequestParam Long tenantId) {
+        log.debug("REST request to get TenantConfigModules by tenantId: ", tenantId);
+       List<TenantConfigModules>tenantConfigModules = tenantConfigModulesRepository.findByTenantIdAndActive(tenantId);
+        return tenantConfigModules;
+    }*/
+    
+    @GetMapping("/getTenantConfigModulesByTenantId")
+    @Timed
+    public List<TenantConfigModulesDTO> getTenantConfigModulesByTenantId(HttpServletRequest request,@RequestParam(value="tenantId",required=false) String tenantId) throws ClassNotFoundException, SQLException {
+    	Long tenId=0l;
+    	if(tenantId!=null)
+    	{
+    		HashMap tenantIdMap=userJdbcService.getTenantIdForDisplay(tenantId);
+    		tenId=Long.valueOf(tenantIdMap.get("tenantId").toString());
+    	}
+
+    	else
+    	{
+    		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    		tenId=Long.parseLong(map.get("tenantId").toString());
+    	}
+    	log.debug("REST request to get TenantConfigModules by tenantId: "+ tenantId);
+    	List<TenantConfigModules> tenantConfigModulesList = tenantConfigModulesRepository.findByTenantIdAndEnabledFlagIsTrue(tenId);
+    	List<TenantConfigModulesDTO> tenantConfigModulesDtoList = new ArrayList<TenantConfigModulesDTO>();
+
+    	for(int i=0;i<tenantConfigModulesList.size();i++){
+    		TenantConfigModules tenantConfigMod=tenantConfigModulesList.get(i);
+    		TenantConfigModulesDTO tenantConfigModData=new TenantConfigModulesDTO();
+    		tenantConfigModData.setId(tenantConfigMod.getId());
+    		tenantConfigModData.setTenantId(tenId);
+    		tenantConfigModData.setModules(tenantConfigMod.getModules());
+    		tenantConfigModData.setEnabledFlag(tenantConfigMod.isEnabledFlag());
+    		tenantConfigModData.setStartDate(tenantConfigMod.getStartDate());
+    		tenantConfigModData.setEndDate(tenantConfigMod.getEndDate());
+    		tenantConfigModData.setContractNum(tenantConfigMod.getContractNum());
+    		tenantConfigModData.setCreatedDate(tenantConfigMod.getCreatedDate());
+    		tenantConfigModData.setCreatedBy(tenantConfigMod.getCreatedBy());
+    		tenantConfigModData.setLastUpdatedDate(tenantConfigMod.getLastUpdatedDate());
+    		tenantConfigModData.setLastUpdatedBy(tenantConfigMod.getLastUpdatedBy());
+    		tenantConfigModData.setMandatory(tenantConfigMod.isMandatory());
+    		if(tenantConfigMod.getModules()!=null){
+
+    			LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("APP_MODULES", tenantConfigMod.getModules(), 0l);
+    			if(lookUpCode!=null)
+    				tenantConfigModData.setPurpose(lookUpCode.getMeaning());
+
+    		}
+    		tenantConfigModulesDtoList.add(tenantConfigModData);
+
+    	}
+    	return tenantConfigModulesDtoList;
+    }
+
+}

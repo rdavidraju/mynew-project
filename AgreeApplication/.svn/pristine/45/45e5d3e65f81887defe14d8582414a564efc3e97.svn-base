@@ -1,0 +1,554 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.ReportRequests;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.repository.ReportRequestsRepository;
+import com.nspl.app.web.rest.dto.DataViewsToViewColumnsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ * REST controller for managing ReportRequests.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReportRequestsResource {
+
+    private final Logger log = LoggerFactory.getLogger(ReportRequestsResource.class);
+
+    private static final String ENTITY_NAME = "reportRequests";
+
+    private final ReportRequestsRepository reportRequestsRepository;
+
+    public ReportRequestsResource(ReportRequestsRepository reportRequestsRepository) {
+        this.reportRequestsRepository = reportRequestsRepository;
+    }
+
+    /**
+     * POST  /report-requests : Create a new reportRequests.
+     *
+     * @param reportRequests the reportRequests to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reportRequests, or with status 400 (Bad Request) if the reportRequests has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/report-requests")
+    @Timed
+    public ResponseEntity<ReportRequests> createReportRequests(@RequestBody ReportRequests reportRequests) throws URISyntaxException {
+        log.debug("REST request to save ReportRequests : {}", reportRequests);
+        if (reportRequests.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reportRequests cannot already have an ID")).body(null);
+        }
+        ReportRequests result = reportRequestsRepository.save(reportRequests);
+        return ResponseEntity.created(new URI("/api/report-requests/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /report-requests : Updates an existing reportRequests.
+     *
+     * @param reportRequests the reportRequests to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reportRequests,
+     * or with status 400 (Bad Request) if the reportRequests is not valid,
+     * or with status 500 (Internal Server Error) if the reportRequests couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/report-requests")
+    @Timed
+    public ResponseEntity<ReportRequests> updateReportRequests(@RequestBody ReportRequests reportRequests) throws URISyntaxException {
+        log.debug("REST request to update ReportRequests : {}", reportRequests);
+        if (reportRequests.getId() == null) {
+            return createReportRequests(reportRequests);
+        }
+        ReportRequests result = reportRequestsRepository.save(reportRequests);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reportRequests.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /report-requests : get all the reportRequests.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reportRequests in body
+     */
+    @GetMapping("/report-requests")
+    @Timed
+    public ResponseEntity<List<ReportRequests>> getAllReportRequests(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ReportRequests");
+        Page<ReportRequests> page = reportRequestsRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/report-requests");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /report-requests/:id : get the "id" reportRequests.
+     *
+     * @param id the id of the reportRequests to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reportRequests, or with status 404 (Not Found)
+     */
+    @GetMapping("/report-requests/{id}")
+    @Timed
+    public ResponseEntity<ReportRequests> getReportRequests(@PathVariable Long id) {
+        log.debug("REST request to get ReportRequests : {}", id);
+        ReportRequests reportRequests = reportRequestsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reportRequests));
+    }
+    
+    
+    /**
+     * authore ravali
+     * @param id
+     * @return
+     * @throws ParseException
+     * Desc :api to get a parameter object for a request
+     */
+    @GetMapping("/getRequestparameterObject")
+    @Timed
+    public LinkedHashMap getRequestparameterObject(@RequestParam Long id) throws ParseException {
+        log.debug("REST request to get a parameter object for a requestId", id);
+        ReportRequests reportRequests = reportRequestsRepository.findOne(id);
+        LinkedHashMap map=new LinkedHashMap();
+        if(reportRequests.getFilterMap()!=null)
+		{
+			JSONParser parser = new JSONParser();
+			
+			String paramVal=reportRequests.getFilterMap();
+			JSONObject jsonValue = (JSONObject) parser.parse(paramVal);
+			map.put("filterMap", jsonValue);
+		}
+		else
+			map.put("filterMap", "");
+        
+        
+        return map;
+    }
+
+    /**
+     * DELETE  /report-requests/:id : delete the "id" reportRequests.
+     *
+     * @param id the id of the reportRequests to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/report-requests/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReportRequests(@PathVariable Long id) {
+        log.debug("REST request to delete ReportRequests : {}", id);
+        reportRequestsRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+  
+    
+    /*@GetMapping("/reportRequestByTenantIdOrReqId")
+    @Timed
+    public List<LinkedHashMap> reportRequestByTenantIdOrReqId(@RequestParam(value="repId",required=false) Long repId,@RequestParam Long tenantId,HttpServletResponse response,
+    		@RequestParam(value = "page" , required = false) Integer offset,
+    		@RequestParam(value = "per_page", required = false) Integer limit,@RequestParam(value = "requestType", required = false) String requestType,@RequestParam(required = false) String sortDirection,@RequestParam(required = false) String sortCol) throws URISyntaxException, ParseException {
+    	log.info("rest request to get reportRequestByTenantIdOrReqId :"+tenantId);
+    	List<ReportRequests> requests=new ArrayList<ReportRequests>();
+    	
+
+    	
+    
+    	Page<ReportRequests> page = null;
+    	
+    	if(sortDirection==null)
+    		sortDirection="Descending";
+    	if(sortCol==null)
+    		sortCol="Id";
+    	
+    
+    	
+    	//limit-per page-pageSize
+    	//offset-page-pageNumber
+    	
+    	if(repId!=null && requestType!=null)
+		{
+			log.info("in 1 condition");
+			requests = reportRequestsRepository.findByReportIdAndTenantIdAndRequestType(repId,tenantId,requestType);
+
+		}
+		else if(repId!=null && requestType==null)
+		{
+			log.info("in 2 condition");
+			requests = reportRequestsRepository.findByReportIdAndTenantId(repId,tenantId);
+
+		}
+		else if(repId==null && requestType!=null)
+		{
+			log.info("in 3 condition");
+			requests=reportRequestsRepository.findByTenantIdAndRequestTypeOrderByIdDesc(tenantId,requestType);
+		}
+		else
+		{
+			log.info("in 4 condition");
+			requests=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId);
+		}
+    	
+      	int totReportsCnt=requests.size();
+
+    	int limit1zzz = 0;
+    	if(offset == null || offset == 0)
+    	{
+    		offset = 0;
+    	}
+    	if(limit == null || limit == 0)
+    	{
+    		limit = totReportsCnt;
+    	}
+    	limit1zzz = ((offset+1) * limit + 1)-1;
+    	int startIndex=offset*limit; 
+
+    	if(limit1zzz>totReportsCnt){
+    		limit1zzz=totReportsCnt;
+    	}
+    	
+    	
+    	
+    	log.info("Limit Starting Values : "+ limit1zzz);
+    	log.info("Page Number : "+ offset);
+    	log.info("startIndex: "+startIndex);
+    	
+    	
+    	if(requests.size()>0)
+    	
+    	{
+    	if(repId!=null && requestType!=null)
+		{
+			log.info("in 1 condition");
+			page = reportRequestsRepository.findByReportIdAndTenantIdAndRequestTypeOrderByIdDesc(repId,tenantId,requestType, PaginationUtil.generatePageRequestWithSortColumn(offset+1, limit1zzz,sortDirection,sortCol));
+
+		}
+		else if(repId!=null && requestType==null)
+		{
+			log.info("in 2 condition");
+			page = reportRequestsRepository.findByReportIdAndTenantIdOrderByIdDesc(repId,tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset+1, limit1zzz,sortDirection,sortCol));
+
+		}
+		else if(repId==null && requestType!=null)
+		{
+			log.info("in 3 condition");
+			page=reportRequestsRepository.findByTenantIdAndRequestTypeOrderByIdDesc(tenantId,requestType,PaginationUtil.generatePageRequestWithSortColumn(offset+1, limit1zzz,sortDirection,sortCol));
+		}
+		else
+		{
+			log.info("in 4 condition");
+			page=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset+1, limit1zzz,sortDirection,sortCol));
+		}
+
+    	}
+  
+    	log.info("page :"+page.getSize());
+    	List<LinkedHashMap> requestList=new ArrayList<LinkedHashMap>();
+    	for(int i=0;i<page.getContent().size();i++)
+    	{
+    		LinkedHashMap map=new LinkedHashMap();
+    		if(page.getContent().get(i)!=null)
+    		{
+    			if(page.getContent().get(i).getId()!=null)
+    				map.put("reqId", page.getContent().get(i).getId());
+    			if(page.getContent().get(i).getReqName()!=null)
+    				map.put("reqName", page.getContent().get(i).getReqName());
+    			if(page.getContent().get(i).getReportId()!=null)
+    				map.put("reportId", page.getContent().get(i).getReportId());
+    			if(page.getContent().get(i).getOutputPath()!=null)
+    				map.put("outputPath", page.getContent().get(i).getOutputPath());
+    			if(page.getContent().get(i).getFileName()!=null)
+    				map.put("fileName", page.getContent().get(i).getFileName());
+    			if(page.getContent().get(i).getTenantId()!=null)
+    				map.put("tenantId", page.getContent().get(i).getTenantId());
+    			if( page.getContent().get(i).getStatus()!=null)
+    				map.put("status", page.getContent().get(i).getStatus());
+    			if(page.getContent().get(i).getCreatedDate()!=null)
+    				map.put("createdDate", page.getContent().get(i).getCreatedDate());
+    			if(page.getContent().get(i).getCreatedBy()!=null)
+    				map.put("createdBy", page.getContent().get(i).getCreatedBy());
+    			if(page.getContent().get(i).getLastUpdatedBy()!=null)
+    				map.put("lastUpdatedBy", page.getContent().get(i).getLastUpdatedBy());
+    			if(page.getContent().get(i).getLastUpdatedDate()!=null)
+    				map.put("lastUpdatedDate", page.getContent().get(i).getLastUpdatedDate());
+    			if(page.getContent().get(i).getSubmittedTime()!=null)
+    				map.put("submittedTime", page.getContent().get(i).getSubmittedTime());
+    			if(page.getContent().get(i).getGeneratedTime()!=null)
+    				map.put("generatedTime", page.getContent().get(i).getGeneratedTime());
+    			if(page.getContent().get(i).getJobId()!=null)
+    				map.put("jobId", page.getContent().get(i).getJobId());
+    			if(page.getContent().get(i).getRequestType()!=null)
+    				map.put("requestType", page.getContent().get(i).getRequestType());
+    			if(page.getContent().get(i).getFilterMap()!=null)
+    			{
+    				JSONParser parser = new JSONParser();
+    				//    		JSONObject jsonValue = (JSONArray) parser.parse(page.getContent().get(i).getFilterMap());
+    				String paramVal=page.getContent().get(i).getFilterMap();
+    				JSONObject jsonValue = (JSONObject) parser.parse(paramVal);
+    				map.put("filterMap", jsonValue);
+    			}
+    			else
+    				map.put("filterMap", "");
+
+    			requestList.add(map);
+    		}
+    	}
+
+    	if(repId!=null)
+    	{
+    		requests = reportRequestsRepository.findByReportIdAndTenantId(repId,tenantId);
+
+    	}
+    	else
+    		requests=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId);
+    	response.addIntHeader("X-COUNT",requests.size());
+    	log.info("***endTime**");
+    	return requestList;
+
+    }*/
+    
+    
+    
+    
+    
+    
+    @GetMapping("/reportRequestByTenantIdOrReqId")
+    @Timed
+    public List<LinkedHashMap> reportRequestByTenantIdOrReqId(@RequestParam(value="repId",required=false) Long repId,@RequestParam Long tenantId,HttpServletResponse response,
+    		@RequestParam(value = "page" , required = false) Integer offset,
+    		@RequestParam(value = "per_page", required = false) Integer limit,@RequestParam(value = "requestType", required = false) String requestType,@RequestParam(required = false) String sortDirection,@RequestParam(required = false) String sortCol) throws URISyntaxException, ParseException {
+    	log.info("rest request to get reportRequestByTenantIdOrReqId :"+tenantId);
+    	List<ReportRequests> requests=new ArrayList<ReportRequests>();
+    
+    	Page<ReportRequests> page = null;
+    	
+    	if(sortDirection==null)
+    		sortDirection="Descending";
+    	if(sortCol==null)
+    		sortCol="Id";
+    	
+    	//limit-per page-pageSize
+    	//offset-page-pageNumber
+    	
+    	List<String> relationList = new ArrayList<String>();
+    	List<BigInteger> filteredDvList = new ArrayList<BigInteger>();
+    	if(sortDirection==null)
+    		sortDirection="Descending";
+    	
+    	List<DataViews> dvList=new ArrayList<DataViews>();
+    	PaginationUtil paginationUtil=new PaginationUtil();
+    	int maxlmt=paginationUtil.MAX_LIMIT;
+		int minlmt=paginationUtil.MIN_OFFSET;
+		log.info("maxlmt: "+maxlmt);
+		
+	
+		HttpHeaders headers = null;
+		if(limit == null || limit < minlmt)
+    	{
+			if(repId!=null && requestType!=null)
+			{
+				log.info("in 1 condition");
+				requests = reportRequestsRepository.findByReportIdAndTenantIdAndRequestType(repId,tenantId,requestType);
+				limit=requests.size();
+
+			}
+			else if(repId!=null && requestType==null)
+			{
+				log.info("in 2 condition");
+				requests = reportRequestsRepository.findByReportIdAndTenantId(repId,tenantId);
+				limit=requests.size();
+
+			}
+			else if(repId==null && requestType!=null)
+			{
+				log.info("in 3 condition");
+				requests=reportRequestsRepository.findByTenantIdAndRequestTypeOrderByIdDesc(tenantId,requestType);
+				limit=requests.size();
+			}
+			else
+			{
+				log.info("in 4 condition");
+				requests=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId);
+				limit=requests.size();
+			}
+			
+    	}
+    	if(limit == 0)
+    	{
+    		log.info("applying limit 0");
+    		limit= paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+		{
+    		log.info("applying offset 0");
+			offset = paginationUtil.DEFAULT_OFFSET;
+		}
+    	if(limit>maxlmt)
+		{
+			log.info("input limit exceeds maxlimit");
+			
+			
+
+	    	if(repId!=null && requestType!=null)
+			{
+				log.info("in 1 condition");
+				page = reportRequestsRepository.findByReportIdAndTenantIdAndRequestTypeOrderByIdDesc(repId,tenantId,requestType, PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+
+			}
+			else if(repId!=null && requestType==null)
+			{
+				log.info("in 2 condition");
+				page = reportRequestsRepository.findByReportIdAndTenantIdOrderByIdDesc(repId,tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+
+			}
+			else if(repId==null && requestType!=null)
+			{
+				log.info("in 3 condition");
+				page=reportRequestsRepository.findByTenantIdAndRequestTypeOrderByIdDesc(tenantId,requestType,PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+			}
+			else
+			{
+				log.info("in 4 condition");
+				page=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+			}
+
+		
+		}
+    	else
+    	{
+    		log.info("input limit is within maxlimit");
+
+	    	if(repId!=null && requestType!=null)
+			{
+				log.info("in 1 condition");
+				page = reportRequestsRepository.findByReportIdAndTenantIdAndRequestTypeOrderByIdDesc(repId,tenantId,requestType, PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+
+			}
+			else if(repId!=null && requestType==null)
+			{
+				log.info("in 2 condition");
+				page = reportRequestsRepository.findByReportIdAndTenantIdOrderByIdDesc(repId,tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+
+			}
+			else if(repId==null && requestType!=null)
+			{
+				log.info("in 3 condition");
+				page=reportRequestsRepository.findByTenantIdAndRequestTypeOrderByIdDesc(tenantId,requestType,PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+			}
+			else
+			{
+				log.info("in 4 condition");
+				page=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit,sortDirection,sortCol));
+			}
+
+	    	
+    	}
+    	
+    
+  
+    	log.info("page :"+page.getSize());
+    	List<LinkedHashMap> requestList=new ArrayList<LinkedHashMap>();
+    	for(int i=0;i<page.getContent().size();i++)
+    	{
+    		LinkedHashMap map=new LinkedHashMap();
+    		if(page.getContent().get(i)!=null)
+    		{
+    			if(page.getContent().get(i).getId()!=null)
+    				map.put("reqId", page.getContent().get(i).getId());
+    			if(page.getContent().get(i).getReqName()!=null)
+    				map.put("reqName", page.getContent().get(i).getReqName());
+    			if(page.getContent().get(i).getReportId()!=null)
+    				map.put("reportId", page.getContent().get(i).getReportId());
+    			if(page.getContent().get(i).getOutputPath()!=null)
+    				map.put("outputPath", page.getContent().get(i).getOutputPath());
+    			if(page.getContent().get(i).getFileName()!=null)
+    				map.put("fileName", page.getContent().get(i).getFileName());
+    			if(page.getContent().get(i).getTenantId()!=null)
+    				map.put("tenantId", page.getContent().get(i).getTenantId());
+    			if( page.getContent().get(i).getStatus()!=null)
+    				map.put("status", page.getContent().get(i).getStatus());
+    			if(page.getContent().get(i).getCreatedDate()!=null)
+    				map.put("createdDate", page.getContent().get(i).getCreatedDate());
+    			if(page.getContent().get(i).getCreatedBy()!=null)
+    				map.put("createdBy", page.getContent().get(i).getCreatedBy());
+    			if(page.getContent().get(i).getLastUpdatedBy()!=null)
+    				map.put("lastUpdatedBy", page.getContent().get(i).getLastUpdatedBy());
+    			if(page.getContent().get(i).getLastUpdatedDate()!=null)
+    				map.put("lastUpdatedDate", page.getContent().get(i).getLastUpdatedDate());
+    			if(page.getContent().get(i).getSubmittedTime()!=null)
+    				map.put("submittedTime", page.getContent().get(i).getSubmittedTime());
+    			if(page.getContent().get(i).getGeneratedTime()!=null)
+    				map.put("generatedTime", page.getContent().get(i).getGeneratedTime());
+    			if(page.getContent().get(i).getJobId()!=null)
+    				map.put("jobId", page.getContent().get(i).getJobId());
+    			if(page.getContent().get(i).getRequestType()!=null)
+    				map.put("requestType", page.getContent().get(i).getRequestType());
+    			if(page.getContent().get(i).getFilterMap()!=null)
+    			{
+    				JSONParser parser = new JSONParser();
+    				//    		JSONObject jsonValue = (JSONArray) parser.parse(page.getContent().get(i).getFilterMap());
+    				String paramVal=page.getContent().get(i).getFilterMap();
+    				JSONObject jsonValue = (JSONObject) parser.parse(paramVal);
+    				map.put("filterMap", jsonValue);
+    			}
+    			else
+    				map.put("filterMap", "");
+
+    			requestList.add(map);
+    		}
+    	}
+
+    	if(repId!=null)
+    	{
+    		requests = reportRequestsRepository.findByReportIdAndTenantId(repId,tenantId);
+
+    	}
+    	else
+    		requests=reportRequestsRepository.findByTenantIdOrderByIdDesc(tenantId);
+    	response.addIntHeader("X-COUNT",requests.size());
+    	log.info("***endTime**");
+    	return requestList;
+
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  
+}

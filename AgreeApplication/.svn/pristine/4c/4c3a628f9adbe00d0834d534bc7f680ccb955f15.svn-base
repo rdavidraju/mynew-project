@@ -1,0 +1,461 @@
+package com.nspl.app.service;
+
+import java.math.BigDecimal;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.SimpleDateFormat;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+
+import javax.inject.Inject;
+
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.nspl.app.domain.BalanceType;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.repository.BalanceTypeRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+
+@Service
+@Transactional
+public class BalanceTypeService {
+	
+	@Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+
+	@Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+	
+	@Inject
+    BalanceTypeRepository balanceTypeRepository;
+
+	@Inject
+    private Environment env;
+	
+	public HashMap<String, List<String>> findGrpByColNamesAndQualifiersForDataView(
+			Long dataViewId) {
+		// TODO Auto-generated method stub
+		List<String> colNames = new ArrayList<String>();
+		HashMap<String,List<String>> grpQualCols = new HashMap<String, List<String>>(); 
+		
+		List<DataViewsColumns> dataViewColumns = dataViewsColumnsRepository.findByDataViewId(dataViewId);
+				
+		for(DataViewsColumns dvCol:dataViewColumns)
+		{
+			String refDvType  = dvCol.getRefDvType();
+			String refDvName  = dvCol.getRefDvName();
+			String refDvColumn  = dvCol.getRefDvColumn();
+			String columnName  = dvCol.getColumnName();
+			String colDataType  = dvCol.getColDataType();
+			boolean groupBy = false;
+			String qualifier = null;
+				
+			if(dvCol.getGroupBy()!=null)
+			{
+				groupBy = dvCol.getGroupBy();
+			}
+			if(dvCol.getQualifier()!=null)
+			{
+				qualifier = dvCol.getQualifier();
+			}
+			
+			if(refDvType.equalsIgnoreCase("File Template"))
+			{
+				FileTemplateLines filetemplate = fileTemplateLinesRepository.findOne(Long.valueOf(refDvColumn));
+				if(filetemplate!=null)
+				{
+				/*	String masterTableRefCol  = filetemplate.getMasterTableReferenceColumn();
+					String dateFormat  = filetemplate.getDateFormat();
+					String timeFormat  = filetemplate.getTimeFormat();
+					String amountFormat  = filetemplate.getAmountFormat();*/
+					String columnAlias  = filetemplate.getColumnAlias();
+				
+					if(groupBy)
+					{
+						colNames.add(columnAlias);
+					}
+					if(qualifier!=null)
+					{
+						List<String> qualColName = new ArrayList<String>();
+						qualColName.add(columnAlias);
+						grpQualCols.put(qualifier, qualColName);
+					}
+								
+				}
+
+			}
+			else if(refDvType.equalsIgnoreCase("Data View"))
+			{
+				if(groupBy)
+				{
+					colNames.add(columnName);
+				}
+				if(qualifier!=null)
+				{
+					List<String> qualColName = new ArrayList<String>();
+					qualColName.add(columnName);
+					grpQualCols.put(qualifier, qualColName);
+				}
+			}
+		      grpQualCols.put("groupByCol", colNames);
+		}
+		
+		return grpQualCols;
+	}
+
+	public List<BalanceType> fetchProcessedRecords(String groupBySQL,
+			List<String> groupBycols, Long id, Long tenantId, Long userId, String module,
+			Long reconGroupId, Long reconRuleId, String type) {
+		// TODO Auto-generated method stub
+		 List<BalanceType> totalRecordsProcessed = new ArrayList<BalanceType>();
+
+		 SimpleDateFormat sdFormatForProcessedDate = new SimpleDateFormat("yyyy-MM-dd");
+		 String processedDate = sdFormatForProcessedDate.format(new Date());
+		 
+		Connection jdbcConn = null;
+		Statement stmt = null;
+		ResultSet rs = null;
+		try
+		{
+			String dbUrl=env.getProperty("spring.datasource.url");
+    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+    		String host = parts[0].split("/")[2].split(":")[0];
+    		String schemaName=parts[0].split("/")[3];
+    		String userName = env.getProperty("spring.datasource.username");
+    		String password = env.getProperty("spring.datasource.password");
+    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");  
+    		
+    		Class.forName(jdbcDriver);
+    		jdbcConn = DriverManager.getConnection(dbUrl, userName, password);
+			stmt = jdbcConn.createStatement();
+			rs = stmt.executeQuery(groupBySQL);
+		    
+			while(rs.next()){
+
+				BalanceType record = new BalanceType();
+				record.setTenantId(tenantId);
+				record.setModule(module);
+				record.setProcessedDate(ZonedDateTime.now());
+				record.setCreationDate(ZonedDateTime.now());
+				record.setCreatedBy(userId);
+				record.setRuleGroupId(reconGroupId);
+				record.setRuleId(reconRuleId);
+				record.setType(type);
+				record.setGroupByField(record.getRuleGroupId().toString()+record.getRuleId()+record.getType());
+				String[] field = new String[groupBycols.size()];
+				BigDecimal type_amt = null;
+				for(int i=0; i<groupBycols.size(); i++)
+				{
+					field[i] = rs.getString(groupBycols.get(i));
+					if(record.getGroupByField()==null)
+					{
+						record.setGroupByField(field[i]);
+					}
+					else
+					{
+						record.setGroupByField(record.getGroupByField()+field[i]);
+					}
+					if(i==0)
+					{
+						record.setField01(field[i]);
+					}
+					else if(i==1)
+					{
+						record.setField02(field[i]);
+					}
+					else if(i==2)
+					{
+						record.setField03(field[i]);
+					}
+					else if(i==3)
+					{
+						record.setField04(field[i]);
+					}
+					else if(i==4)
+					{
+						record.setField05(field[i]);
+					}
+					else if(i==5)
+					{
+						record.setField06(field[i]);
+					}
+					else if(i==6)
+					{
+						record.setField07(field[i]);
+					}
+					else if(i==7)
+					{
+						record.setField08(field[i]);
+					}
+					else if(i==8)
+					{
+						record.setField09(field[i]);
+					}
+					else if(i==9)
+					{
+						record.setField10(field[i]);
+					}
+					else if(i==10)
+					{
+						record.setField11(field[i]);
+					}
+					else if(i==11)
+					{
+						record.setField12(field[i]);
+					}
+					else if(i==12)
+					{
+						record.setField13(field[i]);
+					}
+					else if(i==13)
+					{
+						record.setField14(field[i]);
+					}
+					else if(i==14)
+					{
+						record.setField15(field[i]);
+					}
+				}
+				type_amt = rs.getBigDecimal("type_amt");
+				
+				if(type_amt!=null)
+				{
+					record.setTypeAmt(type_amt);
+				}
+				record.setSrcId(id);
+				
+				totalRecordsProcessed.add(record);
+			}
+			rs.close();
+		}
+		catch(Exception exp)
+		{
+			exp.printStackTrace();
+		}
+		finally{
+		      try{
+		         if(stmt!=null)
+		        	 stmt.close();
+		      }catch(SQLException se){
+		      }
+		      try{
+			         if(jdbcConn!=null)
+			        	 jdbcConn.close();
+			      }catch(SQLException se){
+			      }
+		}
+		return totalRecordsProcessed;
+	}
+
+	public List<BalanceType> fetchExistingBalanceTypeRecords(String processType,
+			List<String> groupBycols, Long dataViewId, Long tenantId,
+			Long ruleGroupId, Long ruleId) {
+		// TODO Auto-generated method stub
+		
+		List<BalanceType> existingRecords = new ArrayList<BalanceType>();
+		
+		List<BalanceType> fetchedRecords = balanceTypeRepository.findByModuleAndSrcIdAndTenantIdAndRuleGroupIdAndRuleId(processType,dataViewId,tenantId,ruleGroupId,ruleId);
+		SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		SimpleDateFormat processedDateFormat = new SimpleDateFormat("yyyy-MM-dd");
+		
+		try
+		{
+
+			for(BalanceType recordFetched:fetchedRecords){
+
+				BalanceType record = new BalanceType();
+				
+				record.setId(recordFetched.getId());
+				record.setTenantId(recordFetched.getTenantId());
+				record.setSrcId(recordFetched.getSrcId());
+				record.setRuleGroupId(recordFetched.getRuleGroupId());
+				record.setRuleId(recordFetched.getRuleId());
+				record.setType(recordFetched.getType());
+				
+				record.setGroupByField(record.getRuleGroupId().toString());
+				record.setGroupByField(record.getGroupByField()+record.getRuleId().toString());
+				record.setGroupByField(record.getGroupByField()+record.getType());
+				
+				if(recordFetched.getField01()!=null)
+				{
+					record.setField01(recordFetched.getField01());
+					record.setGroupByField(record.getGroupByField()+record.getField01());
+				}
+				if(recordFetched.getField02()!=null)
+				{
+					record.setField02(recordFetched.getField02());
+					record.setGroupByField(record.getGroupByField()+record.getField02());
+				}
+				if(recordFetched.getField03()!=null)
+				{
+					record.setField03(recordFetched.getField03());
+					record.setGroupByField(record.getGroupByField()+record.getField03());
+				}
+				if(recordFetched.getField04()!=null)
+				{
+					record.setField04(recordFetched.getField04());
+					record.setGroupByField(record.getGroupByField()+record.getField04());
+				}
+				if(recordFetched.getField05()!=null)
+				{
+					record.setField05(recordFetched.getField05());
+					record.setGroupByField(record.getGroupByField()+record.getField05());
+				}
+				if(recordFetched.getField06()!=null)
+				{
+					record.setField06(recordFetched.getField06());
+					record.setGroupByField(record.getGroupByField()+record.getField06());
+				}
+				if(recordFetched.getField07()!=null)
+				{
+					record.setField07(recordFetched.getField07());
+					record.setGroupByField(record.getGroupByField()+record.getField07());
+				}
+				if(recordFetched.getField08()!=null)
+				{
+					record.setField08(recordFetched.getField08());
+					record.setGroupByField(record.getGroupByField()+record.getField08());
+				}
+				if(recordFetched.getField09()!=null)
+				{
+					record.setField09(recordFetched.getField09());
+					record.setGroupByField(record.getGroupByField()+record.getField09());
+				}
+				if(recordFetched.getField10()!=null)
+				{
+					record.setField10(recordFetched.getField10());
+					record.setGroupByField(record.getGroupByField()+record.getField10());
+				}
+				if(recordFetched.getField11()!=null)
+				{
+					record.setField11(recordFetched.getField11());
+					record.setGroupByField(record.getGroupByField()+record.getField11());
+				}
+				if(recordFetched.getField12()!=null)
+				{
+					record.setField12(recordFetched.getField12());
+					record.setGroupByField(record.getGroupByField()+record.getField12());
+				}
+				if(recordFetched.getField13()!=null)
+				{
+					record.setField13(recordFetched.getField13());
+					record.setGroupByField(record.getGroupByField()+record.getField13());
+				}
+				if(recordFetched.getField14()!=null)
+				{
+					record.setField14(recordFetched.getField14());
+					record.setGroupByField(record.getGroupByField()+record.getField14());
+				}
+				if(recordFetched.getField15()!=null)
+				{
+					record.setField15(recordFetched.getField15());
+					record.setGroupByField(record.getGroupByField()+record.getField15());
+				}
+				
+				record.setModule(recordFetched.getModule());
+				
+				if(recordFetched.getType()!= null)
+				{
+					record.setType(recordFetched.getType());
+				}
+				if(recordFetched.getProcessedDate() != null)
+				{
+					record.setProcessedDate(recordFetched.getProcessedDate().toInstant().atZone(ZoneId.systemDefault()));
+				}
+				if(recordFetched.getAdditionsAmt() != null)
+				{
+					record.setAdditionsAmt(recordFetched.getAdditionsAmt());
+				}
+				if(recordFetched.getOpeningBalance() != null)
+				{
+					record.setOpeningBalance(recordFetched.getOpeningBalance());
+				}
+				if(recordFetched.getTypeAmt() != null)
+				{
+					record.setTypeAmt(recordFetched.getTypeAmt());
+				}
+				if(recordFetched.getClosingBalance() != null)
+				{
+					record.setClosingBalance(recordFetched.getClosingBalance());
+				}
+				if(recordFetched.getCreatedBy() != null)
+				{
+					record.setCreatedBy(recordFetched.getCreatedBy());
+				}
+				if(recordFetched.getCreationDate() != null)
+				{
+					record.setCreationDate(recordFetched.getCreationDate());
+				}
+				
+				existingRecords.add(record);
+			}
+		}
+		catch(Exception exp)
+		{
+			exp.printStackTrace();
+		}
+		
+		return existingRecords;
+	}
+
+	public List<BalanceType> deriveOpeningAndClosingBalance(
+			List<BalanceType> existingBalanceTypeRecords,
+			List<BalanceType> balanceTypeForProcessedRecords) {
+		// TODO Auto-generated method stub
+		List<BalanceType> derivedBalanceType = new ArrayList<BalanceType>();
+		for(BalanceType record:balanceTypeForProcessedRecords)
+		{
+			Boolean recordFound = false;
+			
+			for(BalanceType existingRecord:existingBalanceTypeRecords)
+			{
+				if(record.getGroupByField().equalsIgnoreCase(existingRecord.getGroupByField()))
+				{
+					recordFound = true;
+					String recordProcessedDate = record.getProcessedDate().toString().substring(0,record.getProcessedDate().toString().indexOf("T"));
+					String existingRecordDate = existingRecord.getProcessedDate().toString().substring(0,existingRecord.getProcessedDate().toString().indexOf("T"));
+					if(recordProcessedDate.equalsIgnoreCase(existingRecordDate))
+					{
+						existingRecord.setTypeAmt(existingRecord.getTypeAmt().subtract(record.getTypeAmt()));
+						existingRecord.setClosingBalance(existingRecord.getClosingBalance().add(record.getTypeAmt()));
+						existingRecord.setLastUpdatedBy(record.getCreatedBy());
+						existingRecord.setLastUpdatedDate(record.getCreationDate());
+						
+						derivedBalanceType.add(existingRecord);
+					}
+					else
+					{
+						record.setOpeningBalance(existingRecord.getClosingBalance());
+						record.setTypeAmt(record.getTypeAmt().negate());
+						record.setClosingBalance(existingRecord.getClosingBalance().add(record.getTypeAmt()));
+						
+						derivedBalanceType.add(record);
+					}
+					
+					break;
+				}
+			}
+			
+			if(recordFound == false)
+			{
+				record.setOpeningBalance(BigDecimal.ZERO);	
+				record.setClosingBalance(BigDecimal.ZERO);
+									
+				derivedBalanceType.add(record);
+			}
+		}
+		return derivedBalanceType;
+	}
+
+}

@@ -1,0 +1,376 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.LookUpType;
+import com.nspl.app.repository.LookUpTypeRepository;
+import com.nspl.app.repository.search.LookUpTypeSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the LookUpTypeResource REST controller.
+ *
+ * @see LookUpTypeResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class LookUpTypeResourceIntTest {
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long UPDATED_TENANT_ID = 2L;
+
+    private static final String DEFAULT_LOOK_UP_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_LOOK_UP_TYPE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_MEANING = "AAAAAAAAAA";
+    private static final String UPDATED_MEANING = "BBBBBBBBBB";
+
+    private static final String DEFAULT_DESCRIPTION = "AAAAAAAAAA";
+    private static final String UPDATED_DESCRIPTION = "BBBBBBBBBB";
+
+    private static final Boolean DEFAULT_ENABLE_FLAG = false;
+    private static final Boolean UPDATED_ENABLE_FLAG = true;
+
+    private static final ZonedDateTime DEFAULT_ACTIVE_START_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_ACTIVE_START_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_ACTIVE_END_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_ACTIVE_END_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final String DEFAULT_VALIDATION_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_VALIDATION_TYPE = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private LookUpTypeRepository lookUpTypeRepository;
+
+    @Autowired
+    private LookUpTypeSearchRepository lookUpTypeSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restLookUpTypeMockMvc;
+
+    private LookUpType lookUpType;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        LookUpTypeResource lookUpTypeResource = new LookUpTypeResource(lookUpTypeRepository, lookUpTypeSearchRepository);
+        this.restLookUpTypeMockMvc = MockMvcBuilders.standaloneSetup(lookUpTypeResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static LookUpType createEntity(EntityManager em) {
+        LookUpType lookUpType = new LookUpType()
+            .tenantId(DEFAULT_TENANT_ID)
+            .lookUpType(DEFAULT_LOOK_UP_TYPE)
+            .meaning(DEFAULT_MEANING)
+            .description(DEFAULT_DESCRIPTION)
+            .enableFlag(DEFAULT_ENABLE_FLAG)
+            .activeStartDate(DEFAULT_ACTIVE_START_DATE)
+            .activeEndDate(DEFAULT_ACTIVE_END_DATE)
+            .validationType(DEFAULT_VALIDATION_TYPE)
+            .createdBy(DEFAULT_CREATED_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return lookUpType;
+    }
+
+    @Before
+    public void initTest() {
+        lookUpTypeSearchRepository.deleteAll();
+        lookUpType = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createLookUpType() throws Exception {
+        int databaseSizeBeforeCreate = lookUpTypeRepository.findAll().size();
+
+        // Create the LookUpType
+        restLookUpTypeMockMvc.perform(post("/api/look-up-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(lookUpType)))
+            .andExpect(status().isCreated());
+
+        // Validate the LookUpType in the database
+        List<LookUpType> lookUpTypeList = lookUpTypeRepository.findAll();
+        assertThat(lookUpTypeList).hasSize(databaseSizeBeforeCreate + 1);
+        LookUpType testLookUpType = lookUpTypeList.get(lookUpTypeList.size() - 1);
+        assertThat(testLookUpType.getTenantId()).isEqualTo(DEFAULT_TENANT_ID);
+        assertThat(testLookUpType.getLookUpType()).isEqualTo(DEFAULT_LOOK_UP_TYPE);
+        assertThat(testLookUpType.getMeaning()).isEqualTo(DEFAULT_MEANING);
+        assertThat(testLookUpType.getDescription()).isEqualTo(DEFAULT_DESCRIPTION);
+        assertThat(testLookUpType.isEnableFlag()).isEqualTo(DEFAULT_ENABLE_FLAG);
+        assertThat(testLookUpType.getActiveStartDate()).isEqualTo(DEFAULT_ACTIVE_START_DATE);
+        assertThat(testLookUpType.getActiveEndDate()).isEqualTo(DEFAULT_ACTIVE_END_DATE);
+        assertThat(testLookUpType.getValidationType()).isEqualTo(DEFAULT_VALIDATION_TYPE);
+        assertThat(testLookUpType.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testLookUpType.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testLookUpType.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testLookUpType.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+
+        // Validate the LookUpType in Elasticsearch
+        LookUpType lookUpTypeEs = lookUpTypeSearchRepository.findOne(testLookUpType.getId());
+        assertThat(lookUpTypeEs).isEqualToComparingFieldByField(testLookUpType);
+    }
+
+    @Test
+    @Transactional
+    public void createLookUpTypeWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = lookUpTypeRepository.findAll().size();
+
+        // Create the LookUpType with an existing ID
+        lookUpType.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restLookUpTypeMockMvc.perform(post("/api/look-up-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(lookUpType)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<LookUpType> lookUpTypeList = lookUpTypeRepository.findAll();
+        assertThat(lookUpTypeList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllLookUpTypes() throws Exception {
+        // Initialize the database
+        lookUpTypeRepository.saveAndFlush(lookUpType);
+
+        // Get all the lookUpTypeList
+        restLookUpTypeMockMvc.perform(get("/api/look-up-types?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(lookUpType.getId().intValue())))
+            .andExpect(jsonPath("$.[*].tenantId").value(hasItem(DEFAULT_TENANT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].lookUpType").value(hasItem(DEFAULT_LOOK_UP_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].meaning").value(hasItem(DEFAULT_MEANING.toString())))
+            .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION.toString())))
+            .andExpect(jsonPath("$.[*].enableFlag").value(hasItem(DEFAULT_ENABLE_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].activeStartDate").value(hasItem(DEFAULT_ACTIVE_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].activeEndDate").value(hasItem(DEFAULT_ACTIVE_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].validationType").value(hasItem(DEFAULT_VALIDATION_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getLookUpType() throws Exception {
+        // Initialize the database
+        lookUpTypeRepository.saveAndFlush(lookUpType);
+
+        // Get the lookUpType
+        restLookUpTypeMockMvc.perform(get("/api/look-up-types/{id}", lookUpType.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(lookUpType.getId().intValue()))
+            .andExpect(jsonPath("$.tenantId").value(DEFAULT_TENANT_ID.intValue()))
+            .andExpect(jsonPath("$.lookUpType").value(DEFAULT_LOOK_UP_TYPE.toString()))
+            .andExpect(jsonPath("$.meaning").value(DEFAULT_MEANING.toString()))
+            .andExpect(jsonPath("$.description").value(DEFAULT_DESCRIPTION.toString()))
+            .andExpect(jsonPath("$.enableFlag").value(DEFAULT_ENABLE_FLAG.booleanValue()))
+            .andExpect(jsonPath("$.activeStartDate").value(DEFAULT_ACTIVE_START_DATE.toString()))
+            .andExpect(jsonPath("$.activeEndDate").value(DEFAULT_ACTIVE_END_DATE.toString()))
+            .andExpect(jsonPath("$.validationType").value(DEFAULT_VALIDATION_TYPE.toString()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingLookUpType() throws Exception {
+        // Get the lookUpType
+        restLookUpTypeMockMvc.perform(get("/api/look-up-types/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateLookUpType() throws Exception {
+        // Initialize the database
+        lookUpTypeRepository.saveAndFlush(lookUpType);
+        lookUpTypeSearchRepository.save(lookUpType);
+        int databaseSizeBeforeUpdate = lookUpTypeRepository.findAll().size();
+
+        // Update the lookUpType
+        LookUpType updatedLookUpType = lookUpTypeRepository.findOne(lookUpType.getId());
+        updatedLookUpType
+            .tenantId(UPDATED_TENANT_ID)
+            .lookUpType(UPDATED_LOOK_UP_TYPE)
+            .meaning(UPDATED_MEANING)
+            .description(UPDATED_DESCRIPTION)
+            .enableFlag(UPDATED_ENABLE_FLAG)
+            .activeStartDate(UPDATED_ACTIVE_START_DATE)
+            .activeEndDate(UPDATED_ACTIVE_END_DATE)
+            .validationType(UPDATED_VALIDATION_TYPE)
+            .createdBy(UPDATED_CREATED_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restLookUpTypeMockMvc.perform(put("/api/look-up-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedLookUpType)))
+            .andExpect(status().isOk());
+
+        // Validate the LookUpType in the database
+        List<LookUpType> lookUpTypeList = lookUpTypeRepository.findAll();
+        assertThat(lookUpTypeList).hasSize(databaseSizeBeforeUpdate);
+        LookUpType testLookUpType = lookUpTypeList.get(lookUpTypeList.size() - 1);
+        assertThat(testLookUpType.getTenantId()).isEqualTo(UPDATED_TENANT_ID);
+        assertThat(testLookUpType.getLookUpType()).isEqualTo(UPDATED_LOOK_UP_TYPE);
+        assertThat(testLookUpType.getMeaning()).isEqualTo(UPDATED_MEANING);
+        assertThat(testLookUpType.getDescription()).isEqualTo(UPDATED_DESCRIPTION);
+        assertThat(testLookUpType.isEnableFlag()).isEqualTo(UPDATED_ENABLE_FLAG);
+        assertThat(testLookUpType.getActiveStartDate()).isEqualTo(UPDATED_ACTIVE_START_DATE);
+        assertThat(testLookUpType.getActiveEndDate()).isEqualTo(UPDATED_ACTIVE_END_DATE);
+        assertThat(testLookUpType.getValidationType()).isEqualTo(UPDATED_VALIDATION_TYPE);
+        assertThat(testLookUpType.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testLookUpType.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testLookUpType.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testLookUpType.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+
+        // Validate the LookUpType in Elasticsearch
+        LookUpType lookUpTypeEs = lookUpTypeSearchRepository.findOne(testLookUpType.getId());
+        assertThat(lookUpTypeEs).isEqualToComparingFieldByField(testLookUpType);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingLookUpType() throws Exception {
+        int databaseSizeBeforeUpdate = lookUpTypeRepository.findAll().size();
+
+        // Create the LookUpType
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restLookUpTypeMockMvc.perform(put("/api/look-up-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(lookUpType)))
+            .andExpect(status().isCreated());
+
+        // Validate the LookUpType in the database
+        List<LookUpType> lookUpTypeList = lookUpTypeRepository.findAll();
+        assertThat(lookUpTypeList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteLookUpType() throws Exception {
+        // Initialize the database
+        lookUpTypeRepository.saveAndFlush(lookUpType);
+        lookUpTypeSearchRepository.save(lookUpType);
+        int databaseSizeBeforeDelete = lookUpTypeRepository.findAll().size();
+
+        // Get the lookUpType
+        restLookUpTypeMockMvc.perform(delete("/api/look-up-types/{id}", lookUpType.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean lookUpTypeExistsInEs = lookUpTypeSearchRepository.exists(lookUpType.getId());
+        assertThat(lookUpTypeExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<LookUpType> lookUpTypeList = lookUpTypeRepository.findAll();
+        assertThat(lookUpTypeList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchLookUpType() throws Exception {
+        // Initialize the database
+        lookUpTypeRepository.saveAndFlush(lookUpType);
+        lookUpTypeSearchRepository.save(lookUpType);
+
+        // Search the lookUpType
+        restLookUpTypeMockMvc.perform(get("/api/_search/look-up-types?query=id:" + lookUpType.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(lookUpType.getId().intValue())))
+            .andExpect(jsonPath("$.[*].tenantId").value(hasItem(DEFAULT_TENANT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].lookUpType").value(hasItem(DEFAULT_LOOK_UP_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].meaning").value(hasItem(DEFAULT_MEANING.toString())))
+            .andExpect(jsonPath("$.[*].description").value(hasItem(DEFAULT_DESCRIPTION.toString())))
+            .andExpect(jsonPath("$.[*].enableFlag").value(hasItem(DEFAULT_ENABLE_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].activeStartDate").value(hasItem(DEFAULT_ACTIVE_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].activeEndDate").value(hasItem(DEFAULT_ACTIVE_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].validationType").value(hasItem(DEFAULT_VALIDATION_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(LookUpType.class);
+    }
+}

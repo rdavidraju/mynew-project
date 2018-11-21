@@ -1,0 +1,224 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A LineCriteria.
+ */
+@Entity
+@Table(name = "t_line_criteria")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+public class LineCriteria implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "je_temp_id")
+    private Long jeTempId;
+
+    @Column(name = "seq")
+    private Integer seq;
+
+    @Column(name = "s_view_column")
+    private Long sViewColumn;
+
+    @Column(name = "operator")
+    private String operator;
+
+    @Column(name = "value")
+    private String value;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    @Column(name = "created_date")
+    private ZonedDateTime createdDate;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+    
+    @Column(name = "view_id")
+    private Long viewId;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getJeTempId() {
+        return jeTempId;
+    }
+
+    public LineCriteria jeTempId(Long jeTempId) {
+        this.jeTempId = jeTempId;
+        return this;
+    }
+
+    public void setJeTempId(Long jeTempId) {
+        this.jeTempId = jeTempId;
+    }
+
+    public Integer getSeq() {
+        return seq;
+    }
+
+    public LineCriteria seq(Integer seq) {
+        this.seq = seq;
+        return this;
+    }
+
+    public void setSeq(Integer seq) {
+        this.seq = seq;
+    }
+
+    public Long getsViewColumn() {
+        return sViewColumn;
+    }
+
+    public LineCriteria sViewColumn(Long sViewColumn) {
+        this.sViewColumn = sViewColumn;
+        return this;
+    }
+
+    public void setsViewColumn(Long sViewColumn) {
+        this.sViewColumn = sViewColumn;
+    }
+
+    public String getOperator() {
+        return operator;
+    }
+
+    public LineCriteria operator(String operator) {
+        this.operator = operator;
+        return this;
+    }
+
+    public void setOperator(String operator) {
+        this.operator = operator;
+    }
+
+    public String getValue() {
+        return value;
+    }
+
+    public LineCriteria value(String value) {
+        this.value = value;
+        return this;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public LineCriteria createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public LineCriteria lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public ZonedDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    public LineCriteria createdDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+        return this;
+    }
+
+    public void setCreatedDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public LineCriteria lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+    
+    public Long getViewId() {
+		return viewId;
+	}
+
+	public void setViewId(Long viewId) {
+		this.viewId = viewId;
+	}
+
+	@Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LineCriteria lineCriteria = (LineCriteria) o;
+        if (lineCriteria.id == null || id == null) {
+            return false;
+        }
+        return Objects.equals(id, lineCriteria.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
+    public String toString() {
+        return "LineCriteria{" +
+            "id=" + id +
+            ", jeTempId='" + jeTempId + "'" +
+            ", seq='" + seq + "'" +
+            ", sViewColumn='" + sViewColumn + "'" +
+            ", operator='" + operator + "'" +
+            ", value='" + value + "'" +
+            ", createdBy='" + createdBy + "'" +
+            ", lastUpdatedBy='" + lastUpdatedBy + "'" +
+            ", createdDate='" + createdDate + "'" +
+            ", lastUpdatedDate='" + lastUpdatedDate + "'" +
+            ", viewId='" + viewId + "'" +
+            '}';
+    }
+}

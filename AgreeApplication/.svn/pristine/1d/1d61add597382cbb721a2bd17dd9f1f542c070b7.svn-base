@@ -1,0 +1,86 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.SchedulerDetails;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the SchedulerDetails entity.
+ */
+@SuppressWarnings("unused")
+public interface SchedulerDetailsRepository extends JpaRepository<SchedulerDetails,Long> {
+
+	List<SchedulerDetails> findByJobId(Long id);
+	
+	
+	
+	@Query(value =  "SELECT oozie_job_id FROM t_scheduler_details where job_id= :jobId",nativeQuery=true)
+	List<String> fetchOzieJobIdsByJobId(@Param("jobId") Long jobId);
+
+	SchedulerDetails findBySchedulerName(String jobName);
+
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id in (select id from t_job_details where tenant_id= :tenantId) and oozie_job_id= :oozieJobId",nativeQuery=true)
+	SchedulerDetails findByOozieJobIdAndTenantID(@Param("tenantId")Long tenantId,@Param("oozieJobId") String oozieJobId);
+
+
+	//@Query(value =  "FROM SchedulerDetails where jobId in (select id from JobDetails where tenantId= :tenantId) order by lastUpdatedDate desc",nativeQuery=false)
+//	Page<SchedulerDetails> fetchSchedulersByJobId(Long tenantId,Pageable generatePageRequest2);
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id in (select id from t_job_details where tenant_id= :tenantId) order by last_updated_date desc",nativeQuery=true)
+	List<SchedulerDetails> fetchSchedulersByJobId(@Param("tenantId")Long tenantId);
+
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id= :id and delete_flag is null",nativeQuery=true)
+	List<SchedulerDetails> findByJobIdAndDeleteFlagIsNull(@Param("id") Long id);
+
+
+
+	SchedulerDetails findByOozieJobId(String string);
+
+
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id= :id and delete_flag is null and oozie_job_id is not NULL and (start_date and end_date between :fmDate and :toDate)",nativeQuery=true)
+	List<SchedulerDetails> findByJobIdAndStartAndEndDate(@Param("id") BigInteger id,@Param("fmDate") String fmDate,@Param("toDate") String toDate);
+
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id= :id and delete_flag is null and oozie_job_id is not Null and (start_date between :fmDate and :toDate)",nativeQuery=true)
+	List<SchedulerDetails> findByJobIdAndStartDateAndEndDate(@Param("id") BigInteger id,@Param("fmDate") String fmDate,@Param("toDate") String toDate);
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id= :id and delete_flag is null and oozie_job_id is not Null and start_date Like :fmDate",nativeQuery=true)
+	List<SchedulerDetails> findByJobIdAndStartDate(@Param("id") BigInteger id,@Param("fmDate") String fmDate);
+	
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id =:id  and oozie_job_id is not null and frequency!='ONDEMAND'",nativeQuery=true)
+	List<SchedulerDetails> fetchByJobIdAndScheduled(@Param("id") Long id);
+	
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id =:id  and oozie_job_id is not null and frequency='ONDEMAND'",nativeQuery=true)
+	List<SchedulerDetails> fetchByJobIdAndFequencyOnDemand(@Param("id") Long id);
+
+
+
+	List<SchedulerDetails> findByJobIdIn(List<BigInteger> jobDetails);
+
+
+	@Query(value =  "SELECT * FROM t_scheduler_details where job_id =:job and delete_flag is null and oozie_job_id is not Null",nativeQuery=true)
+	List<SchedulerDetails> findByJobIdIn(@Param("job") BigInteger job);
+	
+	
+	@Query(value =  "SELECT oozie_job_id FROM t_scheduler_details where job_id in (:jobIds) and frequency =:frequency and delete_flag is null and oozie_job_id is not Null",nativeQuery=true)
+	List<String> findOozieJobIdByJobIdInAndFrequesncyType(@Param("jobIds") List<BigInteger> jobIds,@Param("frequency") String frequency);
+	
+	@Query(value =  "SELECT oozie_job_id FROM t_scheduler_details where job_id in (:jobIds) and frequency!='ONDEMAND' and delete_flag is null and oozie_job_id is not Null",nativeQuery=true)
+	List<String> findOozieJobIdByJobIdInAndFrequesncyTypeScheduled(@Param("jobIds") List<BigInteger> jobIds);
+	
+	
+	@Query(value =  "SELECT oozie_job_id FROM t_scheduler_details where job_id in (:jobDetails) and delete_flag is null and oozie_job_id is not Null",nativeQuery=true)
+	List<String> findOozieJobIdByJobIdIn(@Param("jobDetails") List<BigInteger> jobDetails);
+
+
+}

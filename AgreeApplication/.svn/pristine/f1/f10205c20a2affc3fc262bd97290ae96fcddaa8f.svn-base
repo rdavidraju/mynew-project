@@ -1,0 +1,517 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.IntermediateTableRepository;
+import com.nspl.app.repository.search.FileTemplateLinesSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the FileTemplateLinesResource REST controller.
+ *
+ * @see FileTemplateLinesResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class FileTemplateLinesResourceIntTest {
+
+    private static final Long DEFAULT_TEMPLATE_ID = 1L;
+    private static final Long UPDATED_TEMPLATE_ID = 2L;
+
+    private static final Integer DEFAULT_LINE_NUMBER = 1;
+    private static final Integer UPDATED_LINE_NUMBER = 2;
+
+    private static final String DEFAULT_MASTER_TABLE_REFERENCE_COLUMN = "AAAAAAAAAA";
+    private static final String UPDATED_MASTER_TABLE_REFERENCE_COLUMN = "BBBBBBBBBB";
+
+    private static final String DEFAULT_RECORD_T_YPE = "AAAAAAAAAA";
+    private static final String UPDATED_RECORD_T_YPE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_RECORD_IDENTIFIER = "AAAAAAAAAA";
+    private static final String UPDATED_RECORD_IDENTIFIER = "BBBBBBBBBB";
+
+    private static final Integer DEFAULT_COLUMN_NUMBER = 1;
+    private static final Integer UPDATED_COLUMN_NUMBER = 2;
+
+    private static final String DEFAULT_ENCLOSED_CHAR = "AAAAAAAAAA";
+    private static final String UPDATED_ENCLOSED_CHAR = "BBBBBBBBBB";
+
+    private static final Integer DEFAULT_POSITION_BEGIN = 1;
+    private static final Integer UPDATED_POSITION_BEGIN = 2;
+
+    private static final Integer DEFAULT_POSITION_END = 1;
+    private static final Integer UPDATED_POSITION_END = 2;
+
+    private static final String DEFAULT_COLUMN_HEADER = "AAAAAAAAAA";
+    private static final String UPDATED_COLUMN_HEADER = "BBBBBBBBBB";
+
+    private static final String DEFAULT_CONSTANT_VALUE = "AAAAAAAAAA";
+    private static final String UPDATED_CONSTANT_VALUE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_ZERO_FILL = "AAAAAAAAAA";
+    private static final String UPDATED_ZERO_FILL = "BBBBBBBBBB";
+
+    private static final String DEFAULT_ALIGN = "AAAAAAAAAA";
+    private static final String UPDATED_ALIGN = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FORMULA = "AAAAAAAAAA";
+    private static final String UPDATED_FORMULA = "BBBBBBBBBB";
+
+    private static final String DEFAULT_DATE_FORMAT = "AAAAAAAAAA";
+    private static final String UPDATED_DATE_FORMAT = "BBBBBBBBBB";
+
+    private static final String DEFAULT_TIME_FORMAT = "AAAAAAAAAA";
+    private static final String UPDATED_TIME_FORMAT = "BBBBBBBBBB";
+
+    private static final String DEFAULT_AMOUNT_FORMAT = "AAAAAAAAAA";
+    private static final String UPDATED_AMOUNT_FORMAT = "BBBBBBBBBB";
+
+    private static final String DEFAULT_OVER_FLOW = "AAAAAAAAAA";
+    private static final String UPDATED_OVER_FLOW = "BBBBBBBBBB";
+
+    private static final String DEFAULT_SKIP_COLUMN = "AAAAAAAAAA";
+    private static final String UPDATED_SKIP_COLUMN = "BBBBBBBBBB";
+
+    private static final String DEFAULT_COLUMN_DELIMITER = "AAAAAAAAAA";
+    private static final String UPDATED_COLUMN_DELIMITER = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+    
+    private static final String DEFAULT_RECORD_START_ROW = "AAAAAAAAAA";
+    private static final String UPDATED_RECORD_START_ROW = "BBBBBBBBBB";
+
+    @Autowired
+    private FileTemplateLinesRepository fileTemplateLinesRepository;
+
+    @Autowired
+    private FileTemplateLinesSearchRepository fileTemplateLinesSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restFileTemplateLinesMockMvc;
+
+    private FileTemplateLines fileTemplateLines;
+    private  IntermediateTableRepository intermediateTableRepository;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        FileTemplateLinesResource fileTemplateLinesResource = new FileTemplateLinesResource(fileTemplateLinesRepository, fileTemplateLinesSearchRepository,intermediateTableRepository);
+        this.restFileTemplateLinesMockMvc = MockMvcBuilders.standaloneSetup(fileTemplateLinesResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static FileTemplateLines createEntity(EntityManager em) {
+        FileTemplateLines fileTemplateLines = new FileTemplateLines()
+            .templateId(DEFAULT_TEMPLATE_ID)
+            .lineNumber(DEFAULT_LINE_NUMBER)
+            .masterTableReferenceColumn(DEFAULT_MASTER_TABLE_REFERENCE_COLUMN)
+            .recordTYpe(DEFAULT_RECORD_T_YPE)
+            .recordIdentifier(DEFAULT_RECORD_IDENTIFIER)
+            .columnNumber(DEFAULT_COLUMN_NUMBER)
+            .enclosedChar(DEFAULT_ENCLOSED_CHAR)
+            .positionBegin(DEFAULT_POSITION_BEGIN)
+            .positionEnd(DEFAULT_POSITION_END)
+            .columnHeader(DEFAULT_COLUMN_HEADER)
+            .constantValue(DEFAULT_CONSTANT_VALUE)
+            .zeroFill(DEFAULT_ZERO_FILL)
+            .align(DEFAULT_ALIGN)
+            .formula(DEFAULT_FORMULA)
+            .dateFormat(DEFAULT_DATE_FORMAT)
+            .timeFormat(DEFAULT_TIME_FORMAT)
+            .amountFormat(DEFAULT_AMOUNT_FORMAT)
+            .overFlow(DEFAULT_OVER_FLOW)
+            .skipColumn(DEFAULT_SKIP_COLUMN)
+            .columnDelimiter(DEFAULT_COLUMN_DELIMITER)
+            .createdBy(DEFAULT_CREATED_BY)
+            .createdDate(DEFAULT_CREATED_DATE)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE)
+        	.recordStartRow(DEFAULT_RECORD_START_ROW);
+        return fileTemplateLines;
+    }
+
+    @Before
+    public void initTest() {
+        fileTemplateLinesSearchRepository.deleteAll();
+        fileTemplateLines = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createFileTemplateLines() throws Exception {
+        int databaseSizeBeforeCreate = fileTemplateLinesRepository.findAll().size();
+
+        // Create the FileTemplateLines
+        restFileTemplateLinesMockMvc.perform(post("/api/file-template-lines")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(fileTemplateLines)))
+            .andExpect(status().isCreated());
+
+        // Validate the FileTemplateLines in the database
+        List<FileTemplateLines> fileTemplateLinesList = fileTemplateLinesRepository.findAll();
+        assertThat(fileTemplateLinesList).hasSize(databaseSizeBeforeCreate + 1);
+        FileTemplateLines testFileTemplateLines = fileTemplateLinesList.get(fileTemplateLinesList.size() - 1);
+        assertThat(testFileTemplateLines.getTemplateId()).isEqualTo(DEFAULT_TEMPLATE_ID);
+        assertThat(testFileTemplateLines.getLineNumber()).isEqualTo(DEFAULT_LINE_NUMBER);
+        assertThat(testFileTemplateLines.getMasterTableReferenceColumn()).isEqualTo(DEFAULT_MASTER_TABLE_REFERENCE_COLUMN);
+        assertThat(testFileTemplateLines.getRecordTYpe()).isEqualTo(DEFAULT_RECORD_T_YPE);
+        assertThat(testFileTemplateLines.getRecordIdentifier()).isEqualTo(DEFAULT_RECORD_IDENTIFIER);
+        assertThat(testFileTemplateLines.getColumnNumber()).isEqualTo(DEFAULT_COLUMN_NUMBER);
+        assertThat(testFileTemplateLines.getEnclosedChar()).isEqualTo(DEFAULT_ENCLOSED_CHAR);
+        assertThat(testFileTemplateLines.getPositionBegin()).isEqualTo(DEFAULT_POSITION_BEGIN);
+        assertThat(testFileTemplateLines.getPositionEnd()).isEqualTo(DEFAULT_POSITION_END);
+        assertThat(testFileTemplateLines.getColumnHeader()).isEqualTo(DEFAULT_COLUMN_HEADER);
+        assertThat(testFileTemplateLines.getConstantValue()).isEqualTo(DEFAULT_CONSTANT_VALUE);
+        assertThat(testFileTemplateLines.getZeroFill()).isEqualTo(DEFAULT_ZERO_FILL);
+        assertThat(testFileTemplateLines.getAlign()).isEqualTo(DEFAULT_ALIGN);
+        assertThat(testFileTemplateLines.getFormula()).isEqualTo(DEFAULT_FORMULA);
+        assertThat(testFileTemplateLines.getDateFormat()).isEqualTo(DEFAULT_DATE_FORMAT);
+        assertThat(testFileTemplateLines.getTimeFormat()).isEqualTo(DEFAULT_TIME_FORMAT);
+        assertThat(testFileTemplateLines.getAmountFormat()).isEqualTo(DEFAULT_AMOUNT_FORMAT);
+        assertThat(testFileTemplateLines.getOverFlow()).isEqualTo(DEFAULT_OVER_FLOW);
+        assertThat(testFileTemplateLines.getSkipColumn()).isEqualTo(DEFAULT_SKIP_COLUMN);
+        assertThat(testFileTemplateLines.getColumnDelimiter()).isEqualTo(DEFAULT_COLUMN_DELIMITER);
+        assertThat(testFileTemplateLines.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testFileTemplateLines.getCreatedDate()).isEqualTo(DEFAULT_CREATED_DATE);
+        assertThat(testFileTemplateLines.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testFileTemplateLines.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+        assertThat(testFileTemplateLines.getRecordStartRow()).isEqualTo(DEFAULT_RECORD_START_ROW);
+
+        // Validate the FileTemplateLines in Elasticsearch
+        FileTemplateLines fileTemplateLinesEs = fileTemplateLinesSearchRepository.findOne(testFileTemplateLines.getId());
+        assertThat(fileTemplateLinesEs).isEqualToComparingFieldByField(testFileTemplateLines);
+    }
+
+    @Test
+    @Transactional
+    public void createFileTemplateLinesWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = fileTemplateLinesRepository.findAll().size();
+
+        // Create the FileTemplateLines with an existing ID
+        fileTemplateLines.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restFileTemplateLinesMockMvc.perform(post("/api/file-template-lines")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(fileTemplateLines)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<FileTemplateLines> fileTemplateLinesList = fileTemplateLinesRepository.findAll();
+        assertThat(fileTemplateLinesList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllFileTemplateLines() throws Exception {
+        // Initialize the database
+        fileTemplateLinesRepository.saveAndFlush(fileTemplateLines);
+
+        // Get all the fileTemplateLinesList
+        restFileTemplateLinesMockMvc.perform(get("/api/file-template-lines?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(fileTemplateLines.getId().intValue())))
+            .andExpect(jsonPath("$.[*].templateId").value(hasItem(DEFAULT_TEMPLATE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].lineNumber").value(hasItem(DEFAULT_LINE_NUMBER)))
+            .andExpect(jsonPath("$.[*].masterTableReferenceColumn").value(hasItem(DEFAULT_MASTER_TABLE_REFERENCE_COLUMN.toString())))
+            .andExpect(jsonPath("$.[*].recordTYpe").value(hasItem(DEFAULT_RECORD_T_YPE.toString())))
+            .andExpect(jsonPath("$.[*].recordIdentifier").value(hasItem(DEFAULT_RECORD_IDENTIFIER.toString())))
+            .andExpect(jsonPath("$.[*].columnNumber").value(hasItem(DEFAULT_COLUMN_NUMBER)))
+            .andExpect(jsonPath("$.[*].enclosedChar").value(hasItem(DEFAULT_ENCLOSED_CHAR.toString())))
+            .andExpect(jsonPath("$.[*].positionBegin").value(hasItem(DEFAULT_POSITION_BEGIN)))
+            .andExpect(jsonPath("$.[*].positionEnd").value(hasItem(DEFAULT_POSITION_END)))
+            .andExpect(jsonPath("$.[*].columnHeader").value(hasItem(DEFAULT_COLUMN_HEADER.toString())))
+            .andExpect(jsonPath("$.[*].constantValue").value(hasItem(DEFAULT_CONSTANT_VALUE.toString())))
+            .andExpect(jsonPath("$.[*].zeroFill").value(hasItem(DEFAULT_ZERO_FILL.toString())))
+            .andExpect(jsonPath("$.[*].align").value(hasItem(DEFAULT_ALIGN.toString())))
+            .andExpect(jsonPath("$.[*].formula").value(hasItem(DEFAULT_FORMULA.toString())))
+            .andExpect(jsonPath("$.[*].dateFormat").value(hasItem(DEFAULT_DATE_FORMAT.toString())))
+            .andExpect(jsonPath("$.[*].timeFormat").value(hasItem(DEFAULT_TIME_FORMAT.toString())))
+            .andExpect(jsonPath("$.[*].amountFormat").value(hasItem(DEFAULT_AMOUNT_FORMAT.toString())))
+            .andExpect(jsonPath("$.[*].overFlow").value(hasItem(DEFAULT_OVER_FLOW.toString())))
+            .andExpect(jsonPath("$.[*].skipColumn").value(hasItem(DEFAULT_SKIP_COLUMN.toString())))
+            .andExpect(jsonPath("$.[*].columnDelimiter").value(hasItem(DEFAULT_COLUMN_DELIMITER.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].createdDate").value(hasItem(sameInstant(DEFAULT_CREATED_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))))
+        
+        .andExpect(jsonPath("$.[*].recordStartRow").value(hasItem(DEFAULT_RECORD_START_ROW.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void getFileTemplateLines() throws Exception {
+        // Initialize the database
+        fileTemplateLinesRepository.saveAndFlush(fileTemplateLines);
+
+        // Get the fileTemplateLines
+        restFileTemplateLinesMockMvc.perform(get("/api/file-template-lines/{id}", fileTemplateLines.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(fileTemplateLines.getId().intValue()))
+            .andExpect(jsonPath("$.templateId").value(DEFAULT_TEMPLATE_ID.intValue()))
+            .andExpect(jsonPath("$.lineNumber").value(DEFAULT_LINE_NUMBER))
+            .andExpect(jsonPath("$.masterTableReferenceColumn").value(DEFAULT_MASTER_TABLE_REFERENCE_COLUMN.toString()))
+            .andExpect(jsonPath("$.recordTYpe").value(DEFAULT_RECORD_T_YPE.toString()))
+            .andExpect(jsonPath("$.recordIdentifier").value(DEFAULT_RECORD_IDENTIFIER.toString()))
+            .andExpect(jsonPath("$.columnNumber").value(DEFAULT_COLUMN_NUMBER))
+            .andExpect(jsonPath("$.enclosedChar").value(DEFAULT_ENCLOSED_CHAR.toString()))
+            .andExpect(jsonPath("$.positionBegin").value(DEFAULT_POSITION_BEGIN))
+            .andExpect(jsonPath("$.positionEnd").value(DEFAULT_POSITION_END))
+            .andExpect(jsonPath("$.columnHeader").value(DEFAULT_COLUMN_HEADER.toString()))
+            .andExpect(jsonPath("$.constantValue").value(DEFAULT_CONSTANT_VALUE.toString()))
+            .andExpect(jsonPath("$.zeroFill").value(DEFAULT_ZERO_FILL.toString()))
+            .andExpect(jsonPath("$.align").value(DEFAULT_ALIGN.toString()))
+            .andExpect(jsonPath("$.formula").value(DEFAULT_FORMULA.toString()))
+            .andExpect(jsonPath("$.dateFormat").value(DEFAULT_DATE_FORMAT.toString()))
+            .andExpect(jsonPath("$.timeFormat").value(DEFAULT_TIME_FORMAT.toString()))
+            .andExpect(jsonPath("$.amountFormat").value(DEFAULT_AMOUNT_FORMAT.toString()))
+            .andExpect(jsonPath("$.overFlow").value(DEFAULT_OVER_FLOW.toString()))
+            .andExpect(jsonPath("$.skipColumn").value(DEFAULT_SKIP_COLUMN.toString()))
+            .andExpect(jsonPath("$.columnDelimiter").value(DEFAULT_COLUMN_DELIMITER.toString()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.createdDate").value(sameInstant(DEFAULT_CREATED_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)))
+            .andExpect(jsonPath("$.recordStartRow").value(DEFAULT_RECORD_START_ROW.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingFileTemplateLines() throws Exception {
+        // Get the fileTemplateLines
+        restFileTemplateLinesMockMvc.perform(get("/api/file-template-lines/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateFileTemplateLines() throws Exception {
+        // Initialize the database
+        fileTemplateLinesRepository.saveAndFlush(fileTemplateLines);
+        fileTemplateLinesSearchRepository.save(fileTemplateLines);
+        int databaseSizeBeforeUpdate = fileTemplateLinesRepository.findAll().size();
+
+        // Update the fileTemplateLines
+        FileTemplateLines updatedFileTemplateLines = fileTemplateLinesRepository.findOne(fileTemplateLines.getId());
+        updatedFileTemplateLines
+            .templateId(UPDATED_TEMPLATE_ID)
+            .lineNumber(UPDATED_LINE_NUMBER)
+            .masterTableReferenceColumn(UPDATED_MASTER_TABLE_REFERENCE_COLUMN)
+            .recordTYpe(UPDATED_RECORD_T_YPE)
+            .recordIdentifier(UPDATED_RECORD_IDENTIFIER)
+            .columnNumber(UPDATED_COLUMN_NUMBER)
+            .enclosedChar(UPDATED_ENCLOSED_CHAR)
+            .positionBegin(UPDATED_POSITION_BEGIN)
+            .positionEnd(UPDATED_POSITION_END)
+            .columnHeader(UPDATED_COLUMN_HEADER)
+            .constantValue(UPDATED_CONSTANT_VALUE)
+            .zeroFill(UPDATED_ZERO_FILL)
+            .align(UPDATED_ALIGN)
+            .formula(UPDATED_FORMULA)
+            .dateFormat(UPDATED_DATE_FORMAT)
+            .timeFormat(UPDATED_TIME_FORMAT)
+            .amountFormat(UPDATED_AMOUNT_FORMAT)
+            .overFlow(UPDATED_OVER_FLOW)
+            .skipColumn(UPDATED_SKIP_COLUMN)
+            .columnDelimiter(UPDATED_COLUMN_DELIMITER)
+            .createdBy(UPDATED_CREATED_BY)
+            .createdDate(UPDATED_CREATED_DATE)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE)
+            .recordStartRow(UPDATED_RECORD_START_ROW);
+
+        restFileTemplateLinesMockMvc.perform(put("/api/file-template-lines")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedFileTemplateLines)))
+            .andExpect(status().isOk());
+
+        // Validate the FileTemplateLines in the database
+        List<FileTemplateLines> fileTemplateLinesList = fileTemplateLinesRepository.findAll();
+        assertThat(fileTemplateLinesList).hasSize(databaseSizeBeforeUpdate);
+        FileTemplateLines testFileTemplateLines = fileTemplateLinesList.get(fileTemplateLinesList.size() - 1);
+        assertThat(testFileTemplateLines.getTemplateId()).isEqualTo(UPDATED_TEMPLATE_ID);
+        assertThat(testFileTemplateLines.getLineNumber()).isEqualTo(UPDATED_LINE_NUMBER);
+        assertThat(testFileTemplateLines.getMasterTableReferenceColumn()).isEqualTo(UPDATED_MASTER_TABLE_REFERENCE_COLUMN);
+        assertThat(testFileTemplateLines.getRecordTYpe()).isEqualTo(UPDATED_RECORD_T_YPE);
+        assertThat(testFileTemplateLines.getRecordIdentifier()).isEqualTo(UPDATED_RECORD_IDENTIFIER);
+        assertThat(testFileTemplateLines.getColumnNumber()).isEqualTo(UPDATED_COLUMN_NUMBER);
+        assertThat(testFileTemplateLines.getEnclosedChar()).isEqualTo(UPDATED_ENCLOSED_CHAR);
+        assertThat(testFileTemplateLines.getPositionBegin()).isEqualTo(UPDATED_POSITION_BEGIN);
+        assertThat(testFileTemplateLines.getPositionEnd()).isEqualTo(UPDATED_POSITION_END);
+        assertThat(testFileTemplateLines.getColumnHeader()).isEqualTo(UPDATED_COLUMN_HEADER);
+        assertThat(testFileTemplateLines.getConstantValue()).isEqualTo(UPDATED_CONSTANT_VALUE);
+        assertThat(testFileTemplateLines.getZeroFill()).isEqualTo(UPDATED_ZERO_FILL);
+        assertThat(testFileTemplateLines.getAlign()).isEqualTo(UPDATED_ALIGN);
+        assertThat(testFileTemplateLines.getFormula()).isEqualTo(UPDATED_FORMULA);
+        assertThat(testFileTemplateLines.getDateFormat()).isEqualTo(UPDATED_DATE_FORMAT);
+        assertThat(testFileTemplateLines.getTimeFormat()).isEqualTo(UPDATED_TIME_FORMAT);
+        assertThat(testFileTemplateLines.getAmountFormat()).isEqualTo(UPDATED_AMOUNT_FORMAT);
+        assertThat(testFileTemplateLines.getOverFlow()).isEqualTo(UPDATED_OVER_FLOW);
+        assertThat(testFileTemplateLines.getSkipColumn()).isEqualTo(UPDATED_SKIP_COLUMN);
+        assertThat(testFileTemplateLines.getColumnDelimiter()).isEqualTo(UPDATED_COLUMN_DELIMITER);
+        assertThat(testFileTemplateLines.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testFileTemplateLines.getCreatedDate()).isEqualTo(UPDATED_CREATED_DATE);
+        assertThat(testFileTemplateLines.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testFileTemplateLines.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+        assertThat(testFileTemplateLines.getRecordStartRow()).isEqualTo(UPDATED_RECORD_START_ROW);
+
+        // Validate the FileTemplateLines in Elasticsearch
+        FileTemplateLines fileTemplateLinesEs = fileTemplateLinesSearchRepository.findOne(testFileTemplateLines.getId());
+        assertThat(fileTemplateLinesEs).isEqualToComparingFieldByField(testFileTemplateLines);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingFileTemplateLines() throws Exception {
+        int databaseSizeBeforeUpdate = fileTemplateLinesRepository.findAll().size();
+
+        // Create the FileTemplateLines
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restFileTemplateLinesMockMvc.perform(put("/api/file-template-lines")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(fileTemplateLines)))
+            .andExpect(status().isCreated());
+
+        // Validate the FileTemplateLines in the database
+        List<FileTemplateLines> fileTemplateLinesList = fileTemplateLinesRepository.findAll();
+        assertThat(fileTemplateLinesList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteFileTemplateLines() throws Exception {
+        // Initialize the database
+        fileTemplateLinesRepository.saveAndFlush(fileTemplateLines);
+        fileTemplateLinesSearchRepository.save(fileTemplateLines);
+        int databaseSizeBeforeDelete = fileTemplateLinesRepository.findAll().size();
+
+        // Get the fileTemplateLines
+        restFileTemplateLinesMockMvc.perform(delete("/api/file-template-lines/{id}", fileTemplateLines.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean fileTemplateLinesExistsInEs = fileTemplateLinesSearchRepository.exists(fileTemplateLines.getId());
+        assertThat(fileTemplateLinesExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<FileTemplateLines> fileTemplateLinesList = fileTemplateLinesRepository.findAll();
+        assertThat(fileTemplateLinesList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchFileTemplateLines() throws Exception {
+        // Initialize the database
+        fileTemplateLinesRepository.saveAndFlush(fileTemplateLines);
+        fileTemplateLinesSearchRepository.save(fileTemplateLines);
+
+        // Search the fileTemplateLines
+        restFileTemplateLinesMockMvc.perform(get("/api/_search/file-template-lines?query=id:" + fileTemplateLines.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(fileTemplateLines.getId().intValue())))
+            .andExpect(jsonPath("$.[*].templateId").value(hasItem(DEFAULT_TEMPLATE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].lineNumber").value(hasItem(DEFAULT_LINE_NUMBER)))
+            .andExpect(jsonPath("$.[*].masterTableReferenceColumn").value(hasItem(DEFAULT_MASTER_TABLE_REFERENCE_COLUMN.toString())))
+            .andExpect(jsonPath("$.[*].recordTYpe").value(hasItem(DEFAULT_RECORD_T_YPE.toString())))
+            .andExpect(jsonPath("$.[*].recordIdentifier").value(hasItem(DEFAULT_RECORD_IDENTIFIER.toString())))
+            .andExpect(jsonPath("$.[*].columnNumber").value(hasItem(DEFAULT_COLUMN_NUMBER)))
+            .andExpect(jsonPath("$.[*].enclosedChar").value(hasItem(DEFAULT_ENCLOSED_CHAR.toString())))
+            .andExpect(jsonPath("$.[*].positionBegin").value(hasItem(DEFAULT_POSITION_BEGIN)))
+            .andExpect(jsonPath("$.[*].positionEnd").value(hasItem(DEFAULT_POSITION_END)))
+            .andExpect(jsonPath("$.[*].columnHeader").value(hasItem(DEFAULT_COLUMN_HEADER.toString())))
+            .andExpect(jsonPath("$.[*].constantValue").value(hasItem(DEFAULT_CONSTANT_VALUE.toString())))
+            .andExpect(jsonPath("$.[*].zeroFill").value(hasItem(DEFAULT_ZERO_FILL.toString())))
+            .andExpect(jsonPath("$.[*].align").value(hasItem(DEFAULT_ALIGN.toString())))
+            .andExpect(jsonPath("$.[*].formula").value(hasItem(DEFAULT_FORMULA.toString())))
+            .andExpect(jsonPath("$.[*].dateFormat").value(hasItem(DEFAULT_DATE_FORMAT.toString())))
+            .andExpect(jsonPath("$.[*].timeFormat").value(hasItem(DEFAULT_TIME_FORMAT.toString())))
+            .andExpect(jsonPath("$.[*].amountFormat").value(hasItem(DEFAULT_AMOUNT_FORMAT.toString())))
+            .andExpect(jsonPath("$.[*].overFlow").value(hasItem(DEFAULT_OVER_FLOW.toString())))
+            .andExpect(jsonPath("$.[*].skipColumn").value(hasItem(DEFAULT_SKIP_COLUMN.toString())))
+            .andExpect(jsonPath("$.[*].columnDelimiter").value(hasItem(DEFAULT_COLUMN_DELIMITER.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].createdDate").value(hasItem(sameInstant(DEFAULT_CREATED_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))))
+            .andExpect(jsonPath("$.[*].recordStartRow").value(hasItem(DEFAULT_RECORD_START_ROW.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(FileTemplateLines.class);
+        FileTemplateLines fileTemplateLines1 = new FileTemplateLines();
+        fileTemplateLines1.setId(1L);
+        FileTemplateLines fileTemplateLines2 = new FileTemplateLines();
+        fileTemplateLines2.setId(fileTemplateLines1.getId());
+        assertThat(fileTemplateLines1).isEqualTo(fileTemplateLines2);
+        fileTemplateLines2.setId(2L);
+        assertThat(fileTemplateLines1).isNotEqualTo(fileTemplateLines2);
+        fileTemplateLines1.setId(null);
+        assertThat(fileTemplateLines1).isNotEqualTo(fileTemplateLines2);
+    }
+}

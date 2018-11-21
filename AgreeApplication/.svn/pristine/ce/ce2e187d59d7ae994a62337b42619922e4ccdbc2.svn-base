@@ -1,0 +1,906 @@
+package com.nspl.app.web.rest;
+
+
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.AccountingLineTypes;
+import com.nspl.app.domain.AcctRuleConditions;
+import com.nspl.app.domain.AcctRuleDerivations;
+import com.nspl.app.domain.AppRuleConditions;
+import com.nspl.app.domain.ApprovalGroups;
+import com.nspl.app.domain.ApprovalRuleAssignment;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.MappingSet;
+import com.nspl.app.domain.RuleConditions;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.repository.AccountingLineTypesRepository;
+import com.nspl.app.repository.AcctRuleConditionsRepository;
+import com.nspl.app.repository.AcctRuleDerivationsRepository;
+import com.nspl.app.repository.AppRuleConditionsRepository;
+import com.nspl.app.repository.ApprovalGroupsRepository;
+import com.nspl.app.repository.ApprovalRuleAssignmentRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.MappingSetRepository;
+import com.nspl.app.repository.RuleConditionsRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.search.RulesSearchRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.AcctRuleCondDTO;
+import com.nspl.app.web.rest.dto.AcctRuleDerivationDTO;
+import com.nspl.app.web.rest.dto.AppRuleCondAndActDto;
+import com.nspl.app.web.rest.dto.ApprRuleAssgnDto;
+import com.nspl.app.web.rest.dto.ApprovalActionDto;
+import com.nspl.app.web.rest.dto.LineItems;
+import com.nspl.app.web.rest.dto.RuleConditionsDTO;
+import com.nspl.app.web.rest.dto.RuleDTO;
+import com.nspl.app.web.rest.dto.RulesAndLineItems;
+import com.nspl.app.web.rest.dto.RulesDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing Rules.
+ */
+@RestController
+@RequestMapping("/api")
+public class RulesResource {
+
+	private final Logger log = LoggerFactory.getLogger(RulesResource.class);
+
+	private static final String ENTITY_NAME = "rules";
+
+	private final RulesRepository rulesRepository;
+
+	private final RulesSearchRepository rulesSearchRepository;
+
+
+	@Inject
+	RuleConditionsRepository ruleConditionsRepository;
+
+	@Inject
+	DataViewsColumnsRepository dataViewsColumnsRepository;
+
+	@Inject
+	DataViewsRepository dataViewsRepository;
+
+
+	@Inject
+	RuleGroupRepository ruleGroupRepository;
+
+	@Inject
+	RuleGroupDetailsRepository ruleGroupDetailsRepository;
+
+
+	@Inject
+	AccountingLineTypesRepository accountingLineTypesRepository;
+
+	@Inject
+	AcctRuleConditionsRepository acctRuleConditionsRepository;
+
+	@Inject
+	AcctRuleDerivationsRepository acctRuleDerivationsRepository;
+
+	@Inject
+	LookUpCodeRepository lookUpCodeRepository;
+
+	@Inject
+	MappingSetRepository mappingSetRepository;
+	
+	@Inject
+	AppRuleConditionsRepository appRuleConditionsRepository;
+	
+	@Inject
+	ApprovalRuleAssignmentRepository approvalRuleAssignmentRepository;
+	
+	@Inject
+	ApprovalGroupsRepository approvalGroupsRepository;
+	
+	
+	@Inject
+	UserJdbcService userJdbcService;
+	
+
+
+	public RulesResource(RulesRepository rulesRepository, RulesSearchRepository rulesSearchRepository) {
+		this.rulesRepository = rulesRepository;
+		this.rulesSearchRepository = rulesSearchRepository;
+	}
+
+	/**
+	 * POST  /rules : Create a new rules.
+	 *
+	 * @param rules the rules to create
+	 * @return the ResponseEntity with status 201 (Created) and with body the new rules, or with status 400 (Bad Request) if the rules has already an ID
+	 * @throws URISyntaxException if the Location URI syntax is incorrect
+	 */
+	@PostMapping("/rules")
+	@Timed
+	public ResponseEntity<Rules> createRules(@RequestBody Rules rules) throws URISyntaxException {
+		log.debug("REST request to save Rules : {}", rules);
+		if (rules.getId() != null) {
+			return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new rules cannot already have an ID")).body(null);
+		}
+		Rules result = rulesRepository.save(rules);
+		rulesSearchRepository.save(result);
+		return ResponseEntity.created(new URI("/api/rules/" + result.getId()))
+				.headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+				.body(result);
+	}
+
+	/**
+	 * PUT  /rules : Updates an existing rules.
+	 *
+	 * @param rules the rules to update
+	 * @return the ResponseEntity with status 200 (OK) and with body the updated rules,
+	 * or with status 400 (Bad Request) if the rules is not valid,
+	 * or with status 500 (Internal Server Error) if the rules couldnt be updated
+	 * @throws URISyntaxException if the Location URI syntax is incorrect
+	 */
+	@PutMapping("/rules")
+	@Timed
+	public ResponseEntity<Rules> updateRules(@RequestBody Rules rules) throws URISyntaxException {
+		log.debug("REST request to update Rules : {}", rules);
+		if (rules.getId() == null) {
+			return createRules(rules);
+		}
+		Rules result = rulesRepository.save(rules);
+		rulesSearchRepository.save(result);
+		return ResponseEntity.ok()
+				.headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, rules.getId().toString()))
+				.body(result);
+	}
+
+	/**
+	 * GET  /rules : get all the rules.
+	 *
+	 * @return the ResponseEntity with status 200 (OK) and the list of rules in body
+	 */
+	@GetMapping("/rules")
+	@Timed
+	public List<Rules> getAllRules() {
+		log.debug("REST request to get all Rules");
+		List<Rules> rules = rulesRepository.findAll();
+		return rules;
+	}
+
+	/**
+	 * GET  /rules/:id : get the "id" rules.
+	 *
+	 * @param id the id of the rules to retrieve
+	 * @return the ResponseEntity with status 200 (OK) and with body the rules, or with status 404 (Not Found)
+	 */
+	@GetMapping("/rules/{id}")
+	@Timed
+	public ResponseEntity<Rules> getRules(@PathVariable Long id) {
+		log.debug("REST request to get Rules : {}", id);
+		Rules rules = rulesRepository.findOne(id);
+		return ResponseUtil.wrapOrNotFound(Optional.ofNullable(rules));
+	}
+
+	/**
+	 * DELETE  /rules/:id : delete the "id" rules.
+	 *
+	 * @param id the id of the rules to delete
+	 * @return the ResponseEntity with status 200 (OK)
+	 */
+	@DeleteMapping("/rules/{id}")
+	@Timed
+	public ResponseEntity<Void> deleteRules(@PathVariable Long id) {
+		log.debug("REST request to delete Rules : {}", id);
+		rulesRepository.delete(id);
+		rulesSearchRepository.delete(id);
+		return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+	}
+
+	/**
+	 * SEARCH  /_search/rules?query=:query : search for the rules corresponding
+	 * to the query.
+	 *
+	 * @param query the query of the rules search 
+	 * @return the result of the search
+	 */
+	@GetMapping("/_search/rules")
+	@Timed
+	public List<Rules> searchRules(@RequestParam String query) {
+		log.debug("REST request to search Rules for query {}", query);
+		return StreamSupport
+				.stream(rulesSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+				.collect(Collectors.toList());
+	}
+
+
+
+
+	/**
+	 * Ravali
+	 * @param tenantId
+	 * @param rulePurpose
+	 * @param ruleType
+	 * @return List<Rules>
+	 */
+	@GetMapping("/getRulesByTenantIdAndRuleType/{tenantId}/{ruleType}")
+	@Timed
+	public List<Rules> getRuleBytypeAndPurpose(@RequestParam Long tenantId,@RequestParam String ruleType)
+	{
+		log.info("Rest Request to get rules by tenantId "+tenantId+",ruleType "+ruleType);
+
+		List<Rules> rulesList=rulesRepository.findByTenantIdAndRuleTypeAndEnabledFlag(tenantId,ruleType,true);
+
+		return rulesList;
+
+	}
+
+
+	/**
+	 * Ravali
+	 * @param rule-Id
+	 * @return RulesDTO
+	 */
+
+	@GetMapping("/rulesAndConditions")
+	@Timed
+	public RulesDTO getRulesAndConditions(@RequestParam Long id)
+	{
+		RulesDTO rulesDto=new RulesDTO();
+		RuleDTO ruleDTO=new RuleDTO();
+		/** Setting RuleDTO for rule**/
+		Rules rule=rulesRepository.findOne(id);
+		ruleDTO.setId(rule.getId());
+		ruleDTO.setTenantId(rule.getTenantId());
+		if(rule.getRuleCode()!=null && !rule.getRuleCode().isEmpty())
+			ruleDTO.setRuleCode(rule.getRuleCode());
+		if(rule.getStartDate()!=null)
+			ruleDTO.setStartDate(rule.getStartDate());
+		if(rule.getEndDate()!=null)
+			ruleDTO.setEndDate(rule.getEndDate());
+		if(rule.isEnabledFlag()!=null)
+			ruleDTO.setEnabledFlag(rule.isEnabledFlag());
+		if(rule.getRuleType()!=null && !rule.getRuleType().isEmpty())
+			ruleDTO.setRuleType(rule.getRuleType());
+		if(rule.getCreatedBy()!=null)
+			ruleDTO.setCreatedBy(rule.getCreatedBy());
+		if(rule.getLastUpdatedBy()!=null)
+			ruleDTO.setLastUpdatedBy(rule.getLastUpdatedBy());
+		if(rule.getCreationDate()!=null)
+			ruleDTO.setCreationDate(rule.getCreationDate());
+		if(rule.getLastUpdatedDate()!=null)
+			ruleDTO.setLastUpdatedDate(rule.getLastUpdatedDate());
+		if(rule.getSourceDataViewId()!=null)
+		{
+			ruleDTO.setSourceDataViewId(rule.getSourceDataViewId());
+
+
+			DataViews tDataView=dataViewsRepository.findOne(rule.getSourceDataViewId());
+			if(tDataView!=null && tDataView.getDataViewName()!=null && !tDataView.getDataViewName().isEmpty())
+				ruleDTO.setsDataViewName(tDataView.getDataViewName());
+			if(tDataView!=null && tDataView.getDataViewDispName()!=null && !tDataView.getDataViewDispName().isEmpty())
+				ruleDTO.setsDataViewDisplayName(tDataView.getDataViewDispName());
+		}
+		if(rule.getTargetDataViewId()!=null)
+		{
+
+			ruleDTO.setTargetDataViewId(rule.getTargetDataViewId());
+
+			DataViews tDataView=dataViewsRepository.findOne(rule.getTargetDataViewId());
+			if(tDataView!=null && tDataView.getDataViewName()!=null && !tDataView.getDataViewName().isEmpty())
+				ruleDTO.settDataViewName(tDataView.getDataViewName());
+			if(tDataView!=null && tDataView.getDataViewDispName()!=null && !tDataView.getDataViewDispName().isEmpty())
+				ruleDTO.settDataViewDisplayName(tDataView.getDataViewDispName());
+		}
+
+
+
+		rulesDto.setRule(ruleDTO);
+
+		List<RuleConditionsDTO> ruleCondDto=new ArrayList<RuleConditionsDTO>();
+		List<RuleConditions> ruleConditionsList=ruleConditionsRepository.findByRuleId(id);
+		for(RuleConditions cond:ruleConditionsList)
+		{
+			RuleConditionsDTO ruleCond=new RuleConditionsDTO();
+			ruleCond.setId(cond.getId());
+			if(cond.getRuleId()!=null)
+				ruleCond.setRuleId(cond.getRuleId());
+			if(cond.getOpenBracket()!=null && !cond.getOpenBracket().isEmpty())
+				ruleCond.setOpenBracket(cond.getOpenBracket());
+			/*if(cond.getsDataViewId()!=null)
+    		{
+    			ruleCond.setsDataViewId(cond.getsDataViewId());
+    			DataViews srcdataView=dataViewsRepository.findOne(cond.getsDataViewId());
+    			if(srcdataView!=null && srcdataView.getDataViewName()!=null && !srcdataView.getDataViewName().isEmpty())
+    				ruleCond.setsDataviewName(srcdataView.getDataViewName());//Data view
+    			if(srcdataView!=null && srcdataView.getDataViewDispName()!=null && !srcdataView.getDataViewDispName().isEmpty())
+    				ruleCond.setsDataviewDisplayName(srcdataView.getDataViewDispName());//Data view
+    		}*/
+			if(cond.getsColumnId()!=null)
+			{
+				ruleCond.setsColumnId(cond.getsColumnId());
+				DataViewsColumns srcDtViewColmn=dataViewsColumnsRepository.findOne(cond.getsColumnId());
+				if(srcDtViewColmn!=null && srcDtViewColmn.getColDataType()!=null && !srcDtViewColmn.getColDataType().isEmpty())
+					ruleCond.setsColumnType(srcDtViewColmn.getColDataType());
+				if(srcDtViewColmn!=null && srcDtViewColmn.getColumnName()!=null && !srcDtViewColmn.getColumnName().isEmpty())
+					ruleCond.setsColumnName(srcDtViewColmn.getColumnName());
+			}
+			if(cond.getsFormula()!=null && !cond.getsFormula().isEmpty())
+				ruleCond.setsFormula(cond.getsFormula());
+			if(cond.getsValueType()!=null && !cond.getsValueType().isEmpty())
+				ruleCond.setsValueType(cond.getsValueType());
+			if(cond.getsOperator()!=null && !cond.getsOperator().isEmpty())
+				ruleCond.setsOperator(cond.getsOperator());
+			if(cond.getsToleranceType()!=null && !cond.getsToleranceType().isEmpty())
+				ruleCond.setsToleranceType(cond.getsToleranceType());
+			if(cond.getsToleranceOperatorFrom()!=null && !cond.getsToleranceOperatorFrom().isEmpty())
+				ruleCond.setsToleranceOperatorFrom(cond.getsToleranceOperatorFrom());
+			if(cond.getsToleranceOperatorTo()!=null && !cond.getsToleranceOperatorTo().isEmpty())
+				ruleCond.setsToleranceOperatorTo(cond.getsToleranceOperatorTo());
+			if(cond.getsToleranceValueFrom()!=null && !cond.getsToleranceValueFrom().isEmpty())
+				ruleCond.setsToleranceValueFrom(cond.getsToleranceValueFrom());
+			if(cond.getsToleranceValueTo()!=null && !cond.getsToleranceValueTo().isEmpty())
+				ruleCond.setsToleranceValueTo(cond.getsToleranceValueTo());
+			if(cond.issMany()!=null)
+				ruleCond.setsMany(cond.issMany());
+			/*if(cond.getAggregationMethod()!=null && !cond.getAggregationMethod().isEmpty())
+    			ruleCond.setAggregationMethod(cond.getAggregationMethod());
+    		if(cond.gettDataViewId()!=null)
+    		{
+    			ruleCond.settDataViewId(cond.gettDataViewId());
+    			DataViews tDataView=dataViewsRepository.findOne(cond.gettDataViewId());
+    			if(tDataView!=null && tDataView.getDataViewName()!=null && !tDataView.getDataViewName().isEmpty())
+    				ruleCond.settDataViewName(tDataView.getDataViewName());
+    			if(tDataView!=null && tDataView.getDataViewDispName()!=null && !tDataView.getDataViewDispName().isEmpty())
+    				ruleCond.settDataViewDisplayName(tDataView.getDataViewDispName());
+    		}
+    		if(cond.gettColumnType()!=null && !cond.gettColumnType().isEmpty())
+    			ruleCond.settColumnType(cond.gettColumnType());*/
+			if(cond.gettColumnId()!=null)
+			{
+				ruleCond.settColumnId(cond.gettColumnId());
+				DataViewsColumns tDtViewColmn=dataViewsColumnsRepository.findOne(cond.gettColumnId());
+				if(tDtViewColmn!=null && tDtViewColmn.getColumnName()!=null && !tDtViewColmn.getColumnName().isEmpty())
+					ruleCond.settColumnName(tDtViewColmn.getColumnName());
+			}
+
+			if(cond.gettFormula()!=null && !cond.gettFormula().isEmpty())
+				ruleCond.settFormula(cond.gettFormula());
+			if(cond.istMany()!=null )
+				ruleCond.settMany(cond.istMany());
+			if(cond.gettToleranceOperatorFrom()!=null && !cond.gettToleranceOperatorFrom().isEmpty())
+				ruleCond.settToleranceOperatorFrom(cond.gettToleranceOperatorFrom());
+			if(cond.gettToleranceOperatorTo()!=null && !cond.gettToleranceOperatorTo().isEmpty())
+				ruleCond.settToleranceOperatorTo(cond.gettToleranceOperatorTo());
+			if(cond.gettToleranceType()!=null && !cond.gettToleranceType().isEmpty())
+				ruleCond.settToleranceType(cond.gettToleranceType());
+			if(cond.gettToleranceOperatorFrom()!=null && !cond.gettToleranceOperatorFrom().isEmpty())
+				ruleCond.settToleranceValueFrom(cond.gettToleranceOperatorFrom());
+			if(cond.gettToleranceOperatorTo()!=null && !cond.gettToleranceOperatorTo().isEmpty())
+				ruleCond.settToleranceValueTo(cond.gettToleranceOperatorTo());
+			if(cond.getCloseBracket()!=null && !cond.getCloseBracket().isEmpty())
+				ruleCond.setCloseBracket(cond.getCloseBracket());
+			if(cond.getLogicalOperator()!=null && !cond.getLogicalOperator().isEmpty())
+				ruleCond.setLogicalOperator(cond.getLogicalOperator());
+			if(cond.getCreatedBy()!=null)
+				ruleCond.setCreatedBy(cond.getCreatedBy());
+			if(cond.getLastUpdatedBy()!=null )
+				ruleCond.setLastUpdatedBy(cond.getLastUpdatedBy());
+			if(cond.getCreationDate()!=null )
+				ruleCond.setCreationDate(cond.getCreationDate());
+			if(cond.getLastUpdatedDate()!=null )
+				ruleCond.setLastUpdatedDate(cond.getLastUpdatedDate());
+			if(ruleCond!=null)
+				ruleCondDto.add(ruleCond);
+
+
+		}
+		if(ruleCondDto!=null)
+			rulesDto.setRuleConditions(ruleCondDto);
+		return rulesDto;
+	}
+
+	/**
+	 * Ravali
+	 * @param tenantId
+	 * @param rulePurpose
+	 * @param ruleType
+	 * @return List<Rules>
+	 */
+	@GetMapping("/getRulesByTenantIdAndRulePurposeAndRuleType")
+	@Timed
+	public List<RulesDTO> getRuleBytypeAndPurpose(@RequestParam Long tenantId,@RequestParam String rulePurpose,@RequestParam(value="ruleType",required=false) String ruleType)
+	{
+
+		log.info("Rest Request to get rules by tenantId "+tenantId+",rulePurpose "+rulePurpose+",ruleType "+ruleType);
+		List<RulesDTO> rulesDTOList = new ArrayList<RulesDTO>();
+		//rulepurpose based groupid's=> tenantId and rulepurpose in rulegroup table
+		//fetch rule id's for these groups from grp details
+		//apply id and rule type filter (In rule table)
+		List<Long> ruleGroupIds=ruleGroupRepository.fetchIdsByTenantIdAndRulePurpose(tenantId,rulePurpose);
+		log.info("ruleGroupIds :"+ruleGroupIds);
+		if(ruleGroupIds.size() > 0)
+		{
+			List<Long> ruleIds=ruleGroupDetailsRepository.fetchByRuleGroupIds(ruleGroupIds);
+			log.info("ruleIds :"+ruleIds);
+			List<Rules> rulesList = new ArrayList<Rules>();
+			if(rulePurpose.equalsIgnoreCase("reconciliation"))
+			{
+				if(ruleType != null && !ruleType.equals("") && !ruleType.isEmpty() && ruleIds.size() > 0)
+					rulesList = rulesRepository.findByIdsAndTenantIdAndRuleTypeAndEnabledFlag(ruleIds,tenantId,ruleType);//rule id's input
+				else if(ruleType == null || ruleType.equals("") || ruleType.isEmpty() || ruleType.equals("undefined") && ruleIds.size() > 0)
+					rulesList = rulesRepository.findByIdsAndTenantIdAndEnabledFlag(ruleIds,tenantId);//rule id's input
+			}
+			else if(rulePurpose.equalsIgnoreCase("ACCOUNTING"))
+			{
+				rulesList = rulesRepository.findByIdsAndTenantIdAndEnabledFlag(ruleIds,tenantId);//rule id's input
+			}
+			log.info("rulesList :"+rulesList);
+
+			for(int i = 0;i<rulesList.size();i++)
+			{
+				RulesDTO rulesDTO=new RulesDTO();
+				RuleDTO ruleDTO = new RuleDTO() ;
+				Rules rule = new Rules();
+				rule = rulesList.get(i);
+				log.info("rule :"+rule);
+				ruleDTO.setId(rule.getId());
+				ruleDTO.setTenantId(tenantId);
+				if(rule.getRuleCode()!=null && !rule.getRuleCode().isEmpty())
+					ruleDTO.setRuleCode(rule.getRuleCode());
+				if(rule.getStartDate()!=null)
+					ruleDTO.setStartDate(rule.getStartDate());
+				if(rule.getEndDate()!=null)
+					ruleDTO.setEndDate(rule.getEndDate());
+				if(rule.isEnabledFlag()!=null)
+					ruleDTO.setEnabledFlag(rule.isEnabledFlag());
+				if(rule.getRuleType()!=null && !rule.getRuleType().isEmpty())
+					ruleDTO.setRuleType(rule.getRuleType());
+				if(rule.getCreatedBy()!=null)
+					ruleDTO.setCreatedBy(rule.getCreatedBy());
+				if(rule.getLastUpdatedBy()!=null)
+					ruleDTO.setLastUpdatedBy(rule.getLastUpdatedBy());
+				if(rule.getCreationDate()!=null)
+					ruleDTO.setCreationDate(rule.getCreationDate());
+				if(rule.getLastUpdatedDate()!=null)
+					ruleDTO.setLastUpdatedDate(rule.getLastUpdatedDate());
+				if(rule.getSourceDataViewId()!=null)
+				{
+					ruleDTO.setSourceDataViewId(rule.getSourceDataViewId());
+
+
+					DataViews tDataView=dataViewsRepository.findOne(rule.getSourceDataViewId());
+					if(tDataView!=null && tDataView.getDataViewName()!=null && !tDataView.getDataViewName().isEmpty())
+						ruleDTO.setsDataViewName(tDataView.getDataViewName());
+					if(tDataView!=null && tDataView.getDataViewDispName()!=null && !tDataView.getDataViewDispName().isEmpty())
+						ruleDTO.setsDataViewDisplayName(tDataView.getDataViewDispName());
+				}
+				if(rule.getTargetDataViewId()!=null)
+				{
+
+					ruleDTO.setTargetDataViewId(rule.getTargetDataViewId());
+
+					DataViews tDataView=dataViewsRepository.findOne(rule.getTargetDataViewId());
+					if(tDataView!=null && tDataView.getDataViewName()!=null && !tDataView.getDataViewName().isEmpty())
+						ruleDTO.settDataViewName(tDataView.getDataViewName());
+					if(tDataView!=null && tDataView.getDataViewDispName()!=null && !tDataView.getDataViewDispName().isEmpty())
+						ruleDTO.settDataViewDisplayName(tDataView.getDataViewDispName());
+				}
+
+
+
+				rulesDTO.setRule(ruleDTO);
+				List<RuleConditions> ruleConditionsList=ruleConditionsRepository.findByRuleId(rule.getId());
+				List<RuleConditionsDTO> ruleCondDto=new ArrayList<RuleConditionsDTO>();
+				for(RuleConditions cond:ruleConditionsList)
+				{
+					RuleConditionsDTO ruleCond=new RuleConditionsDTO();
+					ruleCond.setId(cond.getId());
+					if(cond.getRuleId()!=null)
+						ruleCond.setRuleId(cond.getRuleId());
+					if(cond.getOpenBracket()!=null && !cond.getOpenBracket().isEmpty())
+						ruleCond.setOpenBracket(cond.getOpenBracket());
+
+					if(cond.getsColumnId()!=null)
+					{
+						ruleCond.setsColumnId(cond.getsColumnId());
+						DataViewsColumns srcDtViewColmn=dataViewsColumnsRepository.findOne(cond.getsColumnId());
+						if(srcDtViewColmn!=null && srcDtViewColmn.getColDataType()!=null && !srcDtViewColmn.getColDataType().isEmpty())
+							ruleCond.setsColumnType(srcDtViewColmn.getColDataType());
+						if(srcDtViewColmn!=null && srcDtViewColmn.getColumnName()!=null && !srcDtViewColmn.getColumnName().isEmpty())
+							ruleCond.setsColumnName(srcDtViewColmn.getColumnName());
+					}
+					if(cond.getsFormula()!=null && !cond.getsFormula().isEmpty())
+						ruleCond.setsFormula(cond.getsFormula());
+					if(cond.getsValueType()!=null && !cond.getsValueType().isEmpty())
+						ruleCond.setsValueType(cond.getsValueType());
+					if(cond.getsOperator()!=null && !cond.getsOperator().isEmpty())
+						ruleCond.setsOperator(cond.getsOperator());
+					if(cond.getsToleranceType()!=null && !cond.getsToleranceType().isEmpty())
+						ruleCond.setsToleranceType(cond.getsToleranceType());
+					if(cond.getsToleranceOperatorFrom()!=null && !cond.getsToleranceOperatorFrom().isEmpty())
+						ruleCond.setsToleranceOperatorFrom(cond.getsToleranceOperatorFrom());
+					if(cond.getsToleranceOperatorTo()!=null && !cond.getsToleranceOperatorTo().isEmpty())
+						ruleCond.setsToleranceOperatorTo(cond.getsToleranceOperatorTo());
+					if(cond.getsToleranceValueFrom()!=null && !cond.getsToleranceValueFrom().isEmpty())
+						ruleCond.setsToleranceValueFrom(cond.getsToleranceValueFrom());
+					if(cond.getsToleranceValueTo()!=null && !cond.getsToleranceValueTo().isEmpty())
+						ruleCond.setsToleranceValueTo(cond.getsToleranceValueTo());
+					if(cond.issMany()!=null)
+						ruleCond.setsMany(cond.issMany());
+
+					if(cond.gettColumnId()!=null)
+					{
+						ruleCond.settColumnId(cond.gettColumnId());
+						DataViewsColumns tDtViewColmn=dataViewsColumnsRepository.findOne(cond.gettColumnId());
+						if(tDtViewColmn!=null && tDtViewColmn.getColumnName()!=null && !tDtViewColmn.getColumnName().isEmpty())
+							ruleCond.settColumnName(tDtViewColmn.getColumnName());
+					}
+
+					if(cond.gettFormula()!=null && !cond.gettFormula().isEmpty())
+						ruleCond.settFormula(cond.gettFormula());
+					if(cond.istMany()!=null )
+						ruleCond.settMany(cond.istMany());
+					if(cond.gettToleranceOperatorFrom()!=null && !cond.gettToleranceOperatorFrom().isEmpty())
+						ruleCond.settToleranceOperatorFrom(cond.gettToleranceOperatorFrom());
+					if(cond.gettToleranceOperatorTo()!=null && !cond.gettToleranceOperatorTo().isEmpty())
+						ruleCond.settToleranceOperatorTo(cond.gettToleranceOperatorTo());
+					if(cond.gettToleranceType()!=null && !cond.gettToleranceType().isEmpty())
+						ruleCond.settToleranceType(cond.gettToleranceType());
+					if(cond.gettToleranceOperatorFrom()!=null && !cond.gettToleranceOperatorFrom().isEmpty())
+						ruleCond.settToleranceValueFrom(cond.gettToleranceOperatorFrom());
+					if(cond.gettToleranceOperatorTo()!=null && !cond.gettToleranceOperatorTo().isEmpty())
+						ruleCond.settToleranceValueTo(cond.gettToleranceOperatorTo());
+					if(cond.getCloseBracket()!=null && !cond.getCloseBracket().isEmpty())
+						ruleCond.setCloseBracket(cond.getCloseBracket());
+					if(cond.getLogicalOperator()!=null && !cond.getLogicalOperator().isEmpty())
+						ruleCond.setLogicalOperator(cond.getLogicalOperator());
+					if(cond.getCreatedBy()!=null)
+						ruleCond.setCreatedBy(cond.getCreatedBy());
+					if(cond.getLastUpdatedBy()!=null )
+						ruleCond.setLastUpdatedBy(cond.getLastUpdatedBy());
+					if(cond.getCreationDate()!=null )
+						ruleCond.setCreationDate(cond.getCreationDate());
+					if(cond.getLastUpdatedDate()!=null )
+						ruleCond.setLastUpdatedDate(cond.getLastUpdatedDate());
+					if(ruleCond!=null)
+						ruleCondDto.add(ruleCond);
+
+
+				}
+
+				rulesDTO.setRuleConditions(ruleCondDto);
+				rulesDTOList.add(rulesDTO);
+
+
+			}
+		}
+		else
+		{
+
+		}
+
+
+
+		return rulesDTOList;
+	}
+
+
+ /**
+  * author:ravali
+  * @param tenantId
+  * @param rulePurpose
+  * @return getAcctRulesByTenantIdAndRulePurposeAndRuleType
+  */
+	@GetMapping("/getAcctRulesByTenantIdAndRulePurposeAndRuleType")
+	@Timed
+	public List<RulesAndLineItems> getAcctRuleBytypeAndPurpose(@RequestParam Long tenantId,@RequestParam String rulePurpose)
+	{
+
+		log.info("Rest Request to get rules by tenantId "+tenantId+",rulePurpose "+rulePurpose);
+		List<RulesAndLineItems> rulesDTOList = new ArrayList<RulesAndLineItems>();
+		//rulepurpose based groupid's=> tenantId and rulepurpose in rulegroup table
+		//fetch rule id's for these groups from grp details
+		//apply id and rule type filter (In rule table)
+		List<Long> ruleGroupIds=ruleGroupRepository.fetchIdsByTenantIdAndRulePurpose(tenantId,rulePurpose);
+		log.info("ruleGroupIds :"+ruleGroupIds);
+		if(ruleGroupIds.size() > 0)
+		{
+
+
+
+			List<Long> ruleIds=ruleGroupDetailsRepository.fetchByRuleGroupIds(ruleGroupIds);
+			log.info("ruleIds :"+ruleIds);
+			List<Rules> rulesList = new ArrayList<Rules>();
+			rulesList = rulesRepository.findByIdsAndTenantIdAndEnabledFlag(ruleIds,tenantId);//rule id's input
+			log.info("rulesList :"+rulesList);
+
+			for(int i = 0;i<rulesList.size();i++)
+			{
+
+				RulesAndLineItems rulesAndLineItems=new RulesAndLineItems();
+				//RulesDTO rulesDTO=new RulesDTO();
+				//RuleDTO ruleDTO = new RuleDTO() ;
+				Rules rule = new Rules();
+				rule = rulesList.get(i);
+				log.info("rule :"+rule);
+				rulesAndLineItems.setId(rule.getId());
+				if(rule.getRuleCode()!=null && !rule.getRuleCode().isEmpty())
+					rulesAndLineItems.setRuleCode(rule.getRuleCode());
+				if(rule.getStartDate()!=null)
+					rulesAndLineItems.setStartDate(rule.getStartDate());
+				if(rule.getEndDate()!=null)
+					rulesAndLineItems.setEndDate(rule.getEndDate());
+				if(rule.isEnabledFlag()!=null)
+					rulesAndLineItems.setEnabledFlag(rule.isEnabledFlag());
+				if(rule.getRuleType()!=null && !rule.getRuleType().isEmpty())
+					rulesAndLineItems.setRuleType(rule.getRuleType());
+				if(rule.getCOA()!=null && !rule.getCOA().isEmpty())
+				rulesAndLineItems.setCoa(rule.getCOA());
+
+				List<LineItems> linesItemList=new ArrayList<LineItems>();
+
+
+				List<AccountingLineTypes> acctngLineTypesList=accountingLineTypesRepository.findByRuleId(rule.getId());
+				for(AccountingLineTypes acctngLineTypes:acctngLineTypesList)
+				{
+					LineItems lineItem=new LineItems();
+					lineItem.setId(acctngLineTypes.getId());
+					if(acctngLineTypes.getLineType()!=null && !acctngLineTypes.getLineType().isEmpty())
+						lineItem.setLineType(acctngLineTypes.getLineType());
+					if(acctngLineTypes.getDataViewId()!=null)
+					{
+						lineItem.setSourceDataviewId(acctngLineTypes.getDataViewId());
+						DataViews dataViewName=dataViewsRepository.findOne(acctngLineTypes.getDataViewId());
+						if(dataViewName!=null && !dataViewName.getDataViewName().isEmpty())
+							lineItem.setSourceDataviewName(dataViewName.getDataViewName());
+					}
+					List<AcctRuleCondDTO> acctRuleCondDtoList=new ArrayList<AcctRuleCondDTO>();
+					List<AcctRuleConditions> acctRuleConditionsList=acctRuleConditionsRepository.findByRuleActionId(acctngLineTypes.getId());
+					for(AcctRuleConditions acctRuleCond:acctRuleConditionsList)
+					{
+						AcctRuleCondDTO acctRuleCondDTO=new AcctRuleCondDTO();
+						acctRuleCondDTO.setId(acctRuleCond.getId());
+						if(acctRuleCond.getOpenBracket()!=null && !acctRuleCond.getOpenBracket().isEmpty())
+							acctRuleCondDTO.setOpenBracket(acctRuleCond.getOpenBracket());
+						if(acctRuleCond.getOperator()!=null && !acctRuleCond.getOperator().isEmpty())
+							acctRuleCondDTO.setOperator(acctRuleCond.getOperator());
+						if(acctRuleCond.getValue()!=null && !acctRuleCond.getValue().isEmpty())
+							acctRuleCondDTO.setValue(acctRuleCond.getValue());
+						if(acctRuleCond.getCloseBracket()!=null && !acctRuleCond.getCloseBracket().isEmpty())
+							acctRuleCondDTO.setCloseBracket(acctRuleCond.getCloseBracket());
+						if(acctRuleCond.getLogicalOperator()!=null && !acctRuleCond.getLogicalOperator().isEmpty())
+							acctRuleCondDTO.setLogicalOperator(acctRuleCond.getLogicalOperator());
+						if(acctRuleCond.getsViewColumnId()!=null)
+						{
+							acctRuleCondDTO.setsViewColumnId(acctRuleCond.getsViewColumnId());
+							DataViewsColumns dViewCol=dataViewsColumnsRepository.findOne(acctRuleCond.getsViewColumnId());
+							if(dViewCol!=null)
+								acctRuleCondDTO.setsViewColumnName(dViewCol.getColumnName());
+						}
+						acctRuleCondDtoList.add(acctRuleCondDTO);
+					}
+
+
+					List<AcctRuleDerivationDTO> acctRuleDerDTOList=new ArrayList<AcctRuleDerivationDTO>();
+					List<AcctRuleDerivations> acctRuleDerList=acctRuleDerivationsRepository.findByAcctRuleActionId(acctngLineTypes.getId());
+					for(AcctRuleDerivations acctRuleDer:acctRuleDerList)
+					{
+						AcctRuleDerivationDTO acctRuleDerDTO=new AcctRuleDerivationDTO();
+
+						acctRuleDerDTO.setId(acctRuleDer.getId());
+						if(acctRuleDer.getDataViewColumn()!=null &&!acctRuleDer.getDataViewColumn().isEmpty())
+							acctRuleDerDTO.setDataViewColumn(Long.valueOf(acctRuleDer.getDataViewColumn()));
+						if(acctRuleDer.getAccountingReferences()!=null && !acctRuleDer.getAccountingReferences().isEmpty())
+						{
+							acctRuleDerDTO.setAccountingReferencesCode(acctRuleDer.getAccountingReferences());
+							LookUpCode lookUpCode=lookUpCodeRepository.findByTenantIdAndLookUpCodeAndLookUpType(tenantId,acctRuleDer.getAccountingReferences(),rule.getCOA());
+							if(lookUpCode != null && lookUpCode.getMeaning()!=null)
+								acctRuleDerDTO.setAccountingReferencesMeaning(lookUpCode.getMeaning());
+						}
+						if(acctRuleDer.getConstantValue()!=null && !acctRuleDer.getConstantValue().isEmpty())
+							acctRuleDerDTO.setConstantValue(acctRuleDer.getConstantValue());
+						if(acctRuleDer.getMappingSetId()!=null)
+						{
+
+							acctRuleDerDTO.setMappingSetId(acctRuleDer.getMappingSetId());
+							MappingSet mappinSet=mappingSetRepository.findOne(acctRuleDer.getMappingSetId());
+							if(mappinSet!=null)
+								acctRuleDerDTO.setMappingSetName(mappinSet.getName());
+						}
+
+
+						acctRuleDerDTOList.add(acctRuleDerDTO);
+
+					}
+
+
+					lineItem.setAccountingRuleConditions(acctRuleCondDtoList);
+					lineItem.setAccountingRuleDerivations(acctRuleDerDTOList);
+					linesItemList.add(lineItem);
+
+				}
+				rulesAndLineItems.setLineItems(linesItemList);
+				rulesDTOList.add(rulesAndLineItems);
+
+			}
+		}
+		else
+		{
+
+		}
+
+		return rulesDTOList;
+	}
+
+
+	/**
+	 * author :ravali
+	 * @param tenantId
+	 * @param rulePurpose
+	 * @return
+	 * @throws SQLException 
+	 * @throws ClassNotFoundException 
+	 */
+	@GetMapping("/getAppRulesByTenantIdAndRulePurpose")
+	@Timed
+	public List<AppRuleCondAndActDto> getAppRuleByRulePurpose(@RequestParam Long tenantId,@RequestParam String rulePurpose) throws ClassNotFoundException, SQLException
+	{
+
+		log.info("Rest Request to get rules by tenantId "+tenantId+",rulePurpose "+rulePurpose);
+		List<AppRuleCondAndActDto> rulesDTOList = new ArrayList<AppRuleCondAndActDto>();
+		//rulepurpose based groupid's=> tenantId and rulepurpose in rulegroup table
+		//fetch rule id's for these groups from grp details
+		//apply id and rule type filter (In rule table)
+		List<Long> ruleGroupIds=ruleGroupRepository.fetchIdsByTenantIdAndRulePurpose(tenantId,rulePurpose);
+		log.info("ruleGroupIds :"+ruleGroupIds);
+		if(ruleGroupIds.size() > 0)
+		{
+
+			List<Long> ruleIds=ruleGroupDetailsRepository.fetchByRuleGroupIds(ruleGroupIds);
+			log.info("ruleIds :"+ruleIds);
+			List<Rules> rulesList = new ArrayList<Rules>();
+			rulesList = rulesRepository.findByIdsAndTenantIdAndEnabledFlag(ruleIds,tenantId);//rule id's input
+			log.info("rulesList :"+rulesList);
+
+			for(int i = 0;i<rulesList.size();i++)
+			{
+
+				AppRuleCondAndActDto rules=new AppRuleCondAndActDto();
+				//RulesDTO rulesDTO=new RulesDTO();
+				//RuleDTO ruleDTO = new RuleDTO() ;
+				Rules rule = new Rules();
+				rule = rulesList.get(i);
+				log.info("rule :"+rule);
+				rules.setId(rule.getId());
+				if(rule.getRuleCode()!=null && !rule.getRuleCode().isEmpty())
+					rules.setRuleCode(rule.getRuleCode());
+				if(rule.getStartDate()!=null)
+					rules.setStartDate(rule.getStartDate());
+				if(rule.getEndDate()!=null)
+					rules.setEndDate(rule.getEndDate());
+				if(rule.isEnabledFlag()!=null)
+					rules.setEnabledFlag(rule.isEnabledFlag());
+				if(rule.getRuleType() !=null)
+    			{
+					rules.setApprovalNeededType( rule.getRuleType() );
+    				LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("APPROVAL_TYPE",rule.getRuleType(), rule.getTenantId());
+					if(lookUpCode != null &&  lookUpCode.getMeaning() != null)
+						rules.setApprovalNeededTypeMeaning( lookUpCode.getMeaning() );
+    			}
+    		
+				if(rule.getSourceDataViewId()!=null)
+    			{
+					rules.setSourceDataViewId(rule.getSourceDataViewId());
+    				DataViews dv=dataViewsRepository.findOne(rule.getSourceDataViewId());
+    				if(dv!=null && dv.getDataViewName()!=null)
+    					rules.setSourceDataViewName(dv.getDataViewName());
+    			}
+
+				List<AppRuleCondDto> appRuleCondDtoList=new ArrayList<AppRuleCondDto>();
+
+
+				List<AppRuleConditions> appRuleCondList=appRuleConditionsRepository.findByRuleId(rule.getId());
+				for(AppRuleConditions appRuleCond:appRuleCondList)
+				{
+					AppRuleCondDto appRuleCondDto=new AppRuleCondDto();
+					appRuleCondDto.setId(appRuleCond.getId());
+					if(appRuleCond.getColumnId()!=null)
+					{
+						appRuleCondDto.setColumnId(appRuleCond.getColumnId());
+						DataViewsColumns dvcolName=dataViewsColumnsRepository.findOne(appRuleCond.getColumnId());
+						if(dvcolName!=null && dvcolName.getColumnName()!=null)
+							appRuleCondDto.setColumnName(dvcolName.getColumnName());
+					}
+					if(appRuleCond.getOperator()!=null)
+					{
+						appRuleCondDto.setOperator(appRuleCond.getOperator());
+						LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("OPERATOR", appRuleCond.getOperator(), rule.getTenantId());
+						if(lookUpCode != null && lookUpCode.getMeaning()!= null)
+						appRuleCondDto.setOperatorMeaning(lookUpCode.getMeaning());
+					}
+					if(appRuleCond.getLogicalOperator()!=null)
+					{
+						appRuleCondDto.setLogicalOperator(appRuleCond.getLogicalOperator());
+						LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("LOGICAL_OPERATOR", appRuleCond.getLogicalOperator(), rule.getTenantId());
+						if(lookUpCode != null && lookUpCode.getMeaning()!= null)
+						appRuleCondDto.setLogicalOperatorMeaning(lookUpCode.getMeaning());
+					}
+					appRuleCondDtoList.add(appRuleCondDto);
+				}
+				rules.setApprovalConditions(appRuleCondDtoList);
+				ApprovalActionDto appActDto=new ApprovalActionDto();
+				List<ApprovalRuleAssignment> appRuleAssignList=approvalRuleAssignmentRepository.findByRuleId(rule.getId());
+				List<ApprRuleAssgnDto> apprRuleAssgnDtoList=new ArrayList<ApprRuleAssgnDto>();
+				for(ApprovalRuleAssignment  AppRuleAssign:appRuleAssignList)
+				{
+					ApprRuleAssgnDto apprRuleAssgnDto=new ApprRuleAssgnDto();
+					apprRuleAssgnDto.setId(AppRuleAssign.getId());
+					appActDto.setAssigneeType(AppRuleAssign.getAssignType());
+					apprRuleAssgnDto.setAssigneeId(AppRuleAssign.getAssigneeId());
+					if(AppRuleAssign.getAssignType().equalsIgnoreCase("USER"))
+					{
+
+						HashMap map=userJdbcService.jdbcConnc(AppRuleAssign.getAssigneeId());
+
+						if(map!=null && map.get("loginName")!=null)
+							apprRuleAssgnDto.setLoginName(map.get("loginName").toString());
+						if(map!=null && map.get("assigneeName")!=null)
+							apprRuleAssgnDto.setAssigneeName(map.get("assigneeName").toString());
+
+					}
+					else if(AppRuleAssign.getAssignType().equalsIgnoreCase("GROUP"))
+					{
+						ApprovalGroups appGroup = new ApprovalGroups();
+						if(AppRuleAssign.getAssigneeId() != null)
+						appGroup=approvalGroupsRepository.findOne(AppRuleAssign.getAssigneeId());
+						if(appGroup != null)
+						apprRuleAssgnDto.setAssigneeName(appGroup.getGroupName());
+					}
+					apprRuleAssgnDto.setAutoApproval(AppRuleAssign.isAutoApproval());
+					apprRuleAssgnDto.setNotification(true);
+					apprRuleAssgnDto.setEmail(AppRuleAssign.isEmail());
+					apprRuleAssgnDtoList.add(apprRuleAssgnDto);
+
+				}
+
+				appActDto.setActionDetails(apprRuleAssgnDtoList);
+				rules.setApprovalActions(appActDto);
+				rulesDTOList.add(rules);
+
+			}
+		}
+
+
+		return rulesDTOList;
+	}
+
+
+
+
+
+}

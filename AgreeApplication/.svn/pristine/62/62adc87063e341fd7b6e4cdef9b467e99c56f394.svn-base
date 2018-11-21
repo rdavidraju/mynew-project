@@ -1,0 +1,192 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.util.List;
+
+import com.nspl.app.domain.AppModuleSummary;
+
+import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+
+/**
+ * Spring Data JPA repository for the AppModuleSummary entity.
+ */
+@SuppressWarnings("unused")
+@Repository
+public interface AppModuleSummaryRepository extends JpaRepository<AppModuleSummary,Long> {
+
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),(sum(dv_count)-sum(type_count)) as unProcessedCount,round((sum(type_count)/sum(dv_count) * 100),2) as processedPercent,round(100-(sum(type_count)/sum(dv_count) * 100),2) as unProcessedPer,type,rule_id,view_id,case when (sum(dv_amt)-sum(type_amt)) is null then 0 else (sum(dv_amt)-sum(type_amt)) end as unProcessedAmt,"
+			+ "case when (sum(type_count)-sum(approval_count)) is null then 0 else (sum(type_count)-sum(approval_count)) end as unApprovedCount FROM t_app_module_summary where rule_group_id=:groupId and file_date between :fmDate and :toDate"
+			+ " group by rule_id,view_id,type",nativeQuery=true)
+	List<Object[]> fetchRecCountsByGroupIdAndFileDate(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	
+	@Query(value =  "SELECT (sum(dv_count)-sum(type_count)) as unProcessedCount FROM t_app_module_summary where rule_group_id=:groupId and file_date between :fmDate and :toDate",nativeQuery=true)
+	Object[] fetchUnRecCountsByGroupIdAndFileDate(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	
+	
+	
+	@Query(value =  "SELECT sum(type_count) FROM t_app_module_summary where rule_group_id=:groupId and type='Not accounted' and file_date between :fmDate and :toDate",nativeQuery=true)
+	Object[] fetchUnActCountsByGroupIdAndFileDate(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+
+
+
+	@Query(value =  "SELECT sum(distinct(dv_count)),sum(type_count),round(sum(type_count)/sum(distinct(dv_count))*100,2) as percet,type,rule_id,view_id FROM t_app_module_summary where rule_group_id=:groupId and type=:type and "
+			+ "file_date between :fmDate and :toDate group by rule_id,view_id,type",nativeQuery=true)
+	List<Object[]> fetchActCountsByGroupIdAndFileDate(@Param("groupId") Long groupId,@Param("type") String type,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),round(sum(type_count)/sum(dv_count)*100,2) as percet,type,rule_id,view_id FROM t_app_module_summary where view_id =:viewId and rule_group_id=:groupId and "
+			+ "file_date between :fmDate and :toDate group by rule_id,view_id,type",nativeQuery=true)
+	List<Object[]> fetchActCountsByGroupIdAndViewIdAndFileDate(@Param("groupId") Long groupId,@Param("viewId") Long viewId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+
+
+
+
+	@Query(value =  "select DATEDIFF(:toDate,file_date) as `rule_age`, sum(dv_count),(sum(dv_count)-sum(type_count)) as unreconcilied,round((sum(dv_count)-sum(type_count))/sum(dv_count) *100,2) as unReconciledPer,"
+			+ " concat((DATEDIFF(:toDate,file_date)-1),'-' ,DATEDIFF(:toDate,file_date)) as period from "
+			+ "t_app_module_summary where file_date between :fmDate and :toDate and   rule_group_id =:groupId and rule_id =:ruleId and view_id =:viewId group by rule_age, period",nativeQuery=true)
+	List<Object[]> fetchAgingForUnReconCount(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate,@Param("ruleId") Long ruleId,@Param("viewId") Long viewId);
+
+
+
+
+
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as reconciledPer,round(100-(sum(type_count)/sum(dv_count) * 100),2) as unRecPer FROM "
+			+ "t_app_module_summary where rule_group_id =:groupId and file_date=:fmDate",nativeQuery=true)
+	List< Object[]> fetchReconCountAndUnReconciledCountPerDay(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate);
+	
+
+	
+	
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as reconciledPer,round(100-(sum(type_count)/sum(dv_count) * 100),2) as unRecPer FROM "
+			+ "t_app_module_summary where rule_group_id =:groupId and file_date between :fDate and :tDate",nativeQuery=true)
+	List< Object[]> fetchReconCountAndUnReconciledCountBetweenGivenDates(@Param("groupId") Long groupId,@Param("fDate") LocalDate fDate,@Param("tDate") LocalDate tDate);
+
+
+
+	@Query(value =  "select distinct type from t_app_module_summary where rule_group_id=:groupId",nativeQuery=true)
+	List<String> findDistinctTypeByRuleGroupId(
+			@Param("groupId") Long groupId);
+	
+	
+	
+	@Query(value =  "select distinct view_id from t_app_module_summary where rule_group_id=:groupId and file_date between :fmDate and :toDate",nativeQuery=true)
+	List<BigInteger> findDistinctViewIdByRuleGroupId(
+			@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+
+
+	@Query(value =  "select DATEDIFF(:toDate,file_date) as `rule_age`, sum(dv_count),sum(type_count),round((sum(dv_count)-sum(type_count))/sum(dv_count) *100,2) as actPer,"
+			+ " concat((DATEDIFF(:toDate,file_date)-1),'-' ,DATEDIFF(:toDate,file_date)) as period from "
+			+ "t_app_module_summary where file_date between :fmDate and :toDate and  rule_group_id =:groupId and type =:type group by rule_age, period",nativeQuery=true)
+	List<Object[]> fetchAgingForAccountingSummary(@Param("groupId") Long groupId,@Param("type") String type,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+
+
+	
+	/**Each Day analysis for accted summary
+	 */
+
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as per FROM "
+			+ "t_app_module_summary where rule_group_id =:groupId and type=:type and file_date=:fmDate",nativeQuery=true)
+	List<Object[]> fetchProcessedAndUnProcessedCountPerDay(@Param("groupId") Long groupId,@Param("type") String type,@Param("fmDate") LocalDate fmDate);
+	
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as per FROM "
+			+ "t_app_module_summary where rule_group_id =:groupId and type=:type and file_date between :fDate and :tDate",nativeQuery=true)
+	List<Object[]> fetchProcessedAndUnProcessedCountBetweenGivenDates(@Param("groupId") Long groupId,@Param("type") String type,@Param("fDate") LocalDate fDate,@Param("tDate") LocalDate tDate);
+	
+	
+	
+	
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),"
+			+ "case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as reconciledPer,"
+			+ "round(100-(sum(type_count)/sum(dv_count) * 100),2) as unRecPer,"
+			+ "case when sum(dv_amt) is null then 0 else sum(dv_amt) end as dvAmt,"
+			+ "case when sum(type_amt) is null then 0 else sum(type_amt) end as typeAmt,"
+			+ "case when round(sum(dv_amt)/sum(dv_amt) *100,2) is null then 0 else round(sum(dv_amt)/sum(dv_amt) *100,2) end as reconcileAmtPer,"
+			+ "case when round(100-(sum(type_amt)/sum(dv_amt) * 100),2) is null then 0 else round(100-(sum(type_amt)/sum(dv_amt) * 100),2) end as unRecAmtPer,"
+			+ "DATE(file_date) as date FROM "
+			+ "t_app_module_summary where rule_group_id =:groupId and file_date between :fmDate and :toDate GROUP BY DATE(file_date)",nativeQuery=true)
+	List< Object[]> fetchReconCountAndUnReconciledCountWithDates(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	
+	
+	
+	
+	
+	
+	@Query(value =  "SELECT sum(dv_count),sum(type_count),"
+			+ "case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as reconciledPer,"
+			+ "round(100-(sum(type_count)/sum(dv_count) * 100),2) as unRecPer,"
+			+ "case when sum(dv_amt) is null then 0 else sum(dv_amt) end as dvAmt,"
+			+ "case when sum(type_amt) is null then 0 else sum(type_amt) end as typeAmt,"
+			+ "case when round(sum(dv_amt)/sum(dv_amt) *100,2) is null then 0 else round(sum(dv_amt)/sum(dv_amt) *100,2) end as reconcileAmtPer,"
+			+ "case when round(100-(sum(type_amt)/sum(dv_amt) * 100),2) is null then 0 else round(100-(sum(type_amt)/sum(dv_amt) * 100),2) end as unRecAmtPer,"
+			+ "FLOOR((DayOfMonth(file_date)-1)/7)+1 as week FROM "
+			+ "t_app_module_summary where rule_group_id =:groupId and file_date between :fmDate and :toDate GROUP BY FLOOR((DayOfMonth(file_date)-1)/7)+1",nativeQuery=true)
+	List< Object[]> fetchReconCountAndUnReconciledCountWithweeks(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	
+	
+	
+	/*@Query(value =  "select type,Date(file_date), sum(dv_count),sum(type_count),sum(dv_amt),sum(type_amt),case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else  round(sum(type_count)/sum(dv_count) *100,2) end as countPer, case when round(sum(type_amt)/sum(dv_amt) *100,2) is null then 0 else  round(sum(type_count)/sum(dv_count) *100,2) end as amtPer from t_app_module_summary where rule_group_id =216 and file_date between '2018-01-30' and '2018-02-28' group by type,Date(file_date)",nativeQuery=true)
+	List<Object[]> fetchAccountingAnalysisWithDates();*/
+	
+	
+	@Query(value = "select type,Date(file_date), sum(dv_count),sum(type_count),sum(dv_amt),sum(type_amt),"
+			+ "case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as countPer,"
+			+ "case when round(sum(type_amt)/sum(dv_amt) *100,2) is null then 0 else round(sum(type_amt)/sum(dv_amt) *100,2) end as amtPer "
+			+ "from t_app_module_summary where rule_group_id =:groupId and file_date between :fmDate and :toDate group by type,Date(file_date)",nativeQuery=true)
+			List<Object[]> fetchAccountingAnalysisWithDates(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+			
+			
+			@Query(value = "select type,FLOOR((DayOfMonth(file_date)-1)/7)+1,sum(dv_count),sum(type_count),sum(dv_amt),sum(type_amt),"
+					+ "case when round(sum(type_count)/sum(dv_count) *100,2) is null then 0 else round(sum(type_count)/sum(dv_count) *100,2) end as countPer,"
+					+ "case when round(sum(type_amt)/sum(dv_amt) *100,2) is null then 0 else round(sum(type_amt)/sum(dv_amt) *100,2) end as amtPer "
+					+ "from t_app_module_summary where rule_group_id =:groupId and file_date between :fmDate and :toDate group by type,FLOOR((DayOfMonth(file_date)-1)/7)+1",nativeQuery=true)
+					List<Object[]> fetchAccountingAnalysisWithWeeks(@Param("groupId") Long groupId,@Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	
+	
+	
+
+
+
+	AppModuleSummary findByFileDateAndModule(LocalDate parse, String string);
+
+
+
+	AppModuleSummary findByFileDateAndModuleAndRuleGroupId(LocalDate parse,
+			String string, Long id);
+
+
+
+	AppModuleSummary findByFileDateAndModuleAndRuleGroupIdAndRuleId(
+			LocalDate parse, String string, Long id, Long valueOf);
+
+
+
+	AppModuleSummary findByFileDateAndModuleAndRuleGroupIdAndRuleIdAndViewId(
+			LocalDate parse, String string, Long id, Long valueOf, Long valueOf2);
+
+
+
+	AppModuleSummary findByFileDateAndModuleAndRuleGroupIdAndRuleIdAndViewIdAndType(
+			LocalDate parse, String string, Long id, Long valueOf,
+			Long valueOf2, String acct);
+
+
+
+
+
+
+
+/*	AppModuleSummary findByFileDateAndModuleAndRuleGroupIdAndRuleIdAndTypeAndViewId(
+			LocalDate parse, String string2, Long id, Long longValue,
+			Long longValue2);*/
+
+	AppModuleSummary findByModuleAndRuleGroupIdAndRuleIdAndTypeAndViewId(String module, Long ruleGroupId, Long ruleId, String type, Long viewId);
+
+
+
+
+
+
+}

@@ -1,0 +1,854 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViewFilters;
+import com.nspl.app.domain.DataViewUnion;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.DataViewsSrcMappings;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.repository.DataViewConditionsRepository;
+import com.nspl.app.repository.DataViewFiltersRepository;
+import com.nspl.app.repository.DataViewUnionRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.DataViewsSrcMappingsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.search.DataViewsSearchRepository;
+import com.nspl.app.service.DataViewsService;
+import com.nspl.app.service.ExcelFunctionsService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.web.rest.dto.DataViewsToViewColumnsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing DataViews.
+ */
+@RestController
+@RequestMapping("/api")
+public class DataViewsResource {
+
+    private final Logger log = LoggerFactory.getLogger(DataViewsResource.class);
+
+    private static final String ENTITY_NAME = "dataViews";
+        
+    private final DataViewsRepository dataViewsRepository;
+
+    private final DataViewsSearchRepository dataViewsSearchRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    DataViewFiltersRepository dataViewFiltersRepository;
+    
+    @Inject
+    FileTemplatesRepository fileTemplatesRepository;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    DataViewConditionsRepository dataViewConditionsRepository;
+    
+    @Inject
+    ExcelFunctionsService excelFunctionsService;
+    
+    @Inject
+    DataViewsService dataViewsService;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    DataViewsSrcMappingsRepository dataViewsSrcMappingsRepository;
+    
+    @Inject
+    DataViewUnionRepository dataViewUnionRepository;
+    
+    @Inject
+    private Environment env;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    public DataViewsResource(DataViewsRepository dataViewsRepository, DataViewsSearchRepository dataViewsSearchRepository) {
+        this.dataViewsRepository = dataViewsRepository;
+        this.dataViewsSearchRepository = dataViewsSearchRepository;
+    }
+
+    @PostMapping("/data-views")
+    @Timed
+    public ResponseEntity<DataViews> createDataViews(@RequestBody DataViews dataViews, @RequestParam Long tenanatId, @RequestParam Long userId) throws URISyntaxException {
+        log.debug("REST request to save DataViews : {}", dataViews);
+        if (dataViews.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataViews cannot already have an ID")).body(null);
+        }
+        dataViews.setCreatedBy(userId);
+        dataViews.setCreationDate(ZonedDateTime.now());
+        dataViews.setTenantId(tenanatId);
+        DataViews result = dataViewsRepository.save(dataViews);
+        dataViewsSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/data-views/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /data-views : Updates an existing dataViews.
+     *
+     * @param dataViews the dataViews to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataViews,
+     * or with status 400 (Bad Request) if the dataViews is not valid,
+     * or with status 500 (Internal Server Error) if the dataViews couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+     @PutMapping("/data-views")
+     @Timed
+     public ResponseEntity<DataViews> updateDataViews(@RequestBody DataViews dataViews, @RequestParam Long tenanatId, @RequestParam Long userId) throws URISyntaxException {
+         log.debug("REST request to update DataViews : {}", dataViews);
+         dataViews.setLastUpdatedBy(userId);
+         dataViews.setLastUpdatedDate(ZonedDateTime.now());
+         dataViews.setTenantId(tenanatId);
+         DataViews result = dataViewsRepository.save(dataViews);
+         dataViewsSearchRepository.save(result);
+         return ResponseEntity.ok()
+             .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, dataViews.getId().toString()))
+             .body(result);
+     }
+
+    /**
+     * GET  /data-views : get all the dataViews.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of dataViews in body
+     */
+    @GetMapping("/data-views")
+    @Timed
+    public List<DataViews> getAllDataViews() {
+        log.debug("REST request to get all DataViews");
+        List<DataViews> dataViews = dataViewsRepository.findAll();
+        return dataViews;
+    }
+
+    /**
+     * GET  /data-views/:id : get the "id" dataViews.
+     *
+     * @param id the id of the dataViews to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataViews, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-views/{id}")
+    @Timed
+    public ResponseEntity<DataViews> getDataViews(@PathVariable Long id) {
+        log.debug("REST request to get DataViews : {}", id);
+        DataViews dataViews = dataViewsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataViews));
+    }
+
+    /**
+     * DELETE  /data-views/:id : delete the "id" dataViews.
+     *
+     * @param id the id of the dataViews to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-views/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataViews(@PathVariable Long id) {
+        log.debug("REST request to delete DataViews : {}", id);
+        dataViewsRepository.delete(id);
+        dataViewsSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/data-views?query=:query : search for the dataViews corresponding
+     * to the query.
+     *
+     * @param query the query of the dataViews search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/data-views")
+    @Timed
+    public List<DataViews> searchDataViews(@RequestParam String query) {
+        log.debug("REST request to search DataViews for query {}", query);
+        return StreamSupport
+            .stream(dataViewsSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Author: Swetha
+     * Description: Retrieve data views based on tenanatId
+     * @param tenantId
+     * @return
+     * @throws URISyntaxException 
+     */
+    /*@GetMapping("/dataViewsByTenanat")
+    @Timed
+    public List<DataViews> getByTenantId(@RequestParam Long tenantId){
+    	log.info("REST request to fetch dataViews based on tenantId: "+tenantId);
+    	List<DataViews> dataViewsList=dataViewsRepository.findByTenantIdOrderByIdDesc(tenantId);
+    	log.info("dataViewsList sz: "+dataViewsList.size());
+		return dataViewsList;
+    	
+    }*/
+    
+    /*@GetMapping("/dataViewsByTenanat")
+    @Timed
+    public Page<DataViews> getByTenantId(@RequestParam Long tenantId,@RequestParam(value = "page" , required = false) Integer offset,
+			@RequestParam(value = "per_page", required = false) Integer limit){
+    	log.info("REST request to fetch dataViews based on tenantId: "+tenantId);
+    	PaginationUtil paginationUtil=new PaginationUtil();
+		Page<DataMaster> page = null;
+		HttpHeaders headers = null;
+		if(limit == null || limit == 0)
+    	{
+    		limit = paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+    	{
+    		offset = paginationUtil.DEFAULT_OFFSET;
+    	}
+    	Page<DataViews> dataViewsList=dataViewsRepository.findByTenantIdOrderByIdDesc(tenantId, PaginationUtil.generatePageRequest(offset, limit));
+    	log.info("dataViewsList sz: "+dataViewsList.getSize());
+		return dataViewsList;
+    	
+    }*/
+    
+    @GetMapping("/dataViewsByTenanat")
+    @Timed
+    public ResponseEntity<List<DataViewsToViewColumnsDTO>> getByTenantId(@RequestParam Long tenantId,@RequestParam(value = "page" , required = false) Integer offset,
+			@RequestParam(value = "per_page", required = false) Integer limit) throws URISyntaxException{
+    	log.info("REST request to fetch dataViews based on tenantId: "+tenantId);
+    	List<DataViewsToViewColumnsDTO> dtoList=new ArrayList<DataViewsToViewColumnsDTO>();
+    	List<DataViews> dvList=new ArrayList<DataViews>();
+    	PaginationUtil paginationUtil=new PaginationUtil();
+    	int maxlmt=paginationUtil.MAX_LIMIT;
+		int minlmt=paginationUtil.MIN_OFFSET;
+		log.info("maxlmt: "+maxlmt);
+		Page<DataViews> page = null;
+		HttpHeaders headers = null;
+		if(limit == null || limit < minlmt)
+    	{
+			dvList=dataViewsRepository.findByTenantIdOrderByIdDesc(tenantId);
+			log.info("dvList :"+dvList.size());
+			limit=dvList.size();
+    	}
+    	if(limit ==0)
+    	{
+    		limit= paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+		{
+			offset = paginationUtil.DEFAULT_OFFSET;
+		}
+    	if(limit>maxlmt)
+		{
+			log.info("input limit exceeds maxlimit");
+			page =  dataViewsRepository.findByTenantIdOrderByIdDesc(tenantId, PaginationUtil.generatePageRequest2(offset, limit));
+			headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/dataViewsByTenanat",offset, limit);
+		}
+    	else
+    	{
+    		log.info("input limit is within maxlimit");
+			page = dataViewsRepository.findByTenantIdOrderByIdDesc(tenantId, PaginationUtil.generatePageRequest(offset, limit));
+			headers = PaginationUtil.generatePaginationHttpHeaderss(page, "/api/dataViewsByTenanat", offset, limit);
+    	}
+    	log.info("offset: "+offset+" limit: "+limit);
+    	//Page<DataViews> dataViewsList=dataViewsRepository.findByTenantIdOrderByIdDesc(tenantId, PaginationUtil.generatePageRequest(offset, limit));
+    	//for(DataViews dv: dataViewsList){
+    	Iterator itr=page.iterator();
+    	while(itr.hasNext()){
+    		DataViewsToViewColumnsDTO dvDto=new DataViewsToViewColumnsDTO();
+    		DataViews dv=(DataViews) itr.next();
+    		log.info("dv.getId :"+dv.getId());
+			dvDto.setId(dv.getId());
+			if(dv.getDataViewName()!=null && !dv.getDataViewName().isEmpty())
+    		dvDto.setDataViewName(dv.getDataViewName());
+			if(dv.getDataViewDispName()!=null && !dv.getDataViewDispName().isEmpty())
+    		dvDto.setDataViewDispName(dv.getDataViewDispName());
+			if(dv.getCreatedBy()!=null)
+    		dvDto.setCreatedBy(dv.getCreatedBy());
+			if(dv.getCreationDate()!=null)
+    		dvDto.setCreationDate(dv.getCreationDate());
+			if(dv.getDataViewObject()!=null)
+    		dvDto.setDataViewObject(dv.getDataViewObject());
+			if(dv.getDescription()!=null)
+    		dvDto.setDescription(dv.getDescription());
+			if(dv.isEnabledFlag()!=null)
+    		dvDto.setEnabledFlag(dv.isEnabledFlag());
+			if(dv.getEndDate()!=null)
+    		dvDto.setEndDate(dv.getEndDate());
+    		if(dvDto.getEndDate()!=null && dvDto.getEndDate().isBefore(LocalDate.now()))
+			{
+    			dvDto.setEndDated(true);
+			}
+			else
+			{
+				dvDto.setEndDated(false);
+			}
+    		if(dv.getLastUpdatedBy()!=null)
+    		dvDto.setLastUpdatedBy(dv.getLastUpdatedBy());
+    		if(dv.getLastUpdatedDate()!=null)
+    		dvDto.setLastUpdatedDate(dv.getLastUpdatedDate());
+    		if(dv.getStartDate()!=null)
+    		dvDto.setStartDate(dv.getStartDate());
+    		if(dv.getTenantId()!=null)
+    		dvDto.setTenantId(dv.getTenantId());
+    		List<DataViewsSrcMappings> dvSrcMapList=dataViewsSrcMappingsRepository.findByDataViewIdOrderByTemplateIdAsc(dv.getId());
+    		log.info("dvSrcMapList: "+dvSrcMapList);
+    		if(dvSrcMapList!=null && !(dvSrcMapList.isEmpty())){
+    		//DataViewsSrcMappings dvSrcMap=dvSrcMapList.get(0);
+    		if(dvSrcMapList.size()==1)
+    			dvDto.setType("Single Template");
+    		else if(dvSrcMapList.size()>1){
+    			DataViewsSrcMappings dvSrcMap1=dvSrcMapList.get(0);
+    			DataViewsSrcMappings dvSrcMap2=dvSrcMapList.get(1);
+    		if(dvSrcMap1.getRelation()!=null )
+    		{
+    			LookUpCode relCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("DV_RELATION", dvSrcMap1.getRelation(), tenantId);
+    			if(relCode!=null)
+    			dvDto.setType(relCode.getMeaning());
+    		}
+    		else if(dvSrcMap2.getRelation()!=null )
+    		{
+    			LookUpCode relCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("DV_RELATION", dvSrcMap2.getRelation(), tenantId);
+    			if(relCode!=null)
+    			dvDto.setType(relCode.getMeaning());
+    		}
+    		}
+    		
+    		}
+    		dtoList.add(dvDto);
+    	}
+	//	return dtoList;
+    	return new ResponseEntity<>(dtoList, headers, HttpStatus.OK);
+    	
+    }
+    
+    /**
+     * Author: Swetha
+     * Description: Posting data view along with List of data view columns 
+     * @param dataViewsToViewColumnsDTO
+     * @param tenantId
+     * @param userId
+     * @throws URISyntaxException
+     */
+    @PostMapping("/dataViewsNColumns")
+    @Timed
+    public void createDataViews(@RequestBody List<DataViewsToViewColumnsDTO> dataViewsToViewColumnsDTOList, @RequestParam Long tenantId, @RequestParam Long userId) throws URISyntaxException {
+    	log.info("Rest REquest to post data views and columns");
+    	DataViewsToViewColumnsDTO dataViewsToViewColumnsDTO=dataViewsToViewColumnsDTOList.get(0);
+    	DataViews dv=new DataViews();
+    	dv.setDataViewName(dataViewsToViewColumnsDTO.getDataViewName());
+    	dv.setDataViewDispName(dataViewsToViewColumnsDTO.getDataViewDispName());
+    	dv.setCreatedBy(userId);
+    	dv.setCreationDate(ZonedDateTime.now());
+    	dv.setEnabledFlag(true);
+    	dv.setLastUpdatedBy(userId);
+    	dv.setLastUpdatedDate(ZonedDateTime.now());
+    	dv.setTenantId(tenantId);
+    	dv.setStartDate(dataViewsToViewColumnsDTO.getStartDate());
+    	dv.setEndDate(dataViewsToViewColumnsDTO.getEndDate());
+    	dv.setDescription(dataViewsToViewColumnsDTO.getDescription());
+    	DataViews dvNew=dataViewsRepository.save(dv);
+    	Long dvId=dvNew.getId();
+    	log.info("dvId after saving: "+dvId);
+    	
+    	List<DataViewsColumns> dvcList=new ArrayList<DataViewsColumns>();
+    	log.info("dataViewsToViewColumnsDTO.getDataViewsColumnsList().size(): "+dataViewsToViewColumnsDTO.getDataViewsColumnsList().size());
+    	for(int i=0;i<dataViewsToViewColumnsDTO.getDataViewsColumnsList().size();i++){
+    		DataViewsColumns dvcdto=dataViewsToViewColumnsDTO.getDataViewsColumnsList().get(i);
+    		DataViewsColumns dvc=new DataViewsColumns();
+    		dvc.setColDataType(dvcdto.getColDataType());
+    		dvc.setColumnName(dvcdto.getColumnName());
+    		dvc.setCreatedBy(userId);
+    		dvc.setCreationDate(ZonedDateTime.now());
+    		dvc.setDataViewId(dvId);
+    		dvc.setLastUpdatedBy(userId);
+    		dvc.setLastUpdatedDate(ZonedDateTime.now());
+    		dvc.setRefDvColumn(dvcdto.getRefDvColumn());
+    		dvc.setRefDvName(dvcdto.getRefDvName());
+    		dvc.setRefDvName(dvcdto.getRefDvName());
+    		dvc.setRefDvType(dvcdto.getRefDvType());
+    		DataViewsColumns dvcNew=dataViewsColumnsRepository.save(dvc);
+    		Long dvcNewId=dvcNew.getId();
+    		log.info("dvcNewId after data view column save: "+dvcNewId);
+    	}
+    }
+    
+    
+    /**
+     * Author: Swetha, Ravali
+     * Description: Retrieve data views along with data view columns based on tenanatId
+     * @param tenantId
+     * @return
+     */
+    @GetMapping("/getDataViewsNColsByTenant")
+    @Timed
+    public List<HashMap> getDataViewsNColsByTenant(@RequestParam Long tenantId,@RequestParam(value = "dataViewId", required=false) Long dataViewId) {
+    	log.info("Rest request to getDataViewsNColsByTenant by tenantId: "+tenantId +" dataViewId :"+dataViewId);
+
+    	List<HashMap> dvTodvcDtoLIst=new ArrayList<HashMap>();
+    	if(dataViewId!=null)
+    	{
+    		dvTodvcDtoLIst = dataViewsService.fetchDataViewAndColumnsByDvId(dataViewId);
+    		
+    	}
+    	else
+    	{
+    		List<DataViews> dataViewsList=dataViewsRepository.fetchActiveDataViews(tenantId);
+    		List<DataViewsColumns> dViewcolList=dataViewsColumnsRepository.fetchDataViewColumnsByDataViewIds(tenantId);
+    		HashMap<Long,List<DataViewsColumns>> dataViewColMap=new HashMap<Long,List<DataViewsColumns>>();    	
+    		DataViewFilters dviewFilter=new DataViewFilters();
+    		for(int i =0;i<dViewcolList.size();i++)
+    		{
+
+    			if(dataViewColMap.containsKey(dViewcolList.get(i).getDataViewId()))
+    			{
+    				List<DataViewsColumns> dvcs = new ArrayList<DataViewsColumns>();
+    				dvcs = dataViewColMap.get(dViewcolList.get(i).getDataViewId());
+    				dvcs.add(dViewcolList.get(i));
+    				dataViewColMap.put(dViewcolList.get(i).getDataViewId(),dvcs);
+    				/*dviewFilter=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcIdAndRefSrcColId(dViewcolList.get(i).getDataViewId(), dViewcolList.get(i).getRefDvType(), Long.parseLong(dViewcolList.get(i).getRefDvName().toString()), Long.parseLong(dViewcolList.get(i).getRefDvColumn()));
+    				if(dviewFilter!=null)
+    					dvfMap.put(dViewcolList.get(i).getDataViewId(), dviewFilter);*/
+    			}
+    			else
+    			{
+    				List<DataViewsColumns> dvcs = new ArrayList<DataViewsColumns>();
+    				dvcs.add(dViewcolList.get(i));
+    				dataViewColMap.put(dViewcolList.get(i).getDataViewId(),dvcs);
+    				/*if(dViewcolList.get(i).getRefDvType()!=null && dViewcolList.get(i).getRefDvName()!=null && dViewcolList.get(i).getRefDvColumn()!=null)
+    				dviewFilter=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcIdAndRefSrcColId(dViewcolList.get(i).getDataViewId(), dViewcolList.get(i).getRefDvType(), Long.parseLong(dViewcolList.get(i).getRefDvName().toString()), Long.parseLong(dViewcolList.get(i).getRefDvColumn()));
+    				if(dviewFilter!=null)
+    					dvfMap.put(dViewcolList.get(i).getDataViewId(), dviewFilter);*/
+    			}
+
+    		}
+    		HashMap<Long,FileTemplates> fTempMap=new HashMap<Long,FileTemplates>();
+
+    		List<FileTemplates> fTempList=fileTemplatesRepository.findByTenantId(tenantId);
+    		for(FileTemplates fTemp:fTempList)
+    		{
+    			fTempMap.put(fTemp.getId(), fTemp);
+    		}
+    		HashMap<Long,FileTemplateLines> fTempLinesMap=new HashMap<Long, FileTemplateLines>();
+    		List<FileTemplateLines> ftempLinesList=fileTemplateLinesRepository.fetchFileTemplatesByFileTempId(tenantId);
+    		for(FileTemplateLines fTempLine:ftempLinesList)
+    		{
+    			fTempLinesMap.put(fTempLine.getId(), fTempLine);
+    		}
+    		log.info("dataViewsList sz: "+dataViewsList.size());
+    		for(int i=0;i<dataViewsList.size();i++){
+    			DataViews dv=dataViewsList.get(i);
+    			HashMap dvToDvcDto=new HashMap();
+    			dvToDvcDto.put("id",dv.getId());
+    			if(dv.getDataViewName()!=null)
+    				dvToDvcDto.put("dataViewName",dv.getDataViewName());
+    			if(dv.getDataViewDispName()!=null)
+    				dvToDvcDto.put("dataViewDispName",dv.getDataViewDispName());
+    			dvToDvcDto.put("createdBy",dv.getCreatedBy());
+    			dvToDvcDto.put("creationDate",dv.getCreationDate());
+    			if(dv.isEnabledFlag()!=null)
+    				dvToDvcDto.put("enabledFlag",dv.isEnabledFlag());
+    			dvToDvcDto.put("lastUpdatedBy",dv.getLastUpdatedBy());
+    			dvToDvcDto.put("lastUpdatedDate",dv.getLastUpdatedDate());
+    			dvToDvcDto.put("tenantId",dv.getTenantId());
+    			dvToDvcDto.put("startDate",dv.getStartDate());
+    			dvToDvcDto.put("endDate",dv.getEndDate());
+    			if(dv.getDescription()!=null)
+    				dvToDvcDto.put("description",dv.getDescription());
+    			
+    			List<DataViewsSrcMappings> dataViewSrcMapList=dataViewsSrcMappingsRepository.findByDataViewId(dv.getId());
+    			DataViewsSrcMappings dvSrcMapng=new DataViewsSrcMappings();
+        		if(dataViewSrcMapList!=null && dataViewSrcMapList.size()==1){
+        			dvSrcMapng=dataViewSrcMapList.get(0);
+        			log.info("Single Template Data View");
+        		}
+        		else{
+        		for(int k=0;k<dataViewSrcMapList.size();k++){
+        			dvSrcMapng=dataViewSrcMapList.get(k);
+        			if(dvSrcMapng.getRelation()!=null)
+        				dvToDvcDto.put("viewRelation", dvSrcMapng.getRelation());
+        		}
+        		}
+        		
+        		
+        		
+    			List<DataViewsColumns> dvcList=new ArrayList<DataViewsColumns>();
+    			if(dataViewColMap.get(dv.getId())!=null)
+    				dvcList = dataViewColMap.get(dv.getId());
+    			List<HashMap> dvcdtoLIst=new ArrayList<HashMap>();
+    			//log.info("dvc List sz for data view Id: "+dv.getId()+" is: "+dvcList.size());
+
+    			for(int j=0;j<dvcList.size();j++){
+    				DataViewsColumns dvcdto=dvcList.get(j);
+    				HashMap dvc=new HashMap();
+        			dvc.put("id",dvcdto.getId());
+        			if(dvcdto.getColDataType()!=null)
+        			dvc.put("colDataType",dvcdto.getColDataType());
+        			if(dvcdto.getColumnName()!=null){
+        				dvc.put("columnName",dvcdto.getColumnName());
+        				
+        			}
+        			
+        			if(dvcdto.getRefDvColumn()!=null){
+            			//FileTemplateLines ftl=fileTemplateLinesRepository.findByTemplateIdAndMasterTableReferenceColumn(Long.parseLong(dvcdto.getRefDvName()),dvcdto.getColumnName());
+        				FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(dvcdto.getRefDvColumn()));
+            			log.info("ftl for dvc.getRefDvColumn(): "+dvcdto.getRefDvColumn()+" is: "+ftl);
+            			if(ftl!=null){
+            				dvc.put("colName",ftl.getColumnHeader());
+            				dvc.put("columnHeader",ftl.getColumnHeader());
+            				dvc.put("refDvColumn",dvcdto.getRefDvColumn());
+            			}
+            			}
+        			if(dvcdto.getQualifier()!=null){
+        				dvc.put("qualifier", dvcdto.getQualifier());
+        			}
+        			dvc.put("createdBy",dvcdto.getCreatedBy());
+        			dvc.put("creationDate",dvcdto.getCreationDate());
+        			if(dvcdto.getDataViewId()!=null)
+        			dvc.put("dataViewId",dvcdto.getDataViewId());
+        			if(dvcdto.getRefDvName()!=null){
+        				String refDvName=dvcdto.getRefDvName();
+        				FileTemplates ftemp=fileTemplatesRepository.findOne(Long.parseLong(refDvName));
+        				if(ftemp!=null && ftemp.getTemplateName()!=null)
+        			dvc.put("sourceName",ftemp.getTemplateName());
+        			dvc.put("refDvName",refDvName);
+        			}
+        			if(dvcdto.getFormula()!=null)
+        				dvc.put("formula",dvcdto.getFormula());	
+        			dvc.put("lastUpdatedBy",dvcdto.getLastUpdatedBy());
+        			dvc.put("lastUpdatedDate",dvcdto.getLastUpdatedDate());
+        			/*if(dvcdto.getRefDvColumn()!=null)
+        			dvc.put("refDvColumn",dvcdto.getRefDvColumn());*/
+    				if(dvcdto.getRefDvName()!=null)
+    					dvc.put("refDvName",dvcdto.getRefDvName());
+    				if(dvcdto.getRefDvType()!=null)
+    					dvc.put("refDvType",dvcdto.getRefDvType());
+    				
+
+    				log.info("dvcdto.getRefDvName(): "+dvcdto.getRefDvName()+" dvcdto.getRefDvColumn(): "+dvcdto.getRefDvColumn());
+    				
+    				if(dvSrcMapng.getRelation()!=null && dvSrcMapng.getRelation().equalsIgnoreCase("UNION"))
+        			{
+            			
+
+    					List<HashMap> dvUList=new ArrayList<HashMap>();
+    					List<DataViewUnion> dvunionList=dataViewUnionRepository.findByDataViewLineId(dvcdto.getId());
+    					for(DataViewUnion dvunion:dvunionList)
+    					{
+    						HashMap dvU=new HashMap();
+    						dvU.put("id", dvunion.getId());
+    						if(dvunion.getDataViewLineId()!=null)
+    						dvU.put("dataViewLineId",dvunion.getDataViewLineId());
+    						if(dvunion.getRefDvType()!=null)
+    						dvU.put("refDvType",dvunion.getRefDvType());
+    						if(dvunion.getRefDvName()!=null)
+    						dvU.put("refDvName",dvunion.getRefDvName());
+    						if(dvunion.getRefDvColumn()!=null)
+    						dvU.put("refDvColumn",dvunion.getRefDvColumn());
+    						dvU.put("createdBy",dvunion.getCreatedBy());
+    						dvU.put("creationDate", dvunion.getCreationDate());
+    						dvU.put("lastUpdatedBy", dvunion.getLastUpdatedBy());
+    						dvU.put("lastUpdatedDate", dvunion.getLastUpdatedDate());
+    						dvUList.add(dvU);
+    					}
+    					dvc.put("src", dvUList);
+    				
+            			
+            			
+        			}
+            		
+    				
+    				
+    				/* Filters */
+    				else
+    				{
+    				if(dvcdto.getRefDvName()!=null && dvcdto.getRefDvColumn()!=null){
+    					DataViewFilters dvf=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcIdAndRefSrcColId(dataViewId, dvcdto.getRefDvType(), Long.parseLong(dvcdto.getRefDvName().toString()), Long.parseLong(dvcdto.getRefDvColumn()));
+    					//DataViewFilters dvf=dvfMap.get(dataViewId);
+    					if(dvf!=null){
+    						if(dvf.getFilterOperator()!=null)
+    							dvc.put("operator", dvf.getFilterOperator());
+    						if(dvf.getFilterValue()!=null)
+    							dvc.put("colValue", dvf.getFilterValue());
+    					}
+    				}
+    				else{
+    					log.info("new column filter are not handled");
+    				}
+    				}
+    				dvcdtoLIst.add(dvc);
+
+    				/*dvToDvcDto.put("dataViewsColumnsList",dvcdtoLIst);
+
+    				dvTodvcDtoLIst.add(dvToDvcDto);*/
+
+    			}
+
+    			if(dvSrcMapng.getRelation()!=null && dvSrcMapng.getRelation().equalsIgnoreCase("UNION"))
+    				dvToDvcDto.put("dataViewsUnionColumnsList", dvcdtoLIst);
+    			else
+    			dvToDvcDto.put("dataViewsColumnsList",dvcdtoLIst);
+
+    			dvTodvcDtoLIst.add(dvToDvcDto);
+    		}
+    	}
+    	return dvTodvcDtoLIst;
+
+    }   
+      
+    /**
+     * Author: Swetha
+     * Description: Api to retrieve result set of a data view
+     * @param viewId
+     * @return 
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */    
+    @GetMapping("/getViewInfo")
+    @Timed
+    public List<HashMap> getViewInfo(@RequestParam Long viewId, @RequestParam Long tenanatId) throws ClassNotFoundException, SQLException {	
+    	
+    	log.info("Rest Request to retrieve dataViewInfo for viewId: "+viewId+" and tenanatId: "+tenanatId);
+    	
+		String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+    	   
+    	   Connection conn = null;
+    	   Statement stmt = null;
+    	   Statement stmt2 = null;
+		   ResultSet result = null;
+		   ResultSet rs=null;
+    	   List<HashMap> mapList2=new ArrayList<HashMap>();
+		try{
+    	      Class.forName(jdbcDriver);
+    	      conn = DriverManager.getConnection(dbUrl, userName, password);
+    	      log.info("Connected database successfully...");
+    	      stmt = conn.createStatement();
+    	      
+    	String viewQuery=dataViewsService.frameQuery(viewId, tenanatId);
+    	
+    	 stmt2 = conn.createStatement();
+ 	     String count = null;
+ 	   result=stmt2.executeQuery(viewQuery);
+ 	     
+ 	   rs=stmt2.getResultSet();
+ 	
+ 	  ResultSetMetaData rsmd2 = result.getMetaData();
+ 	  log.info("col count: "+rsmd2.getColumnCount());
+ 	int columnsNumber = rsmd2.getColumnCount();
+ 	log.info("columnsNumber: "+columnsNumber);
+ 	int columnCount = rsmd2.getColumnCount();
+ 	while(rs.next()){
+   	 HashMap<String,String> map2=new HashMap<String,String>();
+   	for (int i = 1; i <= columnCount; i++ ) {
+			  String name = rsmd2.getColumnName(i); 
+   	 for(int t=0,num=1;t<columnsNumber;t++, num++){ 
+   		 String Val=rs.getString(num);
+   	 }
+   	 map2.put(name, rs.getString(i));
+   	}
+   	mapList2.add(map2);
+ 	}
+	   }catch(SQLException se){
+		   log.info("se: "+se);
+      }
+		finally{
+			result.close();
+			rs.close();
+			stmt.close();
+			stmt2.close();
+			conn.close();
+		}
+	return mapList2;
+    }
+    
+    /**
+     * Author: Swetha
+     * api to retrieve view and column names and id list by tenantId
+     * @param tenantId
+     * @return
+     */
+    @GetMapping("/getDVNColList")
+    @Timed
+    public List<HashMap> getDataViewNColList(@RequestParam Long tenantId){
+    	log.info("Rest Request to getDataViewNColList for Tenanat: "+tenantId);
+    	List<HashMap> mapList=new ArrayList<HashMap>();
+    	
+    	List<DataViews> dataViewsList=dataViewsRepository.fetchActiveDataViews(tenantId);
+    	for(int i=0;i<dataViewsList.size();i++){
+    		DataViews dv=dataViewsList.get(i);
+    		HashMap map=new HashMap();
+    		map.put("dataViewId", dv.getId());
+    		map.put("dataViewName", dv.getDataViewDispName());
+    		
+    		List<DataViewsColumns> dataViewColList=dataViewsColumnsRepository.findByDataViewId(dv.getId());
+    		if(dataViewColList!=null && dataViewColList.size()!=0){
+    			List<HashMap> colMapList=new ArrayList<HashMap>();
+    			for(int j=0;j<dataViewColList.size();j++){
+    			DataViewsColumns dvc=dataViewColList.get(j);
+    			
+    			HashMap colMap=new HashMap();
+    			colMap.put("ColumnId", dvc.getRefDvColumn());
+    			colMap.put("columnDisplayName", dvc.getColumnName());
+    			colMap.put("userDisplayColName", "");
+    			colMap.put("columnType", "");
+    			colMapList.add(colMap);
+    			}
+    			map.put("dataViewCols", colMapList);
+    			mapList.add(map);
+    		}
+    		
+    	}
+		return mapList;
+    	
+    }
+    
+    
+   /* @GetMapping("/dataViewsSideBarData")
+    @Timed
+    public List<JSONObject> dataViewsSideBarData(){
+    	
+    	List<JSONObject> dataViewGrpList=new ArrayList<JSONObject>();
+    	
+    	List<JSONObject> grpCountList=dataViewsSrcMappingsRepository.fetchRelationGroupedData();
+    	log.info("grpCountList: "+grpCountList);
+    	
+    	for(int i=0;i<grpCountList.size();i++){
+    		
+    		HashMap finMap=new HashMap();
+    		HashMap grpCountMap=grpCountList.get(i);
+    		String relation=grpCountMap.get("relation").toString();
+    		int count=Integer.parseInt(grpCountMap.get("count").toString());
+    		finMap.put("relation", relation);
+    		if(relation.equalsIgnoreCase("UNION")){
+    			count=count/2;
+    		}
+    		finMap.put("count",count);
+    		log.info("relation at i:"+i+" is: "+relation);
+    		
+    		List<JSONObject> dataViewRelationData=dataViewsRepository.fetchDataViewsByRelation(relation);
+    		finMap.put("viewList", dataViewRelationData);
+    		dataViewGrpList.addAll(dataViewRelationData);
+    	}
+    	
+		return dataViewGrpList;
+    	
+    }*/
+    
+    /**
+     * Author: Swetha
+     * Api to fetch relation wise grouped data
+     * @param tenantId
+     * @return
+     */
+    @GetMapping("/dataViewsSideBarData")
+    @Timed
+    public List<HashMap> dataViewsSideBarData(@RequestParam Long tenantId){
+    	
+    	List<HashMap> dataViewGrpList=new ArrayList<HashMap>();
+    	
+    	List<String> relationList=dataViewsSrcMappingsRepository.fetchDistinctRelations(tenantId);
+    	String relation="";
+    	int count;
+    	for(int i=0;i<relationList.size();i++){
+    		log.info("relationList at i:"+i+" is: "+relationList.get(i));
+    	if(relationList.get(i)!=null && !(relationList.get(i).isEmpty())){
+    		HashMap map=new HashMap();
+    		String relationCode=relationList.get(i);
+    		log.info("relationCode :"+relationCode);
+    		LookUpCode lCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("DV_RELATION", relationCode, tenantId);
+    		relation=lCode.getMeaning();
+    		List<DataViews> dvList=dataViewsRepository.fetchDataViewsByRelation(relation,tenantId);
+    		count=dvList.size();
+    		log.info("count: "+count);
+    		map.put("relation", relation);
+    		/*if(relation.equalsIgnoreCase("UNION")){
+    			count=count/2;
+    		}*/
+    		map.put("count", count);
+    		map.put("viewList", dvList);
+    		dataViewGrpList.add(map);
+    	}
+    	else {
+    		
+    		relation="Single Template";
+    		HashMap map=new HashMap();
+    		List<DataViews> dvList=dataViewsRepository.fetchSingleTemplateDataViews(tenantId);
+    		log.info("dvList sz: "+dvList.size());
+    		List finList=new ArrayList<>();
+    		map.put("relation", relation);
+    		Long dvId=0l;
+    		for(int j=0;j<dvList.size();j++){
+    			dvId=dvList.get(j).getId();
+    			/*List<String> dvSrcList=dataViewsColumnsRepository.fetchDistinctTemplateId(dvId);
+    			log.info("dvId: "+dvId+" dvSrcList sz: "+dvSrcList.size());
+    			if(dvSrcList.size()>1)
+    			{
+    			log.info("dvId: "+dvId+" is not single template view");
+    			}
+    			else
+    				finList.add((dvList.get(j)));*/
+        		List<DataViewsSrcMappings> dvSrcMapList=dataViewsSrcMappingsRepository.findByDataViewIdOrderByTemplateIdAsc(dvId);
+        		if(dvSrcMapList.size()==1)
+        			finList.add((dvList.get(j)));
+
+        		
+    		}
+    		map.put("viewList", finList);
+    		map.put("count", finList.size());
+    		log.info("finList sz: "+finList.size());
+    		dataViewGrpList.add(map);
+    	}
+    	
+    	}
+    	
+		return dataViewGrpList;
+    	
+    }
+}

@@ -1,0 +1,435 @@
+package com.nspl.app.service;
+
+import java.math.BigInteger;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.RuleConditions;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.RuleGroupDetails;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.RuleConditionsRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.RuleConditionsDTO;
+import com.nspl.app.web.rest.dto.RulesDTO;
+
+@Service
+public class RuleService {
+	
+	private final Logger log = LoggerFactory.getLogger(FileService.class);
+	
+	@Inject
+	RuleConditionsRepository ruleConditionsRepository;
+	
+	@Inject
+	RuleGroupDetailsRepository ruleGroupDetailsRepository;
+	
+	@Inject
+	RulesRepository rulesRepository;
+	
+	@Inject
+	DataViewsColumnsRepository dataViewsColumnsRepository;
+	
+	@Inject
+	DataViewsRepository dataViewsRepository;
+	
+	public List<ErrorReport> postRules(List<RulesDTO> rules,RuleGroup newGrp)
+	{
+
+        List<ErrorReport> errorReport=new ArrayList<ErrorReport>();
+		ErrorReport ruleGroupSave=new ErrorReport();
+		ruleGroupSave.setTaskName("Rule Group Save");
+		ruleGroupSave.setTaskStatus("Success");
+		ruleGroupSave.setDetails(newGrp.getIdForDisplay()+"");
+		List<ErrorReport> subtasksListForGroupSave = new ArrayList<ErrorReport>();
+		log.info("newGrp.getId() has value...."+newGrp.getId());
+		List<BigInteger> ruleIdsList=ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(newGrp.getId(),newGrp.getTenantId());
+		log.info("ruleIdsList before:"+ruleIdsList);
+		
+		List<RulesDTO> ruleDTO = new ArrayList<RulesDTO>();
+		//log.info("ruleGroupDTO.getRules()"+ruleGroupDTO.getRules().size());
+		ruleDTO = rules;
+		for(int i=0;i<ruleDTO.size();i++)
+		{
+			Long ruleId = 0L;
+			Rules newRule=new Rules();
+			Rules rule=new Rules();
+
+			if(ruleDTO.get(i).getRule().getId() != null)
+			{
+				//update assignment status 
+				RuleGroupDetails ruleGroupDetails = new RuleGroupDetails();
+				ruleGroupDetails = ruleGroupDetailsRepository.findByRuleGroupIdAndRuleId(newGrp.getId(), ruleDTO.get(i).getRule().getId());
+				if(ruleGroupDetails != null)
+				{
+					log.info("update assignment status of "+ruleDTO.get(i).getRule().getId());
+					if(ruleDTO.get(i).getRule().getPriority()>0)
+					 {
+						ruleGroupDetails.setPriority(ruleDTO.get(i).getRule().getPriority());
+					 }
+					 else
+					 {
+						 int lastPriority = ruleGroupDetailsRepository.getLatestPriority(newGrp.getId());
+						 ruleGroupDetails.setPriority(lastPriority+1);
+					 }
+					ruleGroupDetails.setPriority(ruleDTO.get(i).getRule().getPriority());
+					ruleGroupDetails.setEnabledFlag(ruleDTO.get(i).getRule().getAssignmentFlag());
+					ruleGroupDetails.setSuggestionRule(ruleDTO.get(i).getRule().getSuggestionFlag());
+					ruleGroupDetailsRepository.save(ruleGroupDetails);
+				}
+
+				rule.setId(ruleDTO.get(i).getRule().getId());
+
+
+				if(ruleIdsList.size()>0)
+				{
+					for(int j=0;j<ruleDTO.size();j++)
+					{
+						if(ruleDTO.get(i).getRule().getId() != null && ruleDTO.get(i).getRule().getId()!=0)
+						{
+							for(int id=0;id<ruleIdsList.size();id++)
+							{
+								log.info("ruleIdsList.get(id) :"+ruleIdsList.get(id));
+								log.info("ruleDTO.get(j).getRule().getId() :"+ruleDTO.get(j).getRule().getId());
+								if(ruleIdsList.get(id).longValue()==ruleDTO.get(j).getRule().getId())
+								{
+									log.info("same");
+									ruleIdsList.remove(ruleIdsList.get(id));
+								}
+							}
+						}
+					}
+				}
+				log.info("ruleIdsList after:"+ruleIdsList);
+
+
+			}
+			//else
+			//{
+
+			//}
+			for(int j=0;j<ruleIdsList.size();j++)
+			{
+				log.info("ruleIdsList.get(j).longValue() :"+ruleIdsList.get(j).longValue());
+				log.info("newGrp.getId() :"+newGrp);
+				RuleGroupDetails ruleGrpId=ruleGroupDetailsRepository.findByRuleGroupIdAndRuleId(newGrp.getId(),ruleIdsList.get(j).longValue());
+				log.info("ruleGrpId :"+ruleGrpId);
+				log.info("");
+				if(ruleGrpId!=null)
+					ruleGroupDetailsRepository.delete(ruleGrpId);
+			}
+			log.info("ruleDTO.get(i).getRule() :"+ruleDTO.get(i).getRule());
+			log.info("rule id is null please save");
+//			if(ruleDTO.get(i).getRule().getId() == null || ruleDTO.get(i).getRule().getId()==0)
+//			{
+				//					rule.setId(ruleDTO.get(i).getId());
+				if(ruleDTO.get(i).getRule().getRuleCode()!=null && !ruleDTO.get(i).getRule().getRuleCode().isEmpty())
+					rule.setRuleCode(ruleDTO.get(i).getRule().getRuleCode());
+				//if(ruleDTO.get(i).getRule().getRuleName()!=null && !ruleDTO.get(i).getRule().getRuleName().isEmpty())
+				//	rule.setRuleName(ruleDTO.get(i).getRule().getRuleName());
+				if(ruleDTO.get(i).getRule().getStartDate()!=null)
+					rule.setStartDate(ruleDTO.get(i).getRule().getStartDate());
+				if(ruleDTO.get(i).getRule().getEndDate()!=null)
+					rule.setEndDate(ruleDTO.get(i).getRule().getEndDate());
+				rule.setEnabledFlag(true);;
+				if(ruleDTO.get(i).getRule().getRuleType()!=null && !ruleDTO.get(i).getRule().getRuleType().isEmpty())
+					rule.setRuleType(ruleDTO.get(i).getRule().getRuleType());
+				if(ruleDTO.get(i).getRule().getCategory()!=null && !ruleDTO.get(i).getRule().getCategory().isEmpty())
+					rule.setCategory(ruleDTO.get(i).getRule().getCategory());
+
+				//if(ruleDTO.get(i).getRule().getRulePurpose()!=null && !ruleDTO.get(i).getRule().getRulePurpose().isEmpty())
+				//	rule.setRulePurpose(ruleDTO.get(i).getRule().getRulePurpose());
+				String srcDataViewId=ruleDTO.get(i).getRule().getSourceDataViewId();
+				String trgtDataViewId=ruleDTO.get(i).getRule().getTargetDataViewId();
+
+				DataViews srcDV=dataViewsRepository.findByTenantIdAndIdForDisplay(newGrp.getTenantId(), srcDataViewId);
+				DataViews trgtDV=dataViewsRepository.findByTenantIdAndIdForDisplay(newGrp.getTenantId(), trgtDataViewId);
+
+				rule.setSourceDataViewId(srcDV.getId());
+				rule.setTargetDataViewId(trgtDV.getId());
+				if(ruleDTO.get(i).getRule().getId() == null || ruleDTO.get(i).getRule().getId() == 0 || ruleDTO.get(i).getRule().getId().equals(""))
+				{
+
+					rule.setCreationDate(ZonedDateTime.now());
+				}
+				else
+					rule.setCreationDate(ruleDTO.get(i).getRule().getCreationDate());
+				rule.setCreatedBy(newGrp.getCreatedBy());
+
+				rule.setLastUpdatedBy(newGrp.getLastUpdatedBy());
+				rule.setLastUpdatedDate(ZonedDateTime.now());
+
+				//if(ruleDTO.get(i).getRule().getRuleName()!=null && ruleDTO.get(i).getRule().getRuleType()!=null && ruleDTO.get(i).getRule().getRulePurpose()!=null)
+				/*rule.setCreatedBy(userId);
+					rule.setCreationDate(ZonedDateTime.now());
+					rule.setLastUpdatedBy(userId);
+					rule.setLastUpdatedDate(ZonedDateTime.now());*/
+				rule.setTenantId(newGrp.getTenantId());
+				ErrorReport rulesave =new ErrorReport();
+				newRule=rulesRepository.save(rule);
+				List<ErrorReport> subTasksForConditions = new ArrayList<ErrorReport>();
+				if(newRule.getId() != null)
+				{
+					rulesave.setTaskName("Save Rule "+ rule.getRuleCode());
+					rulesave.setTaskStatus("Success");
+					rulesave.setDetails(newRule.getId()+"");
+					if(ruleDTO.get(i).getRule().getId()==null || ruleDTO.get(i).getRule().getId()==0)
+						subtasksListForGroupSave.add(rulesave);
+				}
+
+
+
+
+
+				//else
+				//{
+				//ruleId = ruleDTO.get(i).getRule().getId();
+
+				//}
+
+				if( newRule.getId()!=null)
+				{
+					ruleId = newRule.getId();
+				}
+				if(ruleId !=null && ruleId !=0 )
+				{
+					log.info("newGrp.getId() :"+newGrp.getId());
+					log.info("ruleId :"+ruleId);
+					RuleGroupDetails ruleGrpDetails=new RuleGroupDetails();
+					RuleGroupDetails ruleGrpDet=ruleGroupDetailsRepository.findByRuleGroupIdAndRuleId(newGrp.getId(),ruleId);
+					if(ruleGrpDet!=null)
+					{
+						ruleGrpDet.setPriority(ruleDTO.get(i).getRule().getPriority());
+						ruleGrpDet.setEnabledFlag(ruleDTO.get(i).getRule().getAssignmentFlag());
+						ruleGrpDetails= ruleGroupDetailsRepository.save(ruleGrpDet);
+					}
+
+					else
+					{
+						//log.info("ruleGrpDet :"+ruleGrpDet);
+
+						RuleGroupDetails rulegroupDet=new RuleGroupDetails();
+						rulegroupDet.setRuleGroupId(newGrp.getId());
+						rulegroupDet.setRuleId(ruleId);
+						rulegroupDet.setPriority(ruleDTO.get(i).getRule().getPriority());
+						rulegroupDet.setCreatedBy(newGrp.getCreatedBy());
+						rulegroupDet.setLastUpdatedBy(newGrp.getLastUpdatedBy());
+						rulegroupDet.setCreationDate(ZonedDateTime.now());
+						rulegroupDet.setLastUpdatedDate(ZonedDateTime.now());
+						rulegroupDet.setTenantId(newGrp.getTenantId());
+						log.info("ruleDTO.get(i).getRule().getAssignmentFlag()"+ruleDTO.get(i).getRule().getAssignmentFlag());
+						rulegroupDet.setEnabledFlag(ruleDTO.get(i).getRule().getAssignmentFlag());
+						rulegroupDet.setSuggestionRule(ruleDTO.get(i).getRule().getSuggestionFlag());
+						ruleGrpDetails= ruleGroupDetailsRepository.save(rulegroupDet);
+					}
+					//
+					if(ruleDTO.get(i).getRuleConditions() != null )
+					{
+						List<RuleConditionsDTO> ruleCondList=ruleDTO.get(i).getRuleConditions();
+						for(RuleConditionsDTO ruleCond : ruleCondList)
+						{
+							RuleConditions ruleCondition = new RuleConditions();
+							//ruleCondition.setAggregationMethod(ruleCond.getAggregationMethod());
+
+								//}
+								if(ruleCond.getId() != null)
+								ruleCondition.setId(ruleCond.getId());
+								
+								if(ruleCond.getOpenBracket()!=null && !ruleCond.getOpenBracket().isEmpty())
+									ruleCondition.setOpenBracket(ruleCond.getOpenBracket());
+								if(ruleCond.getsColumnId()!=null )
+									ruleCondition.setsColumnId(ruleCond.getsColumnId());
+								if(ruleCond.getsFormula()!=null && !ruleCond.getsFormula().isEmpty())
+									ruleCondition.setsFormula(ruleCond.getsFormula());
+								if(ruleCond.getsToleranceType()!=null && !ruleCond.getsToleranceType().isEmpty())
+									ruleCondition.setsToleranceType(ruleCond.getsToleranceType());
+								if(ruleId!=null)
+								{
+									log.info("newRule.getRuleType() :"+newRule.getRuleType());
+									if(newRule.getRuleType() != null)
+									{
+										if(newRule.getRuleType().equalsIgnoreCase("ONE_TO_MANY"))
+										{
+											log.info("one2one :");
+											if(ruleCond.gettColumnId()!=null)
+											{
+
+												DataViewsColumns dvc=dataViewsColumnsRepository.findOne(ruleCond.gettColumnId());
+												log.info("dvc :"+dvc);
+												if(dvc!=null && dvc.getQualifier()!=null && dvc.getQualifier().equalsIgnoreCase("Amount"))
+													ruleCondition.settMany(true);
+												else
+													if(ruleCond.gettMany()!=null)
+														ruleCondition.settMany(ruleCond.gettMany());
+											}
+										}
+										else if(newRule.getRuleType().equalsIgnoreCase("MANY_TO_ONE"))
+										{
+											log.info("one2M :");
+											if(ruleCond.getsColumnId()!=null)
+											{
+												DataViewsColumns dvc=dataViewsColumnsRepository.findOne(ruleCond.getsColumnId());
+												log.info("dvc :"+dvc);
+												if(dvc!=null && dvc.getQualifier()!=null && dvc.getQualifier().equalsIgnoreCase("Amount"))
+													ruleCondition.setsMany(true);
+												else
+													if(ruleCond.getsMany()!=null)
+														ruleCondition.setsMany(ruleCond.getsMany());
+											}
+										}
+										else if(newRule.getRuleType().equalsIgnoreCase("MANY_TO_MANY"))
+										{
+											log.info("m2m :");
+											if(ruleCond.getsColumnId()!=null)
+											{
+												DataViewsColumns dvc=dataViewsColumnsRepository.findOne(ruleCond.getsColumnId());
+												log.info("dvc :"+dvc);
+												if(dvc!=null && dvc.getQualifier()!=null && dvc.getQualifier().equalsIgnoreCase("Amount"))
+													ruleCondition.setsMany(true);
+												else
+													if(ruleCond.getsMany()!=null)
+														ruleCondition.setsMany(ruleCond.getsMany());
+											}
+											if(ruleCond.gettColumnId()!=null)
+											{
+												DataViewsColumns dvc=dataViewsColumnsRepository.findOne(ruleCond.gettColumnId());
+												log.info("dvc :"+dvc);
+												if(dvc!=null && dvc.getQualifier()!=null && dvc.getQualifier().equalsIgnoreCase("Amount"))
+													ruleCondition.settMany(true);
+												else
+													if(ruleCond.gettMany()!=null)
+														ruleCondition.settMany(ruleCond.gettMany());
+											}
+										}
+										else
+										{
+											log.info("else");
+											if(ruleCond.gettMany()!=null)
+												ruleCondition.settMany(ruleCond.gettMany());
+											if(ruleCond.getsMany()!=null)
+												ruleCondition.setsMany(ruleCond.getsMany());
+										}
+									}
+									ruleCondition.setRuleId(ruleId);
+								}
+								if(ruleCond.gettColumnId()!=null)
+									ruleCondition.settColumnId(ruleCond.gettColumnId());
+								if(ruleCond.gettFormula()!=null && !ruleCond.gettFormula().isEmpty())
+									ruleCondition.settFormula(ruleCond.gettFormula());
+								if(ruleCond.gettToleranceType()!=null && !ruleCond.gettToleranceType().isEmpty())
+									ruleCondition.settToleranceType(ruleCond.gettToleranceType());
+								if(ruleCond.getCloseBracket()!=null && !ruleCond.getCloseBracket().isEmpty())
+									ruleCondition.setCloseBracket(ruleCond.getCloseBracket());
+								if(ruleCond.getLogicalOperator()!=null && !ruleCond.getLogicalOperator().isEmpty())
+									ruleCondition.setLogicalOperator(ruleCond.getLogicalOperator());
+								if(ruleCond.getsToleranceOperatorFrom()!=null && !ruleCond.getsToleranceOperatorFrom().isEmpty())
+									ruleCondition.setsToleranceOperatorFrom(ruleCond.getsToleranceOperatorFrom());
+								if(ruleCond.getsToleranceValueFrom()!=null && !ruleCond.getsToleranceValueFrom().isEmpty())
+									ruleCondition.setsToleranceValueFrom(ruleCond.getsToleranceValueFrom());
+								if(ruleCond.getsToleranceOperatorTo()!=null && !ruleCond.getsToleranceOperatorTo().isEmpty())
+									ruleCondition.setsToleranceOperatorTo(ruleCond.getsToleranceOperatorTo());
+								if(ruleCond.getsToleranceValueTo()!=null && !ruleCond.getsToleranceValueTo().isEmpty())
+									ruleCondition.setsToleranceValueTo(ruleCond.getsToleranceValueTo());
+								if(ruleCond.gettToleranceOperatorFrom()!=null && !ruleCond.gettToleranceOperatorFrom().isEmpty())
+									ruleCondition.settToleranceOperatorFrom(ruleCond.gettToleranceOperatorFrom());
+								if(ruleCond.gettToleranceOperatorTo()!=null && !ruleCond.gettToleranceOperatorTo().isEmpty())
+									ruleCondition.settToleranceOperatorTo(ruleCond.gettToleranceOperatorTo());
+								if(ruleCond.gettToleranceValueFrom()!=null && !ruleCond.gettToleranceValueFrom().isEmpty())
+									ruleCondition.settToleranceValueFrom(ruleCond.gettToleranceValueFrom());
+								if(ruleCond.gettToleranceValueTo()!=null && !ruleCond.gettToleranceValueTo().isEmpty())
+									ruleCondition.settToleranceValueTo(ruleCond.gettToleranceValueTo());
+								if(ruleCond.getsOperator()!=null && !ruleCond.getsOperator().isEmpty())
+									ruleCondition.setsOperator(ruleCond.getsOperator());
+								if(ruleCond.gettOperator()!=null && !ruleCond.gettOperator().isEmpty())
+									ruleCondition.settOperator(ruleCond.gettOperator());
+							
+								if(ruleCond.getsValue()!=null && !ruleCond.getsValue().isEmpty())
+									ruleCondition.setsValue(ruleCond.getsValue());
+								if(ruleCond.getsValueType()!=null && !ruleCond.getsValueType().isEmpty())
+									ruleCondition.setsValueType(ruleCond.getsValueType());
+								
+								if(ruleCond.gettValue()!=null && !ruleCond.gettValue().isEmpty())
+									ruleCondition.settValue(ruleCond.gettValue());
+								if(ruleCond.gettValueType()!=null && !ruleCond.gettValueType().isEmpty())
+									ruleCondition.settValueType(ruleCond.gettValueType());
+								
+								if(ruleCond.getValue()!=null && !ruleCond.getValue().isEmpty())
+									ruleCondition.setValue(ruleCond.getValue());
+								if(ruleCond.getOperator()!=null && !ruleCond.getOperator().isEmpty())
+									ruleCondition.setOperator(ruleCond.getOperator());
+								//ruleCondition.setsColumnType(ruleCond.getsColumnType());
+								//ruleCondition.setsDataViewId(ruleCond.getsDataViewId());
+								
+								//ruleCondition.settColumnType(ruleCond.gettColumnType());
+								//ruleCondition.settDataViewId(ruleCond.gettDataViewId());
+								ruleCondition.setCreatedBy(newRule.getCreatedBy());
+								ruleCondition.setCreationDate(ZonedDateTime.now());
+								ruleCondition.setLastUpdatedBy(newRule.getLastUpdatedBy());
+								ruleCondition.setLastUpdatedDate(ZonedDateTime.now());
+								log.info("save condition"+ruleCondition);
+								RuleConditions newRuleCond=ruleConditionsRepository.save(ruleCondition);
+								ErrorReport ruleConditionSave=new ErrorReport();
+								ruleConditionSave.setTaskName("Rule Condition Save");
+								if(newRuleCond!=null && newRuleCond.getId()!=null)
+								{
+									ruleConditionSave.setTaskStatus("Success");
+									ruleConditionSave.setDetails(newRuleCond.getId()+"");
+								}
+								else
+								{
+									log.info("failed saving condition");
+									ruleConditionSave.setTaskStatus("failure");
+									//errorReport.add(ruleConditionSave);
+								}
+								subTasksForConditions.add(ruleConditionSave);
+						}
+					}
+
+
+
+					rulesave.setSubTasksList(subTasksForConditions);
+					//RuleGroupDetails ruleGrpDetails= ruleGroupDetailsRepository.save(rulegroupDet);
+					/*	if(ruleGrpDetails!=null && ruleGrpDetails.getId()!=null)
+				{
+
+				}
+				else
+				{
+					ErrorReport ruleGrpDetailsSave=new ErrorReport();
+					ruleGrpDetailsSave.setTaskName("Rule Group Details Save");
+					ruleGrpDetailsSave.setTaskStatus("failure");
+					errorReport.add(ruleGrpDetailsSave);
+				}*/
+				}
+			/*}
+			else
+			{
+				log.info("ruleId issss"+ruleId);
+			}*/
+			ruleGroupSave.setSubTasksList(subtasksListForGroupSave);
+
+			errorReport.add(ruleGroupSave);
+			//}
+		}
+		return errorReport;
+	
+	}
+	
+	
+	
+	
+
+}

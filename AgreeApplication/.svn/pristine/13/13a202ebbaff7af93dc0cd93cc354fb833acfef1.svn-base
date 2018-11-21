@@ -1,0 +1,538 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.AccountAnalysis;
+import com.nspl.app.repository.AccountAnalysisRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the AccountAnalysisResource REST controller.
+ *
+ * @see AccountAnalysisResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class AccountAnalysisResourceIntTest {
+
+    private static final Long DEFAULT_REPORT_ID = 1L;
+    private static final Long UPDATED_REPORT_ID = 2L;
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long UPDATED_TENANT_ID = 2L;
+
+    private static final String DEFAULT_FIELD_1 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_1 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_2 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_2 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_3 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_3 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_4 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_4 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_5 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_5 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_6 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_6 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_7 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_7 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_8 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_8 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_9 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_9 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_10 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_10 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_11 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_11 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_12 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_12 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_13 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_13 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_14 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_14 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_FIELD_15 = "AAAAAAAAAA";
+    private static final String UPDATED_FIELD_15 = "BBBBBBBBBB";
+
+    private static final String DEFAULT_LEDGER_NAME = "AAAAAAAAAA";
+    private static final String UPDATED_LEDGER_NAME = "BBBBBBBBBB";
+
+    private static final String DEFAULT_CURRENCY = "AAAAAAAAAA";
+    private static final String UPDATED_CURRENCY = "BBBBBBBBBB";
+
+    private static final String DEFAULT_SOURCE = "AAAAAAAAAA";
+    private static final String UPDATED_SOURCE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_CATEGORY = "AAAAAAAAAA";
+    private static final String UPDATED_CATEGORY = "BBBBBBBBBB";
+
+    private static final String DEFAULT_PERIOD = "AAAAAAAAAA";
+    private static final String UPDATED_PERIOD = "BBBBBBBBBB";
+
+    private static final BigDecimal DEFAULT_DEBIT_ACCOUNT = new BigDecimal(1);
+    private static final BigDecimal UPDATED_DEBIT_ACCOUNT = new BigDecimal(2);
+
+    private static final BigDecimal DEFAULT_CREDIT_ACCOUNT = new BigDecimal(1);
+    private static final BigDecimal UPDATED_CREDIT_ACCOUNT = new BigDecimal(2);
+
+    private static final BigDecimal DEFAULT_ACC_DEBIT_AMT = new BigDecimal(1);
+    private static final BigDecimal UPDATED_ACC_DEBIT_AMT = new BigDecimal(2);
+
+    private static final BigDecimal DEFAULT_ACC_CREDIT_AMT = new BigDecimal(1);
+    private static final BigDecimal UPDATED_ACC_CREDIT_AMT = new BigDecimal(2);
+
+    private static final String DEFAULT_JE_BATCH_NAME = "AAAAAAAAAA";
+    private static final String UPDATED_JE_BATCH_NAME = "BBBBBBBBBB";
+
+    private static final String DEFAULT_JE_REFERENCE = "AAAAAAAAAA";
+    private static final String UPDATED_JE_REFERENCE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_RECON_STATUS = "AAAAAAAAAA";
+    private static final String UPDATED_RECON_STATUS = "BBBBBBBBBB";
+
+    private static final Boolean DEFAULT_ACCOUNTED = false;
+    private static final Boolean UPDATED_ACCOUNTED = true;
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private AccountAnalysisRepository accountAnalysisRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restAccountAnalysisMockMvc;
+
+    private AccountAnalysis accountAnalysis;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        AccountAnalysisResource accountAnalysisResource = new AccountAnalysisResource(accountAnalysisRepository);
+        this.restAccountAnalysisMockMvc = MockMvcBuilders.standaloneSetup(accountAnalysisResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static AccountAnalysis createEntity(EntityManager em) {
+        AccountAnalysis accountAnalysis = new AccountAnalysis()
+            .reportId(DEFAULT_REPORT_ID)
+            .tenantId(DEFAULT_TENANT_ID)
+            .field1(DEFAULT_FIELD_1)
+            .field2(DEFAULT_FIELD_2)
+            .field3(DEFAULT_FIELD_3)
+            .field4(DEFAULT_FIELD_4)
+            .field5(DEFAULT_FIELD_5)
+            .field6(DEFAULT_FIELD_6)
+            .field7(DEFAULT_FIELD_7)
+            .field8(DEFAULT_FIELD_8)
+            .field9(DEFAULT_FIELD_9)
+            .field10(DEFAULT_FIELD_10)
+            .field11(DEFAULT_FIELD_11)
+            .field12(DEFAULT_FIELD_12)
+            .field13(DEFAULT_FIELD_13)
+            .field14(DEFAULT_FIELD_14)
+            .field15(DEFAULT_FIELD_15)
+            .ledgerName(DEFAULT_LEDGER_NAME)
+            .currency(DEFAULT_CURRENCY)
+            .source(DEFAULT_SOURCE)
+            .category(DEFAULT_CATEGORY)
+            .period(DEFAULT_PERIOD)
+            .debitAccount(DEFAULT_DEBIT_ACCOUNT)
+            .creditAccount(DEFAULT_CREDIT_ACCOUNT)
+            .accDebitAmt(DEFAULT_ACC_DEBIT_AMT)
+            .accCreditAmt(DEFAULT_ACC_CREDIT_AMT)
+            .jeBatchName(DEFAULT_JE_BATCH_NAME)
+            .jeReference(DEFAULT_JE_REFERENCE)
+            .reconStatus(DEFAULT_RECON_STATUS)
+            .accounted(DEFAULT_ACCOUNTED)
+            .createdBy(DEFAULT_CREATED_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return accountAnalysis;
+    }
+
+    @Before
+    public void initTest() {
+        accountAnalysis = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createAccountAnalysis() throws Exception {
+        int databaseSizeBeforeCreate = accountAnalysisRepository.findAll().size();
+
+        // Create the AccountAnalysis
+        restAccountAnalysisMockMvc.perform(post("/api/account-analyses")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(accountAnalysis)))
+            .andExpect(status().isCreated());
+
+        // Validate the AccountAnalysis in the database
+        List<AccountAnalysis> accountAnalysisList = accountAnalysisRepository.findAll();
+        assertThat(accountAnalysisList).hasSize(databaseSizeBeforeCreate + 1);
+        AccountAnalysis testAccountAnalysis = accountAnalysisList.get(accountAnalysisList.size() - 1);
+        assertThat(testAccountAnalysis.getReportId()).isEqualTo(DEFAULT_REPORT_ID);
+        assertThat(testAccountAnalysis.getTenantId()).isEqualTo(DEFAULT_TENANT_ID);
+        assertThat(testAccountAnalysis.getField1()).isEqualTo(DEFAULT_FIELD_1);
+        assertThat(testAccountAnalysis.getField2()).isEqualTo(DEFAULT_FIELD_2);
+        assertThat(testAccountAnalysis.getField3()).isEqualTo(DEFAULT_FIELD_3);
+        assertThat(testAccountAnalysis.getField4()).isEqualTo(DEFAULT_FIELD_4);
+        assertThat(testAccountAnalysis.getField5()).isEqualTo(DEFAULT_FIELD_5);
+        assertThat(testAccountAnalysis.getField6()).isEqualTo(DEFAULT_FIELD_6);
+        assertThat(testAccountAnalysis.getField7()).isEqualTo(DEFAULT_FIELD_7);
+        assertThat(testAccountAnalysis.getField8()).isEqualTo(DEFAULT_FIELD_8);
+        assertThat(testAccountAnalysis.getField9()).isEqualTo(DEFAULT_FIELD_9);
+        assertThat(testAccountAnalysis.getField10()).isEqualTo(DEFAULT_FIELD_10);
+        assertThat(testAccountAnalysis.getField11()).isEqualTo(DEFAULT_FIELD_11);
+        assertThat(testAccountAnalysis.getField12()).isEqualTo(DEFAULT_FIELD_12);
+        assertThat(testAccountAnalysis.getField13()).isEqualTo(DEFAULT_FIELD_13);
+        assertThat(testAccountAnalysis.getField14()).isEqualTo(DEFAULT_FIELD_14);
+        assertThat(testAccountAnalysis.getField15()).isEqualTo(DEFAULT_FIELD_15);
+        assertThat(testAccountAnalysis.getLedgerName()).isEqualTo(DEFAULT_LEDGER_NAME);
+        assertThat(testAccountAnalysis.getCurrency()).isEqualTo(DEFAULT_CURRENCY);
+        assertThat(testAccountAnalysis.getSource()).isEqualTo(DEFAULT_SOURCE);
+        assertThat(testAccountAnalysis.getCategory()).isEqualTo(DEFAULT_CATEGORY);
+        assertThat(testAccountAnalysis.getPeriod()).isEqualTo(DEFAULT_PERIOD);
+        assertThat(testAccountAnalysis.getDebitAccount()).isEqualTo(DEFAULT_DEBIT_ACCOUNT);
+        assertThat(testAccountAnalysis.getCreditAccount()).isEqualTo(DEFAULT_CREDIT_ACCOUNT);
+        assertThat(testAccountAnalysis.getAccDebitAmt()).isEqualTo(DEFAULT_ACC_DEBIT_AMT);
+        assertThat(testAccountAnalysis.getAccCreditAmt()).isEqualTo(DEFAULT_ACC_CREDIT_AMT);
+        assertThat(testAccountAnalysis.getJeBatchName()).isEqualTo(DEFAULT_JE_BATCH_NAME);
+        assertThat(testAccountAnalysis.getJeReference()).isEqualTo(DEFAULT_JE_REFERENCE);
+        assertThat(testAccountAnalysis.getReconStatus()).isEqualTo(DEFAULT_RECON_STATUS);
+        assertThat(testAccountAnalysis.isAccounted()).isEqualTo(DEFAULT_ACCOUNTED);
+        assertThat(testAccountAnalysis.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testAccountAnalysis.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testAccountAnalysis.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testAccountAnalysis.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void createAccountAnalysisWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = accountAnalysisRepository.findAll().size();
+
+        // Create the AccountAnalysis with an existing ID
+        accountAnalysis.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restAccountAnalysisMockMvc.perform(post("/api/account-analyses")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(accountAnalysis)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<AccountAnalysis> accountAnalysisList = accountAnalysisRepository.findAll();
+        assertThat(accountAnalysisList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllAccountAnalyses() throws Exception {
+        // Initialize the database
+        accountAnalysisRepository.saveAndFlush(accountAnalysis);
+
+        // Get all the accountAnalysisList
+        restAccountAnalysisMockMvc.perform(get("/api/account-analyses?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(accountAnalysis.getId().intValue())))
+            .andExpect(jsonPath("$.[*].reportId").value(hasItem(DEFAULT_REPORT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].tenantId").value(hasItem(DEFAULT_TENANT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].field1").value(hasItem(DEFAULT_FIELD_1.toString())))
+            .andExpect(jsonPath("$.[*].field2").value(hasItem(DEFAULT_FIELD_2.toString())))
+            .andExpect(jsonPath("$.[*].field3").value(hasItem(DEFAULT_FIELD_3.toString())))
+            .andExpect(jsonPath("$.[*].field4").value(hasItem(DEFAULT_FIELD_4.toString())))
+            .andExpect(jsonPath("$.[*].field5").value(hasItem(DEFAULT_FIELD_5.toString())))
+            .andExpect(jsonPath("$.[*].field6").value(hasItem(DEFAULT_FIELD_6.toString())))
+            .andExpect(jsonPath("$.[*].field7").value(hasItem(DEFAULT_FIELD_7.toString())))
+            .andExpect(jsonPath("$.[*].field8").value(hasItem(DEFAULT_FIELD_8.toString())))
+            .andExpect(jsonPath("$.[*].field9").value(hasItem(DEFAULT_FIELD_9.toString())))
+            .andExpect(jsonPath("$.[*].field10").value(hasItem(DEFAULT_FIELD_10.toString())))
+            .andExpect(jsonPath("$.[*].field11").value(hasItem(DEFAULT_FIELD_11.toString())))
+            .andExpect(jsonPath("$.[*].field12").value(hasItem(DEFAULT_FIELD_12.toString())))
+            .andExpect(jsonPath("$.[*].field13").value(hasItem(DEFAULT_FIELD_13.toString())))
+            .andExpect(jsonPath("$.[*].field14").value(hasItem(DEFAULT_FIELD_14.toString())))
+            .andExpect(jsonPath("$.[*].field15").value(hasItem(DEFAULT_FIELD_15.toString())))
+            .andExpect(jsonPath("$.[*].ledgerName").value(hasItem(DEFAULT_LEDGER_NAME.toString())))
+            .andExpect(jsonPath("$.[*].currency").value(hasItem(DEFAULT_CURRENCY.toString())))
+            .andExpect(jsonPath("$.[*].source").value(hasItem(DEFAULT_SOURCE.toString())))
+            .andExpect(jsonPath("$.[*].category").value(hasItem(DEFAULT_CATEGORY.toString())))
+            .andExpect(jsonPath("$.[*].period").value(hasItem(DEFAULT_PERIOD.toString())))
+            .andExpect(jsonPath("$.[*].debitAccount").value(hasItem(DEFAULT_DEBIT_ACCOUNT.intValue())))
+            .andExpect(jsonPath("$.[*].creditAccount").value(hasItem(DEFAULT_CREDIT_ACCOUNT.intValue())))
+            .andExpect(jsonPath("$.[*].accDebitAmt").value(hasItem(DEFAULT_ACC_DEBIT_AMT.intValue())))
+            .andExpect(jsonPath("$.[*].accCreditAmt").value(hasItem(DEFAULT_ACC_CREDIT_AMT.intValue())))
+            .andExpect(jsonPath("$.[*].jeBatchName").value(hasItem(DEFAULT_JE_BATCH_NAME.toString())))
+            .andExpect(jsonPath("$.[*].jeReference").value(hasItem(DEFAULT_JE_REFERENCE.toString())))
+            .andExpect(jsonPath("$.[*].reconStatus").value(hasItem(DEFAULT_RECON_STATUS.toString())))
+            .andExpect(jsonPath("$.[*].accounted").value(hasItem(DEFAULT_ACCOUNTED.booleanValue())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getAccountAnalysis() throws Exception {
+        // Initialize the database
+        accountAnalysisRepository.saveAndFlush(accountAnalysis);
+
+        // Get the accountAnalysis
+        restAccountAnalysisMockMvc.perform(get("/api/account-analyses/{id}", accountAnalysis.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(accountAnalysis.getId().intValue()))
+            .andExpect(jsonPath("$.reportId").value(DEFAULT_REPORT_ID.intValue()))
+            .andExpect(jsonPath("$.tenantId").value(DEFAULT_TENANT_ID.intValue()))
+            .andExpect(jsonPath("$.field1").value(DEFAULT_FIELD_1.toString()))
+            .andExpect(jsonPath("$.field2").value(DEFAULT_FIELD_2.toString()))
+            .andExpect(jsonPath("$.field3").value(DEFAULT_FIELD_3.toString()))
+            .andExpect(jsonPath("$.field4").value(DEFAULT_FIELD_4.toString()))
+            .andExpect(jsonPath("$.field5").value(DEFAULT_FIELD_5.toString()))
+            .andExpect(jsonPath("$.field6").value(DEFAULT_FIELD_6.toString()))
+            .andExpect(jsonPath("$.field7").value(DEFAULT_FIELD_7.toString()))
+            .andExpect(jsonPath("$.field8").value(DEFAULT_FIELD_8.toString()))
+            .andExpect(jsonPath("$.field9").value(DEFAULT_FIELD_9.toString()))
+            .andExpect(jsonPath("$.field10").value(DEFAULT_FIELD_10.toString()))
+            .andExpect(jsonPath("$.field11").value(DEFAULT_FIELD_11.toString()))
+            .andExpect(jsonPath("$.field12").value(DEFAULT_FIELD_12.toString()))
+            .andExpect(jsonPath("$.field13").value(DEFAULT_FIELD_13.toString()))
+            .andExpect(jsonPath("$.field14").value(DEFAULT_FIELD_14.toString()))
+            .andExpect(jsonPath("$.field15").value(DEFAULT_FIELD_15.toString()))
+            .andExpect(jsonPath("$.ledgerName").value(DEFAULT_LEDGER_NAME.toString()))
+            .andExpect(jsonPath("$.currency").value(DEFAULT_CURRENCY.toString()))
+            .andExpect(jsonPath("$.source").value(DEFAULT_SOURCE.toString()))
+            .andExpect(jsonPath("$.category").value(DEFAULT_CATEGORY.toString()))
+            .andExpect(jsonPath("$.period").value(DEFAULT_PERIOD.toString()))
+            .andExpect(jsonPath("$.debitAccount").value(DEFAULT_DEBIT_ACCOUNT.intValue()))
+            .andExpect(jsonPath("$.creditAccount").value(DEFAULT_CREDIT_ACCOUNT.intValue()))
+            .andExpect(jsonPath("$.accDebitAmt").value(DEFAULT_ACC_DEBIT_AMT.intValue()))
+            .andExpect(jsonPath("$.accCreditAmt").value(DEFAULT_ACC_CREDIT_AMT.intValue()))
+            .andExpect(jsonPath("$.jeBatchName").value(DEFAULT_JE_BATCH_NAME.toString()))
+            .andExpect(jsonPath("$.jeReference").value(DEFAULT_JE_REFERENCE.toString()))
+            .andExpect(jsonPath("$.reconStatus").value(DEFAULT_RECON_STATUS.toString()))
+            .andExpect(jsonPath("$.accounted").value(DEFAULT_ACCOUNTED.booleanValue()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingAccountAnalysis() throws Exception {
+        // Get the accountAnalysis
+        restAccountAnalysisMockMvc.perform(get("/api/account-analyses/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateAccountAnalysis() throws Exception {
+        // Initialize the database
+        accountAnalysisRepository.saveAndFlush(accountAnalysis);
+        int databaseSizeBeforeUpdate = accountAnalysisRepository.findAll().size();
+
+        // Update the accountAnalysis
+        AccountAnalysis updatedAccountAnalysis = accountAnalysisRepository.findOne(accountAnalysis.getId());
+        updatedAccountAnalysis
+            .reportId(UPDATED_REPORT_ID)
+            .tenantId(UPDATED_TENANT_ID)
+            .field1(UPDATED_FIELD_1)
+            .field2(UPDATED_FIELD_2)
+            .field3(UPDATED_FIELD_3)
+            .field4(UPDATED_FIELD_4)
+            .field5(UPDATED_FIELD_5)
+            .field6(UPDATED_FIELD_6)
+            .field7(UPDATED_FIELD_7)
+            .field8(UPDATED_FIELD_8)
+            .field9(UPDATED_FIELD_9)
+            .field10(UPDATED_FIELD_10)
+            .field11(UPDATED_FIELD_11)
+            .field12(UPDATED_FIELD_12)
+            .field13(UPDATED_FIELD_13)
+            .field14(UPDATED_FIELD_14)
+            .field15(UPDATED_FIELD_15)
+            .ledgerName(UPDATED_LEDGER_NAME)
+            .currency(UPDATED_CURRENCY)
+            .source(UPDATED_SOURCE)
+            .category(UPDATED_CATEGORY)
+            .period(UPDATED_PERIOD)
+            .debitAccount(UPDATED_DEBIT_ACCOUNT)
+            .creditAccount(UPDATED_CREDIT_ACCOUNT)
+            .accDebitAmt(UPDATED_ACC_DEBIT_AMT)
+            .accCreditAmt(UPDATED_ACC_CREDIT_AMT)
+            .jeBatchName(UPDATED_JE_BATCH_NAME)
+            .jeReference(UPDATED_JE_REFERENCE)
+            .reconStatus(UPDATED_RECON_STATUS)
+            .accounted(UPDATED_ACCOUNTED)
+            .createdBy(UPDATED_CREATED_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restAccountAnalysisMockMvc.perform(put("/api/account-analyses")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedAccountAnalysis)))
+            .andExpect(status().isOk());
+
+        // Validate the AccountAnalysis in the database
+        List<AccountAnalysis> accountAnalysisList = accountAnalysisRepository.findAll();
+        assertThat(accountAnalysisList).hasSize(databaseSizeBeforeUpdate);
+        AccountAnalysis testAccountAnalysis = accountAnalysisList.get(accountAnalysisList.size() - 1);
+        assertThat(testAccountAnalysis.getReportId()).isEqualTo(UPDATED_REPORT_ID);
+        assertThat(testAccountAnalysis.getTenantId()).isEqualTo(UPDATED_TENANT_ID);
+        assertThat(testAccountAnalysis.getField1()).isEqualTo(UPDATED_FIELD_1);
+        assertThat(testAccountAnalysis.getField2()).isEqualTo(UPDATED_FIELD_2);
+        assertThat(testAccountAnalysis.getField3()).isEqualTo(UPDATED_FIELD_3);
+        assertThat(testAccountAnalysis.getField4()).isEqualTo(UPDATED_FIELD_4);
+        assertThat(testAccountAnalysis.getField5()).isEqualTo(UPDATED_FIELD_5);
+        assertThat(testAccountAnalysis.getField6()).isEqualTo(UPDATED_FIELD_6);
+        assertThat(testAccountAnalysis.getField7()).isEqualTo(UPDATED_FIELD_7);
+        assertThat(testAccountAnalysis.getField8()).isEqualTo(UPDATED_FIELD_8);
+        assertThat(testAccountAnalysis.getField9()).isEqualTo(UPDATED_FIELD_9);
+        assertThat(testAccountAnalysis.getField10()).isEqualTo(UPDATED_FIELD_10);
+        assertThat(testAccountAnalysis.getField11()).isEqualTo(UPDATED_FIELD_11);
+        assertThat(testAccountAnalysis.getField12()).isEqualTo(UPDATED_FIELD_12);
+        assertThat(testAccountAnalysis.getField13()).isEqualTo(UPDATED_FIELD_13);
+        assertThat(testAccountAnalysis.getField14()).isEqualTo(UPDATED_FIELD_14);
+        assertThat(testAccountAnalysis.getField15()).isEqualTo(UPDATED_FIELD_15);
+        assertThat(testAccountAnalysis.getLedgerName()).isEqualTo(UPDATED_LEDGER_NAME);
+        assertThat(testAccountAnalysis.getCurrency()).isEqualTo(UPDATED_CURRENCY);
+        assertThat(testAccountAnalysis.getSource()).isEqualTo(UPDATED_SOURCE);
+        assertThat(testAccountAnalysis.getCategory()).isEqualTo(UPDATED_CATEGORY);
+        assertThat(testAccountAnalysis.getPeriod()).isEqualTo(UPDATED_PERIOD);
+        assertThat(testAccountAnalysis.getDebitAccount()).isEqualTo(UPDATED_DEBIT_ACCOUNT);
+        assertThat(testAccountAnalysis.getCreditAccount()).isEqualTo(UPDATED_CREDIT_ACCOUNT);
+        assertThat(testAccountAnalysis.getAccDebitAmt()).isEqualTo(UPDATED_ACC_DEBIT_AMT);
+        assertThat(testAccountAnalysis.getAccCreditAmt()).isEqualTo(UPDATED_ACC_CREDIT_AMT);
+        assertThat(testAccountAnalysis.getJeBatchName()).isEqualTo(UPDATED_JE_BATCH_NAME);
+        assertThat(testAccountAnalysis.getJeReference()).isEqualTo(UPDATED_JE_REFERENCE);
+        assertThat(testAccountAnalysis.getReconStatus()).isEqualTo(UPDATED_RECON_STATUS);
+        assertThat(testAccountAnalysis.isAccounted()).isEqualTo(UPDATED_ACCOUNTED);
+        assertThat(testAccountAnalysis.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testAccountAnalysis.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testAccountAnalysis.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testAccountAnalysis.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingAccountAnalysis() throws Exception {
+        int databaseSizeBeforeUpdate = accountAnalysisRepository.findAll().size();
+
+        // Create the AccountAnalysis
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restAccountAnalysisMockMvc.perform(put("/api/account-analyses")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(accountAnalysis)))
+            .andExpect(status().isCreated());
+
+        // Validate the AccountAnalysis in the database
+        List<AccountAnalysis> accountAnalysisList = accountAnalysisRepository.findAll();
+        assertThat(accountAnalysisList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteAccountAnalysis() throws Exception {
+        // Initialize the database
+        accountAnalysisRepository.saveAndFlush(accountAnalysis);
+        int databaseSizeBeforeDelete = accountAnalysisRepository.findAll().size();
+
+        // Get the accountAnalysis
+        restAccountAnalysisMockMvc.perform(delete("/api/account-analyses/{id}", accountAnalysis.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate the database is empty
+        List<AccountAnalysis> accountAnalysisList = accountAnalysisRepository.findAll();
+        assertThat(accountAnalysisList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(AccountAnalysis.class);
+        AccountAnalysis accountAnalysis1 = new AccountAnalysis();
+        accountAnalysis1.setId(1L);
+        AccountAnalysis accountAnalysis2 = new AccountAnalysis();
+        accountAnalysis2.setId(accountAnalysis1.getId());
+        assertThat(accountAnalysis1).isEqualTo(accountAnalysis2);
+        accountAnalysis2.setId(2L);
+        assertThat(accountAnalysis1).isNotEqualTo(accountAnalysis2);
+        accountAnalysis1.setId(null);
+        assertThat(accountAnalysis1).isNotEqualTo(accountAnalysis2);
+    }
+}

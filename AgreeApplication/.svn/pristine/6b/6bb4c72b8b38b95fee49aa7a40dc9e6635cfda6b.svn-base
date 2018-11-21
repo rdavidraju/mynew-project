@@ -1,0 +1,57 @@
+package com.nspl.app.repository;
+
+import java.util.List;
+import java.util.Map;
+
+import com.nspl.app.domain.ReportDefination;
+import com.nspl.app.domain.Reports;
+
+import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+
+/**
+ * Spring Data JPA repository for the ReportDefination entity.
+ */
+@SuppressWarnings("unused")
+@Repository
+public interface ReportDefinationRepository extends JpaRepository<ReportDefination,Long> {
+    
+	List<ReportDefination> findByReportId(Long reportId);
+	
+	ReportDefination findByReportIdAndRefTypeIdAndRefColId(Long reportId, String repType, Long refColId);
+	
+	ReportDefination findByReportIdAndRefTypeIdAndRefSrcIdAndRefColId(Long reportId, String repType, Long refSrcId, Long refColId);
+	
+	@Query(value = "select * from t_report_defination where report_id=:reportId and conditional_operator is not null and  conditional_val is not null",nativeQuery=true)
+	List<ReportDefination> fetchReportConditions(@Param("reportId") Long reportId);
+	
+	List<ReportDefination> findByReportIdAndRefTypeId(Long reportId, String refTypeId);
+	
+	List<ReportDefination> findByReportIdAndRefTypeIdOrderByLayoutVal(Long reportId, String refTypeId);
+	
+	//To retrieve Aggregator Column for Aging and Rollback Report
+	ReportDefination findByReportIdAndDataType(Long reportId, String dataType);
+	
+	//SELECT * FROM t_report_defination where report_id=36 and layout_val is not null  order by cast(layout_val as UNSIGNED INTEGER) asc;
+	@Query(value = "SELECT display_name FROM t_report_defination where report_id= :reportId and ref_type_id in (:refTypeList) and layout_val is not null  order by cast(layout_val as UNSIGNED INTEGER) asc",nativeQuery=true)
+	List<String> fetchDefByLayoutVal(@Param("reportId") Long reportId, @Param("refTypeList") List<String> refTypeList);
+	
+	//SELECT display_name FROM t_report_defination where report_id= 26 and ref_type_id='ROLL_BACK' and layout_val is not null  order by cast(layout_val as UNSIGNED INTEGER) asc;
+	@Query(value = "SELECT display_name FROM t_report_defination where report_id= :reportId and ref_type_id= :refTypeId and layout_val is not null  order by cast(layout_val as UNSIGNED INTEGER) asc",nativeQuery=true)
+	List<String> fetchDefByRefTypeAndLayoutVal(@Param("reportId") Long reportId, @Param("refTypeId") String refTypeId);
+	
+	@Query(value = "SELECT * FROM t_report_defination where report_id= :reportId and layout_val is not null order by cast(layout_val as UNSIGNED INTEGER) asc",nativeQuery=true)
+	List<ReportDefination> fetchByReportIdOrderByLayoutVal(@Param("reportId") Long reportId);
+	
+	@Query(value = "SELECT * FROM t_report_defination where report_id= :reportId and ref_type_id= :refTypeId and layout_val is not null  order by cast(layout_val as UNSIGNED INTEGER) asc",nativeQuery=true)
+	List<ReportDefination> fetchRepDefByRefTypeAndLayoutVal(@Param("reportId") Long reportId, @Param("refTypeId") String refTypeId);
+	
+	@Query(value = "SELECT distinct rep_def.display_name, tmplt_lines.column_alias FROM t_report_defination rep_def, t_data_views_columns view_cols, t_file_template_lines tmplt_lines where rep_def.ref_src_id= :viewId and report_id= :reportId and rep_def.ref_col_id= view_cols.id and view_cols.ref_dv_column = tmplt_lines.id",nativeQuery=true)
+	List<Object[]> fetchRepDisplayNameAndTemplateLinesColName(@Param("reportId") Long reportId, @Param("viewId") String viewId);
+	
+	@Query(value = "SELECT repDef.display_name, lkpCode.meaning FROM t_report_defination repDef, look_up_code lkpCode where repDef.report_id = :reportId and repDef.ref_type_id='FIN_FUNCTION' and repDef.ref_col_id=lkpCode.id;",nativeQuery=true)
+	List<Object[]> fetchRepSysColsDisplayNameOriginalColName(@Param("reportId") Long reportId);
+	
+}

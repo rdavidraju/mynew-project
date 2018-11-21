@@ -1,0 +1,86 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.SourceProfiles;
+
+/**
+ * Spring Data JPA repository for the SourceProfiles entity.
+ */
+@SuppressWarnings("unused")
+public interface SourceProfilesRepository extends JpaRepository<SourceProfiles,Long> {
+	
+	SourceProfiles findByConnectionIdAndTenantId(Long connectionId, Long tenantId);
+
+	List<SourceProfiles> findByTenantId(Long tenantId);
+
+	SourceProfiles findBySourceProfileNameAndTenantId(String sourceProfileName, Long tenantId);
+
+	//SourceProfiles findByConnectionId(Long id);
+	
+	List<SourceProfiles> findByConnectionId(Long id);
+	
+	/*List<BigInteger> fetchByConnectionId(Long id);*/
+	
+	@Query(value =  "select id from t_source_profiles where connection_id= :connection_id",nativeQuery=true)
+	List<BigInteger> fetchSrcProfileIdsByConnectionId(@Param("connection_id") Long connection_id);
+
+	List<SourceProfiles> findByTenantIdAndId(Long tenantId, Long id);
+
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and (DATEDIFF(end_date,CURDATE()) >= 0))",nativeQuery=true)
+	List<SourceProfiles> findByTenantIdOrderAndActiveStatus(@Param("tenantId") Long tenantId);
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and enabled_flag is true and ((:startDate <= end_date and :endDate >= start_date) or (end_date is null))",nativeQuery=true)
+	List<SourceProfiles> fetchSourceProfileByActiveStatusWithStartDate(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and enabled_flag is true and (:startDate <= end_date or end_date is null)",nativeQuery=true)
+	List<SourceProfiles> fetchSourceProfileByActiveStatus(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate);
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and enabled_flag is true",nativeQuery=true)
+	List<SourceProfiles> fetchActiveSourceProfileByTenantId(@Param("tenantId") Long tenantId);
+	
+	Page<SourceProfiles> findByTenantIdOrderByIdDesc(
+			Long tenantId, Pageable pageable);
+
+	List<SourceProfiles> findByTenantIdOrderByIdDesc(Long tenantId);
+	
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and connection_id is null ",nativeQuery=true)
+	List<SourceProfiles> findByConnectionIdIsNullAndActive(@Param("tenantId") Long tenantId);
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and connection_id is null and enabled_flag is true order by id desc",nativeQuery=true)
+	List<SourceProfiles> findByConnectionIdIsNull(@Param("tenantId") Long tenantId);
+
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and (connection_id is null or connection_id =:connectionId) and enabled_flag is true order by id desc",nativeQuery=true)
+	List<SourceProfiles> findByConnection(@Param("tenantId") Long tenantId,@Param("connectionId") Long connectionId);
+	
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and (connection_id is null or connection_id =:connectionId) and enabled_flag is true and (:startDate <= end_date or end_date is null)",nativeQuery=true)
+	List<SourceProfiles> fetchByConnectionIdsAndStartDate(@Param("tenantId") Long tenantId,@Param("connectionId") Long connectionId,@Param("startDate") LocalDate startDate);
+
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and (connection_id is null or connection_id =:connectionId) and enabled_flag is true and ((:startDate <= end_date and :endDate >= start_date) or (end_date is null))",nativeQuery=true)
+	List<SourceProfiles> fetchByConnectionIdsAndStartDateAndEndDate(@Param("tenantId") Long tenantId,@Param("connectionId") Long connectionId,@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and connection_id is null and enabled_flag is true and (:startDate <= end_date or end_date is null)",nativeQuery=true)
+	List<SourceProfiles> fetchByConnectionIdINullAndStartDate(@Param("tenantId") Long tenantId,@Param("startDate") LocalDate startDate);
+
+	@Query(value =  "select * from t_source_profiles where tenant_id=:tenantId and connection_id is null and enabled_flag is true and ((:startDate <= end_date and :endDate >= start_date) or (end_date is null))",nativeQuery=true)
+	List<SourceProfiles> fetchByConnectionIdIdIsNullAndStartDateAndEndDate(@Param("tenantId") Long tenantId,@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+	SourceProfiles findByIdAndConnectionId(Long sourceProfileId,
+			Long connectionId);
+
+	List<SourceProfiles> findByTenantIdAndEnabledFlagOrderByCreatedDateDesc(Long tenantId,
+			Boolean status);
+
+	List<SourceProfiles> findByTenantIdOrderByCreatedDateDesc(Long tenantId);
+
+}

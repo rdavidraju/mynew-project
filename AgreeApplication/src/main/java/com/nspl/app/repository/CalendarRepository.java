@@ -1,0 +1,43 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.Calendar;
+import com.nspl.app.domain.ChartOfAccount;
+import com.nspl.app.domain.LookUpCode;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the Calendar entity.
+ */
+@SuppressWarnings("unused")
+public interface CalendarRepository extends JpaRepository<Calendar,Long> {
+
+	List<Calendar> findByTenantIdOrderByIdDesc(Long tenantId);
+
+	Page<Calendar> findByTenantIdOrderByIdDesc(Long tenantId,
+			Pageable generatePageRequest2);
+	
+//	@Query(value="select * from t_calendar where tenant_id= :tenantId and enabled_flag =1", nativeQuery=true)
+	List<Calendar> findByTenantIdAndEnabledFlagIsTrue(Long tenantId);
+
+	Page<Calendar> findByTenantIdAndEnabledFlagIsTrue(Long tenantId,
+			Pageable generatePageRequest);
+	
+	
+	@Query(value="select distinct(calendar_type) from t_calendar where tenant_id=:tenant_id and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and if(end_date is null, sysdate()+1,(DATEDIFF(end_date,CURDATE())) >= 0))", nativeQuery=true)
+	List<String> findDistinctCalendarTypeByTenantAndActiveState(@Param(value="tenant_id") Long tenantId);
+	
+	@Query(value="select * from t_calendar where tenant_id=:tenant_id and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and if(end_date is null, sysdate()+1,(DATEDIFF(end_date,CURDATE())) >= 0))", nativeQuery=true)
+	List<Calendar> findByTenantAndActiveState(@Param(value="tenant_id") Long tenantId);
+
+	Calendar findByIdForDisplayAndNameAndTenantId(String id, String name, Long tenantId);
+	
+	List<Calendar> findByTenantIdAndName(Long tenantId, String name);
+	
+	Calendar findByIdForDisplayAndTenantId(String idForDisplay, Long tenantId);
+}

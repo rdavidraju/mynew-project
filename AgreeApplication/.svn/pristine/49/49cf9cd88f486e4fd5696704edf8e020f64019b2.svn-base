@@ -1,0 +1,492 @@
+package com.nspl.app.service;
+
+import java.io.ByteArrayInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Properties;
+
+import javax.mail.AuthenticationFailedException;
+import javax.mail.MessagingException;
+import javax.mail.Session;
+import javax.mail.Transport;
+
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.box.sdk.BoxAPIConnection;
+import com.box.sdk.BoxAPIException;
+import com.box.sdk.BoxUser;
+import com.dropbox.core.DbxException;
+import com.dropbox.core.DbxRequestConfig;
+//import com.dropbox.core.DbxException;
+//import com.dropbox.core.DbxRequestConfig;
+import com.dropbox.core.v2.DbxClientV2;
+import com.dropbox.core.v2.files.ListFolderResult;
+import com.dropbox.core.v2.files.Metadata;
+import com.dropbox.core.v2.users.FullAccount;
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets.Details;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.services.drive.Drive;
+import com.google.api.services.drive.DriveScopes;
+import com.google.api.services.drive.model.About;
+import com.google.api.services.drive.model.File;
+import com.google.api.services.drive.model.FileList;
+import com.jcraft.jsch.*;
+import com.nspl.app.domain.SourceConnectionDetails;
+
+/**
+ * Author Kiran
+ * @author nspl-004
+ *
+ */
+@Service
+@Transactional
+public class SourceConnectionStatusService {
+
+	private static final Logger log = LoggerFactory.getLogger(SourceConnectionStatusService.class);
+
+	private static final String APPLICATION_NAME = "Google Drive API";
+
+	private static final java.io.File DATA_STORE_DIR = new java.io.File(System.getProperty("user.home"), ".credentials/drive-java-quickstart");
+
+	private static FileDataStoreFactory DATA_STORE_FACTORY;
+
+	private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+
+	private static HttpTransport HTTP_TRANSPORT;
+
+	private static final java.util.Collection<String> SCOPES = DriveScopes.all();
+
+	static{
+		try {
+			HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
+			DATA_STORE_FACTORY = new FileDataStoreFactory(DATA_STORE_DIR);
+		} catch (Throwable t) {
+			t.printStackTrace();
+			System.exit(1);
+		}
+	}
+
+
+
+	public static HashMap<String, String> checkSFTConnection(SourceConnectionDetails sourceConn)
+	{
+		log.info("<==== Checking Sftp Connection Status");
+		HashMap<String, String> hMap=new HashMap<String, String>();
+		com.jcraft.jsch.Session session = null;
+		Channel channel = null;
+		try 
+		{
+			JSch jsch = new JSch();
+
+			int port = 0;
+			try{
+				port = Integer.parseInt(sourceConn.getPort());}
+			catch(NumberFormatException ex)
+			{
+
+				hMap.put("status", "failure");
+				hMap.put("message", "Port Number Exception");
+				log.info("NumberFormat Exception for port: "+(sourceConn.getPort()));
+				//System.exit(0);
+			}
+
+			session = jsch.getSession(sourceConn.getUserName(), sourceConn.getHost(), port);
+			session.setPassword(sourceConn.getPassword());
+			Properties config = new Properties();
+			config.put("StrictHostKeyChecking", "no");
+			session.setConfig(config);
+			log.info("==========config========="+config);
+			session.connect();
+			channel = session.openChannel("sftp");
+			log.info("==========channel=========="+channel);
+			channel.connect();
+			log.info("success connection");
+			hMap.put("status", "Sftp Connection - Success");
+			hMap.put("message", sourceConn.getUserName());
+			log.info("Success Connection");
+		} 
+		catch (Exception ex) 
+		{
+			hMap.put("status", "failure");
+			hMap.put("message", "UserName: "+ex.getLocalizedMessage());
+			ex.printStackTrace();
+		}
+		if(session!=null)
+		{
+			session.disconnect();
+		}
+		if(channel!=null)
+		{
+			channel.disconnect();
+		}
+		return hMap ;
+	}
+
+
+
+	public static GoogleClientSecrets getClientSecrets(String clientId, String clientSecrete)
+	{
+		GoogleClientSecrets secrets = new GoogleClientSecrets();
+		Details details = new GoogleClientSecrets.Details();
+		details.setClientId(clientId);
+		details.setClientSecret(clientSecrete);
+		secrets.setWeb(details);
+		return secrets;
+	}
+
+
+
+	public static HashMap<String, String> checkGoogleConnection(SourceConnectionDetails sourceConn) 
+	{
+		log.info("<==== Checking Google Drive Connection Status");
+
+		HashMap<String, String> map=new HashMap<String, String>();
+		String ACCESS_TOKEN=null;
+
+		if(sourceConn.getAccessToken()!=null && !sourceConn.getAccessToken().isEmpty())
+		{
+			ACCESS_TOKEN=sourceConn.getAccessToken();
+		}
+
+		InputStreamReader in = new InputStreamReader(SourceConnectionDetailsService.class.getClassLoader().getResourceAsStream("jsonFile/client_secret.json"));  
+
+		JSONObject jsonObject=new JSONObject();
+		JSONParser jsonParser = new JSONParser();
+		try 
+		{
+			jsonObject = (JSONObject)jsonParser.parse(new InputStreamReader(SourceConnectionDetailsService.class.getClassLoader().getResourceAsStream("jsonFile/client_secret.json"), "UTF-8"));
+		} catch (IOException | ParseException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+
+		log.info("jsonObject: "+jsonObject.toJSONString());
+		JSONObject installedData=(JSONObject) jsonObject.get("installed");
+		String clientId=installedData.get("client_id").toString();
+		String clientSecrete=installedData.get("client_secret").toString();
+
+		log.info("clientId: "+clientId);
+		log.info("clientSecrete: "+clientSecrete);
+
+
+
+		log.info("\n <==== Checking Google Drive Connection Status using client id");
+		Credential credential=null;
+		Drive driveService = null;
+		try
+		{
+			GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, getClientSecrets(clientId,clientSecrete), SCOPES)
+			.setDataStoreFactory(DATA_STORE_FACTORY)
+			.setAccessType("offline")
+			.build();
+
+
+			credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+			log.info("credential: "+credential.getAccessToken());
+		}
+		catch(Exception e)
+		{
+			log.info("Error while getting Client Secret");
+			e.printStackTrace();
+		}
+
+		if(credential!=null)
+			driveService = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential).setApplicationName(APPLICATION_NAME).build();
+
+		About about;
+
+		try 
+		{
+			if(driveService!=null)
+			{
+				log.info("driveService:- "+driveService.about().get());
+				about = driveService.about().get().execute();
+				log.info("Current user name: " + about.getName());
+
+				map.put("status", "Google Drive Connection - Success");
+				map.put("message", about.getName());
+				log.info("Success Connection");
+			}
+		} 
+		catch (IOException e) 
+		{
+			map.put("status", "failure");
+			map.put("message",e.getLocalizedMessage() );
+			e.printStackTrace();
+			//return map;
+		}
+		catch (NullPointerException e) 
+		{
+			map.put("status", "failure");
+			map.put("message","Access Token is Not Given "+e.getLocalizedMessage() );
+			e.printStackTrace();
+			//return map;
+		}
+		return map;
+
+
+
+
+
+		/*if(ACCESS_TOKEN!=null)
+			in =new ByteArrayInputStream(ACCESS_TOKEN.toString().getBytes(StandardCharsets.UTF_8));
+		GoogleClientSecrets clientSecrets;
+		GoogleAuthorizationCodeFlow flow;
+		try 
+		{
+			clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
+			log.info("clientSecrets: "+clientSecrets);
+			flow = new GoogleAuthorizationCodeFlow.Builder(HTTP_TRANSPORT, JSON_FACTORY, clientSecrets, SCOPES)
+			.setDataStoreFactory(DATA_STORE_FACTORY)
+			.setAccessType("online")
+			.build();
+
+			//	log.info("flow :"+flow);
+			Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+			log.info("credential :"+credential);
+			credential.getClientAuthentication();
+			//	log.info("credential.getClientAuthentication() :"+credential.getClientAuthentication());
+			//	log.info("Credentials saved to " + DATA_STORE_DIR.getAbsolutePath()); 
+			Drive service = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credential).setApplicationName(APPLICATION_NAME).build();
+
+			//log.info("service :"+service);
+
+
+			About about = service.about().get().execute();
+
+			log.info("Current user name: " + about.getName());
+			log.info("Root folder ID: " + about.getRootFolderId());
+			log.info("Total quota (bytes): " + about.getQuotaBytesTotal());
+			log.info("Used quota (bytes): " + about.getQuotaBytesUsed());
+			// about.clear();
+			log.info("about.remove(service) :"+about.remove(service));
+			//			FileList result = service.files().list().execute();
+			//log.info("result :"+result);
+			//service.
+			map.put("status", "Google Drive Connection - Success");
+			map.put("message", about.getName());
+			log.info("Success Connection");
+			//return map;
+		} 
+		catch (IOException e) 
+		{
+			map.put("status", "failure");
+			map.put("message","userName:"+e.getLocalizedMessage() );
+			e.printStackTrace();
+			//return map;
+		}
+		catch (NullPointerException e) 
+		{
+			map.put("status", "failure");
+			map.put("message","Access Token is Not Given "+e.getLocalizedMessage() );
+			e.printStackTrace();
+			//return map;
+		}
+		return map;
+		 */
+
+	}
+
+
+	public static HashMap<String, String> checkDropBoxConnection(SourceConnectionDetails sourceConn)
+	{
+		log.info("<==== Checking Drop Box Connection Status");
+
+		HashMap<String, String> hMap= new HashMap<String, String>();
+		String ACCESS_TOKEN=null;
+		if(sourceConn.getAccessToken()!=null && !sourceConn.getAccessToken().isEmpty())
+		{
+			ACCESS_TOKEN=sourceConn.getAccessToken();
+		}
+		DbxRequestConfig config = new DbxRequestConfig("dropbox/java-tutorial", "en_US");
+		DbxClientV2 client = null;
+		if(ACCESS_TOKEN!=null)
+			client = new DbxClientV2(config, ACCESS_TOKEN);
+
+		FullAccount account;
+		try 
+		{
+			account = client.users().getCurrentAccount();
+			log.info("Connected with drop box using account: "+account.getName().getDisplayName());
+			hMap.put("status", "Drop Box Connection - Success");
+			hMap.put("message", account.getName().getDisplayName());
+			log.info("Success Connection");
+		} 
+		catch (NullPointerException e) 
+		{
+			hMap.put("status", "Drop Box Connection - Failed");
+			hMap.put("message", "Access Token is Not Given");
+			e.printStackTrace();
+		}
+		catch (DbxException e) 
+		{
+			hMap.put("status", "Drop Box Connection - Failed");
+			hMap.put("message", "Cannot access");
+			e.printStackTrace();
+		}
+
+		// To Print the list of folders
+		/*ListFolderResult result;
+		try {
+			result = client.files().listFolder("");
+			log.info("Folders and Files List:- ");
+			while (true) {
+				for (Metadata metadata : result.getEntries()) {
+					log.info(metadata.getPathLower());
+				}
+
+				if (!result.getHasMore()) {
+					break;
+				}
+
+				result = client.files().listFolderContinue(result.getCursor());
+			}
+		} 
+		catch (DbxException e) {
+			e.printStackTrace();
+		}*/
+		return hMap;
+	}
+
+
+	public static HashMap<String, String> checkBoxConnection(SourceConnectionDetails sourceConn)
+	{
+		log.info("<==== Checking Box Connection Status");
+		HashMap<String, String> hMap= new HashMap<String, String>();
+		String ACCESS_TOKEN=null;
+		if(sourceConn.getAccessToken()!=null && !sourceConn.getAccessToken().isEmpty())
+		{
+			ACCESS_TOKEN=sourceConn.getAccessToken();
+		}
+		try
+		{
+			BoxAPIConnection api = new BoxAPIConnection(ACCESS_TOKEN);
+			//			api.setAutoRefresh(true);
+			if(BoxUser.getCurrentUser(api)!=null)
+			{
+				BoxUser user =BoxUser.getCurrentUser(api);
+				BoxUser.Info info = user.getInfo();
+				String in = info.getLogin();
+				log.info("Connected using "+in);
+
+				hMap.put("status", "Box Connection - Success");
+				hMap.put("message", "Account: "+in);
+				log.info("Success Connection");
+			}
+			log.info("Folder: "+api.getBaseUploadURL());
+		}
+		catch(BoxAPIException e)
+		{
+			hMap.put("status", "Box Connection - Failed");
+			hMap.put("message", "In-Valid Access Token");
+			e.printStackTrace();
+		}
+		return hMap;
+	}
+
+	public static HashMap<String, String> checkEmailConnection(SourceConnectionDetails sourceConn)
+	{
+		log.info("<==== Checking Email Connection Status");
+		HashMap<String, String> hMap= new HashMap<String, String>();
+
+		String emailType="gmail";
+
+		String from = "carat.nspl@gmail.com";
+		String pass ="Welcome!23";
+		// Recipient's email ID needs to be mentioned.
+		String to = "nishanthteam@gmail.com";
+
+		String host =null;
+		if(emailType.equals("yahoo"))
+			host = "smtp.mail.yahoo.com";
+		else if(emailType.equals("gmail"))
+			host = "smtp.gmail.com";
+
+		log.info("host: "+host);
+		// Get system properties
+		Properties properties = System.getProperties();
+		// Setup mail server
+		properties.put("mail.smtp.starttls.enable", "true");
+		properties.put("mail.smtp.host", host);
+		properties.put("mail.smtp.user", from);
+		properties.put("mail.smtp.password", pass);
+		properties.put("mail.smtp.port", "587");
+		properties.put("mail.smtp.auth", "true");
+
+		// Get the default Session object.
+		Session session = Session.getDefaultInstance(properties);
+
+		//   session.
+
+
+		try{
+			// Create a default MimeMessage object.
+			/* MimeMessage message = new MimeMessage(session);
+
+	      // Set From: header field of the header.
+	      message.setFrom(new InternetAddress(from));
+
+	      // Set To: header field of the header.
+	      message.addRecipient(Message.RecipientType.TO,
+	                               new InternetAddress(to));
+
+	      // Set Subject: header field
+	      message.setSubject("This is the Subject Line!");
+
+	      // Now set the actual message
+	      message.setText("This is actual message");*/
+
+			// Send message
+			Transport transport = session.getTransport("smtp");
+			log.info("From: "+from+" pass: "+pass);
+			transport.connect(host, from, pass);
+			// transport.isConnected();
+			if(transport.isConnected())
+			{
+				hMap.put("status", "Email Connection - Success");
+				hMap.put("message", "Account Nmae: "+transport.getURLName().getUsername());
+				log.info("Success Connection");
+			}
+
+			//  transport.sendMessage(message, message.getAllRecipients());
+			transport.close();
+			//log.info("Sent message successfully....");
+		}
+		catch(AuthenticationFailedException a)
+		{
+			log.info("Sorry your credentials are incorrect");
+			hMap.put("status", "Email Connection - Failed");
+			hMap.put("message", "Credentials are incorrect");
+			a.printStackTrace();
+		}
+		catch (MessagingException mex) {
+			mex.printStackTrace();
+		}
+
+		return hMap;
+	}
+
+
+
+
+}

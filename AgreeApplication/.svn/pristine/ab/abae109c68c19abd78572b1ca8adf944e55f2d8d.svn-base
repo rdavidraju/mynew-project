@@ -1,0 +1,942 @@
+package com.nspl.app.service;
+
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.collections.MultiHashMap;
+import org.apache.commons.collections.map.MultiValueMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.IntermediateTable;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.IntermediateTableRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.SourceProfileFileAssignmentsRepository;
+import com.nspl.app.web.rest.dto.FileTmpDTO;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+@Service
+public class FileTemplatesService {
+	
+	private final Logger log = LoggerFactory.getLogger(FileTemplatesService.class);
+	
+	@Inject
+	UserJdbcService userJdbcService;
+
+	@Inject
+	FileTemplatesRepository fileTemplatesRepository;
+	
+	@Inject
+	LookUpCodeRepository lookUpCodeRepository;
+	
+	@Inject
+	IntermediateTableRepository intermediateTableRepository;
+	
+	@Inject
+	FileTemplateLinesRepository fileTemplateLinesRepository;
+	
+	@Inject 
+	SourceProfileFileAssignmentsRepository srcProfFileAssignRepository;
+	
+	public HashMap getAllFileTemplates(Integer offset,
+			Integer limit, String formType, Long tenantId, String sortColName, String sortOrder) throws URISyntaxException {
+		log.debug("REST request to getAllFileTemplates with formType: "+formType+" offset: "+offset+" limit: "+limit);
+		
+//		HashMap map=userJdbcService.getuserInfoFromToken(request);
+//		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		List<FileTemplates> fileTemplateList=new ArrayList<FileTemplates>();
+		List<Long> ftIds=new ArrayList<Long>();
+		List<Long> multIdentifierIds=new ArrayList<Long>();
+		HashMap finMap=new HashMap();
+		HashMap indexMap=new HashMap();
+		HashMap MultIdMap=new HashMap();
+		
+		Page<FileTemplates> page = null;
+		HttpHeaders headers = null;
+
+		int count = 0 ;
+		count = fileTemplatesRepository.findByTenantId(tenantId).size();
+		
+		if(limit==null || limit == 0){
+			limit=count;
+		}
+		if(offset == null || offset == 0)
+		{
+			offset = 0;
+		}
+		log.info("offset :"+offset+"limit"+limit);
+		page = fileTemplatesRepository.findByTenantId(tenantId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit, sortOrder, sortColName));
+		List<FileTmpDTO> fileTmpList=new ArrayList<FileTmpDTO>();
+		
+		for(int i=0;i<page.getContent().size();i++)
+		{
+			FileTmpDTO fileTmpDTO=new FileTmpDTO();
+			fileTmpDTO.setTotalCount(count);
+			fileTmpDTO.setIndex(i);
+			Long ftId=page.getContent().get(i).getId();
+			fileTmpDTO.setId(ftId.toString());
+			ftIds.add(ftId);
+			if(page.getContent().get(i).getIdForDisplay()!=null && !page.getContent().get(i).getIdForDisplay().isEmpty())
+				fileTmpDTO.setId(page.getContent().get(i).getIdForDisplay());
+			if(page.getContent().get(i).getTemplateName()!=null && !page.getContent().get(i).getTemplateName().isEmpty())
+				fileTmpDTO.setTemplateName(page.getContent().get(i).getTemplateName());
+			if(page.getContent().get(i).getDescription()!=null && !page.getContent().get(i).getDescription().isEmpty())
+				fileTmpDTO.setDescription(page.getContent().get(i).getDescription());
+			if(page.getContent().get(i).getStartDate()!=null)
+				fileTmpDTO.setStartDate(page.getContent().get(i).getStartDate());
+			if(page.getContent().get(i).getEndDate()!=null)
+				fileTmpDTO.setEndDate(page.getContent().get(i).getEndDate());
+			if(page.getContent().get(i).getEndDate()!=null && page.getContent().get(i).getEndDate().isBefore(LocalDate.now()))
+			{
+
+				fileTmpDTO.setEndDated(true);
+			}
+			else
+			{
+				fileTmpDTO.setEndDated(false);
+			}
+			if(page.getContent().get(i).getStatus()!=null && !page.getContent().get(i).getStatus().isEmpty())
+				fileTmpDTO.setStatus(page.getContent().get(i).getStatus());
+			if(page.getContent().get(i).getFileType()!=null && !page.getContent().get(i).getFileType().isEmpty())
+				fileTmpDTO.setFileType(page.getContent().get(i).getFileType());
+			if(page.getContent().get(i).getDelimiter()!=null && !page.getContent().get(i).getDelimiter().isEmpty())
+			{
+				LookUpCode lookup = new LookUpCode();
+				lookup = lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("DELIMITER",page.getContent().get(i).getDelimiter(),  tenantId);
+				if(lookup != null && lookup.getDescription() != null )
+					fileTmpDTO.setDelimiter(lookup.getDescription());
+			}
+
+			if(page.getContent().get(i).getSource()!=null && !page.getContent().get(i).getSource().isEmpty())
+				fileTmpDTO.setSource(page.getContent().get(i).getSource());
+			if(page.getContent().get(i).getSkipRowsStart()!=null)
+				fileTmpDTO.setSkipRowsStart(page.getContent().get(i).getSkipRowsStart());
+			if(page.getContent().get(i).getSkipRowsEnd()!=null)
+				fileTmpDTO.setSkipRowsEnd(page.getContent().get(i).getSkipRowsEnd());
+			if(page.getContent().get(i).getNumber_of_columns()!=null)
+				fileTmpDTO.setNumberOfColumns(page.getContent().get(i).getNumber_of_columns());
+			if(page.getContent().get(i).getHeaderRowNumber()!=null)
+				fileTmpDTO.setHeaderRowNumber(page.getContent().get(i).getHeaderRowNumber());
+			fileTmpDTO.setTenantId(tenantId);
+			if(page.getContent().get(i).getCreatedBy()!=null)
+				fileTmpDTO.setCreatedBy(page.getContent().get(i).getCreatedBy());
+			if(page.getContent().get(i).getCreatedDate()!=null)
+				fileTmpDTO.setCreatedDate(page.getContent().get(i).getCreatedDate());
+			if(page.getContent().get(i).getLastUpdatedBy()!=null)
+				fileTmpDTO.setLastUpdatedBy(page.getContent().get(i).getLastUpdatedBy());
+			if(page.getContent().get(i).getLastUpdatedDate()!=null)
+				fileTmpDTO.setLastUpdatedDate(page.getContent().get(i).getLastUpdatedDate());
+			if(page.getContent().get(i).getData()!=null && !page.getContent().get(i).getData().isEmpty())
+				fileTmpDTO.setData(page.getContent().get(i).getData());
+			if(page.getContent().get(i).getSdFilename()!=null && !page.getContent().get(i).getSdFilename().isEmpty())
+				fileTmpDTO.setSdFilename(page.getContent().get(i).getSdFilename());
+			if(page.getContent().get(i).getRowIdentifier()!=null && !page.getContent().get(i).getRowIdentifier().isEmpty())
+				fileTmpDTO.setRowIdentifier(page.getContent().get(i).getRowIdentifier());
+			if(page.getContent().get(i).getMultipleIdentifier()!=null){
+				fileTmpDTO.setMultipleIdentifier(page.getContent().get(i).getMultipleIdentifier());
+				if(page.getContent().get(i).getMultipleIdentifier()==true){
+				multIdentifierIds.add(page.getContent().get(i).getId());
+				MultIdMap.put(ftId, fileTmpDTO);
+				}
+			}
+			int taggedProfCnt = 0;
+			taggedProfCnt = srcProfFileAssignRepository.findByTemplateId(page.getContent().get(i).getId()).size();
+			fileTmpDTO.setTaggedToProfCnt(taggedProfCnt);
+			fileTmpList.add(fileTmpDTO);
+			indexMap.put(ftId, i);
+		}
+
+		finMap.put("fileTmpList", fileTmpList);
+		finMap.put("ftIds", ftIds);
+		finMap.put("multIdentifierIds", multIdentifierIds);
+		finMap.put("indexMap", indexMap);
+		finMap.put("MultIdMap", MultIdMap);
+
+		return finMap;
+
+	}
+	
+	/**
+	 * Author: Swetha
+	 * Service to set file template lines
+	 * @param ftempIdList
+	 * @param type
+	 * @param intermediateIdList
+	 * @return
+	 */
+	public List getFileTempleLines(List<Long> ftempIdList, String type, List<Long> intermediateIdList){
+		
+		log.info("in getFileTempleLines with type: "+type);
+		log.info("ftempIdList: "+ftempIdList);
+		log.info("intermediateIdList: "+intermediateIdList);
+		List<FileTemplateLines> ftempList=new ArrayList<FileTemplateLines>();
+		
+		if(type.equalsIgnoreCase("nonMultiId")){
+			ftempList=fileTemplateLinesRepository.findByTemplateIdIn(ftempIdList);
+		}
+		else if(type.equalsIgnoreCase("multiId")){
+			/*for(int i=0;i<ftempIdList.size();i++){
+				Long fileTemplateId=ftempIdList.get(i);
+				HashMap intMap = getIntermediateData(fileTemplateId);
+				Set<Long> intIdSet=intMap.keySet();
+				log.info("intIdSet: "+intIdSet);
+				Long[] intIdArr = intIdSet.stream().toArray(Long[]::new);
+	    		//Long[] intIdArr=(Long[]) intIdSet.toArray();
+	    		List<Long> intIdList=new ArrayList<Long>();
+	    		intIdList = Arrays.asList(intIdArr);*/
+			List<FileTemplateLines> ftlLines=new ArrayList<FileTemplateLines>();
+				if(intermediateIdList!=null && intermediateIdList.size()>0){
+	    		ftlLines=fileTemplateLinesRepository.findByTemplateIdInAndIntermediateIdInOrderByLineNumber(ftempIdList, intermediateIdList);
+				}
+				else{
+					ftlLines=fileTemplateLinesRepository.findByTemplateIdIn(ftempIdList);
+				}
+	    		//ftempList.addAll(ftlLines);
+	    		log.info("ftlLines sz: "+ftlLines.size());
+	    		ftempList.addAll(ftlLines);
+			//}
+		}
+		List finalList=new ArrayList<>();
+		for(int k=0;k<ftempList.size();k++){
+    		FileTemplateLines ftemp=ftempList.get(k);
+    		HashMap map=new HashMap();
+    		Long ftId=ftemp.getId();
+    		String colDataType="";
+    		map.put("id",ftId );
+    		//map.put("dataViewId", ftemp.getTemplateId());
+    		if(type.equalsIgnoreCase("multiId")){
+    			
+    		}
+    		FileTemplates fileTemplate=fileTemplatesRepository.findOne(ftemp.getTemplateId());
+    		map.put("dataViewId", fileTemplate.getIdForDisplay());
+    		String rowIdentifier="";
+    		Long intermediateId=ftemp.getIntermediateId();
+    		if(intermediateId!=null && intermediateId>0){
+    		rowIdentifier=ftemp.getRecordIdentifier();
+    		//rowIdentifier=rowIdentifier.replaceFirst("H", "");
+    		}
+    		String fileTempName=fileTemplate.getTemplateName();
+    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+    			//log.info("rowIdentifier: "+rowIdentifier+" fileTempName: "+fileTempName);
+    		fileTempName=fileTempName+"-"+rowIdentifier;
+    		}
+    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+    		{
+    		map.put("templateName", fileTempName);
+    		map.put("dataViewName", fileTempName);
+    		map.put("dataViewDisplayName", fileTempName);
+    		}
+    		map.put("refDvType", "File Template");
+    		map.put("colDataType", colDataType);
+    		if(ftemp.getLineNumber()!=null)
+    		map.put("lineNumber", ftemp.getLineNumber());
+    		if(ftemp.getColumnHeader()!=null)
+    		map.put("columnName", ftemp.getColumnHeader());
+    		if(ftemp.getMasterTableReferenceColumn()!=null)
+    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+    		if(ftemp.getRecordTYpe()!=null)
+    		map.put("recordTYpe", ftemp.getRecordTYpe());
+    		if(ftemp.getRecordIdentifier()!=null)
+    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+    		if(ftemp.getColumnNumber()!=null)
+    		map.put("columnNumber", ftemp.getColumnNumber());
+    		if(ftemp.getEnclosedChar()!=null)
+    		map.put("enclosedChar", ftemp.getEnclosedChar());
+    		if(ftemp.getPositionBegin()!=null)
+    		map.put("positionBegin", ftemp.getPositionBegin());
+    		if(ftemp.getPositionEnd()!=null)
+    		map.put("positionEnd", ftemp.getPositionEnd());
+    		if(ftemp.getColumnHeader()!=null)
+    		map.put("columnHeader", ftemp.getColumnHeader());
+    		if(ftemp.getConstantValue()!=null)
+    		map.put("constantValue", ftemp.getConstantValue());
+    		if(ftemp.getZeroFill()!=null)
+    		map.put("zeroFill", ftemp.getZeroFill());
+    		if(ftemp.getAlign()!=null)
+    		map.put("align", ftemp.getAlign());
+    		/*if(ftemp.getFormula()!=null)
+    		map.put("formula", ftemp.getFormula());*/
+    		if(ftemp.getDateFormat()!=null)
+    		map.put("dateFormat", ftemp.getDateFormat());
+    		if(ftemp.getTimeFormat()!=null)
+    		map.put("timeFormat",ftemp.getTimeFormat());
+    		if(ftemp.getAmountFormat()!=null)
+    		map.put("amountFormat", ftemp.getAmountFormat());
+    		if(ftemp.getOverFlow()!=null)
+    		map.put("overFlow",ftemp.getOverFlow()!=null);
+    		if(ftemp.getSkipColumn()!=null)
+    		map.put("skipColumn", ftemp.getSkipColumn());
+    		if(ftemp.getColumnDelimiter()!=null)
+    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+    		if(ftemp.getCreatedBy()!=null)
+    		map.put("createdBy", ftemp.getCreatedBy());
+    		if(ftemp.getCreatedDate()!=null)
+    		map.put("createdDate", ftemp.getCreatedDate());
+    		if(ftemp.getLastUpdatedBy()!=null)
+    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+    		if( ftemp.getLastUpdatedDate()!=null)
+    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+    		if(map!=null)
+    		finalList.add(map);
+    	}
+    	log.info("finalList sz: "+finalList.size());
+		return finalList;
+	}
+	
+	/**
+	 * Author: Swetha
+	 * Service to set file template lines
+	 * @param ftempIdList
+	 * @param type
+	 * @param intermediateIdList
+	 * @return
+	 */
+	public List getFileTempleLinesForTemplate(List<Long> ftempIdList, String type, List<HashMap> ftIdTiIntIdMapList,Long tenantId){
+		
+		log.info("in getFileTempleLines with type: "+type);
+		log.info("ftempIdList: "+ftempIdList);
+		log.info("ftIdTiIntIdMapList.size(): "+ftIdTiIntIdMapList.size());
+		List finalList=new ArrayList<>();
+		for(int n=0;n<ftIdTiIntIdMapList.size();n++)
+		{
+			HashMap intmap=(HashMap) ftIdTiIntIdMapList.get(n);
+			Iterator entries = intmap.entrySet().iterator();
+			while (entries.hasNext()) {
+				
+				Map.Entry entry = (Map.Entry) entries.next();
+				//Long ftId=Long.parseLong(entry.getKey().toString());
+				String ftIdForDisplay=entry.getKey().toString();
+				Long intermediateId=null;
+				if(entry.getValue()!=null){
+					intermediateId=Long.parseLong(entry.getValue().toString());
+				}
+			log.info("ftId: "+ftIdForDisplay+" intermediateId: "+intermediateId);
+			//FileTemplates fileTemplate=fileTemplatesRepository.findOne(ftId);
+			FileTemplates fileTemplate=fileTemplatesRepository.findByIdForDisplayAndTenantId(ftIdForDisplay, tenantId);
+			Long ftId=fileTemplate.getId();
+			//log.info("fileTemplate: "+fileTemplate);
+			List<FileTemplateLines> finTempLineList=new ArrayList<FileTemplateLines>();
+			List<FileTemplateLines> ftempLines=new ArrayList<FileTemplateLines>();
+			if(fileTemplate.getMultipleIdentifier()!=null && fileTemplate.getMultipleIdentifier()==true)
+			{
+				
+				log.info("intermediateId for ftId: "+ftId+" is: "+intermediateId);
+				List<HashMap> ftlMapList=new ArrayList<HashMap>();
+				ftempLines=fileTemplateLinesRepository.findByTemplateIdAndIntermediateIdOrderByLineNumber(ftId, intermediateId);
+				log.info("ftempLines sz for ftId: "+ftId+" and intermediateId: "+intermediateId+" is: "+ftempLines.size()+" at n: "+n);
+				log.info("ftempLines.sz: "+ftempLines.size());
+				
+				for(int i=0;i<ftempLines.size();i++){
+	    			
+	    			FileTemplateLines ftemp=ftempLines.get(i);
+	    		HashMap map=new HashMap();
+	    		
+	    		String colDataType="";
+	    		map.put("id",ftemp.getId() );
+	    		map.put("refDvName",ftIdForDisplay );
+	    		map.put("refDvColumn",ftemp.getId() );
+	    		map.put("dataViewId", fileTemplate.getIdForDisplay());
+	    		
+	    		String rowIdentifier="";
+	    		intermediateId=ftemp.getIntermediateId();
+	    		map.put("intermediateId", intermediateId);
+	    		if(intermediateId!=null && intermediateId>0){
+	    		rowIdentifier=ftemp.getRecordIdentifier();
+	    		}
+	    		String fileTempName=fileTemplate.getTemplateName();
+	    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+	    		fileTempName=fileTempName+"-"+rowIdentifier;
+	    		}
+	    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+	    		{
+	    		map.put("templateName", fileTempName);
+	    		map.put("dataViewName", fileTempName);
+	    		map.put("dataViewDisplayName", fileTempName);
+	    		}
+	    		map.put("refDvType", "File Template");
+	    		map.put("colDataType", colDataType);
+	    		if(ftemp.getLineNumber()!=null)
+	    		map.put("lineNumber", ftemp.getLineNumber());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnName", ftemp.getColumnHeader());
+	    		if(ftemp.getMasterTableReferenceColumn()!=null)
+	    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+	    		if(ftemp.getRecordTYpe()!=null)
+	    		map.put("recordTYpe", ftemp.getRecordTYpe());
+	    		if(ftemp.getRecordIdentifier()!=null)
+	    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+	    		if(ftemp.getColumnNumber()!=null)
+	    		map.put("columnNumber", ftemp.getColumnNumber());
+	    		if(ftemp.getEnclosedChar()!=null)
+	    		map.put("enclosedChar", ftemp.getEnclosedChar());
+	    		if(ftemp.getPositionBegin()!=null)
+	    		map.put("positionBegin", ftemp.getPositionBegin());
+	    		if(ftemp.getPositionEnd()!=null)
+	    		map.put("positionEnd", ftemp.getPositionEnd());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnHeader", ftemp.getColumnHeader());
+	    		if(ftemp.getConstantValue()!=null)
+	    		map.put("constantValue", ftemp.getConstantValue());
+	    		if(ftemp.getZeroFill()!=null)
+	    		map.put("zeroFill", ftemp.getZeroFill());
+	    		if(ftemp.getAlign()!=null)
+	    		map.put("align", ftemp.getAlign());
+	    		if(ftemp.getDateFormat()!=null)
+	    		map.put("dateFormat", ftemp.getDateFormat());
+	    		if(ftemp.getTimeFormat()!=null)
+	    		map.put("timeFormat",ftemp.getTimeFormat());
+	    		if(ftemp.getAmountFormat()!=null)
+	    		map.put("amountFormat", ftemp.getAmountFormat());
+	    		if(ftemp.getOverFlow()!=null)
+	    		map.put("overFlow",ftemp.getOverFlow()!=null);
+	    		if(ftemp.getSkipColumn()!=null)
+	    		map.put("skipColumn", ftemp.getSkipColumn());
+	    		if(ftemp.getColumnDelimiter()!=null)
+	    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+	    		if(ftemp.getCreatedBy()!=null)
+	    		map.put("createdBy", ftemp.getCreatedBy());
+	    		if(ftemp.getCreatedDate()!=null)
+	    		map.put("createdDate", ftemp.getCreatedDate());
+	    		if(ftemp.getLastUpdatedBy()!=null)
+	    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+	    		if( ftemp.getLastUpdatedDate()!=null)
+	    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+	    		if(map!=null)
+	    			ftlMapList.add(map);
+	    		}
+				finalList.add(ftlMapList);
+			}
+			else{
+				log.info("in non multi row identifier case");
+				ftempLines=fileTemplateLinesRepository.findByTemplateId(ftId);
+				List<HashMap> ftlMapList=new ArrayList<HashMap>();
+				for(int i=0;i<ftempLines.size();i++){
+	    			
+	    			FileTemplateLines ftemp=ftempLines.get(i);
+	    		HashMap map=new HashMap();
+	    		
+	    		String colDataType="";
+	    		map.put("id",ftemp.getId() );
+	    		map.put("refDvName",ftIdForDisplay );
+	    		map.put("refDvColumn",ftemp.getId() );
+	    		map.put("dataViewId", fileTemplate.getIdForDisplay());
+	    		
+	    		String rowIdentifier="";
+	    		map.put("intermediateId", intermediateId);
+	    		if(intermediateId!=null && intermediateId>0){
+	    		rowIdentifier=ftemp.getRecordIdentifier();
+	    		}
+	    		String fileTempName=fileTemplate.getTemplateName();
+	    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+	    		fileTempName=fileTempName+"-"+rowIdentifier;
+	    		}
+	    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+	    		{
+	    		map.put("templateName", fileTempName);
+	    		map.put("dataViewName", fileTempName);
+	    		map.put("dataViewDisplayName", fileTempName);
+	    		}
+	    		map.put("refDvType", "File Template");
+	    		map.put("colDataType", colDataType);
+	    		if(ftemp.getLineNumber()!=null)
+	    		map.put("lineNumber", ftemp.getLineNumber());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnName", ftemp.getColumnHeader());
+	    		if(ftemp.getMasterTableReferenceColumn()!=null)
+	    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+	    		if(ftemp.getRecordTYpe()!=null)
+	    		map.put("recordTYpe", ftemp.getRecordTYpe());
+	    		if(ftemp.getRecordIdentifier()!=null)
+	    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+	    		if(ftemp.getColumnNumber()!=null)
+	    		map.put("columnNumber", ftemp.getColumnNumber());
+	    		if(ftemp.getEnclosedChar()!=null)
+	    		map.put("enclosedChar", ftemp.getEnclosedChar());
+	    		if(ftemp.getPositionBegin()!=null)
+	    		map.put("positionBegin", ftemp.getPositionBegin());
+	    		if(ftemp.getPositionEnd()!=null)
+	    		map.put("positionEnd", ftemp.getPositionEnd());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnHeader", ftemp.getColumnHeader());
+	    		if(ftemp.getConstantValue()!=null)
+	    		map.put("constantValue", ftemp.getConstantValue());
+	    		if(ftemp.getZeroFill()!=null)
+	    		map.put("zeroFill", ftemp.getZeroFill());
+	    		if(ftemp.getAlign()!=null)
+	    		map.put("align", ftemp.getAlign());
+	    		if(ftemp.getDateFormat()!=null)
+	    		map.put("dateFormat", ftemp.getDateFormat());
+	    		if(ftemp.getTimeFormat()!=null)
+	    		map.put("timeFormat",ftemp.getTimeFormat());
+	    		if(ftemp.getAmountFormat()!=null)
+	    		map.put("amountFormat", ftemp.getAmountFormat());
+	    		if(ftemp.getOverFlow()!=null)
+	    		map.put("overFlow",ftemp.getOverFlow()!=null);
+	    		if(ftemp.getSkipColumn()!=null)
+	    		map.put("skipColumn", ftemp.getSkipColumn());
+	    		if(ftemp.getColumnDelimiter()!=null)
+	    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+	    		if(ftemp.getCreatedBy()!=null)
+	    		map.put("createdBy", ftemp.getCreatedBy());
+	    		if(ftemp.getCreatedDate()!=null)
+	    		map.put("createdDate", ftemp.getCreatedDate());
+	    		if(ftemp.getLastUpdatedBy()!=null)
+	    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+	    		if( ftemp.getLastUpdatedDate()!=null)
+	    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+	    		if(map!=null)
+	    			ftlMapList.add(map);
+	    		}
+				finalList.add(ftlMapList);
+			}
+    		log.info("ftempLines.size(): "+ftempLines.size());
+    	}
+		
+		}
+    	log.info("finalList sz: "+finalList.size());
+		return finalList;
+		}
+	
+/*public List getFileTempleLinesForTemplateTest( List<HashMap> ftIdTiIntIdMapList){
+		
+//		log.info("in getFileTempleLines with type: "+type);
+//		log.info("ftempIdList: "+ftempIdList);
+		log.info("ftIdTiIntIdMapList.size(): "+ftIdTiIntIdMapList.size());
+		List finalList=new ArrayList<>();
+		for(int n=0;n<ftIdTiIntIdMapList.size();n++)
+		{
+			HashMap intmap=(HashMap) ftIdTiIntIdMapList.get(n);
+			Iterator entries = intmap.entrySet().iterator();
+			while (entries.hasNext()) {
+				
+				Map.Entry entry = (Map.Entry) entries.next();
+				Long ftId=Long.parseLong(entry.getKey().toString());
+				Long intermediateId=null;
+				if(entry.getValue()!=null){
+					intermediateId=Long.parseLong(entry.getValue().toString());
+				}
+			log.info("ftId: "+ftId+" intermediateId: "+intermediateId);
+			FileTemplates fileTemplate=fileTemplatesRepository.findOne(ftId);
+			log.info("fileTemplate: "+fileTemplate);
+			List<FileTemplateLines> finTempLineList=new ArrayList<FileTemplateLines>();
+			List<FileTemplateLines> ftempLines=new ArrayList<FileTemplateLines>();
+			if(fileTemplate.getMultipleIdentifier()!=null && fileTemplate.getMultipleIdentifier()==true)
+			{
+				
+				log.info("intermediateId for ftId: "+ftId+" is: "+intermediateId);
+				List<HashMap> ftlMapList=new ArrayList<HashMap>();
+				ftempLines=fileTemplateLinesRepository.findByTemplateIdAndIntermediateIdOrderByLineNumber(ftId, intermediateId);
+				log.info("ftempLines sz for ftId: "+ftId+" and intermediateId: "+intermediateId+" is: "+ftempLines.size()+" at n: "+n);
+				log.info("ftempLines.sz: "+ftempLines.size());
+				
+				for(int i=0;i<DataViews dv=dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+		   dataViewsRepository.delete(dv.getId());
+		   List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewId(dv.getId());
+		   List<Long> dvcIds=new ArrayList<Long>();
+		   for(int i=0;i<dvcList.size();i++)
+		   {
+			   dvcIds.add(dvcList.get(i).getId());
+		   }
+		   log.info("dvcIds sz:"+dvcIds.size());
+		   dataViewsColumnsRepository.delete(dvcList);
+		   List<DataViewsSrcMappings> dvsm=dataViewsSrcMappingsRepository.findByDataViewId(dv.getId());
+		   dataViewsSrcMappingsRepository.delete(dvsm);
+		   List<DataViewUnion> dvu=dataviewUnionRepositorty.findByDataViewLineIdIn(dvcIds);
+		   dataviewUnionRepositorty.delete(dvu);
+		   List<DataViewFilters> dvf=dataViewFiltersRepository.findByDataViewId(dv.getId());
+		   dataViewFiltersRepository.delete(dvf);
+		   List<DataViewConditions> dvCon=dataViewConditionsRepository.findByDataViewId(dv.getId());
+		   dataViewConditionsRepository.delete(dvCon);ftempLines.size();i++){
+	    			
+	    			FileTemplateLines ftemp=ftempLines.get(i);
+	    		HashMap map=new HashMap();
+	    		
+	    		String colDataType="";
+	    		map.put("id",ftemp.getId() );
+	    		map.put("refDvName",ftId );
+	    		map.put("refDvColumn",ftemp.getId() );
+	    		map.put("dataViewId", fileTemplate.getId());
+	    		
+	    		String rowIdentifier="";
+	    		intermediateId=ftemp.getIntermediateId();
+	    		map.put("intermediateId", intermediateId);
+	    		if(intermediateId!=null && intermediateId>0){
+	    		rowIdentifier=ftemp.getRecordIdentifier();
+	    		}
+	    		String fileTempName=fileTemplate.getTemplateName();
+	    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+	    		fileTempName=fileTempName+"-"+rowIdentifier;
+	    		}
+	    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+	    		{
+	    		map.put("templateName", fileTempName);
+	    		map.put("dataViewName", fileTempName);
+	    		map.put("dataViewDisplayName", fileTempName);
+	    		}
+	    		map.put("refDvType", "File Template");
+	    		map.put("colDataType", colDataType);
+	    		if(ftemp.getLineNumber()!=null)
+	    		map.put("lineNumber", ftemp.getLineNumber());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnName", ftemp.getColumnHeader());
+	    		if(ftemp.getMasterTableReferenceColumn()!=null)
+	    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+	    		if(ftemp.getRecordTYpe()!=null)
+	    		map.put("recordTYpe", ftemp.getRecordTYpe());
+	    		if(ftemp.getRecordIdentifier()!=null)
+	    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+	    		if(ftemp.getColumnNumber()!=null)
+	    		map.put("columnNumber", ftemp.getColumnNumber());
+	    		if(ftemp.getEnclosedChar()!=null)
+	    		map.put("enclosedChar", ftemp.getEnclosedChar());
+	    		if(ftemp.getPositionBegin()!=null)
+	    		map.put("positionBegin", ftemp.getPositionBegin());
+	    		if(ftemp.getPositionEnd()!=null)
+	    		map.put("positionEnd", ftemp.getPositionEnd());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnHeader", ftemp.getColumnHeader());
+	    		if(ftemp.getConstantValue()!=null)
+	    		map.put("constantValue", ftemp.getConstantValue());
+	    		if(ftemp.getZeroFill()!=null)
+	    		map.put("zeroFill", ftemp.getZeroFill());
+	    		if(ftemp.getAlign()!=null)
+	    		map.put("align", ftemp.getAlign());
+	    		if(ftemp.getDateFormat()!=null)
+	    		map.put("dateFormat", ftemp.getDateFormat());
+	    		if(ftemp.getTimeFormat()!=null)
+	    		map.put("timeFormat",ftemp.getTimeFormat());
+	    		if(ftemp.getAmountFormat()!=null)
+	    		map.put("amountFormat", ftemp.getAmountFormat());
+	    		if(ftemp.getOverFlow()!=null)
+	    		map.put("overFlow",ftemp.getOverFlow()!=null);
+	    		if(ftemp.getSkipColumn()!=null)
+	    		map.put("skipColumn", ftemp.getSkipColumn());
+	    		if(ftemp.getColumnDelimiter()!=null)
+	    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+	    		if(ftemp.getCreatedBy()!=null)
+	    		map.put("createdBy", ftemp.getCreatedBy());
+	    		if(ftemp.getCreatedDate()!=null)
+	    		map.put("createdDate", ftemp.getCreatedDate());
+	    		if(ftemp.getLastUpdatedBy()!=null)
+	    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+	    		if( ftemp.getLastUpdatedDate()!=null)
+	    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+	    		if(map!=null)
+	    			ftlMapList.add(map);
+	    		}
+				finalList.add(ftlMapList);
+			}
+			else{
+				log.info("in non multi row identifier case");
+				ftempLines=fileTemplateLinesRepository.findByTemplateId(ftId);
+				List<HashMap> ftlMapList=new ArrayList<HashMap>();
+				for(int i=0;i<ftempLines.size();i++){
+	    			
+	    			FileTemplateLines ftemp=ftempLines.get(i);
+	    		HashMap map=new HashMap();
+	    		
+	    		String colDataType="";
+	    		map.put("id",ftemp.getId() );
+	    		map.put("refDvName",ftId );
+	    		map.put("refDvColumn",ftemp.getId() );
+	    		map.put("dataViewId", fileTemplate.getId());
+	    		
+	    		String rowIdentifier="";
+	    		map.put("intermediateId", intermediateId);
+	    		if(intermediateId!=null && intermediateId>0){
+	    		rowIdentifier=ftemp.getRecordIdentifier();
+	    		}
+	    		String fileTempName=fileTemplate.getTemplateName();
+	    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+	    		fileTempName=fileTempName+"-"+rowIdentifier;
+	    		}
+	    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+	    		{
+	    		map.put("templateName", fileTempName);
+	    		map.put("dataViewName", fileTempName);
+	    		map.put("dataViewDisplayName", fileTempName);
+	    		}
+	    		map.put("refDvType", "File Template");
+	    		map.put("colDataType", colDataType);
+	    		if(ftemp.getLineNumber()!=null)
+	    		map.put("lineNumber", ftemp.getLineNumber());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnName", ftemp.getColumnHeader());
+	    		if(ftemp.getMasterTableReferenceColumn()!=null)
+	    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+	    		if(ftemp.getRecordTYpe()!=null)
+	    		map.put("recordTYpe", ftemp.getRecordTYpe());
+	    		if(ftemp.getRecordIdentifier()!=null)
+	    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+	    		if(ftemp.getColumnNumber()!=null)
+	    		map.put("columnNumber", ftemp.getColumnNumber());
+	    		if(ftemp.getEnclosedChar()!=null)
+	    		map.put("enclosedChar", ftemp.getEnclosedChar());
+	    		if(ftemp.getPositionBegin()!=null)
+	    		map.put("positionBegin", ftemp.getPositionBegin());
+	    		if(ftemp.getPositionEnd()!=null)
+	    		map.put("positionEnd", ftemp.getPositionEnd());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnHeader", ftemp.getColumnHeader());
+	    		if(ftemp.getConstantValue()!=null)
+	    		map.put("constantValue", ftemp.getConstantValue());
+	    		if(ftemp.getZeroFill()!=null)
+	    		map.put("zeroFill", ftemp.getZeroFill());
+	    		if(ftemp.getAlign()!=null)
+	    		map.put("align", ftemp.getAlign());
+	    		if(ftemp.getDateFormat()!=null)
+	    		map.put("dateFormat", ftemp.getDateFormat());
+	    		if(ftemp.getTimeFormat()!=null)
+	    		map.put("timeFormat",ftemp.getTimeFormat());
+	    		if(ftemp.getAmountFormat()!=null)
+	    		map.put("amountFormat", ftemp.getAmountFormat());
+	    		if(ftemp.getOverFlow()!=null)
+	    		map.put("overFlow",ftemp.getOverFlow()!=null);
+	    		if(ftemp.getSkipColumn()!=null)
+	    		map.put("skipColumn", ftemp.getSkipColumn());
+	    		if(ftemp.getColumnDelimiter()!=null)
+	    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+	    		if(ftemp.getCreatedBy()!=null)
+	    		map.put("createdBy", ftemp.getCreatedBy());
+	    		if(ftemp.getCreatedDate()!=null)
+	    		map.put("createdDate", ftemp.getCreatedDate());
+	    		if(ftemp.getLastUpdatedBy()!=null)
+	    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+	    		if( ftemp.getLastUpdatedDate()!=null)
+	    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+	    		if(map!=null)
+	    			ftlMapList.add(map);
+	    		}
+				finalList.add(ftlMapList);
+			}
+    		log.info("ftempLines.size(): "+ftempLines.size());
+    	}
+		
+		}
+    	log.info("finalList sz: "+finalList.size());
+		return finalList;
+		}*/
+	
+public List getFileTempleLinesForTemplateTest( List<HashMap> ftIdTiIntIdMapList,Long tenantId){
+		
+		log.info("ftIdTiIntIdMapList.size(): "+ftIdTiIntIdMapList.size());
+		List finalList=new ArrayList<>();
+		for(int n=0;n<ftIdTiIntIdMapList.size();n++){
+			HashMap intmap=(HashMap) ftIdTiIntIdMapList.get(n);
+			Iterator entries = intmap.entrySet().iterator();
+			while (entries.hasNext()) {
+				
+				Map.Entry entry = (Map.Entry) entries.next();
+				//Long ftId=Long.parseLong(entry.getKey().toString());
+				String ftIdForDisplay=entry.getKey().toString();
+				Long intermediateId=null;
+				if(entry.getValue()!=null){
+					intermediateId=Long.parseLong(entry.getValue().toString());
+				}
+			log.info("ftIdForDisplay: "+ftIdForDisplay+" intermediateId: "+intermediateId);
+			//FileTemplates fileTemplate=fileTemplatesRepository.findOne(ftId);
+			FileTemplates fileTemplate=fileTemplatesRepository.findByIdForDisplayAndTenantId(ftIdForDisplay, tenantId);
+			Long ftId=fileTemplate.getId();
+			//log.info("fileTemplate: "+fileTemplate);
+			List<FileTemplateLines> finTempLineList=new ArrayList<FileTemplateLines>();
+			List<FileTemplateLines> ftempLines=new ArrayList<FileTemplateLines>();
+			if(fileTemplate.getMultipleIdentifier()!=null && fileTemplate.getMultipleIdentifier()==true){
+				
+				log.info("intermediateId for ftId: "+ftIdForDisplay+" is: "+intermediateId);
+				List<HashMap> ftlMapList=new ArrayList<HashMap>();
+				ftempLines=fileTemplateLinesRepository.findByTemplateIdAndIntermediateIdOrderByLineNumber(ftId, intermediateId);
+				log.info("ftempLines sz for ftId: "+ftIdForDisplay+" and intermediateId: "+intermediateId+" is: "+ftempLines.size()+" at n: "+n);
+				log.info("ftempLines.sz: "+ftempLines.size());
+				
+				for(int i=0;i<ftempLines.size();i++){
+	    			
+	    			FileTemplateLines ftemp=ftempLines.get(i);
+	    		HashMap map=new HashMap();
+	    		
+	    		String colDataType="";
+	    		map.put("id",ftemp.getId() );
+	    		map.put("refDvName",ftIdForDisplay );
+	    		map.put("refDvColumn",ftemp.getId() );
+	    		map.put("dataViewId", fileTemplate.getId());
+	    		
+	    		String rowIdentifier="";
+	    		intermediateId=ftemp.getIntermediateId();
+	    		map.put("intermediateId", intermediateId);
+	    		if(intermediateId!=null && intermediateId>0){
+	    		rowIdentifier=ftemp.getRecordIdentifier();
+	    		}
+	    		String fileTempName=fileTemplate.getTemplateName();
+	    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+	    		fileTempName=fileTempName+"-"+rowIdentifier;
+	    		}
+	    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+	    		{
+	    		map.put("templateName", fileTempName);
+	    		map.put("dataViewName", fileTempName);
+	    		map.put("dataViewDisplayName", fileTempName);
+	    		}
+	    		map.put("refDvType", "File Template");
+	    		map.put("colDataType", colDataType);
+	    		if(ftemp.getLineNumber()!=null)
+	    		map.put("lineNumber", ftemp.getLineNumber());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnName", ftemp.getColumnHeader());
+	    		if(ftemp.getMasterTableReferenceColumn()!=null)
+	    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+	    		if(ftemp.getRecordTYpe()!=null)
+	    		map.put("recordTYpe", ftemp.getRecordTYpe());
+	    		if(ftemp.getRecordIdentifier()!=null)
+	    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+	    		if(ftemp.getColumnNumber()!=null)
+	    		map.put("columnNumber", ftemp.getColumnNumber());
+	    		if(ftemp.getEnclosedChar()!=null)
+	    		map.put("enclosedChar", ftemp.getEnclosedChar());
+	    		if(ftemp.getPositionBegin()!=null)
+	    		map.put("positionBegin", ftemp.getPositionBegin());
+	    		if(ftemp.getPositionEnd()!=null)
+	    		map.put("positionEnd", ftemp.getPositionEnd());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnHeader", ftemp.getColumnHeader());
+	    		if(ftemp.getConstantValue()!=null)
+	    		map.put("constantValue", ftemp.getConstantValue());
+	    		if(ftemp.getZeroFill()!=null)
+	    		map.put("zeroFill", ftemp.getZeroFill());
+	    		if(ftemp.getAlign()!=null)
+	    		map.put("align", ftemp.getAlign());
+	    		if(ftemp.getDateFormat()!=null)
+	    		map.put("dateFormat", ftemp.getDateFormat());
+	    		if(ftemp.getTimeFormat()!=null)
+	    		map.put("timeFormat",ftemp.getTimeFormat());
+	    		if(ftemp.getAmountFormat()!=null)
+	    		map.put("amountFormat", ftemp.getAmountFormat());
+	    		if(ftemp.getOverFlow()!=null)
+	    		map.put("overFlow",ftemp.getOverFlow()!=null);
+	    		if(ftemp.getSkipColumn()!=null)
+	    		map.put("skipColumn", ftemp.getSkipColumn());
+	    		if(ftemp.getColumnDelimiter()!=null)
+	    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+	    		if(ftemp.getCreatedBy()!=null)
+	    		map.put("createdBy", ftemp.getCreatedBy());
+	    		if(ftemp.getCreatedDate()!=null)
+	    		map.put("createdDate", ftemp.getCreatedDate());
+	    		if(ftemp.getLastUpdatedBy()!=null)
+	    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+	    		if( ftemp.getLastUpdatedDate()!=null)
+	    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+	    		if(map!=null)
+	    			ftlMapList.add(map);
+	    		}
+				finalList.add(ftlMapList);
+			}
+			else{
+				log.info("in non multi row identifier case");
+				ftempLines=fileTemplateLinesRepository.findByTemplateId(ftId);
+				List<HashMap> ftlMapList=new ArrayList<HashMap>();
+				for(int i=0;i<ftempLines.size();i++){
+	    			
+	    			FileTemplateLines ftemp=ftempLines.get(i);
+	    		HashMap map=new HashMap();
+	    		
+	    		String colDataType="";
+	    		map.put("id",ftemp.getId() );
+	    		map.put("refDvName",ftId );
+	    		map.put("refDvColumn",ftemp.getId() );
+	    		map.put("dataViewId", fileTemplate.getId());
+	    		
+	    		String rowIdentifier="";
+	    		map.put("intermediateId", intermediateId);
+	    		if(intermediateId!=null && intermediateId>0){
+	    		rowIdentifier=ftemp.getRecordIdentifier();
+	    		}
+	    		String fileTempName=fileTemplate.getTemplateName();
+	    		if(rowIdentifier!=null && !(rowIdentifier.isEmpty())){
+	    		fileTempName=fileTempName+"-"+rowIdentifier;
+	    		}
+	    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+	    		{
+	    		map.put("templateName", fileTempName);
+	    		map.put("dataViewName", fileTempName);
+	    		map.put("dataViewDisplayName", fileTempName);
+	    		}
+	    		map.put("refDvType", "File Template");
+	    		map.put("colDataType", colDataType);
+	    		if(ftemp.getLineNumber()!=null)
+	    		map.put("lineNumber", ftemp.getLineNumber());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnName", ftemp.getColumnHeader());
+	    		if(ftemp.getMasterTableReferenceColumn()!=null)
+	    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+	    		if(ftemp.getRecordTYpe()!=null)
+	    		map.put("recordTYpe", ftemp.getRecordTYpe());
+	    		if(ftemp.getRecordIdentifier()!=null)
+	    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+	    		if(ftemp.getColumnNumber()!=null)
+	    		map.put("columnNumber", ftemp.getColumnNumber());
+	    		if(ftemp.getEnclosedChar()!=null)
+	    		map.put("enclosedChar", ftemp.getEnclosedChar());
+	    		if(ftemp.getPositionBegin()!=null)
+	    		map.put("positionBegin", ftemp.getPositionBegin());
+	    		if(ftemp.getPositionEnd()!=null)
+	    		map.put("positionEnd", ftemp.getPositionEnd());
+	    		if(ftemp.getColumnHeader()!=null)
+	    		map.put("columnHeader", ftemp.getColumnHeader());
+	    		if(ftemp.getConstantValue()!=null)
+	    		map.put("constantValue", ftemp.getConstantValue());
+	    		if(ftemp.getZeroFill()!=null)
+	    		map.put("zeroFill", ftemp.getZeroFill());
+	    		if(ftemp.getAlign()!=null)
+	    		map.put("align", ftemp.getAlign());
+	    		if(ftemp.getDateFormat()!=null)
+	    		map.put("dateFormat", ftemp.getDateFormat());
+	    		if(ftemp.getTimeFormat()!=null)
+	    		map.put("timeFormat",ftemp.getTimeFormat());
+	    		if(ftemp.getAmountFormat()!=null)
+	    		map.put("amountFormat", ftemp.getAmountFormat());
+	    		if(ftemp.getOverFlow()!=null)
+	    		map.put("overFlow",ftemp.getOverFlow()!=null);
+	    		if(ftemp.getSkipColumn()!=null)
+	    		map.put("skipColumn", ftemp.getSkipColumn());
+	    		if(ftemp.getColumnDelimiter()!=null)
+	    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+	    		if(ftemp.getCreatedBy()!=null)
+	    		map.put("createdBy", ftemp.getCreatedBy());
+	    		if(ftemp.getCreatedDate()!=null)
+	    		map.put("createdDate", ftemp.getCreatedDate());
+	    		if(ftemp.getLastUpdatedBy()!=null)
+	    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+	    		if( ftemp.getLastUpdatedDate()!=null)
+	    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+	    		if(map!=null)
+	    			ftlMapList.add(map);
+	    		}
+				finalList.add(ftlMapList);
+			}
+    		log.info("ftempLines.size(): "+ftempLines.size());
+    	}
+		
+		}
+    	log.info("finalList sz: "+finalList.size());
+		return finalList;
+		}
+}

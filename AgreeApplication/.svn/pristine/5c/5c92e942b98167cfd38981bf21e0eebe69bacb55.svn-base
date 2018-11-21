@@ -1,0 +1,801 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.SourceConnectionDetails;
+import com.nspl.app.domain.SourceProfileFileAssignments;
+import com.nspl.app.domain.SourceProfiles;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.SourceConnectionDetailsRepository;
+import com.nspl.app.repository.SourceProfileFileAssignmentsRepository;
+import com.nspl.app.repository.SourceProfilesRepository;
+import com.nspl.app.repository.search.SourceProfileFileAssignmentsSearchRepository;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReadingFileTemplatesService;
+import com.nspl.app.service.SourceConnectionDetailsService;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.SrcPrfleAssignWithTempNameDTO;
+import com.nspl.app.web.rest.dto.SrcProfileAssignDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
+
+import java.io.IOException;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing SourceProfileFileAssignments.
+ */
+@RestController
+@RequestMapping("/api")
+public class SourceProfileFileAssignmentsResource {
+
+	private final Logger log = LoggerFactory.getLogger(SourceProfileFileAssignmentsResource.class);
+
+	private static final String ENTITY_NAME = "sourceProfileFileAssignments";
+
+	@Inject
+	private SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository;
+
+	private final SourceProfileFileAssignmentsSearchRepository sourceProfileFileAssignmentsSearchRepository;
+
+	private final SourceProfilesRepository sourceProfilesRepository;
+
+	private final FileTemplatesRepository fileTemplatesRepository;
+
+	private final LookUpCodeRepository lookUpCodeRepository;
+
+	@Inject
+	SourceConnectionDetailsRepository sourceConnectionDetailsRepository;
+
+	@Inject
+	SourceConnectionDetailsService sourceConnectionDetailsService;
+
+	@Inject
+	ReadingFileTemplatesService readingFileTemplatesService;
+
+	@Inject
+	PropertiesUtilService propertiesUtilService;
+
+	@Inject
+	DataMasterResource dataMasterResource;
+	
+	@Inject
+	SourceProfilesRepository sourceProfileRepository;
+	
+	@Inject
+    UserJdbcService userJdbcService;
+
+	public SourceProfileFileAssignmentsResource(
+			SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository,
+			SourceProfileFileAssignmentsSearchRepository sourceProfileFileAssignmentsSearchRepository,
+			SourceProfilesRepository sourceProfilesRepository, FileTemplatesRepository fileTemplatesRepository,
+			LookUpCodeRepository lookUpCodeRepository) {
+		this.sourceProfileFileAssignmentsRepository = sourceProfileFileAssignmentsRepository;
+		this.sourceProfileFileAssignmentsSearchRepository = sourceProfileFileAssignmentsSearchRepository;
+		this.sourceProfilesRepository = sourceProfilesRepository;
+		this.fileTemplatesRepository = fileTemplatesRepository;
+		this.lookUpCodeRepository = lookUpCodeRepository;
+	}
+
+	/**
+	 * POST /source-profile-file-assignments : Create a new
+	 * sourceProfileFileAssignments.
+	 *
+	 * @param sourceProfileFileAssignments
+	 *            the sourceProfileFileAssignments to create
+	 * @return the ResponseEntity with status 201 (Created) and with body the new
+	 *         sourceProfileFileAssignments, or with status 400 (Bad Request) if the
+	 *         sourceProfileFileAssignments has already an ID
+	 * @throws URISyntaxException
+	 *             if the Location URI syntax is incorrect
+	 */
+	@PostMapping("/source-profile-file-assignments")
+	@Timed
+	public ResponseEntity<SourceProfileFileAssignments> createSourceProfileFileAssignments(
+			@Valid @RequestBody SourceProfileFileAssignments sourceProfileFileAssignments) throws URISyntaxException {
+		log.debug("REST request to save SourceProfileFileAssignments : {}", sourceProfileFileAssignments);
+		if (sourceProfileFileAssignments.getId() != null) {
+			return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists",
+					"A new sourceProfileFileAssignments cannot already have an ID")).body(null);
+		}
+		SourceProfileFileAssignments result = sourceProfileFileAssignmentsRepository.save(sourceProfileFileAssignments);
+		sourceProfileFileAssignmentsSearchRepository.save(result);
+		return ResponseEntity.created(new URI("/api/source-profile-file-assignments/" + result.getId()))
+				.headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString())).body(result);
+	}
+
+	/**
+	 * PUT /source-profile-file-assignments : Updates an existing
+	 * sourceProfileFileAssignments.
+	 *
+	 * @param sourceProfileFileAssignments
+	 *            the sourceProfileFileAssignments to update
+	 * @return the ResponseEntity with status 200 (OK) and with body the updated
+	 *         sourceProfileFileAssignments, or with status 400 (Bad Request) if the
+	 *         sourceProfileFileAssignments is not valid, or with status 500
+	 *         (Internal Server Error) if the sourceProfileFileAssignments couldnt
+	 *         be updated
+	 * @throws URISyntaxException
+	 *             if the Location URI syntax is incorrect
+	 */
+	@PutMapping("/source-profile-file-assignments")
+	@Timed
+	public ResponseEntity<SourceProfileFileAssignments> updateSourceProfileFileAssignments(
+			@Valid @RequestBody SourceProfileFileAssignments sourceProfileFileAssignments) throws URISyntaxException {
+		log.debug("REST request to update SourceProfileFileAssignments : {}", sourceProfileFileAssignments);
+		if (sourceProfileFileAssignments.getId() == null) {
+			return createSourceProfileFileAssignments(sourceProfileFileAssignments);
+		}
+		SourceProfileFileAssignments result = sourceProfileFileAssignmentsRepository.save(sourceProfileFileAssignments);
+		sourceProfileFileAssignmentsSearchRepository.save(result);
+		return ResponseEntity.ok().headers(
+				HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, sourceProfileFileAssignments.getId().toString()))
+				.body(result);
+	}
+
+	/**
+	 * GET /source-profile-file-assignments : get all the
+	 * sourceProfileFileAssignments.
+	 *
+	 * @param pageable
+	 *            the pagination information
+	 * @return the ResponseEntity with status 200 (OK) and the list of
+	 *         sourceProfileFileAssignments in body
+	 */
+	@GetMapping("/source-profile-file-assignments")
+	@Timed
+	public ResponseEntity<List<SourceProfileFileAssignments>> getAllSourceProfileFileAssignments(
+			@ApiParam Pageable pageable) {
+		log.debug("REST request to get a page of SourceProfileFileAssignments");
+		Page<SourceProfileFileAssignments> page = sourceProfileFileAssignmentsRepository.findAll(pageable);
+		HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page,
+				"/api/source-profile-file-assignments");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	/**
+	 * GET /source-profile-file-assignments/:id : get the "id"
+	 * sourceProfileFileAssignments.
+	 *
+	 * @param id
+	 *            the id of the sourceProfileFileAssignments to retrieve
+	 * @return the ResponseEntity with status 200 (OK) and with body the
+	 *         sourceProfileFileAssignments, or with status 404 (Not Found)
+	 */
+	@GetMapping("/source-profile-file-assignments/{id}")
+	@Timed
+	public ResponseEntity<SourceProfileFileAssignments> getSourceProfileFileAssignments(@PathVariable Long id) {
+		log.debug("REST request to get SourceProfileFileAssignments : {}", id);
+		SourceProfileFileAssignments sourceProfileFileAssignments = sourceProfileFileAssignmentsRepository.findOne(id);
+		return ResponseUtil.wrapOrNotFound(Optional.ofNullable(sourceProfileFileAssignments));
+	}
+
+	/**
+	 * DELETE /source-profile-file-assignments/:id : delete the "id"
+	 * sourceProfileFileAssignments.
+	 *
+	 * @param id
+	 *            the id of the sourceProfileFileAssignments to delete
+	 * @return the ResponseEntity with status 200 (OK)
+	 */
+	@DeleteMapping("/source-profile-file-assignments/{id}")
+	@Timed
+	public ResponseEntity<Void> deleteSourceProfileFileAssignments(@PathVariable Long id) {
+		log.debug("REST request to delete SourceProfileFileAssignments : {}", id);
+		sourceProfileFileAssignmentsRepository.delete(id);
+		sourceProfileFileAssignmentsSearchRepository.delete(id);
+		return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+	}
+
+	/**
+	 * SEARCH /_search/source-profile-file-assignments?query=:query : search for the
+	 * sourceProfileFileAssignments corresponding to the query.
+	 *
+	 * @param query
+	 *            the query of the sourceProfileFileAssignments search
+	 * @param pageable
+	 *            the pagination information
+	 * @return the result of the search
+	 */
+	@GetMapping("/_search/source-profile-file-assignments")
+	@Timed
+	public ResponseEntity<List<SourceProfileFileAssignments>> searchSourceProfileFileAssignments(
+			@RequestParam String query, @ApiParam Pageable pageable) {
+		log.debug("REST request to search for a page of SourceProfileFileAssignments for query {}", query);
+		Page<SourceProfileFileAssignments> page = sourceProfileFileAssignmentsSearchRepository
+				.search(queryStringQuery(query), pageable);
+		HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page,
+				"/api/_search/source-profile-file-assignments");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	/**
+	 * Author Kiran
+	 * 
+	 * @param id
+	 *            To fetch files from server to local pc and to read each file based
+	 *            on Id
+	 */
+	@GetMapping("/fetchFilesFromCloudToLocalUsingSpfaId")
+	@Timed
+	public HashMap<String, String> fetchFilesFromCloudToLocalBasedonSpfaId(@RequestParam(value = "spfaId") Long spfaId) {
+		log.info("==================== Api Call to Fetch Files From Cloud to Local for spfaId:" + spfaId
+				+ " ====================" + ZonedDateTime.now());
+		SourceProfileFileAssignments spFiles = sourceProfileFileAssignmentsRepository.findOne(spfaId);
+		log.info("Source files: " + spFiles);
+		int files = 0;
+		HashMap<String, String> hmResult = new HashMap<String, String>();
+
+		String report = "Failed";
+
+		if (spFiles != null) {
+			Long spId = spFiles.getSourceProfileId();
+			SourceProfiles sProfiles = sourceProfilesRepository.findOne(spId);
+			if (sProfiles != null) {
+				Long connectionId = sProfiles.getConnectionId();
+				SourceConnectionDetails sConnDetails = sourceConnectionDetailsRepository.findOne(connectionId);
+				if (sConnDetails != null) {
+					/** Service call to get files and read **/
+					try {
+						files = sourceConnectionDetailsService.savingFilesToLocalDirBasedOnSPFAId(sConnDetails, spfaId,sProfiles.getTenantId());
+						report = "Success";
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					log.info("Success Moving files to local path Based on the SPFA Id");
+				}
+			} else {
+				log.info("SourceProfiles not present for id:" + (spId));
+			}
+		} else {
+			log.info("SourceProfileFileAssignments not avalable for Id:" + spfaId);
+		}
+		hmResult.put("Status", report);
+		hmResult.put("Number_of_files", Integer.toString(files));
+		log.info("Files moved to local server EndTime for spfaId: " + spfaId + " -> " + ZonedDateTime.now());
+		return hmResult;
+	}
+
+	/**
+	 * Author Ravali, Kiran
+	 * 
+	 * @param id
+	 *            To fetch files from server to local pc and to read each file based
+	 *            on Id
+	 */
+	@GetMapping("/ProcessingFilesFromLocalPath")
+	@Timed
+
+	public String ProcessingFiles(HttpServletRequest request,@RequestParam(value = "spfaId") Long spfaId) {
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+	  	Long userId=Long.parseLong(map.get("userId").toString());
+		log.info("==================== Api Call to Read & Store Data from local to Data Staging table for spfaId:"
+				+ spfaId + "====================" + ZonedDateTime.now());
+
+		SourceProfileFileAssignments spfa = sourceProfileFileAssignmentsRepository.findOne(spfaId);
+		
+		
+		String resultReport = "Failed to move the file";
+		if (spfa != null) {
+			Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+			String localPath = props.getProperty("path");
+			String localConnName = props.getProperty("LocalConnectionName");
+
+			Long srcPrflId = spfa.getSourceProfileId();
+			SourceProfiles sp = sourceProfilesRepository.findOne(srcPrflId);
+
+			/** Here we are downloading files from local server to local pc **/
+			SourceConnectionDetails targetConnection = sourceConnectionDetailsRepository.findByNameAndTenantId(localConnName,sp.getTenantId());
+			List<String> downlodedFiles = sourceConnectionDetailsService.downloadFilesToLocalDirPCLevel(targetConnection, spfa, localPath);
+			log.info("List of downlodedFiles in 2: " + downlodedFiles);
+			if (downlodedFiles != null && downlodedFiles.size() != 0) {
+				/**
+				 * Here we are giving the LocalDirPath and reading the files which are
+				 * downloaded
+				 **/
+
+				Long templateId = spfa.getTemplateId();
+				log.info("Parameters localpath and tenantId:-" + localPath + "---" + templateId);
+				List<HashMap<String, String>> resultsList = sourceConnectionDetailsService.readingTheFiles(localPath,
+						templateId, downlodedFiles, spfa);
+				log.info("3.Extration of file starts: " + ZonedDateTime.now());
+				for (int i = 0; i < resultsList.size(); i++) {
+					HashMap<String, String> result = resultsList.get(i);
+					String value = null;
+					for (String key : result.keySet()) {
+						value = result.get(key);
+					}
+
+					/**
+					 * Here we are moving the successfully read files to the processed files folder
+					 * in local server
+					 **/
+					if (value.equals("Successfully Saved Data")) {
+						dataMasterResource.moveData(sp.getTenantId(), userId);
+						sourceConnectionDetailsService.movingFilesToProcessedFilesDir(targetConnection, spfa,
+								resultsList);
+						resultReport = "SuccessFully Read and Moved the files";
+						log.info(
+								"******************************* Success Reading and moving Files *********************************");
+					} else {
+						log.info("Reading Files Are empty");
+					}
+				}
+				log.info("3.Extraction finished" + ZonedDateTime.now());
+				log.info("Results List:-" + resultsList);
+
+				/**
+				 * Here we are moving the successfully read files to the processed files folder
+				 * in local server
+				 **/
+			} else {
+				log.info("no Files From Downloaded PAth");
+			}
+		}
+		log.info("Process End (Reading) for spfaId: " + spfaId + " ->" + ZonedDateTime.now());
+		return resultReport;
+	}
+
+	/*
+	 * @PostMapping("/readingFilesTestApi")
+	 * 
+	 * @Timed public String testingReadFileTemplates(@RequestParam("templateId")
+	 * Long tempId, @RequestParam("filePath") String filePath) { String result =
+	 * readingFileTemplatesService.readFileTemplateDetailsBasedOnFileType(tempId,
+	 * filePath); return result; }
+	 */
+	/**
+	 * Auhtor:Ravali, Kiran(Changed spfaList to spfa record based on templateId)
+	 * 
+	 * @param templateId
+	 * @return sourceAssignmnetProfile
+	 */
+	@GetMapping("/SPAByTempId")
+	@Timed
+	public List<SrcProfileAssignDTO> getSrcProfileAssign(HttpServletRequest request,@RequestParam String templateIdForDisplay) {
+		log.info("Rest Request API to get Source Profile Assignments with Source Profile Name");
+		 HashMap map=userJdbcService.getuserInfoFromToken(request);
+			Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		FileTemplates ft = fileTemplatesRepository.findByIdForDisplayAndTenantId(templateIdForDisplay,tenantId);
+		Long templateId = ft.getId();
+		List<SourceProfileFileAssignments> SrcProfAssign = new ArrayList<SourceProfileFileAssignments>();
+		SrcProfAssign = sourceProfileFileAssignmentsRepository.findByTemplateId(templateId);
+		log.info("SrcProfileAssignList :" + SrcProfAssign.size());
+		List<SrcProfileAssignDTO> srcProfDtoList = new ArrayList<SrcProfileAssignDTO>();
+		for(int i=0;i<SrcProfAssign.size();i++)
+		{
+			SrcProfileAssignDTO srcProfDto = new SrcProfileAssignDTO();
+			if (SrcProfAssign != null) {
+				if(SrcProfAssign.get(i).getId() != null)
+					srcProfDto.setId(SrcProfAssign.get(i).getId());
+				if (SrcProfAssign.get(i).getSourceProfileId() != null)
+					srcProfDto.setSourceProfileId(SrcProfAssign.get(i).getSourceProfileId());
+				if (SrcProfAssign.get(i).getSourceProfileId() != null) {
+					SourceProfiles srcProfileName = sourceProfilesRepository.findOne(SrcProfAssign.get(i).getSourceProfileId());
+					if (srcProfileName != null && srcProfileName.getSourceProfileName() != null
+							&& !srcProfileName.getSourceProfileName().isEmpty())
+						srcProfDto.setSourceProfileName(srcProfileName.getSourceProfileName());
+				}
+				if (SrcProfAssign.get(i).getFileNameFormat() != null && !SrcProfAssign.get(i).getFileNameFormat().isEmpty())
+					srcProfDto.setFileNameFormat(SrcProfAssign.get(i).getFileNameFormat());
+				if (SrcProfAssign.get(i).getFileDescription() != null && !SrcProfAssign.get(i).getFileDescription().isEmpty())
+					srcProfDto.setFileDescription(SrcProfAssign.get(i).getFileDescription());
+				if (SrcProfAssign.get(i).getFileExtension() != null && !SrcProfAssign.get(i).getFileExtension().isEmpty())
+					srcProfDto.setFileExtension(SrcProfAssign.get(i).getFileExtension());
+				if (SrcProfAssign.get(i).getFrequencyType() != null && !SrcProfAssign.get(i).getFrequencyType().isEmpty()) {
+					srcProfDto.setFrequencyType((SrcProfAssign.get(i).getFrequencyType()));
+				}
+
+				if (SrcProfAssign.get(i).getDueTime() != null && !SrcProfAssign.get(i).getDueTime().isEmpty())
+					srcProfDto.setDueTime(SrcProfAssign.get(i).getDueTime());
+				if (SrcProfAssign.get(i).getDay() != null)
+					srcProfDto.setDay(SrcProfAssign.get(i).getDay());
+				if (SrcProfAssign.get(i).getSourceDirectoryPath() != null && !SrcProfAssign.get(i).getSourceDirectoryPath().isEmpty())
+					srcProfDto.setSourceDirectoryPath(SrcProfAssign.get(i).getSourceDirectoryPath());
+				if (SrcProfAssign.get(i).getLocalDirectoryPath() != null && !SrcProfAssign.get(i).getLocalDirectoryPath().isEmpty())
+					srcProfDto.setLocalDirectoryPath(SrcProfAssign.get(i).getLocalDirectoryPath());
+				if (SrcProfAssign.get(i).isEnabledFlag() != null)
+					srcProfDto.setEnableFlag(SrcProfAssign.get(i).isEnabledFlag());
+				if (SrcProfAssign.get(i).getCreatedBy() != null)
+					srcProfDto.setCreatedBy(SrcProfAssign.get(i).getCreatedBy());
+				if (SrcProfAssign.get(i).getCreatedDate() != null)
+					srcProfDto.setCreationDate(SrcProfAssign.get(i).getCreatedDate());
+				if (SrcProfAssign.get(i).getLastUpdatedBy() != null)
+					srcProfDto.setLastUpdatedBy(SrcProfAssign.get(i).getLastUpdatedBy());
+				if (SrcProfAssign.get(i).getLastUpdatedDate() != null)
+					srcProfDto.setLastUpdatedDate(SrcProfAssign.get(i).getLastUpdatedDate());
+				srcProfDtoList.add(srcProfDto);
+				log.info("SrcProfileAssignDTO :" + srcProfDto);
+			}
+		}
+		
+		return srcProfDtoList;
+	}
+
+	/**
+	 * Author:Ravali get Source profile assignment details based on sourceProfileId
+	 *
+	 * @param SourceProfileId
+	 * @return SourceProfileAssignmentList
+	 */
+
+	@GetMapping("/srcProfAssignDetailsBySourceProfileId123/{srcProfId}")
+	@Timed
+	public List<SourceProfileFileAssignments> getSrcProfAssignList123(@PathVariable Long srcProfId) {
+		log.info("Rest Request to get Source Profile Assignment List by sourceProfileId :" + srcProfId);
+		List<SourceProfileFileAssignments> SrcProfAssignList = new ArrayList<SourceProfileFileAssignments>();
+		if (srcProfId != null) {
+			SrcProfAssignList = sourceProfileFileAssignmentsRepository.findBySourceProfileId(srcProfId);
+		}
+		return SrcProfAssignList;
+	}
+
+	/**
+	 * Author:Ravali get Source profile assignment details based on sourceProfileId
+	 *
+	 * @param SourceProfileId
+	 * @return SourceProfileAssignmentList
+	 */
+	@GetMapping("/sorceProfilesFileAssignments/{srcProfId}")
+	@Timed
+	public List<SrcPrfleAssignWithTempNameDTO> getSrcProfAssignList(HttpServletRequest request, @PathVariable String srcProfId) {
+		log.info("Rest Request to get Source Profile Assignment List by sourceProfileId :" + srcProfId);
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		
+		//List<SourceProfiles> srcProfList=sourceProfilesRepository.findByTenantIdAndIdForDisplay(tenantId,srcProfId);
+			//srcProfList = sourceProfilesRepository.findByTenantIdAndIdForDisplay(tenantId,srcProfId);
+//		Long srcProfId1=0l;
+//		if(!srcProfList.isEmpty())
+//			srcProfId1=srcProfList.get(0).getId();
+		SourceProfiles sourceProfile = sourceProfilesRepository.findByTenantIdAndIdForDisplay(tenantId,srcProfId);
+		
+		List<SrcPrfleAssignWithTempNameDTO> SrcPrfleAssignDTOList = new ArrayList<SrcPrfleAssignWithTempNameDTO>();
+		List<SourceProfileFileAssignments> SrcProfAssignList = new ArrayList<SourceProfileFileAssignments>();
+		if (sourceProfile.getId() != null) {
+			SrcProfAssignList = sourceProfileFileAssignmentsRepository.findBySourceProfileId(sourceProfile.getId());
+			log.info("SrcProfAssignList size:"+SrcProfAssignList.size());
+			for (SourceProfileFileAssignments SrcProfAssign : SrcProfAssignList) {
+				SrcPrfleAssignWithTempNameDTO SrcPrfleAssignDTO = new SrcPrfleAssignWithTempNameDTO();
+				SrcPrfleAssignDTO.setId(SrcProfAssign.getId());
+				if (SrcProfAssign.getSourceProfileId() != null)
+					SrcPrfleAssignDTO.setSourceProfileId(SrcProfAssign.getSourceProfileId());
+				if (SrcProfAssign.getFileNameFormat() != null && !SrcProfAssign.getFileNameFormat().isEmpty())
+					SrcPrfleAssignDTO.setFileNameFormat(SrcProfAssign.getFileNameFormat());
+				if (SrcProfAssign.getFileDescription() != null && !SrcProfAssign.getFileDescription().isEmpty())
+					SrcPrfleAssignDTO.setFileDescription(SrcProfAssign.getFileDescription());
+				if (SrcProfAssign.getFileExtension() != null && !SrcProfAssign.getFileExtension().isEmpty())
+					SrcPrfleAssignDTO.setFileExtension(SrcProfAssign.getFileExtension());
+				if (SrcProfAssign.getFrequencyType() != null && !SrcProfAssign.getFrequencyType().isEmpty())
+					SrcPrfleAssignDTO.setFrequencyType(SrcProfAssign.getFrequencyType());
+				if (SrcProfAssign.getDueTime() != null && !SrcProfAssign.getDueTime().isEmpty())
+					SrcPrfleAssignDTO.setDueTime(SrcProfAssign.getDueTime());
+				if (SrcProfAssign.getDay() != null)
+					SrcPrfleAssignDTO.setDay(SrcProfAssign.getDay());
+				if (SrcProfAssign.getSourceDirectoryPath() != null && !SrcProfAssign.getSourceDirectoryPath().isEmpty())
+					SrcPrfleAssignDTO.setSourceDirectoryPath(SrcProfAssign.getSourceDirectoryPath());
+				if (SrcProfAssign.getLocalDirectoryPath() != null && !SrcProfAssign.getLocalDirectoryPath().isEmpty())
+					SrcPrfleAssignDTO.setLocalDirectoryPath(SrcProfAssign.getLocalDirectoryPath());
+				if (SrcProfAssign.getTemplateId() != null) {
+					SrcPrfleAssignDTO.setTemplateId(SrcProfAssign.getTemplateId());
+					FileTemplates tempName = fileTemplatesRepository.findOne(SrcProfAssign.getTemplateId());
+					if (tempName != null && tempName.getTemplateName() != null)
+						SrcPrfleAssignDTO.setTemplateName(tempName.getTemplateName());
+				}
+				if (SrcProfAssign.isEnabledFlag() != null)
+					SrcPrfleAssignDTO.setEnableFlag(SrcProfAssign.isEnabledFlag());
+				if (SrcProfAssign.getCreatedBy() != null)
+					SrcPrfleAssignDTO.setCreatedBy(SrcProfAssign.getCreatedBy());
+				if (SrcProfAssign.getCreatedDate() != null)
+					SrcPrfleAssignDTO.setCreationDate(SrcProfAssign.getCreatedDate());
+				if (SrcProfAssign.getLastUpdatedBy() != null)
+					SrcPrfleAssignDTO.setLastUpdatedBy(SrcProfAssign.getLastUpdatedBy());
+				if (SrcProfAssign.getLastUpdatedDate() != null)
+					SrcPrfleAssignDTO.setLastUpdatedDate(SrcProfAssign.getLastUpdatedDate());
+				if (SrcPrfleAssignDTO != null)
+					SrcPrfleAssignDTOList.add(SrcPrfleAssignDTO);
+			}
+		}
+		return SrcPrfleAssignDTOList;
+	}
+
+	/**
+	 * Auhtor:Ravali
+	 * 
+	 * @param templateId
+	 * @return sourceAssignmnetProfile
+	 */
+	/*
+	 * @GetMapping("/SPAByTempId/{templateId}")
+	 * 
+	 * @Timed public List<SrcProfileAssignDTO> getSrcProfileAssign(@PathVariable
+	 * Long templateId) {
+	 * 
+	 * log.
+	 * info("Rest Request API to get Source Profile Assignments with Source Profile Name"
+	 * ); List<SourceProfileFileAssignments>
+	 * SrcProfileAssignList=sourceProfileFileAssignmentsRepository.findByTemplateId(
+	 * templateId); log.info("SrcProfileAssignList :"+SrcProfileAssignList);
+	 * List<SrcProfileAssignDTO> SrcProfileAssignDTO=new
+	 * ArrayList<SrcProfileAssignDTO>(); for(int
+	 * i=0;i<SrcProfileAssignList.size();i++) { SourceProfileFileAssignments
+	 * SrcProfAssign=SrcProfileAssignList.get(i); SrcProfileAssignDTO srcProfDto=new
+	 * SrcProfileAssignDTO(); if(SrcProfAssign.getSourceProfileId()!=null)
+	 * srcProfDto.setSourceProfileId(SrcProfAssign.getSourceProfileId());
+	 * if(SrcProfAssign.getSourceProfileId()!=null) { SourceProfiles
+	 * srcProfileName=sourceProfilesRepository.findOne(SrcProfAssign.
+	 * getSourceProfileId());
+	 * if(srcProfileName!=null&&srcProfileName.getSourceProfileName()!=null&&!
+	 * srcProfileName.getSourceProfileName().isEmpty())
+	 * srcProfDto.setSourceProfileName(srcProfileName.getSourceProfileName()); }
+	 * if(SrcProfAssign.getFileNameFormat()!=null&&!SrcProfAssign.getFileNameFormat(
+	 * ).isEmpty()) srcProfDto.setFileNameFormat(SrcProfAssign.getFileNameFormat());
+	 * if(SrcProfAssign.getFileDescription()!=null&&!SrcProfAssign.
+	 * getFileDescription().isEmpty())
+	 * srcProfDto.setFileDescription(SrcProfAssign.getFileDescription());
+	 * if(SrcProfAssign.getFileExtension()!=null&&!SrcProfAssign.getFileExtension().
+	 * isEmpty()) srcProfDto.setFileExtension(SrcProfAssign.getFileExtension());
+	 * if(SrcProfAssign.getFrequencyType()!=null&&!SrcProfAssign.getFrequencyType().
+	 * isEmpty()) srcProfDto.setFrequencyType(SrcProfAssign.getFrequencyType());
+	 * if(SrcProfAssign.getDueTime()!=null&&!SrcProfAssign.getDueTime().isEmpty())
+	 * srcProfDto.setDueTime(SrcProfAssign.getDueTime());
+	 * if(SrcProfAssign.getDay()!=null) srcProfDto.setDay(SrcProfAssign.getDay());
+	 * if(SrcProfAssign.getSourceDirectoryPath()!=null&&!SrcProfAssign.
+	 * getSourceDirectoryPath().isEmpty())
+	 * srcProfDto.setSourceDirectoryPath(SrcProfAssign.getSourceDirectoryPath());
+	 * if(SrcProfAssign.getLocalDirectoryPath()!=null&&!SrcProfAssign.
+	 * getLocalDirectoryPath().isEmpty())
+	 * srcProfDto.setLocalDirectoryPath(SrcProfAssign.getLocalDirectoryPath());
+	 * if(SrcProfAssign.isEnabledFlag()!=null)
+	 * srcProfDto.setEnableFlag(SrcProfAssign.isEnabledFlag());
+	 * if(SrcProfAssign.getCreatedBy()!=null)
+	 * srcProfDto.setCreatedBy(SrcProfAssign.getCreatedBy());
+	 * if(SrcProfAssign.getCreatedDate()!=null)
+	 * srcProfDto.setCreationDate(SrcProfAssign.getCreatedDate());
+	 * if(SrcProfAssign.getLastUpdatedBy()!=null)
+	 * srcProfDto.setLastUpdatedBy(SrcProfAssign.getLastUpdatedBy());
+	 * if(SrcProfAssign.getLastUpdatedDate()!=null)
+	 * srcProfDto.setLastUpdatedDate(SrcProfAssign.getLastUpdatedDate());
+	 * 
+	 * SrcProfileAssignDTO.add(srcProfDto);
+	 * 
+	 * 
+	 * } log.info("SrcProfileAssignDTO :"+SrcProfileAssignDTO); return
+	 * SrcProfileAssignDTO;
+	 * 
+	 * }
+	 */
+
+/*	@PostMapping("/UnAssignedFileTemplatesList")
+	@Timed
+	public List<FileTemplates> getUnassignedFileTemplates(@RequestBody SourceProfiles sourceProfiles) {
+		log.info("Rest Request to fetch unassigned file templates :" + sourceProfiles.getTenantId()
+				+ sourceProfiles.getStartDate() + sourceProfiles.getEndDate());
+		LocalDate lEdSt;
+		log.info("sub string :" + sourceProfiles.getStartDate());
+		LocalDate lStDt = sourceProfiles.getStartDate();
+		List<FileTemplates> fileTemplateList = fileTemplatesRepository.findByTenantId(sourceProfiles.getTenantId());
+		List<FileTemplates> unAssignedList = new ArrayList<FileTemplates>();
+		List<Long> idList = new ArrayList<Long>();
+		for (FileTemplates fileTemplate : fileTemplateList) {
+			SourceProfileFileAssignments SPFA = sourceProfileFileAssignmentsRepository
+					.findByTemplateId(fileTemplate.getId());
+			if (SPFA != null && SPFA.getId() != null) {
+				log.info("Record Exists with template Id");
+			} else {
+				// log.info("usAssigned file template :"+fileTemplate);
+				// check active status of template with given i/p st dt
+				// add active temp
+				unAssignedList.add(fileTemplate);
+			}
+
+			for (int i = 0; i < unAssignedList.size(); i++) {
+				Long id = unAssignedList.get(i).getId();
+				idList.add(id);
+			}
+
+		}
+		log.info("idList :" + idList);
+		idList = (ArrayList) idList.stream().distinct().collect(Collectors.toList());
+		log.info("idList after sorting:" + idList);
+		List<FileTemplates> activeUnassignedList = new ArrayList<FileTemplates>();
+		if (sourceProfiles.getEndDate() != null) {
+			lEdSt = sourceProfiles.getEndDate();
+			activeUnassignedList = fileTemplatesRepository.findByTenantIdAndActiveStatus(sourceProfiles.getTenantId(),
+					idList);
+		} else
+			activeUnassignedList = fileTemplatesRepository.findByTenantIdAndStarDate(sourceProfiles.getTenantId(),
+					idList);
+		return activeUnassignedList;
+
+	}*/
+	/**
+	 * Auhtor:Shiva
+	 * Description: Fetching Active records of un assigned file templates
+	 * @param SourceProfiles
+	 * @return sourceAssignmnetProfile
+	 */
+	/*@PostMapping("/UnAssignedFileTemplatesList")
+	@Timed
+	public List<FileTemplates> getUnassignedFileTemplates(@RequestBody SourceProfiles sourceProfiles)
+	{
+		log.info("Rest Request to fetch unassigned file templates :"+sourceProfiles.getTenantId() +sourceProfiles.getStartDate() +sourceProfiles.getEndDate());
+		List<FileTemplates> activeUnassignedList=new ArrayList<FileTemplates>();
+		if(sourceProfiles.getStartDate() != null)
+		{
+			if(sourceProfiles.getEndDate() != null)
+			{
+				List<FileTemplates> fileTemplateList = fileTemplatesRepository.fetchActiveRecordsByStartAndEndDateRange(sourceProfiles.getTenantId(),sourceProfiles.getStartDate(), sourceProfiles.getEndDate()); //Getting active records 
+				log.info("in if fileTemplateList.size() :"+fileTemplateList.size());
+				if(fileTemplateList.size()>0)
+				{
+					for(FileTemplates ft : fileTemplateList)
+					{
+						SourceProfileFileAssignments spfa=sourceProfileFileAssignmentsRepository.findByTemplateId(ft.getId());
+						log.info("spfa :"+spfa);
+						if(spfa != null)
+						{
+							SourceProfiles sp=sourceProfileRepository.findByIdAndConnectionId(spfa.getSourceProfileId(),sourceProfiles.getConnectionId());	//sp table input con id and id= profile id...if null
+						log.info("sp :"+sp);
+							if(sp==null)
+							{
+							activeUnassignedList.add(ft);
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				List<FileTemplates> fileTemplateList = fileTemplatesRepository.fetchActiveRecordsByStartDateRange(sourceProfiles.getTenantId(),sourceProfiles.getStartDate()); //Getting active records
+				if(fileTemplateList.size()>0)
+				{
+					for(FileTemplates ft : fileTemplateList)
+					{
+						SourceProfileFileAssignments spfa=sourceProfileFileAssignmentsRepository.findByTemplateId(ft.getId());
+						log.info("spfa :"+spfa);
+						if(spfa != null)
+						{
+							SourceProfiles sp=sourceProfileRepository.findByIdAndConnectionId(spfa.getSourceProfileId(),sourceProfiles.getConnectionId());//sp table input con id and id= profile id...if null
+							log.info("sp :"+sp);
+							if(sp==null)
+							{
+							activeUnassignedList.add(ft);
+							}
+						}
+					}
+				}
+			}
+		}
+		return activeUnassignedList;	
+	}
+	
+	*/
+	
+	
+	@PostMapping("/UnAssignedFileTemplatesList")
+	@Timed
+	public List<FileTemplates> getUnassignedFileTemplates(HttpServletRequest request,@RequestBody SourceProfiles sourceProfiles)
+	{
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+	  	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+	  	
+		log.info("Rest Request to fetch unassigned file templates :"+tenantId+"-> " +sourceProfiles.getConnectionId());
+		List<FileTemplates> activeUnassignedList=new ArrayList<FileTemplates>();
+		
+		//Ids of active file templates
+		List<BigInteger> activeFileTempList=fileTemplatesRepository.findIdsByTenantIdAndStatus(tenantId,"Active");
+		List<BigInteger> fTIds=new ArrayList<BigInteger>();
+		List<BigInteger> unassignedFileTemp=new ArrayList<BigInteger>();
+		List<FileTemplates> finalUnAssgFileTempList=new ArrayList<FileTemplates>();
+		if(sourceProfiles.getConnectionId()!=null)
+		{
+		List<SourceProfiles> spList=sourceProfilesRepository.findByConnectionId(sourceProfiles.getConnectionId());
+		log.info("spList :"+spList);
+		
+		for(SourceProfiles sp:spList)
+		{
+			List<SourceProfileFileAssignments> spfaList=sourceProfileFileAssignmentsRepository.findBySourceProfileId(sp.getId());
+			log.info("spfaList.size() :"+spfaList.size());
+			
+			for(SourceProfileFileAssignments spfa:spfaList)
+			{
+				log.info("spfa :"+spfa);
+				if(spfa.getTemplateId()!=null)
+				fTIds.add(BigInteger.valueOf(spfa.getTemplateId()));
+			}
+			
+		}
+		
+		log.info("fTIds :"+fTIds);
+		log.info("activeFileTempList :"+activeFileTempList);
+		    // Prepare a union
+		    List<BigInteger> union = new ArrayList<BigInteger>(activeFileTempList);
+		   union.addAll(fTIds);
+		  
+		    // Prepare an intersection
+		    List<BigInteger> intersection = new ArrayList<BigInteger>(activeFileTempList);
+		    intersection.retainAll(fTIds);
+		    // Subtract the intersection from the union
+		    union.removeAll(intersection);
+		    // Print the result
+		    for (BigInteger n : union) {
+		        log.info("unassigned :"+n);
+		        unassignedFileTemp.add(n);
+		    }
+		    
+		   for(int i =0;i<unassignedFileTemp.size();i++)
+		   {
+			   FileTemplates fileTemp=fileTemplatesRepository.findOne(unassignedFileTemp.get(i).longValue());
+			   finalUnAssgFileTempList.add(fileTemp);
+		   }
+	}
+		else
+		{
+			finalUnAssgFileTempList=fileTemplatesRepository.findByTenantId(sourceProfiles.getTenantId());
+		}
+		return finalUnAssgFileTempList;	
+	}
+	@PutMapping("/holdTemplate")
+	@Timed
+	public String holdTemplate(@RequestParam Long spaId,@RequestParam String reason) {
+		SourceProfileFileAssignments spa = new SourceProfileFileAssignments();
+		spa = sourceProfileFileAssignmentsRepository.findOne(spaId);
+		if(spa != null )
+		{
+			spa.setHold(true);
+			spa.setHoldReason(reason);
+			sourceProfileFileAssignmentsRepository.save(spa);
+			return "success";
+		}
+		return "failed";
+	}
+	@PutMapping("/unHoldTemplate")
+	@Timed
+	public String unHoldTemplate(@RequestParam Long spaId,@RequestParam String reason) {
+		SourceProfileFileAssignments spa = new SourceProfileFileAssignments();
+		spa = sourceProfileFileAssignmentsRepository.findOne(spaId);
+		if(spa != null )
+		{
+			spa.setHold(false);
+			spa.setHoldReason(reason);
+			sourceProfileFileAssignmentsRepository.save(spa);
+			return "success";
+		}
+		return "failed";
+	}
+	
+
+}

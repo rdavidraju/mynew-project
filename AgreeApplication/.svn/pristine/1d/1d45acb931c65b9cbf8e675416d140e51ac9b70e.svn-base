@@ -1,0 +1,2321 @@
+package com.nspl.app.service;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
+import org.json.simple.JSONArray;
+import org.json.JSONException;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.multipart.MultipartFile;
+
+import liquibase.util.csv.opencsv.CSVReader;
+
+import com.codahale.metrics.annotation.Timed;
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.nspl.app.domain.DataStaging;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.repository.DataStagingRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.web.rest.dto.FileTemplateDataDTO;
+import com.nspl.app.web.rest.dto.FileTemplateLinesDTO;
+import com.nspl.app.web.rest.dto.SampleDataDTO;
+//import com.nspl.app.web.rest.dto.SampleDataForFTDTO;
+import com.nspl.app.web.rest.dto.SampleDataForFTDTO;
+
+@Service
+@Transactional
+public class FindDelimiterAndFileExtensionService {
+
+	private final Logger log = LoggerFactory.getLogger(FindDelimiterAndFileExtensionService.class);
+
+	@Inject
+	FileTemplateLinesRepository fileTemplateLinesRepository;
+
+	@Inject
+	LookUpCodeRepository lookUpCodeRepository;
+
+	FileTemplatesRepository fileTemplatesRepository;
+
+	DataStagingRepository dataStagingRepository;
+
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+
+	/**
+	 * Author Kiran
+	 */
+	/** To get the index of '"' in a string */
+	public List<Integer> toGetIndexNumbers(String givenLine)
+	{
+		List<Integer> listOfInt = new ArrayList<Integer>();
+
+		for( int i=0; i<givenLine.length(); i++ ) 
+		{
+			if( givenLine.charAt(i) == '"' ) 
+			{
+				Integer counter=i;
+				listOfInt.add(counter);
+			} 
+		}
+		return listOfInt;
+	}
+
+	/**
+	 * Author Kiran
+	 */
+	/** To get the count of delimiter in a line*/
+	public HashMap<Integer, Integer> toFindDelimiter(String givenLine)
+	{
+		String specialChars=givenLine.replaceAll("[a-zA-Z0-9]", "");
+		//log.info("Special Characters:=> "+specialChars+" and size: "+specialChars.length());
+		HashMap<Integer, Integer> occerance = new HashMap<Integer, Integer>() ;
+
+		if(specialChars!="" && specialChars.length()>0)
+		{
+			for(int m=0;m<specialChars.length();m++)
+			{
+				char character = specialChars.charAt(m); 
+				if(occerance.get((int)character) != null)
+				{
+					occerance.put((int)character, occerance.get((int)character)+1);
+				}
+				else{
+					occerance.put((int)character, 1);
+				}
+			}
+			//log.info("occerance:=> "+occerance);
+		}
+		return occerance;
+	}
+
+	/**
+	 * Author Kiran
+	 */
+	/** To finalize the delimiter in the file */
+	public Integer findTheDelimiter(List<HashMap<Integer, Integer>> occeranceList, Set<Integer> keys)
+	{
+		int occurSize = occeranceList.size();
+		log.info("occeranceList in method: "+occeranceList +" and size "+occurSize);
+		List<Integer> listOfKeys = new ArrayList<Integer>();
+		for(int k=0;k<occurSize;k++)
+		{
+			HashMap<Integer, Integer> hmVal = occeranceList.get(k);
+			Map.Entry<Integer, Integer> maxEntry = null;
+			for (Map.Entry<Integer, Integer> entry : hmVal.entrySet())
+			{
+				if (maxEntry == null || entry.getValue().compareTo(maxEntry.getValue()) > 0)
+				{
+					maxEntry = entry;
+				}
+			}
+			listOfKeys.add(maxEntry.getKey());
+		}
+
+		Set<Integer> uniqueSet = new HashSet<Integer>(listOfKeys);
+		List<HashMap<Integer, Integer>> maxList = new ArrayList<HashMap<Integer,Integer>>();
+		for (Integer temp : uniqueSet) {
+			HashMap<Integer, Integer>  max = new HashMap<Integer, Integer>();
+			int count =Collections.frequency(listOfKeys, temp);
+			//			log.info("Got the Result as:"+temp + ": " + count);
+			max.put(temp, count);
+			maxList.add(max);
+		}
+
+		int key=0;
+		log.info("maxList obt:-> "+maxList);
+		Map.Entry<Integer, Integer> maxEntry1 = null;
+		for(int k=0;k<maxList.size();k++)
+		{
+
+			HashMap<Integer, Integer> keyval = maxList.get(k);
+
+			for (Map.Entry<Integer, Integer> entry : keyval.entrySet())
+			{
+				if (maxEntry1 == null || entry.getValue().compareTo(maxEntry1.getValue()) > 0)
+				{
+					maxEntry1 = entry;
+				}
+				else if(maxEntry1!=null && entry.getValue().compareTo(maxEntry1.getValue()) > 0)
+				{
+					maxEntry1 = entry;
+				}
+			}
+			//log.info("maxEntry1: "+maxEntry1);
+		}
+		key=maxEntry1.getKey();
+		log.info("Final key value obtained is: "+key);
+		int result=0;
+		log.info("listOfKeys:->"+listOfKeys+" and size :"+listOfKeys.size());
+		if(listOfKeys.size()==occurSize)
+		{
+			result=key;
+		}
+		return result;
+	}
+
+
+
+
+	/**
+	 * Author : Kiran, Ravali(lookup codes)
+	 * @param delimiter
+	 * @param filePath
+	 * @return
+	 * @throws IOException
+	 * Setting the sample data of ten ;lines to a dto and saving the lines in FTL table
+	 */
+
+
+	@SuppressWarnings("unchecked")
+	public FileTemplateDataDTO readingTemplateFileData(Character delimiter, 
+			MultipartFile file, 
+			int skipStartRow, 
+			int skipEndRow,
+			Long tenantId,
+			String rowIdentifier,
+			boolean multipleIdentifier,
+			String criteria,
+			int posBeging,
+			int posEnd)
+			//List<HashMap<String, String>> multipleIdentifiersList) 
+	{
+		log.info("========== Reading Data to present Sample of 10 lines in finding Delimiter Api call ==========");
+		//multipleIdentifier=true;
+		//		multipleIdentifiersList=listOfRI();
+		log.info("delimiter: "+delimiter+" and row identifier: "+rowIdentifier+" and multipleIdentifier: "+multipleIdentifier);
+		log.info("skipStartRow and skipEndRow: "+skipStartRow+" and "+skipEndRow);
+		String fileName=file.getOriginalFilename();
+		log.info("File NAme-> "+fileName);
+		String[] line;
+		if(delimiter!=null && !delimiter.equals(""))
+		{
+			FileTemplateDataDTO fileData = new FileTemplateDataDTO();
+			List<Object> objList = null;
+			fileData.setRowIdentifier(rowIdentifier);
+			try {
+				InputStream inputStream = file.getInputStream();
+				InputStream inputStream1 = file.getInputStream();
+				String readingline;
+				String totalLines;
+				/** BufferedReader To read the data rows */
+				BufferedReader bufferReader = null;
+				try {
+					bufferReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}	
+				/** BufferedReader To read the data rows and to get the total number of rows*/
+				BufferedReader bufferReader1 = null;
+				try {
+					bufferReader1 = new BufferedReader(new InputStreamReader(inputStream1, "UTF-8"));
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}	
+
+				List<FileTemplateLinesDTO> fileTemp = new ArrayList<FileTemplateLinesDTO>(); // To Save the data into file template lines table
+				List<String> headersList = new ArrayList<String>(); // To represent the header columns
+				List<HashMap<String, String>> rows = new ArrayList<HashMap<String,String>>(); // To represent sample data of 10 rows based on headers
+				//	List<List<String[]>> extractedDataRows = new ArrayList<List<String[]>>(); 
+				List<HashMap<String, List<List<String[]>>>> extractedDataRows12 = new ArrayList<HashMap<String, List<List<String[]>>>>();
+				HashMap<String, List<List<String[]>>> extractedDataRows = new HashMap<String, List<List<String[]>>>();
+
+				SampleDataForFTDTO sampleDataDTOValues = new SampleDataForFTDTO();
+
+
+				int count=1;
+				int headerRow=-1;
+				int totalRows=0;
+
+				/**
+				 * This while loop is to get the total number of rows in a file uploaded
+				 */
+				while((totalLines = bufferReader1.readLine())!=null)
+				{
+					totalRows=totalRows+1;
+				}
+				if(inputStream1!=null)
+					inputStream1.close();
+				if(bufferReader1!=null)
+					bufferReader1.close();
+				log.info("totalRows:-> "+totalRows);
+				int rowEnd=totalRows-skipEndRow;
+				log.info("Row End in Mi:-> "+rowEnd);
+
+				String delimiterChar=delimiter.toString();
+
+				/** This while loop is to skip rows and read data and to present 10 sample rows */
+
+				/*** Here we are skipping the Start rows*/
+				for(int i=0;i<skipStartRow;i++)
+				{
+					bufferReader.readLine();
+				}
+
+				int tempValue = 0;
+				//				List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+				while ((readingline = bufferReader.readLine())!=null && (tempValue)<11)  
+				{
+					//log.info("========================================");
+					String[] dataRow = null;
+					if(delimiterChar.equals("|"))
+					{
+						dataRow = readingline.split("\\|");
+					}
+					else{
+						dataRow = readingline.split(delimiterChar);
+					}
+					//	log.info("========readingline: "+readingline);
+					//	log.info("dataRow[0]: "+dataRow[0]);
+					//	log.info("rowIdentifier: "+rowIdentifier+" and dataRow[0].substring(2): "+dataRow[0].substring(1));
+
+					if(rowIdentifier!=null && !rowIdentifier.equals("") && rowIdentifier.length()>=7 &&!rowIdentifier.equalsIgnoreCase(dataRow[0].substring(1)))
+					{
+						continue;
+					}
+					else if(rowIdentifier!=null && !rowIdentifier.equals("") &&!rowIdentifier.equalsIgnoreCase(dataRow[0].substring(1)))
+					{
+						continue;
+					}
+					else{
+
+						//	log.info("readingline :-> "+readingline);
+						//log.info("delimiterChar "+delimiterChar);
+						if((readingline.length()>0)&&(count<=totalRows) && rows.size()<=10)
+						{
+							log.info("Count Starting in Mi:"+count+" delimiterChar : "+delimiterChar);
+							List<String[]> rowData = new ArrayList<String[]>();
+							List<List<String[]>> rowDataList = new ArrayList<List<String[]>>();
+							HashMap<String, String> row = new HashMap<String, String>();
+							/*** Here we are skipping the End rows*/
+							if(rowEnd<count) 
+							{
+								/** To skip from top and bottom rows if given */
+								log.info("startSkip and endSkip:"+skipStartRow+" and "+skipEndRow+" count:"+count);
+							}
+							else{
+								/** 
+								 * Here for dfr file header row is taken from table based on row identifier
+								 * */
+
+								//if((fileName.contains(".dfr") || fileName.contains(".csv")) && rowIdentifier!=null  && !rowIdentifier.equals("") && headerRow==-1)
+								if(rowIdentifier!=null  && !rowIdentifier.equals("") && headerRow==-1)
+								{
+									log.info("Row Identifier in Mi:-> "+rowIdentifier);
+									FileTemplateLines ftl=fileTemplateLinesRepository.findByConstantValue(rowIdentifier);
+									log.info("ftl: "+ftl);
+									if(ftl!=null)
+									{
+										Long tempId=ftl.getTemplateId();
+										List<FileTemplateLines> ftlRows=fileTemplateLinesRepository.findByTemplateId(tempId);
+										if(ftlRows!=null)
+										{
+											for(int f=0;f<ftlRows.size();f++)
+											{
+												FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+												fileTempData.setColumnHeader(ftlRows.get(f).getColumnHeader());
+												headersList.add(ftlRows.get(f).getColumnHeader());
+												fileTemp.add(fileTempData);
+											}
+										}
+									}
+									else{
+
+										JSONParser parser = new JSONParser();
+										try {
+											objList = (List<Object>) parser.parse(new BufferedReader(new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("jsonFile/dfrColumnIdentifier.json"))));
+											log.info("Size "+objList.size());
+											int k=0;
+											for(Object obj : objList)
+											{
+												JSONObject jsonObject = (JSONObject) obj;
+												String recordIdentifier = (String) jsonObject.get("identifierType");
+												log.info("recordIdentifier in Mi: "+recordIdentifier+" and rowIdentifier: "+rowIdentifier);
+												if(rowIdentifier.length()>=7 && rowIdentifier.charAt(0)!='R' || rowIdentifier.charAt(0)!='H')
+												{
+													String recordStartRow=recordIdentifier.substring(1);
+													if(recordStartRow.equalsIgnoreCase(rowIdentifier))
+													{
+														log.info("recordStartRow in Mi: "+recordStartRow+" and rowIdentifier: "+rowIdentifier);
+
+														JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+														List<String> hList = new ArrayList<String>();
+
+
+														for(int i = 0; i < columnNames.size();i++) 
+														{
+															JSONObject innerObj = (JSONObject) columnNames.get(i);
+															String colNum= (String) innerObj.get("columnNumber");
+															String colHeader= (String) innerObj.get("columnHeader");
+															String recordType= (String) innerObj.get("recordType");
+
+															FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+
+															int num=k+1;
+															fileTempData.setColumnNumber(num);
+															if(k<9)
+															{
+																fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+															}
+															else{
+																fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+															}
+															fileTempData.setRecordTYpe(recordType);
+															fileTempData.setRecordIdentifier(recordIdentifier);
+															fileTempData.setColumnHeader(colHeader);
+															fileTempData.setRecordStartRow(recordIdentifier);
+															hList.add(colHeader);
+
+															//	log.info("columnNames.size(): "+columnNames.size()+" and i: "+i);
+															if(i == (columnNames.size()-1))
+															{
+																fileTempData.setLastMasterTableRefCol(true);
+																fileTempData.setLastColNumber(true);
+															}
+															fileTemp.add(fileTempData);
+															log.info("===> key12: "+colNum+" Value: "+colHeader);
+															k++;
+														}
+														headersList.addAll(hList);
+													}
+												}
+
+
+
+
+												if(recordIdentifier.equalsIgnoreCase(rowIdentifier))
+												{
+													JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+													for(int i = 0; i < columnNames.size();i++) 
+													{
+														JSONObject innerObj = (JSONObject) columnNames.get(i);
+														String colNum= (String) innerObj.get("columnNumber");
+														String colHeader= (String) innerObj.get("columnHeader");
+														String recordType= (String) innerObj.get("recordType");
+
+														FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+
+														int num=i+1;
+														fileTempData.setColumnNumber(num);
+														if(i<9)
+														{
+															fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+														}
+														else{
+															fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+														}
+														fileTempData.setRecordTYpe(recordType);
+														fileTempData.setRecordIdentifier(recordIdentifier);
+														fileTempData.setColumnHeader(colHeader);
+														fileTempData.setRecordStartRow(recordIdentifier);
+														headersList.add(colHeader);
+
+														//	log.info("columnNames.size(): "+columnNames.size()+" and i: "+i);
+														if(i == (columnNames.size()-1))
+														{
+															fileTempData.setLastMasterTableRefCol(true);
+															fileTempData.setLastColNumber(true);
+														}
+
+
+														fileTemp.add(fileTempData);
+
+														//log.info("headerList: "+headersList);
+
+
+														log.info("===> key: "+colNum+" Value: "+colHeader);
+													}
+												}
+											}
+										} catch (Exception e) {
+											// TODO Auto-generated catch block
+											e.printStackTrace();
+										}
+
+									}
+
+									headerRow=0;
+								}
+								/** Here first row is been taken as header line apart from dfr files*/ 
+								else if(headerRow==-1)
+								{
+									String[] headerLine = null;
+									if(delimiterChar.equals("|"))
+									{
+										headerLine = readingline.split("\\|");
+									}
+									else{
+										headerLine = readingline.split(delimiterChar);
+									}
+
+									//String[] headerLine = readingline.split(delimiterChar);
+									//log.info("headerLine:"+Arrays.toString(headerLine));
+									fileData.setLastLineNumber(headerLine.length);
+									//log.info("headerLine length :"+headerLine.length);
+									for(int r=0;r<headerLine.length;r++)
+									{
+										FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+										int num=r+1;
+										fileTempData.setColumnNumber(num);
+										fileTempData.setLineNumber(num);
+										if(r<9)
+										{
+											fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+										}
+										else{
+											fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+										}
+										fileTempData.setColumnHeader(headerLine[r]);
+										headersList.add(headerLine[r]);
+										if(r == headerLine.length-1 )
+										{
+											fileTempData.setLastMasterTableRefCol(true);
+											fileTempData.setLastColNumber(true);
+										}
+										//fileTempData.setColumnNumber(num);
+										//fileTempData.setEdit(true);
+										fileTemp.add(fileTempData);
+									}
+									log.info("headerList: "+headersList);
+									headerRow=0;
+								}
+								/** Here Data rows are taken*/
+								/*else
+								{*/
+								log.info("File temp Size in Mi:-> "+fileTemp.size());
+								//	log.info("========readingline in Mi: "+readingline);
+
+
+								if((line = readingline.split("\\|"))!=null && line != null && line.length> 0 && !(multipleIdentifier) && delimiterChar.equals("|") )
+								{
+									for(int f=0;f<fileTemp.size();f++)
+									{
+										String[] strArr = new String[2];
+										/**Code to set the key value pairs of header and data to display*/
+										String colName=fileTemp.get(f).getColumnHeader();
+
+										//log.info("Line obt pipe"+Arrays.toString(line));
+										strArr[0] = colName;
+										/** To avoid ArrayIndex Out of bond exception*/
+										if(f<line.length)
+										{
+											row.put(colName, line[f]); // row is used to set sample data in table
+											strArr[1] = line[f];
+										}
+										rowData.add(strArr);
+										rowDataList.add(rowData);
+										extractedDataRows.put(rowIdentifier, rowDataList);
+									}
+
+								}
+								else if(multipleIdentifier)
+								{
+									log.info("RID in Else: "+rowIdentifier);
+									//	log.info("readingline: "+readingline);
+
+									if(objList!=null)
+										sampleDataDTOValues=CreatingSampleDataNew(objList,readingline,rowIdentifier,criteria,posBeging,posEnd);
+									//	extractedDataRows12=sampleDataDTOValues.getExtractedDataRowsList();
+									//	rows=sampleDataDTOValues.getSavingSampleData();
+									extractedDataRows=sampleDataDTOValues.getExtractedDataRows();
+									row=sampleDataDTOValues.getSampleData();
+
+									//log.info("============= extractedDataRows12 ================"+extractedDataRows.size());
+								}
+								else{
+
+									if((line = readingline.split(delimiterChar))!=null && line != null && line.length> 0)
+									{
+										for(int f=0;f<fileTemp.size();f++)
+										{
+											String[] strArr = new String[2];
+											/**Code to set the key value pairs of header and data to display*/
+											String colName=fileTemp.get(f).getColumnHeader();
+											//log.info("Line obt"+Arrays.toString(line));
+											strArr[0] = colName;
+											/** To avoid ArrayIndex Out of bond exception*/
+											if(f<line.length)
+											{
+												row.put(colName, line[f]);
+												strArr[1] = line[f];
+											}
+											rowData.add(strArr);
+										}
+									}
+								}
+
+								//log.info("extractedDataRows: "+extractedDataRows);
+
+								if(extractedDataRows12.size()>1 && extractedDataRows12.get(1).containsKey("R"+rowIdentifier))
+								{
+									log.info("In If part:-");
+									List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+									linesList = extractedDataRows12.get(1).get("R"+rowIdentifier);
+									linesList.addAll(extractedDataRows.get("R"+rowIdentifier));
+									/*for(int y=0;y<linesList.size();y++)
+										{
+											List<String[]> abc = linesList.get(y);
+											for(int x=0;x<abc.size();x++)
+											{
+												String[] abcd = abc.get(x);
+												log.info("**********************************Array Values: "+Arrays.toString(abcd));
+											}
+										}
+										log.info("");*/
+									extractedDataRows12.get(1).put("R"+rowIdentifier, linesList);
+								}
+								else{
+									log.info("In Else part:-");
+									extractedDataRows12.add(extractedDataRows);
+								}
+								//log.info("extractedDataRows12: "+extractedDataRows12.size()+" values: "+extractedDataRows12);
+
+
+								//log.info("Row:-> "+row);
+								rows.add(row);
+								//}
+							}
+							count=count+1;
+						}
+					}
+					tempValue++;
+				}
+				if(inputStream!=null)
+					inputStream.close();
+				if(bufferReader!=null)
+					bufferReader.close();
+				fileData.setFileType("Delimiter");
+				fileData.setTemplateLines(fileTemp);
+
+
+				String delimeter="DELIMITER";
+				int val=(int)delimiter;
+				log.info("Delimiter val in MI,tenantId:-> "+String.valueOf(val)+" and "+tenantId);
+				//	log.info("12delimiterChar :"+val);
+				LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId(delimeter,String.valueOf(val),tenantId);
+				if(lookUpCode!=null && lookUpCode.getDescription()!=null)
+				{
+					fileData.setDelimiter(lookUpCode.getLookUpCode());
+					fileData.setDelimeterDescription(lookUpCode.getDescription());
+				}
+				fileData.setExtractedData(extractedDataRows12);
+				fileData.setData(rows);
+				fileData.setHeaders(headersList);
+				if(fileData.getDelimiter() != null && !fileData.getDelimiter().isEmpty() && !fileData.getDelimiter().equals(""))
+				{
+					fileData.setStatus("Success");
+				}
+				else
+				{
+					fileData.setStatus("Failed");
+				}
+				log.info("Ascii value of Delimiter in Mi:"+fileData.getDelimiter());
+				return fileData;
+			}
+			catch (IOException e) {
+				log.info("Exception Came heree");
+				e.printStackTrace();
+			}
+		}
+		log.info("Delimiter not found !! ");
+		return null;
+	}
+
+
+
+
+
+
+	// To read the Json file for Row Identifiers
+	/*public List<String> methodJson(List<Object> objList, String identifier)// throws JSONException
+	{
+		List<String> headersList=new ArrayList<String>();
+
+		for(int a=0;a<objList.size();a++)
+		{
+			Object obj=objList.get(a);
+			JSONObject jsonObject = (JSONObject) obj;
+			String recordIdentifier = (String) jsonObject.get("identifierType");
+			//			String typeHeader= (String) jsonObject.get("header");
+			JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+			//log.info("--> recordIdentifier: "+recordIdentifier);
+
+			//log.info("columnNames.size(): "+columnNames.size());
+			if(identifier.equalsIgnoreCase(recordIdentifier))
+			{
+				for(int c=0;c<columnNames.size();c++)
+				{
+					JSONObject innerObj = (JSONObject) columnNames.get(c);
+					String colHeader= (String) innerObj.get("columnHeader");
+					//log.info("colHeader: "+colHeader);
+					headersList.add(colHeader);
+				}
+			}
+		}
+		//	}
+		else{
+					log.info("No File");
+				}
+
+		return headersList;
+	}*/
+
+
+	public List<String[]> settingValues(String[] line1, List<String> headers, String[] settingValues,  List<String[]> settingValuesList)
+	{
+		log.info("Size 01: "+line1.length+" and :"+headers.size());
+		if(headers.size()>=line1.length)
+		{
+			for(int i=0;i<headers.size();i++)
+			{
+				settingValues=new String[2];
+				try
+				{
+					settingValues[0] = headers.get(i);
+					settingValues[1] = line1[i];
+					//	log.info("headers.get(i): "+headers.get(i)+" line1[i]: "+line1[i]);
+					settingValuesList.add(settingValues);
+				}
+				catch(ArrayIndexOutOfBoundsException e)
+				{
+					settingValues[0] = headers.get(i);
+					settingValues[1] = "";
+					//log.info("headers.get(i): "+headers.get(i)+" line1[i]: empty");
+					settingValuesList.add(settingValues);
+
+				}
+			}
+		}
+		else{
+			log.info("Header size less than line");
+		}
+		return settingValuesList;
+	}
+
+
+	/*public List<HashMap<String, List<List<String[]>>>> CreatingSampleData(List<HashMap<String, String>> hMapList, MultipartFile  file, List<Object> objList) //throws JSONException
+	{
+		log.info("In this method start:- ");
+
+		//		List<HashMap<String, String>> hMapList =listOfRI();
+		//		String file="/home/nspl-004/BackUp Nov24/ReconSharedFiles/DFR Diles/250940.0000234758.170813.d.B331.dfr";
+
+		List<String> headers=new ArrayList<String>();
+		List<HashMap<String, List<List<String[]>>>> newHMApList = new ArrayList<HashMap<String,List<List<String[]>>>>();
+		for(int k=0;k<hMapList.size();k++)
+		{
+
+			//	String filePath="/home/nspl-004/Documents/NewDfrList.json";
+
+
+			log.info("in the for loop one:- "+k);
+			HashMap<String, String> hMap = hMapList.get(k);
+			String rId=hMap.get("rowIdentifier");
+			String criteria=hMap.get("criteria");
+
+
+			int posEnd=0;
+			int posBeging=0;
+			log.info("\nRow Identifier :"+rId);
+			log.info("Criteria "+criteria+"\n");
+
+
+
+			String line;
+			BufferedReader br = null;
+			try{	
+				br = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));	
+			}
+			catch(IOException e)
+			{
+				e.printStackTrace();
+			}
+			try {
+				int count=1;
+				HashMap<String, List<List<String[]>>> newHmap = new HashMap<String, List<List<String[]>>>();
+				//				List<List<List<String[]>>> extractedDataRowsList = new ArrayList<List<List<String[]>>>();
+				List<List<String[]>> extractedDataRows = null;
+
+				List<String[]> settingValuesList=null;
+				String[] settingValue=null;
+				while((line=br.readLine())!=null && line.length()>0 && count<12)
+				{
+					String[] line1;
+					if(criteria.equalsIgnoreCase("contains") && line.contains(rId+"|") )
+					{
+						line1=line.split("\\|");
+						log.info("Array of Line in criteria:Contains :"+Arrays.toString(line1));
+						count=count+1;
+						if(line.contains("H"+rId))
+						{
+							settingValuesList=new ArrayList<String[]>();
+							extractedDataRows = new ArrayList<List<String[]>>();
+							headers=methodJson(objList,("H"+rId));
+							//	log.info("headers.size(): "+headers.size()+" headers01: "+headers);
+							settingValuesList=settingValues(line1, headers,settingValue, settingValuesList);
+							extractedDataRows.add(settingValuesList);
+							newHmap.put("H"+rId, extractedDataRows);
+						}
+						else if(line.contains("R"+rId))
+						{
+							settingValuesList=new ArrayList<String[]>();
+							extractedDataRows = new ArrayList<List<String[]>>();
+							headers=methodJson(objList,("R"+rId));
+							//log.info("headers.size(): "+headers.size()+" headers02: "+headers);
+							settingValuesList=	settingValues(line1, headers,settingValue, settingValuesList);
+							//log.info("settingValuesList2356: "+settingValuesList);
+							extractedDataRows.add(settingValuesList);
+							if(newHmap.containsKey("R"+rId))
+							{
+								List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+								linesList = newHmap.get("R"+rId);
+								linesList.addAll(extractedDataRows);
+								newHmap.put("R"+rId, linesList);
+							}
+							else
+							{
+								newHmap.put("R"+rId, extractedDataRows);
+							}
+						}
+					}
+					else if(criteria.equalsIgnoreCase("position") )
+					{
+						if(!hMap.get("positionStart").isEmpty())
+							posBeging=Integer.valueOf(hMap.get("positionStart"));
+						if(!hMap.get("positionEnd").isEmpty())
+							posEnd=Integer.valueOf(hMap.get("positionEnd"));
+						//log.info("line.substring(posBeging, posEnd): "+line.substring(0, 8));
+						if((posEnd!=0) &&((line.substring(posBeging, posEnd)).equalsIgnoreCase(rId)) )//|| ((line.substring(posBeging, posEnd)).equalsIgnoreCase("R"+rId))))
+						{
+							line1=line.split("\\|");
+							log.info("Array of Line in criteria:Position :"+Arrays.toString(line1));
+							count=count+1;
+
+							if((line.substring((posBeging-1), posEnd)).equalsIgnoreCase("H"+rId))
+							{
+								settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("H"+rId));
+								//	log.info("headers.size(): "+headers.size()+" headers03: "+headers);
+								settingValues(line1, headers,settingValue, settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								newHmap.put("H"+rId, extractedDataRows);
+							}
+							else if((line.substring((posBeging-1), posEnd)).equalsIgnoreCase("R"+rId))
+							{
+								settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("R"+rId));
+								//	log.info("headers.size(): "+headers.size()+" headers04: "+headers);
+								settingValuesList=	settingValues(line1, headers,settingValue, settingValuesList);
+								//	log.info("settingValuesList2356: "+settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								if(newHmap.containsKey("R"+rId))
+								{
+									List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+									linesList = newHmap.get("R"+rId);
+									linesList.addAll(extractedDataRows);
+									newHmap.put("R"+rId, linesList);
+								}
+								else
+								{
+									newHmap.put("R"+rId, extractedDataRows);
+								}
+							}
+						}
+					}
+					else if(criteria.equalsIgnoreCase("RECORD_START_ROW"))
+					{
+						line1=line.split("\\|");
+
+						if((line1.length>0) && (line1[0].substring(1).equalsIgnoreCase(rId)  || (line1[0].substring(1).equalsIgnoreCase(rId))) )
+						{
+							line1=line.split("\\|");
+							log.info("Array of Line in criteria:Record Start Row :"+Arrays.toString(line1));
+							count=count+1;
+
+
+							if(line1[0].equalsIgnoreCase("H"+rId))
+							{
+								settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("H"+rId));
+								settingValues(line1, headers,settingValue, settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								newHmap.put("H"+rId, extractedDataRows);
+
+							}
+							else if(line1[0].equalsIgnoreCase("R"+rId))
+							{
+								settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("R"+rId));
+								settingValuesList=	settingValues(line1, headers,settingValue, settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								if(newHmap.containsKey("R"+rId))
+								{
+									List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+									linesList = newHmap.get("R"+rId);
+									linesList.addAll(extractedDataRows);
+									newHmap.put("R"+rId, linesList);
+								}
+								else
+								{
+									newHmap.put("R"+rId, extractedDataRows);
+								}
+							}
+						}
+					}
+				}
+
+				log.info("extractedDataRowsList.size(): "+extractedDataRowsList.size());
+				for(int m=0;m<extractedDataRowsList.size();m++)
+				{
+					List<List<String[]>> value=extractedDataRowsList.get(m);
+					log.info("Value Size: "+value.size());
+					for(int w=0;w<value.size();w++)
+					{
+						List<String[]> value1=value.get(w);
+						for(int n=0;n<value1.size();n++)
+						{
+							log.info("settingValuesList: "+m+" and "+w+" and "+n+" and "+Arrays.toString(value1.get(n)));
+						}
+					}
+				}
+				newHMApList.add(newHmap);
+				log.info("newHMApList size: "+newHMApList.size());
+			} 
+			catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return newHMApList;
+	}*/
+
+
+
+	public SampleDataForFTDTO simpleFormatedSampleDataHeader(List<List<String[]>> extractedDataRows,List<Object> objList,String rId,HashMap<String, List<List<String[]>>> newHmap,String[] line1, String[] settingValues,  List<String[]> settingValuesList)
+	{
+		log.info("----> Header RID: "+rId);
+
+		SampleDataForFTDTO sampleDataHeader = new SampleDataForFTDTO();
+		settingValuesList=new ArrayList<String[]>();
+		extractedDataRows = new ArrayList<List<String[]>>();
+		String identifier="H"+rId;
+
+		List<String> headers=new ArrayList<String>();
+
+		// To get the list of header for dfr file
+		for(int a=0;a<objList.size();a++)
+		{
+			Object obj=objList.get(a);
+			JSONObject jsonObject = (JSONObject) obj;
+			String recordIdentifier = (String) jsonObject.get("identifierType");
+			JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+			if(identifier.equalsIgnoreCase(recordIdentifier))
+			{
+				for(int c=0;c<columnNames.size();c++)
+				{
+					JSONObject innerObj = (JSONObject) columnNames.get(c);
+					String colHeader= (String) innerObj.get("columnHeader");
+					headers.add(colHeader);
+				}
+			}
+		}
+
+		HashMap<String, String> row = new HashMap<String, String>();
+		//headers=methodJson(objList,("H"+rId));
+		//	log.info("headers.size(): "+headers.size()+" headers01: "+headers);
+		//settingValuesList=settingValues(line1, headers,settingValues, settingValuesList);
+
+		//log.info("headers.size(): "+headers.size()+" andline1.length: "+line1.length);
+		// To Set the line values to the header columns as string[]
+		if(headers.size()>=line1.length)
+		{
+			for(int i=0;i<headers.size();i++)
+			{
+				settingValues=new String[2];
+				try
+				{
+					settingValues[0] = headers.get(i);
+					settingValues[1] = line1[i];
+					row.put(headers.get(i), line1[i]);
+					//	log.info("headers.get(i): "+headers.get(i)+" line1[i]: "+line1[i]);
+					settingValuesList.add(settingValues);
+				}
+				catch(ArrayIndexOutOfBoundsException e)
+				{
+					settingValues[0] = headers.get(i);
+					settingValues[1] = "";
+					row.put(headers.get(i), "");
+					//log.info("headers.get(i): "+headers.get(i)+" line1[i]: empty");
+					settingValuesList.add(settingValues);
+				}
+			}
+		}
+		else{
+			log.info("Header size less than line");
+		}
+		extractedDataRows.add(settingValuesList);
+		newHmap.put("H"+rId, extractedDataRows);
+		//log.info("newHmap Header: "+newHmap);
+		sampleDataHeader.setExtractedDataRows(newHmap);
+		sampleDataHeader.setSampleData(row);
+		return sampleDataHeader;
+	}
+
+
+
+	public SampleDataForFTDTO simpleFormatedSampleDataRows(List<List<String[]>> extractedDataRows,List<Object> objList,String rId,HashMap<String, List<List<String[]>>> newHmap,String[] line1, String[] settingValues,  List<String[]> settingValuesList)
+	{
+		log.info("Row RID: "+rId);
+		SampleDataForFTDTO sampleDataHeader = new SampleDataForFTDTO();
+		settingValuesList=new ArrayList<String[]>();
+		extractedDataRows = new ArrayList<List<String[]>>();
+		String identifier="R"+rId;
+
+		List<String> headers=new ArrayList<String>();
+
+		// To get the list of header for dfr file
+		for(int a=0;a<objList.size();a++)
+		{
+			Object obj=objList.get(a);
+			JSONObject jsonObject = (JSONObject) obj;
+			String recordIdentifier = (String) jsonObject.get("identifierType");
+			JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+			if(identifier.equalsIgnoreCase(recordIdentifier))
+			{
+				for(int c=0;c<columnNames.size();c++)
+				{
+					JSONObject innerObj = (JSONObject) columnNames.get(c);
+					String colHeader= (String) innerObj.get("columnHeader");
+					headers.add(colHeader);
+				}
+			}
+		}
+
+		HashMap<String, String> row = new HashMap<String, String>();
+		//headers=methodJson(objList,("H"+rId));
+		//	log.info("headers.size(): "+headers.size()+" headers01: "+headers);
+		//settingValuesList=settingValues(line1, headers,settingValues, settingValuesList);
+
+		// To Set the line values to the header columns as string[]
+		//log.info("headers.size(): "+headers.size()+" andline1.length: "+line1.length);
+		if(headers.size()>=line1.length)
+		{
+			for(int i=0;i<headers.size();i++)
+			{
+				settingValues=new String[2];
+				try
+				{
+					settingValues[0] = headers.get(i);
+					settingValues[1] = line1[i];
+					row.put(headers.get(i), line1[i]);
+					//log.info("headers.get(i): "+headers.get(i)+" line1[i]: "+line1[i]);
+					settingValuesList.add(settingValues);
+				}
+				catch(ArrayIndexOutOfBoundsException e)
+				{
+					settingValues[0] = headers.get(i);
+					settingValues[1] = "";
+					row.put(headers.get(i), "");
+					//	log.info("headers.get(i): "+headers.get(i)+" line1[i]: empty");
+					settingValuesList.add(settingValues);
+				}
+			}
+		}
+		else{
+			log.info("Header size less than line");
+		}
+		extractedDataRows.add(settingValuesList);
+
+
+		/*if(newHmap.containsKey("R"+rId))
+		{
+			List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+			linesList = newHmap.get("R"+rId);
+			linesList.addAll(extractedDataRows);
+			newHmap.put("R"+rId, linesList);
+		}
+		else
+		{
+			newHmap.put("R"+rId, extractedDataRows);
+		}*/
+		newHmap.put("R"+rId, extractedDataRows);
+
+		//newHmap.put("R"+rId, extractedDataRows);
+		//log.info("newHmap: "+newHmap);
+		sampleDataHeader.setExtractedDataRows(newHmap);
+		sampleDataHeader.setSampleData(row);
+		return sampleDataHeader;
+
+	}
+
+
+
+
+
+
+	public SampleDataForFTDTO CreatingSampleDataNew( List<Object> objList,String line, String rId,String criteria,int posBeging,int posEnd) //throws JSONException
+	{
+		log.info("In this method start:- ");
+
+		//		List<HashMap<String, String>> hMapList =listOfRI();
+		//		String file="/home/nspl-004/BackUp Nov24/ReconSharedFiles/DFR Diles/250940.0000234758.170813.d.B331.dfr";
+
+
+		SampleDataForFTDTO sampleData=new SampleDataForFTDTO();
+
+		//		List<String> headers=new ArrayList<String>();
+		List<HashMap<String, List<List<String[]>>>> newHMApList = new ArrayList<HashMap<String,List<List<String[]>>>>(); // To present sample Data
+		List<HashMap<String, String>> rows = new ArrayList<HashMap<String,String>>(); // To present sample data to save to table
+		//		for(int k=0;k<hMapList.size();k++)
+		//		{
+
+		/*	//	String filePath="/home/nspl-004/Documents/NewDfrList.json";
+
+
+			log.info("in the for loop one:- "+k);
+			HashMap<String, String> hMap = hMapList.get(k);
+			String rId=hMap.get("rowIdentifier");
+			String criteria=hMap.get("criteria");
+
+
+			int posEnd=0;
+			int posBeging=0;*/
+		log.info("\nRow Identifier :"+rId);
+		log.info("Criteria :-"+criteria+"\n");
+
+
+
+		//			String line;
+		/*BufferedReader br = null;
+			try{	
+				br = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));	
+			}
+			catch(IOException e)
+			{
+				e.printStackTrace();
+			}*/
+		//			try {
+		int count=1;
+		HashMap<String, List<List<String[]>>> newHmap = new HashMap<String, List<List<String[]>>>();
+		HashMap<String, String> row = new HashMap<String,String>();
+
+		//				List<List<List<String[]>>> extractedDataRowsList = new ArrayList<List<List<String[]>>>();
+		List<List<String[]>> extractedDataRows = null;
+
+		List<String[]> settingValuesList=null;
+		String[] settingValue=null;
+
+
+
+		//	while((line=br.readLine())!=null && line.length()>0 && count<12)
+		//	{
+		String[] line1;
+		//newHmap = new HashMap<String, List<List<String[]>>>();
+		//row = new HashMap<String,String>();
+		SampleDataForFTDTO sampleDataHeader=null;
+		SampleDataForFTDTO sampleDataRows=null;
+		if(criteria.equalsIgnoreCase("contains") && line.contains(rId+"|") )
+		{
+			line1=line.split("\\|");
+			log.info("Array of Line in criteria:Contains :"+Arrays.toString(line1));
+			count=count+1;
+			if(line.contains("H"+rId))
+			{
+
+				sampleDataHeader=	simpleFormatedSampleDataHeader(extractedDataRows,objList,rId,newHmap,line1, settingValue, settingValuesList);
+
+				newHmap=sampleDataHeader.getExtractedDataRows();
+				row=sampleDataHeader.getSampleData();
+
+				/*settingValuesList=new ArrayList<String[]>();
+							extractedDataRows = new ArrayList<List<String[]>>();
+							headers=methodJson(objList,("H"+rId));
+							//	log.info("headers.size(): "+headers.size()+" headers01: "+headers);
+							settingValuesList=settingValues(line1, headers,settingValue, settingValuesList);
+							extractedDataRows.add(settingValuesList);
+							newHmap.put("H"+rId, extractedDataRows);*/
+			}
+			else if(line.contains("R"+rId))
+			{
+
+				sampleDataRows=	simpleFormatedSampleDataRows(extractedDataRows,objList,rId,newHmap,line1, settingValue, settingValuesList);
+
+				newHmap=sampleDataRows.getExtractedDataRows();
+				row=sampleDataRows.getSampleData();
+
+
+
+				/*settingValuesList=new ArrayList<String[]>();
+							extractedDataRows = new ArrayList<List<String[]>>();
+							headers=methodJson(objList,("R"+rId));
+							//log.info("headers.size(): "+headers.size()+" headers02: "+headers);
+							settingValuesList=	settingValues(line1, headers,settingValue, settingValuesList);
+							//log.info("settingValuesList2356: "+settingValuesList);
+							extractedDataRows.add(settingValuesList);
+							if(newHmap.containsKey("R"+rId))
+							{
+								List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+								linesList = newHmap.get("R"+rId);
+								linesList.addAll(extractedDataRows);
+								newHmap.put("R"+rId, linesList);
+							}
+							else
+							{
+								newHmap.put("R"+rId, extractedDataRows);
+							}*/
+			}
+			newHMApList.add(newHmap);
+			rows.add(row);
+		}
+		else if(criteria.equalsIgnoreCase("position") )
+		{
+			/*if(!hMap.get("positionStart").isEmpty())
+							posBeging=Integer.valueOf(hMap.get("positionStart"));
+						if(!hMap.get("positionEnd").isEmpty())
+							posEnd=Integer.valueOf(hMap.get("positionEnd"));*/
+			//log.info("line.substring(posBeging, posEnd): "+line.substring(0, 8));
+			if((posEnd!=0) &&((line.substring(posBeging-1, posEnd)).equalsIgnoreCase(rId)) )//|| ((line.substring(posBeging, posEnd)).equalsIgnoreCase("R"+rId))))
+			{
+				line1=line.split("\\|");
+				log.info("Array of Line in criteria:Position :"+Arrays.toString(line1));
+				count=count+1;
+
+
+				if(posBeging!=0)
+				{
+					if(posBeging==1)
+					{
+						posBeging= posBeging-1;
+					}
+					else if(posBeging==2)
+					{
+						posBeging= posBeging-2;
+					}
+				}
+				log.info("Position Begin: "+posBeging);
+
+
+				if((line.substring((posBeging), posEnd)).equalsIgnoreCase("H"+rId))
+				{
+
+					sampleDataHeader=	simpleFormatedSampleDataHeader(extractedDataRows,objList,rId,newHmap,line1, settingValue, settingValuesList);
+
+					newHmap=sampleDataHeader.getExtractedDataRows();
+					row=sampleDataHeader.getSampleData();
+
+
+					/*settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("H"+rId));
+								//	log.info("headers.size(): "+headers.size()+" headers03: "+headers);
+								settingValues(line1, headers,settingValue, settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								newHmap.put("H"+rId, extractedDataRows);*/
+				}
+				else if((line.substring((posBeging), posEnd)).equalsIgnoreCase("R"+rId))
+				{
+
+					sampleDataRows=	simpleFormatedSampleDataRows(extractedDataRows,objList,rId,newHmap,line1, settingValue, settingValuesList);
+
+					newHmap=sampleDataRows.getExtractedDataRows();
+					row=sampleDataRows.getSampleData();
+
+
+
+					/*settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("R"+rId));
+								//	log.info("headers.size(): "+headers.size()+" headers04: "+headers);
+								settingValuesList=	settingValues(line1, headers,settingValue, settingValuesList);
+								//	log.info("settingValuesList2356: "+settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								if(newHmap.containsKey("R"+rId))
+								{
+									List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+									linesList = newHmap.get("R"+rId);
+									linesList.addAll(extractedDataRows);
+									newHmap.put("R"+rId, linesList);
+								}
+								else
+								{
+									newHmap.put("R"+rId, extractedDataRows);
+								}*/
+				}
+			}
+			newHMApList.add(newHmap);
+			rows.add(row);
+		}
+		else if(criteria.equalsIgnoreCase("RECORD_START_ROW"))
+		{
+			line1=line.split("\\|");
+
+			if((line1.length>0) && (line1[0].substring(1).equalsIgnoreCase(rId)  || (line1[0].substring(1).equalsIgnoreCase(rId))) )
+			{
+				line1=line.split("\\|");
+				log.info("Array of Line in criteria:Record Start Row :"+Arrays.toString(line1));
+				count=count+1;
+
+
+				if(line1[0].equalsIgnoreCase("H"+rId))
+				{
+
+					sampleDataHeader=	simpleFormatedSampleDataHeader(extractedDataRows,objList,rId,newHmap,line1, settingValue, settingValuesList);
+
+					newHmap=sampleDataHeader.getExtractedDataRows();
+					row=sampleDataHeader.getSampleData();
+
+
+					/*settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("H"+rId));
+								settingValuesList=settingValues(line1, headers,settingValue, settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								newHmap.put("H"+rId, extractedDataRows);*/
+
+				}
+				else if(line1[0].equalsIgnoreCase("R"+rId))
+				{
+					sampleDataRows=	simpleFormatedSampleDataRows(extractedDataRows,objList,rId,newHmap,line1, settingValue, settingValuesList);
+
+					newHmap=sampleDataRows.getExtractedDataRows();
+					row=sampleDataRows.getSampleData();
+
+					/*settingValuesList=new ArrayList<String[]>();
+								extractedDataRows = new ArrayList<List<String[]>>();
+								headers=methodJson(objList,("R"+rId));
+								settingValuesList=	settingValues(line1, headers,settingValue, settingValuesList);
+								extractedDataRows.add(settingValuesList);
+								if(newHmap.containsKey("R"+rId))
+								{
+									List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+									linesList = newHmap.get("R"+rId);
+									linesList.addAll(extractedDataRows);
+									newHmap.put("R"+rId, linesList);
+								}
+								else
+								{
+									newHmap.put("R"+rId, extractedDataRows);
+								}*/
+				}
+			}
+			newHMApList.add(newHmap);
+			rows.add(row);
+		}
+
+
+		//sampleData.setExtractedDataRowsList(sampleDataRows.getExtractedDataRows());
+		//sampleData.setSavingSampleData(savingSampleData);
+
+		//					newHMApList.add(newHmap);
+		//					rows.add(row);
+
+		//}
+
+
+
+		/*log.info("extractedDataRowsList.size(): "+extractedDataRowsList.size());
+				for(int m=0;m<extractedDataRowsList.size();m++)
+				{
+					List<List<String[]>> value=extractedDataRowsList.get(m);
+					log.info("Value Size: "+value.size());
+					for(int w=0;w<value.size();w++)
+					{
+						List<String[]> value1=value.get(w);
+						for(int n=0;n<value1.size();n++)
+						{
+							log.info("settingValuesList: "+m+" and "+w+" and "+n+" and "+Arrays.toString(value1.get(n)));
+						}
+					}
+				}*/
+		//				newHMApList.add(newHmap);
+		//				rows.add(row);
+		log.info("newHMApList size: "+newHMApList.size());
+		//			} 
+		//			catch (IOException e) {
+		//				// TODO Auto-generated catch block
+		//				e.printStackTrace();
+		//			}
+		//}
+		sampleData.setExtractedDataRows(newHmap);
+		sampleData.setSampleData(row);
+		sampleData.setExtractedDataRowsList(newHMApList);
+		sampleData.setSavingSampleData(rows);
+		return sampleData;
+	}
+
+
+	public FileTemplateDataDTO readingTemplateFileDataOld(Character delimiter, MultipartFile file, int skipStartRow, int skipEndRow,Long tenantId, String rowIdentifier) 
+	{
+
+		log.info("========== Reading Data to present Sample of 10 lines in finding Delimiter Api call Old feb==========");
+		log.info("delimiter: "+delimiter+" and row identifier: "+rowIdentifier);
+		log.info("skipStartRow and skipEndRow: "+skipStartRow+" and "+skipEndRow);
+		String fileName=file.getOriginalFilename();
+		log.info("File NAme-> "+fileName);
+		FileTemplateDataDTO fileData = new FileTemplateDataDTO();
+		String[] line;
+		if(delimiter!=null)
+		{
+			//FileTemplateDataDTO fileData = new FileTemplateDataDTO();
+
+			if(rowIdentifier!=null && !rowIdentifier.equals("") && rowIdentifier.length()>=7 && !(rowIdentifier.startsWith("H")) && !(rowIdentifier.startsWith("R")) && fileName.contains(".dfr"))
+			{
+				log.info("To get header and row info");
+				fileData.setRowIdentifier(rowIdentifier);
+				fileData=readingTemplateFileData(delimiter, file, skipStartRow, skipEndRow,tenantId,rowIdentifier,true,"RECORD_START_ROW",0,0);
+
+			}
+
+			else{
+
+				try {
+					InputStream inputStream = file.getInputStream();
+					InputStream inputStream1 = file.getInputStream();
+					String readingline;
+					String totalLines;
+					/** BufferedReader To read the data rows */
+					BufferedReader bufferReader = null;
+					try {
+						bufferReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}	
+					/** BufferedReader To read the data rows and to get the total number of rows*/
+					BufferedReader bufferReader1 = null;
+					try {
+						bufferReader1 = new BufferedReader(new InputStreamReader(inputStream1, "UTF-8"));
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}	
+
+					List<FileTemplateLinesDTO> fileTemp = new ArrayList<FileTemplateLinesDTO>(); // To Save the data into file template lines table
+					List<String> headersList = new ArrayList<String>(); // To represent the header columns
+					List<HashMap<String, String>> rows = new ArrayList<HashMap<String,String>>(); // To repersent sample data of 10 rows based on headers
+					//	List<List<String[]>> extractedDataRows = new ArrayList<List<String[]>>(); // 
+					List<List<String[]>> extractedDataRowsForOthers = new ArrayList<List<String[]>>();
+					HashMap<String, List<List<String[]>>> extractedDataRows = new HashMap<String, List<List<String[]>>>();
+					List<HashMap<String, List<List<String[]>>>> extractedDataRows12 = new ArrayList<HashMap<String, List<List<String[]>>>>();
+					int count=1;
+					int headerRow=-1;
+					int totalRows=0;
+
+					/**
+					 * This while loop is to get the total number of rows in a file uploaded
+					 */
+					while((totalLines = bufferReader1.readLine())!=null)
+					{
+						totalRows=totalRows+1;
+					}
+					if(inputStream1!=null)
+						inputStream1.close();
+					if(bufferReader1!=null)
+						bufferReader1.close();
+					log.info("totalRows:-> "+totalRows);
+					int rowEnd=totalRows-skipEndRow;
+					log.info("Row End old:-> "+rowEnd);
+
+					String delimiterChar=delimiter.toString();
+
+					/** This while loop is to skip rows and read data and to present 10 sample rows */
+
+					/*** Here we are skipping the Start rows*/
+					for(int i=0;i<skipStartRow;i++)
+					{
+						bufferReader.readLine();
+					}
+
+					int tempValue = 0;
+
+					while ((readingline = bufferReader.readLine())!=null && (tempValue)<11)  
+					{
+						//log.info("readingline1 :-> "+readingline);
+						String[] dataRow = null;
+						if(delimiterChar.equals("|"))
+						{
+							dataRow = readingline.split("\\|");
+						}
+						else{
+							dataRow = readingline.split(delimiterChar);
+						}
+						if(rowIdentifier!=null && !rowIdentifier.equals("") &&!rowIdentifier.equalsIgnoreCase(dataRow[0]))
+						{
+							//log.info("yes-> rowIdentifier: "+rowIdentifier+" dataRow[0]: "+dataRow[0]);
+							continue;
+						}
+						else{
+
+							log.info("readingline2 :-> "+readingline);
+							//log.info("delimiterChar "+delimiterChar);
+							if((readingline.length()>0)&&(count<=totalRows) && rows.size()<=10)
+							{
+								//log.info("Count Starting:"+count+" delimiterChar : "+delimiterChar);
+								List<String[]> rowData = new ArrayList<String[]>();
+								HashMap<String, String> row = new HashMap<String, String>();
+								/*** Here we are skipping the End rows*/
+								if(rowEnd<count) 
+								{
+									/** To skip from top and bottom rows if given */
+									log.info("startSkip and endSkip:"+skipStartRow+" and "+skipEndRow+" count:"+count);
+								}
+								else{
+									/** 
+									 * Here for dfr file header row is taken from table based on row identifier
+									 * */
+
+									if((fileName.contains(".dfr") && rowIdentifier!=null  && !rowIdentifier.equals("") && headerRow==-1))
+									{
+										log.info("Row Identifier:-> "+rowIdentifier);
+
+										JSONParser parser = new JSONParser();
+										List<Object> objList;
+										try {
+											objList = (List<Object>) parser.parse(new BufferedReader(new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("jsonFile/dfrColumnIdentifier.json"))));
+											//log.info("File : "+objList);
+
+											//log.info("File : "+objList+" and size "+objList.size());
+											log.info(" size "+objList.size());
+											for(Object obj : objList)
+											{
+												JSONObject jsonObject = (JSONObject) obj;
+												String recordIdentifier = (String) jsonObject.get("identifierType");
+
+												if(recordIdentifier.equalsIgnoreCase(rowIdentifier))
+												{
+													JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+													for(int i = 0; i < columnNames.size();i++) 
+													{
+														JSONObject innerObj = (JSONObject) columnNames.get(i);
+														String colNum= (String) innerObj.get("columnNumber");
+														String colHeader= (String) innerObj.get("columnHeader");
+														String recordType= (String) innerObj.get("recordType");
+														log.info("colNum: "+colNum+" colHeader: "+colHeader+" recordType: "+recordType);
+
+														FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+
+
+
+														int num=i+1;
+														fileTempData.setColumnNumber(num);
+														if(i<9)
+														{
+															fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+														}
+														else{
+															fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+														}
+														fileTempData.setRecordTYpe(recordType);
+														fileTempData.setRecordIdentifier(recordIdentifier);
+														fileTempData.setColumnHeader(colHeader);
+														fileTempData.setRecordStartRow(rowIdentifier);
+														headersList.add(colHeader);
+
+														//	log.info("columnNames.size(): "+columnNames.size()+" and i: "+i);
+														if(i == (columnNames.size()-1))
+														{
+															fileTempData.setLastMasterTableRefCol(true);
+															fileTempData.setLastColNumber(true);
+														}
+
+														fileData.setRowIdentifier(rowIdentifier);
+														fileTemp.add(fileTempData);
+
+														//log.info("headerList: "+headersList);
+
+
+														//log.info("===> key: "+colNum+" Value: "+colHeader);
+													}
+												}
+											}
+										} catch (Exception e) {
+											// TODO Auto-generated catch block
+											e.printStackTrace();
+										}
+
+
+										headerRow=0;
+									}
+									/** Here first row is been taken as header line apart from dfr files*/ 
+									else if(headerRow==-1)
+									{
+										log.info("In else part");
+										String[] headerLine = null;
+										if(delimiterChar.equals("|"))
+										{
+											headerLine = readingline.split("\\|");
+										}
+										else{
+											headerLine = readingline.split(delimiterChar);
+										}
+
+										//String[] headerLine = readingline.split(delimiterChar);
+										//log.info("headerLine:"+Arrays.toString(headerLine));
+										fileData.setLastLineNumber(headerLine.length);
+										//log.info("headerLine length :"+headerLine.length);
+										for(int r=0;r<headerLine.length;r++)
+										{
+											FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+											int num=r+1;
+											fileTempData.setColumnNumber(num);
+											fileTempData.setLineNumber(num);
+											if(r<9)
+											{
+												fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+											}
+											else{
+												fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+											}
+											fileTempData.setColumnHeader(headerLine[r]);
+											headersList.add(headerLine[r]);
+											if(r == headerLine.length-1 )
+											{
+												fileTempData.setLastMasterTableRefCol(true);
+												fileTempData.setLastColNumber(true);
+											}
+											//fileTempData.setColumnNumber(num);
+											//fileTempData.setEdit(true);
+											fileTemp.add(fileTempData);
+										}
+										log.info("headerList: "+headersList);
+										headerRow=0;
+									}
+									/** Here Data rows are taken*/
+									else
+									{
+										log.info("File temp Size:-> "+fileTemp.size());
+										for(int f=0;f<fileTemp.size();f++)
+										{
+											String[] strArr = new String[2];
+											/**Code to set the key value pairs of header and data to display*/
+											String colName=fileTemp.get(f).getColumnHeader();
+											if(delimiterChar.equals("|"))
+											{
+												if((line = readingline.split("\\|"))!=null && line != null && line.length> 0)
+												{
+													//log.info("Line obt pipe"+Arrays.toString(line));
+													strArr[0] = colName;
+													/** To avoid ArrayIndex Out of bond exception*/
+													if(f<line.length)
+													{
+														row.put(colName, line[f]);
+														strArr[1] = line[f];
+													}
+													rowData.add(strArr);
+												}
+											}else{
+												if((line = readingline.split(delimiterChar))!=null && line != null && line.length> 0)
+												{
+													//log.info("Line obt"+Arrays.toString(line));
+													strArr[0] = colName;
+													/** To avoid ArrayIndex Out of bond exception*/
+													if(f<line.length)
+													{
+														row.put(colName, line[f]);
+														strArr[1] = line[f];
+													}
+													rowData.add(strArr);
+												}
+											}
+										}
+
+										extractedDataRowsForOthers.add(rowData);
+										//extractedDataRows.put(rowIdentifier, extractedDataRowsForOthers);
+										//	extractedDataRows12.add(extractedDataRows);
+										//extractedDataRows.put(fileName, extractedDataRowsForOthers);
+
+										//log.info("Row Data:-> "+rowData);
+										//extractedDataRows.add(rowData);
+										//log.info("Row:-> "+row);
+										rows.add(row);
+									}
+								}
+								count=count+1;
+							}
+						}
+						tempValue++;
+					}
+					extractedDataRows.put(rowIdentifier, extractedDataRowsForOthers);
+					extractedDataRows12.add(extractedDataRows);
+					if(inputStream!=null)
+						inputStream.close();
+					if(bufferReader!=null)
+						bufferReader.close();
+					fileData.setFileType("Delimiter");
+					fileData.setTemplateLines(fileTemp);
+
+
+					String delimeter="DELIMITER";
+					int val=(int)delimiter;
+					log.info("Delimiter Value,tenantId:-> "+String.valueOf(val)+" and "+tenantId);
+					//	log.info("12delimiterChar :"+val);
+					LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId(delimeter,String.valueOf(val),tenantId);
+					if(lookUpCode!=null && lookUpCode.getDescription()!=null)
+					{
+						fileData.setDelimiter(lookUpCode.getLookUpCode());
+						fileData.setDelimeterDescription(lookUpCode.getDescription());
+					}
+					fileData.setExtractedData(extractedDataRows12);
+					fileData.setData(rows);
+					fileData.setHeaders(headersList);
+					if(fileData.getDelimiter() != null && !fileData.getDelimiter().isEmpty() && !fileData.getDelimiter().equals(""))
+					{
+						fileData.setStatus("Success");
+					}
+					else
+					{
+						fileData.setStatus("Failed");
+					}
+					log.info("Ascii value of Delimiter:"+fileData.getDelimiter());
+					//return fileData;
+				}
+				catch (IOException e) {
+					log.info("Exception Came heree");
+					e.printStackTrace();
+				}
+			}
+		}
+		log.info("Delimiter not found !! ");
+		return fileData;
+
+	}
+
+	// Not using as of now feb 27
+	/*public FileTemplateDataDTO readingTemplateFileDataOldas(Character delimiter, MultipartFile file, int skipStartRow, int skipEndRow,Long tenantId, String rowIdentifier) 
+	{
+		log.info("========== Reading Data to present Sample of 10 lines in finding Delimiter Api call Old==========");
+		log.info("Delimiter: "+delimiter);
+		log.info("SkipStartRow and skipEndRow: "+skipStartRow+" and "+skipEndRow);
+		String fileName=file.getOriginalFilename();
+		String[] line;
+		if(delimiter!=null && !delimiter.equals(""))
+		{
+			List<Object> objList = null;
+			FileTemplateDataDTO fileData = new FileTemplateDataDTO();
+
+			try {
+				InputStream inputStream = file.getInputStream();
+				InputStream inputStream1 = file.getInputStream();
+				String readingline;
+				String readingline1;
+	 *//** BufferedReader To read the data rows *//*
+				BufferedReader bufferReader = null;
+				try {
+					bufferReader = new BufferedReader(new InputStreamReader(inputStream, "UTF-8"));
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}	
+	  *//** BufferedReader To read the data rows and to get the total number of rows*//*
+				BufferedReader bufferReader1 = null;
+				try {
+					bufferReader1 = new BufferedReader(new InputStreamReader(inputStream1, "UTF-8"));
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}	
+
+				List<FileTemplateLinesDTO> fileTemp = new ArrayList<FileTemplateLinesDTO>(); // To Save the data into file template lines table
+				List<String> headersList = new ArrayList<String>(); // To represent the header columns
+				List<HashMap<String, String>> rows = new ArrayList<HashMap<String,String>>(); // To repersent sample data of 10 rows based on headers
+				List<List<String[]>> extractedDataRowsForOthers = new ArrayList<List<String[]>>();
+				//				HashMap<String, List<List<String[]>>> extractedDataRows = new HashMap<String, List<List<String[]>>>();
+				List<HashMap<String, List<List<String[]>>>> extractedDataRows12 = new ArrayList<HashMap<String, List<List<String[]>>>>();
+				int count=1;
+				int headerRow=-1;
+				int totalRows=0;
+				SampleDataForFTDTO sampleDataDTOValues = new SampleDataForFTDTO();
+
+	   *//**
+	   * This while loop is to get the total number of rows in a file uploaded
+	   * Which is used when skip rows were given
+	   *//*
+				while((readingline1 = bufferReader1.readLine())!=null)
+				{
+					totalRows=totalRows+1;
+				}
+				if(inputStream1!=null)
+					inputStream1.close();
+				if(bufferReader1!=null)
+					bufferReader1.close();
+				log.info("totalRows:-> "+totalRows);
+				int rowEnd=totalRows-skipEndRow;
+				log.info("Row End:-> "+rowEnd);
+				String delimiterChar=delimiter.toString();
+
+	    *//*** Here we are skipping the Start rows*//*
+				for(int i=0;i<skipStartRow;i++)
+				{
+					bufferReader.readLine();
+				}
+
+				int tempValue = 0;
+
+	     *//** This while loop is to skip rows and read data and to present 10 sample rows *//*
+				while ((readingline = bufferReader.readLine())!=null && (tempValue)<10)  
+				{
+					HashMap<String, List<List<String[]>>> extractedDataRows = new HashMap<String, List<List<String[]>>>();
+					String[] dataRow = null;
+					if(delimiterChar.equals("|"))
+					{
+						dataRow = readingline.split("\\|");
+					}
+					else{
+						dataRow = readingline.split(delimiterChar);
+					}
+					//	log.info("readingline123 :-> "+readingline);
+					//log.info("dataRow[0].substring(1): "+dataRow[0].substring(1));
+					if(rowIdentifier!=null && !rowIdentifier.equals("") && rowIdentifier.length()>=7 && !rowIdentifier.equalsIgnoreCase(dataRow[0].substring(1)))
+					{
+						//log.info("yes");
+						continue;
+					}
+					else if(rowIdentifier!=null && !rowIdentifier.equals("") && rowIdentifier.equalsIgnoreCase(dataRow[0].substring(1)))
+					{
+						continue;
+					}
+					else{
+
+						log.info("readingline :-> "+readingline);
+						//log.info("delimiterChar "+delimiterChar);
+						if((readingline.length()>0)&&(count<=totalRows) && rows.size()<10)
+						{
+							//log.info("Count Starting:"+count+" delimiterChar : "+delimiterChar);
+							List<String[]> rowData = new ArrayList<String[]>();
+							HashMap<String, String> row = new HashMap<String, String>();
+	      *//*** Here we are skipping the End rows*//*
+							if(rowEnd<=count) 
+							{
+	       *//** To skip from top and bottom rows if given *//*
+								log.info("startSkip and endSkip:"+skipStartRow+" and "+skipEndRow+" count:"+count);
+							}
+							else{
+
+								if((fileName.contains(".dfr")) && rowIdentifier!=null  && !rowIdentifier.equals("") && headerRow==-1)
+								{
+									log.info("Row Identifier:-> "+rowIdentifier);
+									FileTemplateLines ftl=fileTemplateLinesRepository.findByConstantValue(rowIdentifier);
+									log.info("ftl: "+ftl);
+									if(ftl!=null)
+									{
+										Long tempId=ftl.getTemplateId();
+										List<FileTemplateLines> ftlRows=fileTemplateLinesRepository.findByTemplateId(tempId);
+										if(ftlRows!=null)
+										{
+											for(int f=0;f<ftlRows.size();f++)
+											{
+												FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+												fileTempData.setColumnHeader(ftlRows.get(f).getColumnHeader());
+												headersList.add(ftlRows.get(f).getColumnHeader());
+												fileTemp.add(fileTempData);
+											}
+										}
+									}
+									else{
+
+										JSONParser parser = new JSONParser();
+										try {
+											objList = (List<Object>) parser.parse(new BufferedReader(new InputStreamReader(this.getClass().getClassLoader().getResourceAsStream("jsonFile/dfrColumnIdentifier.json"))));
+											log.info("Size "+objList.size());
+											int k=0;
+											for(Object obj : objList)
+											{
+												JSONObject jsonObject = (JSONObject) obj;
+												String recordIdentifier = (String) jsonObject.get("identifierType");
+												log.info("recordIdentifier: "+recordIdentifier+" and rowIdentifier: "+rowIdentifier);
+												if(rowIdentifier.length()>=7 && rowIdentifier.charAt(0)!='R' || rowIdentifier.charAt(0)!='H')
+												{
+													String recordStartRow=recordIdentifier.substring(1);
+													if(recordStartRow.equalsIgnoreCase(rowIdentifier))
+													{
+														log.info("recordStartRow: "+recordStartRow+" and rowIdentifier: "+rowIdentifier);
+
+														JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+														List<String> hList = new ArrayList<String>();
+
+
+														for(int i = 0; i < columnNames.size();i++) 
+														{
+															JSONObject innerObj = (JSONObject) columnNames.get(i);
+															String colNum= (String) innerObj.get("columnNumber");
+															String colHeader= (String) innerObj.get("columnHeader");
+															String recordType= (String) innerObj.get("recordType");
+
+															FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+
+															int num=k+1;
+															fileTempData.setColumnNumber(num);
+															if(k<9)
+															{
+																fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+															}
+															else{
+																fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+															}
+															fileTempData.setRecordTYpe(recordType);
+															fileTempData.setRecordIdentifier(recordIdentifier);
+															fileTempData.setColumnHeader(colHeader);
+															fileTempData.setRecordStartRow(recordIdentifier);
+															hList.add(colHeader);
+
+															//	log.info("columnNames.size(): "+columnNames.size()+" and i: "+i);
+															if(i == (columnNames.size()-1))
+															{
+																fileTempData.setLastMasterTableRefCol(true);
+																fileTempData.setLastColNumber(true);
+															}
+															fileTemp.add(fileTempData);
+															log.info("===> key12: "+colNum+" Value: "+colHeader);
+															k++;
+														}
+														headersList.addAll(hList);
+													}
+												}
+
+												else if(recordIdentifier.equalsIgnoreCase(rowIdentifier))// || recordIdentifier.equalsIgnoreCase("H"+rowIdentifier))
+												{
+													log.info("recordIdentifier: "+recordIdentifier+" rowIdentifier: "+rowIdentifier);
+													JSONArray columnNames = (JSONArray) jsonObject.get("columns");
+													for(int i = 0; i < columnNames.size();i++) 
+													{
+														JSONObject innerObj = (JSONObject) columnNames.get(i);
+														String colNum= (String) innerObj.get("columnNumber");
+														String colHeader= (String) innerObj.get("columnHeader");
+														String recordType= (String) innerObj.get("recordType");
+
+														FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+
+														int num=i+1;
+														fileTempData.setColumnNumber(num);
+														if(i<9)
+														{
+															fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+														}
+														else{
+															fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+														}
+														fileTempData.setRecordTYpe(recordType);
+														fileTempData.setRecordIdentifier(recordIdentifier);
+														fileTempData.setColumnHeader(colHeader);
+														fileTempData.setRecordStartRow(recordIdentifier);
+														headersList.add(colHeader);
+
+														//	log.info("columnNames.size(): "+columnNames.size()+" and i: "+i);
+														if(i == (columnNames.size()-1))
+														{
+															fileTempData.setLastMasterTableRefCol(true);
+															fileTempData.setLastColNumber(true);
+														}
+
+														fileTemp.add(fileTempData);
+
+														log.info("===> key: "+colNum+" Value: "+colHeader);
+													}
+												}
+											}
+										} catch (Exception e) {
+											// TODO Auto-generated catch block
+											e.printStackTrace();
+										}
+
+									}
+
+									headerRow=0;
+								}
+
+	        *//** Here first row is been taken as header line*//*
+								else if(headerRow==-1)
+								{
+									String[] headerLine = null;
+									if(delimiterChar.equals("|"))
+									{
+										headerLine = readingline.split("\\|");
+									}
+									else{
+										headerLine = readingline.split(delimiterChar);
+									}
+
+									//String[] headerLine = readingline.split(delimiterChar);
+									log.info("headerLine:"+Arrays.toString(headerLine));
+									fileData.setLastLineNumber(headerLine.length);
+									log.info("headerLine length :"+headerLine.length);
+									for(int r=0;r<headerLine.length;r++)
+									{
+										FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+										int num=r+1;
+										fileTempData.setLineNumber(num);
+										if(r<9)
+										{
+											fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+										}
+										else{
+											fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+										}
+										fileTempData.setColumnHeader(headerLine[r]);
+										headersList.add(headerLine[r]);
+										if(r == headerLine.length-1 )
+										{
+											fileTempData.setLastMasterTableRefCol(true);
+											fileTempData.setLastColNumber(true);
+										}
+										fileTempData.setColumnNumber(num);
+										//fileTempData.setEdit(true);
+										fileTemp.add(fileTempData);
+									}
+									log.info("headerList: "+headersList);
+									headerRow=0;
+								}
+	         *//** Here Data rows are taken*//*
+								//else
+								//{
+								log.info("fileTemp.size(): "+fileTemp.size());
+
+								if(delimiterChar.equals("|") && rowIdentifier.charAt(0)!='R' || rowIdentifier.charAt(0)!='H')
+								{
+									if(objList!=null)
+										sampleDataDTOValues=CreatingSampleDataNew(objList,readingline,rowIdentifier,"RECORD_START_ROW",0,0);
+									//	extractedDataRows12=sampleDataDTOValues.getExtractedDataRowsList();
+									//	rows=sampleDataDTOValues.getSavingSampleData();
+									extractedDataRows= sampleDataDTOValues.getExtractedDataRows();
+									row=sampleDataDTOValues.getSampleData();
+
+								}
+
+								else
+								{
+									for(int f=0;f<fileTemp.size();f++)
+									{
+										String[] strArr = new String[2];
+	          *//**Code to set the key value pairs of header and data to display*//*
+										String colName=fileTemp.get(f).getColumnHeader();
+										log.info("colName: "+colName);
+										if(delimiterChar.equals("|"))
+										{
+
+											if((line = readingline.split("\\|"))!=null && line != null && line.length> 0)
+											{
+												//log.info("Line obt pipe"+Arrays.toString(line));
+												strArr[0] = colName;
+	           *//** To avoid ArrayIndex Out of bond exception*//*
+												if(f<line.length)
+												{
+													row.put(colName, line[f]);
+													log.info("In if colName: "+colName+" line[f] "+line[f]);
+													strArr[1] = line[f];
+												}
+												rowData.add(strArr);
+											}
+										}else{
+											if((line = readingline.split(delimiterChar))!=null && line != null && line.length> 0)
+											{
+												//log.info("Line obt"+Arrays.toString(line));
+												strArr[0] = colName;
+	            *//** To avoid ArrayIndex Out of bond exception*//*
+												if(f<line.length)
+												{
+													row.put(colName, line[f]);
+													log.info("In else colName: "+colName+" line[f] "+line[f]);
+													strArr[1] = line[f];
+												}
+												rowData.add(strArr);
+											}
+											//}
+
+										}
+									}
+									//	log.info("extractedDataRows: "+extractedDataRows);
+
+									if(extractedDataRows12.size()>1 && extractedDataRows12.get(1).containsKey("R"+rowIdentifier))
+									{
+										log.info("In If part:-");
+										List<List<String[]>> linesList = new   ArrayList<List<String[]>>();
+										linesList = extractedDataRows12.get(1).get("R"+rowIdentifier);
+										linesList.addAll(extractedDataRows.get("R"+rowIdentifier));
+										for(int y=0;y<linesList.size();y++)
+										{
+											List<String[]> abc = linesList.get(y);
+											for(int x=0;x<abc.size();x++)
+											{
+												String[] abcd = abc.get(x);
+												log.info("**********************************Array Values: "+Arrays.toString(abcd));
+											}
+										}
+										log.info("");
+										extractedDataRows12.get(1).put("R"+rowIdentifier, linesList);
+									}
+									else{
+										log.info("In Else part:-");
+										extractedDataRows12.add(extractedDataRows);
+									}
+									//log.info("extractedDataRows12: "+extractedDataRows12.size()+" values: "+extractedDataRows12);
+
+
+									//}
+									//extractedDataRows.add(rowData);
+									rows.add(row);
+									//}
+								}
+								count=count+1;
+							}
+						}
+
+						else{
+
+							//log.info("readingline :-> "+readingline);
+							//log.info("delimiterChar "+delimiterChar);
+							if((readingline.length()>0)&&(count<=totalRows) && rows.size()<10)
+							{
+								//log.info("Count Starting:"+count+" delimiterChar : "+delimiterChar);
+								List<String[]> rowData = new ArrayList<String[]>();
+								HashMap<String, String> row = new HashMap<String, String>();
+	             *//*** Here we are skipping the End rows*//*
+								if(rowEnd<=count) 
+								{
+	              *//** To skip from top and bottom rows if given *//*
+									log.info("startSkip and endSkip:"+skipStartRow+" and "+skipEndRow+" count:"+count);
+								}
+								else{
+	               *//** Here first row is been taken as header line*//*
+									if(headerRow==-1)
+									{
+										String[] headerLine = null;
+										if(delimiterChar.equals("|"))
+										{
+											headerLine = readingline.split("\\|");
+										}
+										else{
+											headerLine = readingline.split(delimiterChar);
+										}
+
+										//String[] headerLine = readingline.split(delimiterChar);
+										log.info("headerLine:"+Arrays.toString(headerLine));
+										fileData.setLastLineNumber(headerLine.length);
+										log.info("headerLine length :"+headerLine.length);
+										for(int r=0;r<headerLine.length;r++)
+										{
+											FileTemplateLinesDTO fileTempData= new FileTemplateLinesDTO();
+											int num=r+1;
+											fileTempData.setLineNumber(num);
+											if(r<9)
+											{
+												fileTempData.setMasterTableReferenceColumn("FIELD_0"+(num));
+											}
+											else{
+												fileTempData.setMasterTableReferenceColumn("FIELD_"+(num));
+											}
+											fileTempData.setRecordIdentifier(null);
+											headersList.add(headerLine[r]);
+											fileTempData.setColumnHeader(headerLine[r]);
+											if(r == headerLine.length-1 )
+											{
+												fileTempData.setLastMasterTableRefCol(true);
+												fileTempData.setLastColNumber(true);
+											}
+											fileTempData.setColumnNumber(num);
+											//fileTempData.setEdit(true);
+											fileTemp.add(fileTempData);
+										}
+										log.info("headerList: "+headersList);
+										headerRow=0;
+									}
+	                *//** Here Data rows are taken*//*
+									else
+									{
+										for(int f=0;f<fileTemp.size();f++)
+										{
+											String[] strArr = new String[2];
+	                 *//**Code to set the key value pairs of header and data to display*//*
+											String colName=fileTemp.get(f).getColumnHeader();
+											if(delimiterChar.equals("|"))
+											{
+												if((line = readingline.split("\\|"))!=null && line != null && line.length> 0)
+												{
+													//log.info("Line obt pipe"+Arrays.toString(line));
+													strArr[0] = colName;
+	                  *//** To avoid ArrayIndex Out of bond exception*//*
+													if(f<line.length)
+													{
+														row.put(colName, line[f]);
+														strArr[1] = line[f];
+													}
+													rowData.add(strArr);
+												}
+											}else{
+												if((line = readingline.split(delimiterChar))!=null && line != null && line.length> 0)
+												{
+													//log.info("Line obt"+Arrays.toString(line));
+													strArr[0] = colName;
+	                   *//** To avoid ArrayIndex Out of bond exception*//*
+													if(f<line.length)
+													{
+														row.put(colName, line[f]);
+														strArr[1] = line[f];
+													}
+													rowData.add(strArr);
+												}
+											}
+										}
+
+										extractedDataRowsForOthers.add(rowData);
+
+										extractedDataRows.put(fileName, extractedDataRowsForOthers);
+										rows.add(row);
+
+										if(extractedDataRows12.size()>0 && extractedDataRows12.get(0).containsKey(fileName))
+										{
+											continue;
+										}
+										else{
+											log.info("In Else part for :-"+fileName);
+											extractedDataRows12.add(extractedDataRows);
+										}
+									}
+								}
+								count=count+1;
+							}
+						}
+						tempValue++;
+					}
+					//				extractedDataRows12.add(extractedDataRows);
+
+					if(inputStream!=null)
+						inputStream.close();
+					if(bufferReader!=null)
+						bufferReader.close();
+					fileData.setFileType("Delimiter");
+					fileData.setTemplateLines(fileTemp);
+
+
+					String delimeter="DELIMITER";
+					int val=(int)delimiter;
+					log.info("Delimiter val,tenantId:-> "+String.valueOf(val)+" and "+tenantId);
+					//				log.info("12delimiterChar :"+val);
+					LookUpCode lookUpCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId(delimeter,String.valueOf(val),tenantId);
+					if(lookUpCode!=null && lookUpCode.getDescription()!=null)
+					{
+						fileData.setDelimiter(lookUpCode.getLookUpCode());
+						fileData.setDelimeterDescription(lookUpCode.getDescription());
+					}
+
+					fileData.setExtractedData(extractedDataRows12);
+
+					if(rowIdentifier!=null && !rowIdentifier.isEmpty())
+					{
+						fileData.setExtractedData(extractedDataRows12);
+					}
+					else{
+						fileData.setExtractedDataOld(extractedDataRowsForOthers);
+					}
+					//				fileData.setExtractedData(extractedDataRows12);
+					fileData.setData(rows);
+					fileData.setHeaders(headersList);
+					if(fileData.getDelimiter() != null && !fileData.getDelimiter().isEmpty() && !fileData.getDelimiter().equals(""))
+					{
+						fileData.setStatus("Success");
+					}
+					else
+					{
+						fileData.setStatus("Failed");
+					}
+					//log.info("fileData:"+fileData.getData());
+					return fileData;
+				}
+				catch (IOException e) {
+				log.info("Exception Came heree");
+				e.printStackTrace();
+			}
+			}
+			catch (IOException e) {
+				log.info("Exception Came heree");
+				e.printStackTrace();
+			}
+			log.info("Delimiter not found !! ");
+			return null;
+		}
+		return null;
+	}*/
+
+
+	public String moveLinesFromStagingToMaster(@RequestParam Long srcFileInbId)
+	{
+
+		log.info("REST request to moveLinesFromStagingToMaster for srcFileInbId= "+srcFileInbId);
+
+		String result="Failed Moving Data";
+		String strMasterAndStagingInsertFields="tenantId, profileId, templateId, fileName, fileDate, lineContent";
+
+		for(int in=1;in<=100;in++)
+		{
+			if(in<10)
+				strMasterAndStagingInsertFields =strMasterAndStagingInsertFields+", field0"+in;
+			else
+				strMasterAndStagingInsertFields =strMasterAndStagingInsertFields+", field"+in;
+		}
+		strMasterAndStagingInsertFields=strMasterAndStagingInsertFields+", createdBy, createdDate, lastUpdatedBy, lastUpdatedDate, srcFileInbId";
+		//log.info("strMasterInsertFields:--> "+strMasterAndStagingInsertFields);
+		/*int dataStagingSize = -1;
+			dataStagingSize = dataStagingRepository.findBySrcFileInbId(srcFileInbId).size();
+	    	log.info("dataStagingSize"+dataStagingSize);
+	    	if(dataStagingSize>0 )
+	    	{*/
+		String dataMaster="DataMaster";
+		String dataStaging="DataStaging";
+
+
+		int distinctList=em.createQuery("insert into "+dataMaster+" ("+strMasterAndStagingInsertFields+") select "+strMasterAndStagingInsertFields +" from "+dataStaging+" where src_file_inb_id="+srcFileInbId).executeUpdate();// and template_id= "+te;);
+		//" and template_id: "+templateId);
+		log.info("distinctList : "+distinctList);
+		/*if( distinctList==dataStagingSize)
+				{*/
+		/*List<DataStaging> stagingRecordsToDelete = new ArrayList<DataStaging>();
+		        stagingRecordsToDelete = dataStagingRepository.findBySrcFileInbId(srcFileInbId);
+		        if(stagingRecordsToDelete.size()>0)
+		        dataStagingRepository.deleteInBatch(stagingRecordsToDelete);*/
+		//log.info("Deleted the records ("+dataStagingSize+") from Data staging");
+		result="Success Moving Data";
+		/*}
+				else{
+					log.info("Count MisMatch from DataMaster and Data Staging");
+				}*/
+
+		//}
+
+
+		return result;
+
+	}
+
+
+}

@@ -1,0 +1,2784 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.map.JsonMappingException;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.ReconciliationDuplicateResult;
+import com.nspl.app.domain.ReconciliationResult;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.TenantConfigModules;
+import com.nspl.app.repository.AppModuleSummaryRepository;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FormConfigRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.ReconciliationDuplicateResultRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleConditionsRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.TenantConfigModulesRepository;
+import com.nspl.app.service.AccountingDataService;
+import com.nspl.app.service.FileExportService;
+import com.nspl.app.service.FileService;
+import com.nspl.app.service.FormConfigService;
+import com.nspl.app.service.OozieService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.ErrorReporting;
+import com.nspl.app.web.rest.dto.ManualRecDTO;
+import com.nspl.app.web.rest.dto.ManualUnRecByColumnDTO;
+import com.nspl.app.web.rest.dto.RWQDataFetchDTO;
+import com.nspl.app.web.rest.dto.RWQDetailInfoDTO;
+import com.nspl.app.web.rest.dto.ReconCountNAmountsDTO;
+import com.nspl.app.web.rest.dto.ReconQueryParamsDTO;
+import com.nspl.app.web.rest.dto.ReconRefTransactionsDTO;
+import com.nspl.app.web.rest.dto.ReconUnReconAmountsDTO;
+import com.nspl.app.web.rest.dto.SuggestedPostDTO;
+import com.nspl.app.web.rest.dto.SuggestedPostingDTO;
+import com.nspl.app.web.rest.dto.ViewIdRowIdDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+//import com.itextpdf.text.*;
+//import com.itextpdf.text.pdf.*;
+/**
+ * REST controller for managing ReconciliationResult.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReconciliationResultResource {
+
+    private final Logger log = LoggerFactory.getLogger(ReconciliationResultResource.class);
+
+    private static final String ENTITY_NAME = "reconciliationResult";
+        
+    private final ReconciliationResultService reconciliationResultService;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    ReconciliationResultRepository reconciliationResultRepository;
+    
+    @Inject
+    DataMasterRepository dataMasterRepository;
+    
+    @Inject
+    RuleGroupRepository ruleGroupRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    DataViewsResource dataViewsResource;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    OozieService oozieService;
+    
+    @Inject
+    TenantConfigModulesRepository tenantConfigModulesRepository;
+    
+    @Inject
+    FormConfigRepository formConfigRepository;
+    
+    @Inject
+	PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    FileService fileService;
+    
+    @Inject
+    UserJdbcService userJdbcService;
+    
+    @Inject
+    FormConfigService formConfigService;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    private Environment env;
+    
+    @Inject
+    AppModuleSummaryRepository appModuleSummaryRepository;
+    
+    @Inject
+    ReconciliationDuplicateResultRepository reconciliationDuplicateResultRepository;
+    
+    @Inject
+    AccountingDataService accountingDataService;
+    
+    @Inject
+    ApplicationProgramsRepository applicationProgramsRepository;
+    
+    @Inject
+    RuleConditionsRepository ruleConditionsRepository;
+    
+    @Inject
+    FileExportService fileExportService;
+    
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+	
+	
+	   /**
+     * Author: Shiva
+     * Description: Api to fetch columns Aligns
+     * @param viewName
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+	@GetMapping("/getReconColumnAlignmentInfo")
+    @Timed
+    public HashMap getReconColumnAlignmentInfo(HttpServletRequest request, @RequestParam String groupId, 
+    		@RequestParam String viewId, @RequestParam String sourceOrTarget, 
+    		@RequestParam String status,@RequestParam String type, @RequestParam (value = "ruleId", required=false) Long ruleId,
+    		@RequestParam (value = "groupBy", required=false) String groupBy) throws ClassNotFoundException, SQLException {
+    	log.info("Rest api to fetching Recon view columns alignments details for the view id: "+viewId);
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+		DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+    	HashMap finalMap = new HashMap();
+    	finalMap.put("viewId", viewId);
+    	List<HashMap> cols = new ArrayList<HashMap>();
+    	if("source".equalsIgnoreCase(sourceOrTarget))
+    	{
+    		if(ruleId != null){
+    			cols = reconciliationResultService.getRecColsAlignInfo(dv.getId(), rg.getId(), tenantId, "source", status,type,ruleId, groupBy);
+    		} else{
+    			cols = reconciliationResultService.getRecColsAlignInfo(dv.getId(), rg.getId(), tenantId, "source", status,type,null, groupBy);
+    		}
+    	}
+    	else if("target".equalsIgnoreCase(sourceOrTarget))
+    	{
+    		if(ruleId != null){
+    			cols = reconciliationResultService.getRecColsAlignInfo(dv.getId(), rg.getId(), tenantId, "target", status,type,ruleId, groupBy);
+    		} else{
+    			cols = reconciliationResultService.getRecColsAlignInfo(dv.getId(), rg.getId(), tenantId, "target", status,type,null, groupBy);
+    		}
+    	}
+    	finalMap.put("columns", cols);
+    	return finalMap;
+	}
+
+    public ReconciliationResultResource(ReconciliationResultService reconciliationResultService) {
+        this.reconciliationResultService = reconciliationResultService;
+    }
+
+    /**
+     * POST  /reconciliation-results : Create a new reconciliationResult.
+     *
+     * @param reconciliationResult the reconciliationResult to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reconciliationResult, or with status 400 (Bad Request) if the reconciliationResult has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/reconciliation-results")
+    @Timed
+    public ResponseEntity<ReconciliationResult> createReconciliationResult(@RequestBody ReconciliationResult reconciliationResult) throws URISyntaxException {
+        log.debug("REST request to save ReconciliationResult : {}", reconciliationResult);
+        if (reconciliationResult.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reconciliationResult cannot already have an ID")).body(null);
+        }
+        ReconciliationResult result = reconciliationResultService.save(reconciliationResult);
+        return ResponseEntity.created(new URI("/api/reconciliation-results/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /reconciliation-results : Updates an existing reconciliationResult.
+     *
+     * @param reconciliationResult the reconciliationResult to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reconciliationResult,
+     * or with status 400 (Bad Request) if the reconciliationResult is not valid,
+     * or with status 500 (Internal Server Error) if the reconciliationResult couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/reconciliation-results")
+    @Timed
+    public ResponseEntity<ReconciliationResult> updateReconciliationResult(@RequestBody ReconciliationResult reconciliationResult) throws URISyntaxException {
+        log.debug("REST request to update ReconciliationResult : {}", reconciliationResult);
+        if (reconciliationResult.getId() == null) {
+            return createReconciliationResult(reconciliationResult);
+        }
+        ReconciliationResult result = reconciliationResultService.save(reconciliationResult);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reconciliationResult.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /reconciliation-results : get all the reconciliationResults.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reconciliationResults in body
+     */
+    @GetMapping("/reconciliation-results")
+    @Timed
+    public ResponseEntity<List<ReconciliationResult>> getAllReconciliationResults(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ReconciliationResults");
+        Page<ReconciliationResult> page = reconciliationResultService.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/reconciliation-results");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /reconciliation-results/:id : get the "id" reconciliationResult.
+     *
+     * @param id the id of the reconciliationResult to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reconciliationResult, or with status 404 (Not Found)
+     */
+    @GetMapping("/reconciliation-results/{id}")
+    @Timed
+    public ResponseEntity<ReconciliationResult> getReconciliationResult(@PathVariable Long id) {
+        log.debug("REST request to get ReconciliationResult : {}", id);
+        ReconciliationResult reconciliationResult = reconciliationResultService.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reconciliationResult));
+    }
+
+    /**
+     * DELETE  /reconciliation-results/:id : delete the "id" reconciliationResult.
+     *
+     * @param id the id of the reconciliationResult to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/reconciliation-results/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReconciliationResult(@PathVariable Long id) {
+        log.debug("REST request to delete ReconciliationResult : {}", id);
+        reconciliationResultService.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/reconciliation-results?query=:query : search for the reconciliationResult corresponding
+     * to the query.
+     *
+     * @param query the query of the reconciliationResult search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/reconciliation-results")
+    @Timed
+    public ResponseEntity<List<ReconciliationResult>> searchReconciliationResults(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of ReconciliationResults for query {}", query);
+        Page<ReconciliationResult> page = reconciliationResultService.search(query, pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/reconciliation-results");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+       
+    /*
+     * Author: Shiva
+     * @param manualReconciledData, tenantId, userId
+     * Description: Posting Manual Reconciliation Data
+     * @return void
+     */
+/*    @PostMapping("/ReconciliationData")
+    @Timed
+    public ErrorReport ReconciliationData(@RequestBody ManualRecDTO manualRecDTO, @RequestParam Long tenantId, @RequestParam Long userId){
+    	log.info("Rest request to posting manual reconciled data");
+    	ErrorReport errorReport = new ErrorReport();
+    	if(manualRecDTO != null)
+    	{
+        	//getting maximum recon reference id
+        	Long maxReconRef = reconciliationResultRepository.fetchMaxReconReference();
+        	if(maxReconRef == null)
+        	{
+        		maxReconRef = 0L;
+        	}
+        	log.info("Max ReconReference Id: "+maxReconRef);
+        	Long reconReferenceId = maxReconRef+1;
+        	log.info("Max ReconReference Id: "+maxReconRef+", Max+1 ReferenceId: "+reconReferenceId);
+        	List<ReconciliationResult> allRecords = new ArrayList<ReconciliationResult>();
+        	List<ViewIdRowIdDTO> source = manualRecDTO.getSource();
+        	List<ViewIdRowIdDTO> target = manualRecDTO.getTarget();
+    		try{
+            	// Posting manual reconciliation source data
+            	if(source.size()>0)
+            	{
+
+            		for(ViewIdRowIdDTO dr : source)
+            		{
+            			DataViews dataView = dataViewsRepository.findOne(dr.getViewId());
+            			if(dataView != null)
+            			{
+            				ReconciliationResult recon = new ReconciliationResult();
+            				recon.setOriginalRowId(dr.getRowId());
+            				recon.setOriginalViewId(dr.getViewId());
+            				recon.setOriginalView(dataView.getDataViewName());
+            				recon.setTargetRowId(null);
+            				recon.setTargetViewId(null);
+            				recon.setTargetView(null);
+            				recon.setReconReference(reconReferenceId.toString());
+                			recon.setReconciliationRuleName(null);
+                			recon.setReconciliationRuleId(null);
+                			recon.setReconJobReference(null);
+                			recon.setReconciledDate(ZonedDateTime.now());
+                			recon.setTenantId(tenantId);
+                			recon.setReconciliationUserId(userId);
+                			recon.setReconciliationRuleGroupId(dr.getGroupId());
+                			ReconciliationResult rs = reconciliationResultRepository.findByOriginalRowIdAndOriginalViewIdAndTenantId(dr.getRowId(), dr.getViewId(), tenantId);
+                			if(rs == null)
+                			{
+                    		allRecords.add(recon);
+                			}
+            			}
+            		}
+            	}
+            	log.info("Source: " + allRecords.size());
+            	// Posting manual reconciliation target data
+            	if(target.size()>0)
+            	{
+            		for(ViewIdRowIdDTO dr : target)
+            		{
+            			DataViews dataView = dataViewsRepository.findOne(dr.getViewId());
+            			if(dataView != null)
+            			{
+            				ReconciliationResult recon = new ReconciliationResult();
+            				recon.setOriginalRowId(null);
+            				recon.setOriginalViewId(null);
+            				recon.setOriginalView(null);
+            				recon.setTargetRowId(dr.getRowId());
+            				recon.setTargetViewId(dr.getViewId());
+            				recon.setTargetView(dataView.getDataViewName());
+            				recon.setReconReference(reconReferenceId.toString());
+                			recon.setReconciliationRuleName(null);
+                			recon.setReconciliationRuleId(null);
+                			recon.setReconJobReference(null);
+                			recon.setReconciledDate(ZonedDateTime.now());
+                			recon.setTenantId(tenantId);
+                			recon.setReconciliationUserId(userId);
+                			recon.setReconciliationRuleGroupId(dr.getGroupId());
+                			ReconciliationResult rs = reconciliationResultRepository.findByTargetRowIdAndTargetViewIdAndTenantId(dr.getRowId(), dr.getViewId(), tenantId);
+                			if(rs == null)
+                			{
+                				allRecords.add(recon);
+                			}
+            			}
+            		}
+            	}
+            	log.info("Total: "+ allRecords.size());
+            	reconciliationResultRepository.save(allRecords);	// Posting all records
+            	errorReport.setTaskName("Posting Manual Reconciliation Data");
+            	errorReport.setTaskStatus("Success");
+            	errorReport.setDetails(allRecords.size()+" records posted");
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Faild due to :"+ e);
+            	errorReport.setTaskName("Posting Manual Reconciliation Data");
+            	errorReport.setTaskStatus("Failed");
+            	errorReport.setDetails("Failed while posting");
+    		}
+    	}
+		return errorReport;
+    }*/
+    
+    
+    /**
+     * Author: Shiva
+     * @param reconcileRefIds, tenantId
+     * Description: Processing Manual Unreconciliation Data
+     * @return void
+     */
+    @PostMapping("/processManualUnReconciliationData")
+    @Timed
+    public ErrorReport processManualUnReconciliationData(@RequestBody List<String> reconcileRefIds, @RequestParam Long tenantId) throws URISyntaxException {
+    	log.info("Rest api for posting manual unreconciliation data");
+    	ErrorReport errorReport = new ErrorReport();
+    	if(reconcileRefIds.size()>0)
+    	{
+    		try{
+        		List<BigInteger> ids = reconciliationResultRepository.fetchIdsByReconReferenceIds(reconcileRefIds);	//Getting original ids based on reconciliation reference ids
+        		if(ids.size()>0)
+        		{
+        			for(int i=0; i<ids.size(); i++)
+        			{
+        				reconciliationResultRepository.delete(ids.get(i).longValue());
+        			}
+        		}
+        		errorReport.setTaskName("Processing Unreconciliation Data");
+        		errorReport.setTaskStatus("Success");
+        		errorReport.setDetails(ids.size()+" Records Unreconciled Successfully!");
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Exception "+e);
+        		errorReport.setTaskName("Processing Unreconciliation Data");
+        		errorReport.setTaskStatus("Failed");
+        		errorReport.setDetails("Failed while deleting records");
+    		}
+    	}
+		return errorReport;
+    }
+    
+    
+    /* Reconciliation Work Queue API's (New Form) */
+    
+    /** Author: Shiva
+     * 	Purpose: Fetching RWQ Header Parameters List
+	 *  Params: tenantId, groupId
+	 *  Result: HashMap with RWQ header parameters list
+	 *  Date: 01-12-2017
+     * @throws ParseException 
+     * @throws SQLException 
+     * @throws ClassNotFoundException 
+     */
+    @GetMapping("/getReconHeaderParamsList")
+    @Timed
+    public HashMap getReconHeaderParamsList(HttpServletRequest request,@RequestParam String groupId){
+    	log.info("Rest API for fetch RWQ Header Parameters List for "+ "rule group id: "+ groupId);
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	HashMap finalMap = new HashMap();
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+    	Long ruleGroupId = rg.getId();
+    	RuleGroup ruleGrp = ruleGroupRepository.findOne(ruleGroupId);
+    	if(ruleGrp != null)
+    	{
+    		List<HashMap> source = new ArrayList<HashMap>();
+    		List<HashMap> target = new ArrayList<HashMap>();
+    		log.info("Rule Group Name: "+ ruleGrp.getName());
+        	finalMap.put("tenantId", tenantId);
+        	finalMap.put("ruleGroupId", groupId);
+        	finalMap.put("ruleGroupName", ruleGrp.getName());
+        	
+        	// Fetching Distinct Source and Target View Ids
+        	HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(ruleGroupId, tenantId);
+        	List<BigInteger> distSrcIds = distinctViewIdMap.get("sourceViewIds");
+        	List<BigInteger> distTargetIds = distinctViewIdMap.get("targeViewIds");
+        	log.info("Tentnt Id: "+tenantId+"Group Id: "+groupId+", Source View Ids: "+distSrcIds+", Target View Ids: "+distTargetIds);
+        	List<Long> ruleIds = ruleGroupDetailsRepository.fetchByRuleGroupIdAndTenantId(ruleGroupId, tenantId);
+        	if(distSrcIds.size()>0)
+        	{
+        		for(BigInteger srcViewId : distSrcIds)
+        		{
+        			HashMap sourceMap = new HashMap();
+        			List<HashMap> innerTargetViews = new ArrayList<HashMap>();
+        			DataViews dv = dataViewsRepository.findOne(srcViewId.longValue());
+        			if(dv != null)
+        			{
+        				sourceMap.put("viewId", dv.getIdForDisplay());
+        				sourceMap.put("viewName", dv.getDataViewDispName());
+        				// Fetching Inner Target Views
+        				List<BigInteger> innerTrgtViews = rulesRepository.fetchDistinctTargetViewIdsBySourceId(srcViewId.longValue(), tenantId, ruleIds);
+        				if(innerTrgtViews.size()>0)
+        				{
+        					for(BigInteger innerTrgtViewId : innerTrgtViews)
+        					{
+        						HashMap innerTargetView = new HashMap();
+        						DataViews innerTargetDv = dataViewsRepository.findOne(innerTrgtViewId.longValue());
+        						if(innerTargetDv != null)
+        						{
+        							innerTargetView.put("viewId", innerTargetDv.getIdForDisplay());
+        							innerTargetView.put("viewName", innerTargetDv.getDataViewDispName());
+        							innerTargetViews.add(innerTargetView);	// Adding target HashMap with respect to source
+        							target.add(innerTargetView);	// Adding inner target HashMap to final targets list
+        						}
+        					}
+        				}
+        				sourceMap.put("innerTarget", innerTargetViews);
+        			}
+                	source.add(sourceMap);
+        		}
+        	}
+        	finalMap.put("source", source);
+        	finalMap.put("target", target);
+        	
+        	// Fetching Batch Names
+/*        	List<String> batchNames = new ArrayList<String>();
+        	try {
+        		batchNames = reconciliationResultService.getBatchNames(tenantId, groupId);
+			} catch (SQLException e) {
+				log.info("Un able to fetch batch names for the tenant id: "+ tenantId+", groupId: "+ groupId);
+			}
+        	finalMap.put("batchNames", batchNames);*/
+    	}
+    	log.info("getReconHeaderParamsList: "+finalMap);
+    	return finalMap;
+    }    
+       
+ /*   @PostMapping("/getReconUnReconAmounts")
+	@Timed
+    public HashMap getReconUnReconAmounts(@RequestBody ReconUnReconAmountsDTO params, HttpServletRequest request) throws ClassNotFoundException, SQLException
+    {
+    	log.info("API: getReconUnReconAmounts started");
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	log.info("Rest API for fetching recon counts and amounts for sources ids "+params.getsViewIds()+", targets "+params.gettViewIds()+", tenant id: "+ tenantId
+    			+", rule group id: "+params.getRuleGroupId()+" period factor: "+params.getPeriodFactor()+", range from: "+ params.getRangeFrom()+", range to: "+ params.getRangeTo());
+    	
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+    	String status = "";
+    	HashMap finalMap = new HashMap();
+    	List<String> sViewIds = params.getsViewIds();
+    	List<String> tViewIds = params.gettViewIds();
+    	
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+    	String currencyFormat = props.getProperty("currencyFormat");
+    	
+    	// Fetching source views amounts
+    	Double srcRecTotalAmnt = 0.0;
+    	Double srcUnRecTotalAmt = 0.0;
+    	Double srcSuggestedTotalAmt = 0.0;
+    	Double trgRecTotalAmnt = 0.0;
+    	Double trgUnRecTotalAmnt = 0.0;
+    	Double trgSuggestedTotalAmnt = 0.0;
+    	log.info("Time 1"+ new Date());
+    	
+    	Set<String> sRecCurrencyCodes = new HashSet<String>();
+    	Set<String> sUnRecCurrencyCodes = new HashSet<String>();
+    	Set<String> sSuggestedCurrencyCodes = new HashSet<String>();
+    	
+    	Set<String> tRecCurrencyCodes = new HashSet<String>();
+    	Set<String> tUnRecCurrencyCodes = new HashSet<String>();
+    	Set<String> tSuggestedCurrencyCodes = new HashSet<String>();
+    	
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getRuleGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	// Fetching source views amounts
+    	if(sViewIds.size()>0)
+    	{
+    		for(String sViewId : sViewIds)
+    		{
+    			DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, sViewId);
+    			//log.info("Shiva ViewName: "+ dv.getDataViewName()+", ViewId: "+ dv.getId());
+    			HashMap recUnRecAmounts = reconciliationResultService.getRecUnRecAmounts(params, dv.getId(), "source",tenantId, groupId);
+    			log.info("recUnRecAmounts source view id: "+sViewId+", "+recUnRecAmounts);
+    			srcRecTotalAmnt = srcRecTotalAmnt + Double.parseDouble(recUnRecAmounts.get("recAmount").toString());
+    			srcUnRecTotalAmt = srcUnRecTotalAmt + Double.parseDouble(recUnRecAmounts.get("unRecAmount").toString());
+    			srcSuggestedTotalAmt = srcSuggestedTotalAmt + Double.parseDouble(recUnRecAmounts.get("suggestedAmount").toString());
+    			status = recUnRecAmounts.get("status").toString();
+    			reasons = Arrays.asList(recUnRecAmounts.get("reasons").toString().split(","));
+    			List<String> recCur = new ArrayList<String>();
+    			List<String> unRecCur = new ArrayList<String>();
+    			List<String> suggestedCur = new ArrayList<String>();
+    			recCur = (List<String>) recUnRecAmounts.get("recCurrency");
+    			unRecCur = (List<String>) recUnRecAmounts.get("unRecCurrency");
+    			suggestedCur = (List<String>) recUnRecAmounts.get("suggestedCurrency");
+    			sRecCurrencyCodes.addAll(recCur);
+    			sUnRecCurrencyCodes.addAll(unRecCur);
+    			sSuggestedCurrencyCodes.addAll(suggestedCur);
+    			
+    			if("Failed".equalsIgnoreCase(status))
+    				break;
+    			else if("Success".equalsIgnoreCase(status))
+    				continue;
+    		}
+    	}
+    	log.info("Time 2"+ new Date());
+    	// Fetching target views amounts
+    	if(tViewIds.size()>0)
+    	{
+    		for(String tViewId : tViewIds)
+    		{
+    			DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, tViewId);	// (params, dv.getId(), "target",tenantId);
+    			log.info("Shivaa ViewName: "+ dv.getDataViewName()+", ViewId: "+ dv.getId());
+    			HashMap recUnRecAmounts = reconciliationResultService.getRecUnRecAmounts(params, dv.getId(), "target", tenantId, groupId);
+    			log.info("recUnRecAmounts target view id: "+tViewId+", "+recUnRecAmounts);
+    			trgRecTotalAmnt = trgRecTotalAmnt + Double.parseDouble(recUnRecAmounts.get("recAmount").toString());
+    			trgUnRecTotalAmnt = trgUnRecTotalAmnt + Double.parseDouble(recUnRecAmounts.get("unRecAmount").toString());
+    			trgSuggestedTotalAmnt = trgSuggestedTotalAmnt + Double.parseDouble(recUnRecAmounts.get("suggestedAmount").toString());
+    			status = recUnRecAmounts.get("status").toString();
+    			reasons = Arrays.asList(recUnRecAmounts.get("reasons").toString().split(","));
+    			List<String> recCur = new ArrayList<String>();
+    			List<String> unRecCur = new ArrayList<String>();
+    			List<String> suggestedCur = new ArrayList<String>();
+    			recCur = (List<String>) recUnRecAmounts.get("recCurrency");
+    			unRecCur = (List<String>) recUnRecAmounts.get("unRecCurrency");
+    			suggestedCur = (List<String>) recUnRecAmounts.get("suggestedCurrency");
+    			tRecCurrencyCodes.addAll(recCur);
+    			tUnRecCurrencyCodes.addAll(unRecCur);
+    			tSuggestedCurrencyCodes.addAll(suggestedCur);
+    			if("Failed".equalsIgnoreCase(status))
+    				break;
+    			else if("Success".equalsIgnoreCase(status))
+    				continue;
+    		}
+    	}
+    	log.info("Time 3"+ new Date());
+    	
+    	// Adding currency symbol to source reconciled amount
+    	String sRecSymbol = "";
+    	String sUnRecSymbol = "";
+    	String sSuggestedSymbol = "";
+    	String trecSymbol = "";
+    	String tUnRecSymbol = "";
+    	String tSuggestedSymbol = "";
+    	try {
+    		
+    		log.info("sRecCurrencyCodes: "+sRecCurrencyCodes);
+    		log.info("sUnRecCurrencyCodes: "+sUnRecCurrencyCodes);
+    		log.info("sSuggestedCurrencyCodes: "+sSuggestedCurrencyCodes);
+    		log.info("tRecCurrencyCodes: "+tRecCurrencyCodes);
+    		log.info("tUnRecCurrencyCodes: "+tUnRecCurrencyCodes);
+    		log.info("tSuggestedCurrencyCodes: "+tSuggestedCurrencyCodes);
+    		
+			sRecSymbol = reconciliationResultService.getCurrencySymbol(sRecCurrencyCodes);
+	    	sUnRecSymbol = reconciliationResultService.getCurrencySymbol(sUnRecCurrencyCodes);
+	    	sSuggestedSymbol = reconciliationResultService.getCurrencySymbol(sSuggestedCurrencyCodes);
+	    	
+	    	trecSymbol = reconciliationResultService.getCurrencySymbol(tRecCurrencyCodes);
+	    	tUnRecSymbol = reconciliationResultService.getCurrencySymbol(tUnRecCurrencyCodes);
+	    	tSuggestedSymbol = reconciliationResultService.getCurrencySymbol(tSuggestedCurrencyCodes);
+	    	
+		} catch (ParseException e) {
+			status = "Failed";
+			reasons.add("Error while getting currency symbol");
+		}
+
+    	HashMap source = new HashMap();
+    	HashMap target = new HashMap();
+    	log.info("sRecSymbol: "+sRecSymbol);
+    	log.info("sUnRecSymbol: "+sUnRecSymbol);
+    	log.info("sSuggestedSymbol: "+sSuggestedSymbol);
+    	log.info("trecSymbol: "+trecSymbol);
+    	log.info("tUnRecSymbol: "+tUnRecSymbol);
+    	log.info("tSuggestedSymbol: "+tSuggestedSymbol);
+
+    	source.put("reconciled", sRecSymbol+" "+reconciliationResultService.getAmountInFormat(srcRecTotalAmnt.toString(), currencyFormat));
+    	source.put("unReconciled", sUnRecSymbol+" "+reconciliationResultService.getAmountInFormat(srcUnRecTotalAmt.toString(), currencyFormat));
+    	source.put("suggested", sSuggestedSymbol+" "+reconciliationResultService.getAmountInFormat(srcSuggestedTotalAmt.toString(), currencyFormat));
+    	source.put("rCurrency", sRecSymbol);
+    	source.put("uCurrency", sUnRecSymbol);
+    	source.put("sCurrency", sSuggestedSymbol);
+    	source.put("rAmountValue", srcRecTotalAmnt);
+    	source.put("uAmountValue", srcUnRecTotalAmt);
+    	source.put("sAmountValue", srcSuggestedTotalAmt);
+    	
+    	target.put("reconciled", trecSymbol+" "+reconciliationResultService.getAmountInFormat(trgRecTotalAmnt.toString(), currencyFormat));
+    	target.put("unReconciled", tUnRecSymbol+" "+reconciliationResultService.getAmountInFormat(trgUnRecTotalAmnt.toString(), currencyFormat));
+    	target.put("suggested", tSuggestedSymbol+" "+reconciliationResultService.getAmountInFormat(trgSuggestedTotalAmnt.toString(), currencyFormat));
+    	target.put("rCurrency", trecSymbol);
+    	target.put("uCurrency", tUnRecSymbol);
+    	target.put("sCurrency", tSuggestedSymbol);
+    	target.put("rAmountValue", trgRecTotalAmnt);
+    	target.put("uAmountValue", trgUnRecTotalAmnt);
+    	target.put("sAmountValue", trgSuggestedTotalAmnt);
+
+    	errorReport.setReasons(reasons);
+    	errorReport.setStatus(status);
+    	
+    	finalMap.put("source", source);
+    	finalMap.put("target", target);
+    	finalMap.put("info", errorReport);
+    	log.info("getReconUnReconAmounts"+finalMap);
+    	log.info("API: getReconUnReconAmounts completed");
+    	return finalMap;
+    }*/
+    @PostMapping("/getReconCountAndAmounts")
+    @Timed
+    public HashMap getReconCountAndAmounts(HttpServletRequest request,@RequestBody ReconCountNAmountsDTO params) throws ClassNotFoundException, SQLException, ParseException, java.text.ParseException{
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	params.setTenantId(tenantId);
+    	DataViews sdv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getsViewId());
+    	DataViews tdv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.gettViewId());
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getRuleGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	Long sViewId = sdv.getId();
+    	Long tViewId = tdv.getId();
+    	HashMap finalMap = new HashMap();
+    	log.info("Rest api for fetching reconciliation summary info for the tenant id: "+ tenantId+", group id: "+ groupId+", source view id: "+ sViewId+", target view id: "+ tViewId);
+    	String ascOrDesc = "asc";
+    	String sColumnName = "";
+    	String tColumnName = "";
+    	String reconTable = "";
+    	if("columnName".equalsIgnoreCase(params.getGroupBy()))
+    	{
+    		sColumnName = "`"+params.getsColumnName()+"`";
+    		tColumnName = "`"+params.gettColumnName()+"`";
+    	}
+    	else
+    	{
+    		sColumnName = "";
+    		tColumnName = "";    		
+    	}
+    	if("reconciled".equalsIgnoreCase(params.getStatus()))
+    	{
+    		reconTable = "t_reconciliation_result";
+    		log.info("Fetching Reconciled Grouping Summary Info");
+        	finalMap = reconciliationResultService.getReconGroupingSummaryInfo(params.getGroupBy(), sColumnName, tColumnName,
+        			groupId, params.getPeriodFactor(), params.getRangeFrom(), params.getRangeTo(), tenantId, sViewId, tViewId, reconTable);
+    	}
+    	else if("suggestion".equalsIgnoreCase(params.getStatus()))
+    	{
+    		reconTable = "t_reconciliation_suggestion_result";
+    		log.info("Fetching Suggestion data Grouping Summary Info");
+        	finalMap = reconciliationResultService.getReconGroupingSummaryInfo(params.getGroupBy(), sColumnName, tColumnName,
+        			groupId, params.getPeriodFactor(), params.getRangeFrom(), params.getRangeTo(), tenantId, sViewId, tViewId, reconTable);
+    	}
+    	else if("unReconciled".equalsIgnoreCase(params.getStatus()))
+    	{
+    		if("days".equalsIgnoreCase(params.getGroupBy()))
+    		{
+    			log.info("Fetching Un-Reconciled grouping information for group days");
+    			if("fileDate".equalsIgnoreCase(params.getPeriodFactor()))
+    			{
+    				sColumnName = "Date(fileDate)";
+    				tColumnName = "Date(fileDate)";
+    			}
+    			else if("dateQualifier".equalsIgnoreCase(params.getPeriodFactor()))
+    			{
+		    		String sPeriodFactor = reconciliationResultService.getTransDateQualifier(BigInteger.valueOf(sViewId), "TRANSDATE");
+		    		String tPeriodFactor = reconciliationResultService.getTransDateQualifier(BigInteger.valueOf(tViewId), "TRANSDATE");
+    				sColumnName = "Date(`"+sPeriodFactor+"`)";
+    				tColumnName = "Date(`"+tPeriodFactor+"`)";    				
+    			}
+    			ascOrDesc = "desc";
+    		}
+    		log.info("Fetching Un Reconciled Grouping Summary Info");
+    		finalMap = reconciliationResultService.getUnReconGroupingSummaryInfo(sColumnName, tColumnName, groupId, sViewId, tViewId, params.getPeriodFactor(), params.getRangeFrom(), params.getRangeTo(), params.getGroupBy(), ascOrDesc);
+    	}
+    	return finalMap;
+    }
+   
+    @PostMapping("/getReconDataByViewIds")
+    @Timed
+    public List<LinkedHashMap> getReconData(HttpServletRequest request,@RequestParam(value = "pageNumber", required=false) Long pageNumber, @RequestParam(value = "pageSize", required=false) Long pageSize, 
+    		@RequestParam(value = "exportFile", required=false) String exportFile,@RequestBody RWQDetailInfoDTO params) throws ClassNotFoundException, SQLException, java.text.ParseException{
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	params.setTenantId(tenantId);
+    	List<LinkedHashMap> finalList = new ArrayList<LinkedHashMap>();
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getDataViewId());
+    	Long viewId = dv.getId();
+    	
+		Long limit = 0L;
+		limit = (pageNumber * pageSize + 1)-1;
+		log.info("Limit Starting Values : "+ limit);
+		log.info("Page Number : "+ pageNumber);
+		String amtQualifier = reconciliationResultService.getQualifierColumnName(BigInteger.valueOf(viewId));
+		log.info("AmountQualifier::: "+ amtQualifier);
+		log.info("SortByColumnId::: "+params.getSortByColumnId());
+
+		HashMap colNameNType = new HashMap();
+		colNameNType.put("columnName", params.getSortByColumnId());
+		colNameNType.put("dataType", params.getDataType());
+		log.info("colNameNType: "+colNameNType);
+
+    	String columnsString = reconciliationResultService.getColumnNamesAsString(viewId);
+    	RWQDataFetchDTO keyValues = params.getKeyValues();
+    	ManualUnRecByColumnDTO columnvalues = keyValues.getColumnValues();
+    	List<HashMap> searchColumnsMps = params.getColumnSearch();
+    	log.info("searchColumnsMps: "+searchColumnsMps);
+    	
+    	//Building Column Search functionality Query
+    	String columnSearchQuery = "";
+    	String statusNReconRefQuery = "";
+		HashMap recNStatusMp = new HashMap();
+    	if(params.getColumnSearch() != null)
+    	{
+    		if(searchColumnsMps.size()>0)
+    		{
+    			for(int i=0; i<searchColumnsMps.size(); i++)
+    			{
+    				HashMap mp = searchColumnsMps.get(i);
+    				String searchWord = mp.get("searchWord").toString();
+    				if("recon_reference".equalsIgnoreCase(mp.get("columnId").toString()) || "recon_status".equalsIgnoreCase(mp.get("columnId").toString()))
+    				{
+        				if("recon_status".equalsIgnoreCase(mp.get("columnId").toString()))
+        				{
+        					statusNReconRefQuery = statusNReconRefQuery + " AND recon_status LIKE '%" + searchWord + "%'";
+        				}
+        				if("recon_reference".equalsIgnoreCase(mp.get("columnId").toString()))
+        				{
+        					statusNReconRefQuery = statusNReconRefQuery + " AND recon_reference LIKE '%"+searchWord + "%'";
+        				}
+    				}
+    				else
+    				{
+        				String columnName = mp.get("columnId").toString();
+            			if(i == searchColumnsMps.size()-1)
+            			{
+            				columnSearchQuery = columnSearchQuery + " AND `" + columnName +"` LIKE '%"+searchWord+"%'";
+            			}
+            			else
+            			{
+            				columnSearchQuery = columnSearchQuery + " AND `" + columnName +"` LIKE '%"+searchWord+"%'";
+            			}
+    				}
+    			}
+    		}
+    	}
+    	log.info("Column Search Query: " + columnSearchQuery);
+    	log.info("Recon Reference or Recon Status Search Query: "+statusNReconRefQuery);
+    	String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+    	String periodFactor = "";
+    	if("fileDate".equalsIgnoreCase(params.getPeriodFactor()))
+    	{
+    		periodFactor = "fileDate";
+    	}
+    	else
+    	{
+    		String dateQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "TRANSDATE");
+    		periodFactor = periodFactor + dateQualifier;
+    	}
+		String groupByValues = "";
+    	if("reconciled".equalsIgnoreCase(params.getStatus()))
+    	{
+    		log.info("Fetching reconciled data");
+    		if("source".equalsIgnoreCase(params.getSourceOrTarget()))
+    		{
+    			log.info("Feching reconciled source data");
+    			if("rules".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				log.info("Fetching source group by rules detail data...");
+    				if(keyValues.getRuleIds().size()>0)
+    				{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(keyValues.getRuleIds());
+    					groupByValues = " and (reconciliation_rule_id in ("+ruleIdsAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "reconciliation_rule_id", "recon");
+    				}
+    				else 
+    				{
+    					List<BigInteger> ruleIds = reconciliationResultRepository.fetchRuleIdsByGroupIdAndTenantId(params.getTenantId(), groupId, viewId);
+    					if(ruleIds.size()>0)
+    					{
+    						List<Long> ruleIdsAsLong = new ArrayList<Long>();
+    						for(BigInteger ruleId : ruleIds)
+    						{
+    							ruleIdsAsLong.add(ruleId.longValue());
+    						}
+    						String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(ruleIdsAsLong);
+    						groupByValues = " and (reconciliation_rule_id in ("+ruleIdsAsString+"))";
+    						finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(),  params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "reconciliation_rule_id", "recon");	
+    					}
+    				}
+    			}
+    			else if("batch".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				List<String> batches = keyValues.getBatchNames();
+    				if(batches.size()>0)
+    				{
+    					String batchesAsString = reconciliationResultService.getStringWithStrings(batches);
+    					if(batches.contains("Manual"))
+    					{
+        					groupByValues = " and (recon_job_reference in("+batchesAsString+") or reconciliation_rule_id = 0)";
+    					}
+    					else
+    					{
+        					groupByValues = " and (recon_job_reference in("+batchesAsString+"))";
+    						
+    					}
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "recon_job_reference", "recon");
+    				}
+    				else
+    				{
+    					List<String> batchesList = new ArrayList<String>();
+    					batchesList = reconciliationResultRepository.fetchDistinctbatchesByGroupNView(groupId, params.getTenantId(), viewId);
+    					if(batchesList.size()>0)
+    					{
+    						String batchesAsString = reconciliationResultService.getStringWithStrings(batchesList);
+    						groupByValues = " and (recon_job_reference in("+batchesAsString+") or reconciliation_rule_id = 0)";
+    						finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "recon_job_reference", "recon");
+    					}
+    				}
+    			}
+    			else if("columnName".equalsIgnoreCase(params.getGroupBy()))
+    			{
+					HashMap colInfo = accountingDataService.getColumnInfo(columnvalues.getColumnId());
+    				String columnName = "";
+    				if("DATE".equalsIgnoreCase(colInfo.get("dataType").toString()) || "DATETIME".equalsIgnoreCase(colInfo.get("dataType").toString()))
+    				{
+    					columnName = "DATE(`"+colInfo.get("colName").toString()+"`)";
+    				}
+    				else
+    				{
+    					columnName = "`"+colInfo.get("colName").toString()+"`";
+    				}
+					if(columnvalues.getColumnValues().size()>0)
+    				{
+						String valuesAsString = reconciliationResultService.getStringWithStrings(columnvalues.getColumnValues());
+						groupByValues = " and ("+columnName +" in ("+valuesAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, columnName, "dv");
+    				}
+    				else
+    				{
+    					List<String> distColValues = reconciliationResultService.getDistinctColValues(viewId, params.getRangeFrom(), params.getRangeTo(), columnvalues.getColumnId(), params.getPeriodFactor());
+    					if(distColValues.size()>0)
+    					{
+    						String valuesAsString = reconciliationResultService.getStringWithStrings(distColValues);
+    						groupByValues = "and ("+columnName +" in ("+valuesAsString+"))";
+    						finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, columnName, "dv");
+    					}
+    				}
+    			}
+    			else if("approvalRule".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				log.info("Fetching source group by Approval rules detail data...");
+    				if(keyValues.getRuleIds().size()>0)
+    				{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(keyValues.getRuleIds());
+    					groupByValues = " and (approval_rule_id in ("+ruleIdsAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "approval_rule_id", "recon"); 					
+    				}
+    			}
+    			else if("approvalDate".equalsIgnoreCase(params.getGroupBy()))
+    			{
+					log.info("Fetching source group by Approval approvalDate detail data...");
+					if(keyValues.getDays().size()>0)
+					{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithStrings(keyValues.getDays());
+    					groupByValues = " and (Date(final_action_date) in ("+ruleIdsAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "final_action_date", "recon");
+					}
+    			}
+    			else if("approvalStatus".equalsIgnoreCase(params.getGroupBy()))
+    			{
+					log.info("Fetching source group by Approval approvalDate detail data...");
+					if(keyValues.getStatus().size()>0)
+					{
+						List<String> approvalStatus=new ArrayList<String>();
+						String awaitingGroupByValues = "";
+						for(int i=0;i<keyValues.getStatus().size();i++)
+						{
+							LookUpCode lookUpCode=lookUpCodeRepository.findByTenantIdAndLookUpTypeAndMeaning(tenantId,"APPROVAL_STATUS",keyValues.getStatus().get(i));
+							if("awaiting".equalsIgnoreCase(keyValues.getStatus().get(i)))
+							{
+								awaitingGroupByValues = " final_status is null ";
+							}
+							else
+							{
+								approvalStatus.add(lookUpCode.getLookUpCode());
+							}
+						}
+    					String ruleIdsAsString = reconciliationResultService.getStringWithStrings(approvalStatus);
+    					
+    					if(ruleIdsAsString.length()>0)
+    					{
+    						groupByValues = " final_status in ("+ruleIdsAsString+") ";
+    					}
+    					if(groupByValues.length()>0 &&  awaitingGroupByValues.length()>0)
+    					{
+        					/*groupByValues = " AN( "+groupByValues + awaitingGroupByValues+" )";*/
+    						groupByValues = " AND (final_status in("+groupByValues+") OR "+awaitingGroupByValues+")";
+    					}
+    					else if(groupByValues.length()>0)
+    					{
+        					groupByValues = " AND "+groupByValues;    						
+    					}
+    					else if(awaitingGroupByValues.length()>0)
+    					{
+        					groupByValues = " AND "+awaitingGroupByValues;    	    						
+    					}
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "final_status", "recon");
+					}
+    			}
+    		}
+    		else if("target".equalsIgnoreCase(params.getSourceOrTarget()))
+    		{
+    			HashMap headerColumns = reconciliationResultService.getColHeadersMapInSequence(viewId, groupId, params.getTenantId(),"target");
+    			if("rules".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				if(keyValues.getRuleIds().size()>0)
+    				{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(keyValues.getRuleIds());
+    					groupByValues = " and (reconciliation_rule_id in ("+ruleIdsAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "reconciliation_rule_id", "recon");
+    				}
+    				else
+    				{
+    					List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+    					ruleIds = reconciliationResultRepository.fetchRuleIdsByGroupIdAndTenantIdForTarget(params.getTenantId(), groupId, viewId);
+    					List<Long> ruleIdsLong = new ArrayList<Long>();
+    					if(ruleIds.size()>0)
+    					{
+    						for(BigInteger id: ruleIds)
+    						{
+    							ruleIdsLong.add(id.longValue());
+    						}
+    					}
+						String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(ruleIdsLong);
+						groupByValues = " and (reconciliation_rule_id in ("+ruleIdsAsString+"))";
+						finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "reconciliation_rule_id", "recon");	
+    				}
+    			}
+    			else if("batch".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				if(keyValues.getBatchNames().size()>0)
+    				{
+    					String batchesAsString = reconciliationResultService.getStringWithStrings(keyValues.getBatchNames());
+    					if(keyValues.getBatchNames().contains("Manual"))
+    					{
+    						groupByValues = " and (recon_job_reference in("+batchesAsString+") or reconciliation_rule_id = 0)";	
+    					}
+    					else
+    					{
+    						groupByValues = " and (recon_job_reference in("+batchesAsString+"))";
+    					}
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "recon_job_reference", "recon");
+    				}
+    				else
+    				{
+    					List<String> batchList = new ArrayList<String>();
+    					batchList = reconciliationResultRepository.fetchDistinctbatchesTarget(groupId, params.getTenantId(), viewId);
+    					if(batchList.size()>0)
+    					{
+    						String batchesAsString = reconciliationResultService.getStringWithStrings(batchList);
+    						groupByValues = " and (recon_job_reference in("+batchesAsString+") or reconciliation_rule_id = 0)";
+    						finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "recon_job_reference", "recon");    		
+    					}
+    				}
+    			}
+    			else if("columnName".equalsIgnoreCase(params.getGroupBy()))
+    			{
+					HashMap colInfo = accountingDataService.getColumnInfo(columnvalues.getColumnId());
+    				String columnName = "";
+    				if("DATE".equalsIgnoreCase(colInfo.get("dataType").toString()) || "DATETIME".equalsIgnoreCase(colInfo.get("dataType").toString()))
+    				{
+    					columnName = "DATE(`"+colInfo.get("colName").toString()+"`)";
+    				}
+    				else
+    				{
+    					columnName = "`"+colInfo.get("colName").toString()+"`";
+    				}
+    				if(columnvalues.getColumnValues().size()>0)
+    				{
+						String valuesAsString = reconciliationResultService.getStringWithStrings(columnvalues.getColumnValues());
+						groupByValues = " and ("+columnName +" in ("+valuesAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(), params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, columnName, "dv");
+    				}
+    				else
+    				{
+    					List<String> tDistColValues = reconciliationResultService.getDistinctColValues(viewId, params.getRangeFrom(), params.getRangeTo(), columnvalues.getColumnId(), params.getPeriodFactor());
+    					if(tDistColValues.size()>0)
+    					{
+    						String valuesAsString = reconciliationResultService.getStringWithStrings(tDistColValues);
+    						groupByValues = "and ("+columnName +" in ("+valuesAsString+"))";
+    						finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(),params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, columnName, "dv");	
+    					}
+    				}
+    			}
+    			else if("approvalRule".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				log.info("Fetching source group by Approval rules detail data...");
+    				if(keyValues.getRuleIds().size()>0)
+    				{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(keyValues.getRuleIds());
+    					groupByValues = " and (approval_rule_id in ("+ruleIdsAsString+"))";
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(),params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "approval_rule_id", "recon");
+     				}
+    			}
+    			else if("approvalDate".equalsIgnoreCase(params.getGroupBy()))
+    			{
+				log.info("Fetching source group by Approval approvalDate detail data...");
+				if(keyValues.getDays().size()>0)
+				{
+					String ruleIdsAsString = reconciliationResultService.getStringWithStrings(keyValues.getDays());
+					groupByValues = " and (Date(final_action_date) in ("+ruleIdsAsString+"))";
+					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(),  params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "final_action_date", "recon");
+				}
+
+    		}
+    			else if("approvalStatus".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				log.info("Fetching source group by approvalStatus detail data...in target");
+					if(keyValues.getStatus().size()>0)
+					{
+						List<String> approvalStatus=new ArrayList<String>();
+						String awaitingGroupByValues = "";
+						for(int i=0;i<keyValues.getStatus().size();i++)
+						{
+							log.info("keyValues.getStatus() :"+keyValues.getStatus().get(i));
+							LookUpCode lookUpCode=lookUpCodeRepository.findByTenantIdAndLookUpTypeAndMeaning(tenantId,"APPROVAL_STATUS",keyValues.getStatus().get(i));
+							if("awaiting".equalsIgnoreCase(keyValues.getStatus().get(i)))
+							{
+								awaitingGroupByValues = " final_status is null ";
+							}
+							else
+							{
+								approvalStatus.add(lookUpCode.getLookUpCode());
+							}
+						}
+    					String ruleIdsAsString = reconciliationResultService.getStringWithStrings(approvalStatus);
+    					if(ruleIdsAsString.length()>0)
+    					{
+    						groupByValues = " final_status in ("+ruleIdsAsString+") ";
+    					}
+    					if(groupByValues.length()>0 &&  awaitingGroupByValues.length()>0)
+    					{
+        					/*groupByValues = "("+groupByValues + awaitingGroupByValues+")";*/
+    						groupByValues = " AND (final_status in("+groupByValues+") OR "+awaitingGroupByValues+")";
+    					}
+    					else if(groupByValues.length()>0)
+    					{
+        					groupByValues = " AND "+groupByValues;    						
+    					}
+    					else if(awaitingGroupByValues.length()>0)
+    					{
+        					groupByValues = " AND "+awaitingGroupByValues;    	    						
+    					}
+    					finalList = reconciliationResultService.getGroupByReconRefDetailInfo(tenantId, groupId, viewId, groupByValues, limit, pageSize, params.getRangeFrom(), params.getRangeTo(), periodFactor, amountQualifier, params.getSourceOrTarget(), params.getStatus(),params.getSortOrderBy(), columnSearchQuery, statusNReconRefQuery, "final_status", "recon");
+					}	
+    			}
+    		}
+    	}
+    	else if("unReconciled".equalsIgnoreCase(params.getStatus()))
+    	{
+    		String filterQuery = "";
+    		if("days".equalsIgnoreCase(params.getGroupBy()))
+    		{   			
+    			if("source".equalsIgnoreCase(params.getSourceOrTarget()))
+    			{
+    				if(keyValues.getDays().size()>0)
+    				{
+    					String daysString = reconciliationResultService.getStringWithStrings(keyValues.getDays());
+    					filterQuery = " and Date(`"+periodFactor+"`) in ("+daysString+")";
+    					finalList = reconciliationResultService.getUnReconTransactionsData("source", groupId, viewId, periodFactor, params.getRangeFrom(), params.getRangeTo(), filterQuery, limit, pageSize,columnSearchQuery);
+    				}
+    				else
+    				{
+    					finalList = reconciliationResultService.getUnReconTransactionsData("source", groupId, viewId, periodFactor, params.getRangeFrom(), params.getRangeTo(), filterQuery, limit, pageSize, columnSearchQuery);	
+    				}
+    			}
+    			else if("target".equalsIgnoreCase(params.getSourceOrTarget()))
+    			{
+    					finalList = reconciliationResultService.getUnReconTransactionsData("target", groupId, viewId, periodFactor, params.getRangeFrom(), params.getRangeTo(), filterQuery, limit, pageSize, columnSearchQuery);	
+    			}
+    		}
+    		else if("columnName".equalsIgnoreCase(params.getGroupBy()))
+    		{
+				HashMap colInfo = accountingDataService.getColumnInfo(columnvalues.getColumnId());
+				String columnName = "";
+				if("DATE".equalsIgnoreCase(colInfo.get("dataType").toString()) || "DATETIME".equalsIgnoreCase(colInfo.get("dataType").toString()))
+				{
+					columnName = "DATE(`"+colInfo.get("colName").toString()+"`)";
+				}
+				else
+				{
+					columnName = "`"+colInfo.get("colName").toString()+"`";
+				}
+    			if("source".equalsIgnoreCase(params.getSourceOrTarget()))
+    			{
+    				if(columnvalues.getColumnValues().size()>0)
+    				{
+    					String colsValString = reconciliationResultService.getStringWithStrings(columnvalues.getColumnValues());
+    					filterQuery = " and "+columnName+" in ("+colsValString+")";
+    					finalList = reconciliationResultService.getUnReconTransactionsData("source", groupId, viewId, periodFactor, params.getRangeFrom(), params.getRangeTo(), filterQuery, limit, pageSize, columnSearchQuery);
+    				}
+    				else
+    				{
+    					finalList = reconciliationResultService.getUnReconTransactionsData("source", groupId, viewId, periodFactor, params.getRangeFrom(), params.getRangeTo(), filterQuery, limit, pageSize,columnSearchQuery);	
+    				}
+    			}
+    			else if("target".equalsIgnoreCase(params.getSourceOrTarget()))
+    			{
+    				finalList = reconciliationResultService.getUnReconTransactionsData("target", groupId, viewId, periodFactor, params.getRangeFrom(), params.getRangeTo(), filterQuery, limit, pageSize,columnSearchQuery);
+    			}
+    		}
+    	}
+    	else if("suggestion".equalsIgnoreCase(params.getStatus()))
+    	{
+    		log.info("Fetching Suggestion data...");
+    		if("source".equalsIgnoreCase(params.getSourceOrTarget()))
+			{
+    			HashMap headerColumns = new HashMap();
+    			String columnsAsString = "";
+    				List<BigInteger> sColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(viewId);
+    				if(sColIds.size()>0)
+    				{
+    					HashMap hm = reconciliationResultService.getColumnInfobyIds(sColIds);
+    					columnsAsString = reconciliationResultService.getColumnsAsString(hm);
+    					headerColumns = (HashMap) hm.clone();
+    					columnsAsString = ", "+columnsAsString;
+    				}
+    			log.info("Columns AsString: "+ columnsAsString);
+    			log.info("SourceHeaderColumn: "+headerColumns);
+    			log.info("Fetching suggestion data for source...");
+    			if("rules".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				if(keyValues.getRuleIds().size()>0)
+    				{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(keyValues.getRuleIds());
+    					log.info("ruleIdsAsString: "+ruleIdsAsString);
+    					groupByValues = " reconciliation_rule_id in ("+ruleIdsAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    				else
+    				{
+    					List<BigInteger> ruleIds = reconciliationDuplicateResultRepository.fetchRuleIdsByGroupIdAndTenantId(params.getTenantId(), groupId, viewId);
+    					List<Long> ruleIdsLong = new ArrayList<Long>();
+    					if(ruleIds.size()>0)
+    					{
+    						for(BigInteger id : ruleIds)
+    						{
+    							ruleIdsLong.add(id.longValue());
+    						}
+    						String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(ruleIdsLong);
+    						groupByValues = " reconciliation_rule_id in ("+ruleIdsAsString+")";
+        					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    					}
+    				}
+    			}
+    			else if("batch".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				if(keyValues.getBatchNames().size()>0)
+    				{
+    					String batchesAsString = reconciliationResultService.getStringWithStrings(keyValues.getBatchNames());
+    					groupByValues = " recon_job_reference in("+batchesAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    				else
+    				{
+    					List<String> batchesList = new ArrayList<String>();
+    					batchesList = reconciliationDuplicateResultRepository.fetchDistinctbatchesByGroupNView(groupId, params.getTenantId(), viewId);
+						String batchesAsString = reconciliationResultService.getStringWithStrings(keyValues.getBatchNames());
+						groupByValues = " recon_job_reference in("+batchesAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    			}
+    			else if("columnName".equalsIgnoreCase(params.getGroupBy()))
+    			{
+					HashMap colInfo = accountingDataService.getColumnInfo(columnvalues.getColumnId());
+    				String columnName = "";
+    				if("DATE".equalsIgnoreCase(colInfo.get("dataType").toString()) || "DATETIME".equalsIgnoreCase(colInfo.get("dataType").toString()))
+    				{
+    					columnName = "DATE(`"+colInfo.get("colName").toString()+"`)";
+    				}
+    				else
+    				{
+    					columnName = "`"+colInfo.get("colName").toString()+"`";
+    				}
+    				if(columnvalues.getColumnValues().size()>0)
+    				{
+						String valuesAsString = reconciliationResultService.getStringWithStrings(columnvalues.getColumnValues());
+						groupByValues = columnName +" in ("+valuesAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    				else
+    				{
+    					List<String> distColValues = reconciliationResultService.getDistinctColValues(viewId, params.getRangeFrom(), params.getRangeTo(), columnvalues.getColumnId(), params.getPeriodFactor());
+    					if(distColValues.size()>0)
+    					{
+    						String valuesAsString = reconciliationResultService.getStringWithStrings(distColValues);
+    						groupByValues = columnName +" in ("+valuesAsString+")";
+        					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    					}    					
+    				}
+    			}
+			}
+    		else if("target".equalsIgnoreCase(params.getSourceOrTarget()))
+			{
+    			HashMap headerColumns = new HashMap();
+    			String columnsAsString = "";
+    				List<BigInteger> tColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(viewId);
+    				if(tColIds.size()>0)
+    				{
+        					HashMap hm = reconciliationResultService.getColumnInfobyIds(tColIds);
+        					headerColumns = (HashMap) hm.clone();
+        					columnsAsString = reconciliationResultService.getColumnsAsString(headerColumns);
+        					columnsAsString = ", "+columnsAsString;
+    				}
+    			log.info("TargetHeaderColumn: "+headerColumns);
+    			log.info("Fetching suggestion data for target...");
+    			if("rules".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				if(keyValues.getRuleIds().size()>0)
+    				{
+    					String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(keyValues.getRuleIds());
+    					groupByValues = " reconciliation_rule_id in ("+ruleIdsAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    				else
+    				{
+    					List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+    					ruleIds = reconciliationDuplicateResultRepository.fetchRuleIdsByGroupIdAndTenantIdForTarget(params.getTenantId(), groupId, viewId);
+    					List<Long> ruleIdsLong = new ArrayList<Long>();
+    					if(ruleIds.size()>0)
+    					{
+    						for(BigInteger id: ruleIds)
+    						{
+    							ruleIdsLong.add(id.longValue());
+    						}
+    					}
+						String ruleIdsAsString = reconciliationResultService.getStringWithNumbers(ruleIdsLong);
+						groupByValues = " reconciliation_rule_id in ("+ruleIdsAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    			}
+    			else if("batch".equalsIgnoreCase(params.getGroupBy()))
+    			{
+    				if(keyValues.getBatchNames().size()>0)
+    				{
+    					String batchesAsString = reconciliationResultService.getStringWithStrings(keyValues.getBatchNames());
+    					groupByValues = " recon_job_reference in("+batchesAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    				else
+    				{
+    					List<String> batchList = new ArrayList<String>();
+    					batchList = reconciliationDuplicateResultRepository.fetchDistinctbatchesTarget(groupId, params.getTenantId(), viewId);
+    					if(batchList.size()>0)
+    					{
+    						String batchesAsString = reconciliationResultService.getStringWithStrings(batchList);
+    						groupByValues = " recon_job_reference in("+batchesAsString+")";
+        					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    					}
+    				}
+    			}
+    			else if("columnName".equalsIgnoreCase(params.getGroupBy()))
+    			{
+					HashMap colInfo = accountingDataService.getColumnInfo(columnvalues.getColumnId());
+    				String columnName = "";
+    				if("DATE".equalsIgnoreCase(colInfo.get("dataType").toString()) || "DATETIME".equalsIgnoreCase(colInfo.get("dataType").toString()))
+    				{
+    					columnName = "DATE(`"+colInfo.get("colName").toString()+"`)";
+    				}
+    				else
+    				{
+    					columnName = "`"+colInfo.get("colName").toString()+"`";
+    				}
+    				if(columnvalues.getColumnValues().size()>0)
+    				{
+						String valuesAsString = reconciliationResultService.getStringWithStrings(columnvalues.getColumnValues());
+						groupByValues = columnName +" in ("+valuesAsString+")";
+    					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    				}
+    				else
+    				{
+    					List<String> tDistColValues = reconciliationResultService.getDistinctColValues(viewId, params.getRangeFrom(), params.getRangeTo(), columnvalues.getColumnId(), params.getPeriodFactor());
+    					if(tDistColValues.size()>0)
+    					{
+    						String valuesAsString = reconciliationResultService.getStringWithStrings(tDistColValues);
+    						groupByValues = columnName +" in ("+valuesAsString+")";
+        					finalList = reconciliationResultService.getSuggestedDataGroupById(viewId, params.getSourceOrTarget(), amountQualifier, groupId, tenantId, params.getSortOrderBy(), limit, pageSize, groupByValues, columnsAsString,headerColumns, columnSearchQuery, statusNReconRefQuery);
+    					}
+    				}
+    			}
+			}
+    	} 
+    	return finalList;
+    }
+    
+    /**
+     * **/
+    @PostMapping("/getReconRefTransactions")
+    @Timed    
+    public HashMap getReconDetailTransaction(HttpServletRequest request, @RequestBody ReconRefTransactionsDTO params)
+    {
+    	HashMap finalMap = new HashMap();
+    	String sourceOrTarget = params.getSourceOrTarget();
+    	String reconRef = params.getReconReference();
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getViewId());
+    	Long viewId = dv.getId();
+    	
+    	log.info("Rest API for fetching recon detail transactions for recon reference: "+reconRef+", group id: "+ groupId+", view id: "+ viewId+", source or target: "+sourceOrTarget);
+    	List<LinkedHashMap> finalData = new ArrayList<LinkedHashMap>();
+    	String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+    	HashMap result = reconciliationResultService.getReconRefChildData(sourceOrTarget, viewId, groupId, reconRef, tenantId, "!=", amountQualifier);
+    	finalData = (List<LinkedHashMap>) result.get("data");
+    	finalMap.put("reconRefData", finalData);
+    	return finalMap;
+    }
+    
+    /** Author: Shiva
+     * 	Purpose: Custom filter with imatch
+	 *  Params: tenantId, groupId, viewId, rowId
+     * @throws ClassNotFoundException 
+     * @throws SQLException 
+     * @throws ParseException 
+     * @throws IOException 
+     * @throws JsonMappingException 
+     * @throws JsonGenerationException 
+     * @throws java.text.ParseException 
+     */
+    @GetMapping("/reconCustomFilter")
+    @Timed
+    public HashMap reconCustomFilter(HttpServletRequest request,@RequestParam String groupId,@RequestParam String sViewId,@RequestParam String tViewId, @RequestParam String recReferences,
+    		@RequestParam Long sortByTColumnId, @RequestParam Long sortBySColumnId, @RequestParam String sortOrderBy, @RequestParam(value = "pageNumber", required=false) Long pageNumber, @RequestParam(value = "pageSize", required=false) Long pageSize, 
+    		@RequestParam(value = "status", required=true) String status) throws SQLException, ClassNotFoundException, ParseException, JsonGenerationException, JsonMappingException, IOException, java.text.ParseException 
+    {
+    	log.info("Rest api for rwq custom filter");
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	Long userId = Long.parseLong(map.get("userId").toString());
+    	HashMap finalMap = new HashMap();
+
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+    	Long ruleGroupId = rg.getId();
+    	
+    	DataViews sdv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, sViewId);
+    	Long sDataViewId = sdv.getId();
+    	
+    	DataViews tdv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, tViewId);
+    	Long tDataViewId = tdv.getId();
+    	
+		Long limit = 0L;
+		
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0L;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = 25L;
+		}
+		String srcAmountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(sDataViewId), "AMOUNT");
+		String trAmountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(tDataViewId), "AMOUNT");
+		// Source
+    	List<LinkedHashMap> source = new ArrayList<LinkedHashMap>(); 
+    	HashMap sourceInfo = reconciliationResultService.getReconRefChildData("source", sDataViewId, ruleGroupId, recReferences, tenantId, "!=", srcAmountQualifier);
+    	source.addAll((List<LinkedHashMap>) sourceInfo.get("data"));
+    	// Target
+    	List<LinkedHashMap> target = new ArrayList<LinkedHashMap>(); 
+    	HashMap targetInfo = reconciliationResultService.getReconRefChildData("target", tDataViewId, ruleGroupId, recReferences, tenantId, "!=", trAmountQualifier);
+    	target.addAll((List<LinkedHashMap>) targetInfo.get("data"));
+    	// Source Variance
+    	List<LinkedHashMap> sourceVariance = new ArrayList<LinkedHashMap>(); 
+    	HashMap srcVarInfo = reconciliationResultService.getReconRefChildData("source", sDataViewId, ruleGroupId, recReferences, tenantId, "=", srcAmountQualifier);
+		sourceVariance.addAll((List<LinkedHashMap>) srcVarInfo.get("data"));
+    	// Target Variance
+    	List<LinkedHashMap> targetVariance = new ArrayList<LinkedHashMap>(); 
+    	HashMap trVarInfo = reconciliationResultService.getReconRefChildData("target", tDataViewId, ruleGroupId, recReferences, tenantId, "=", trAmountQualifier);
+    	targetVariance = (List<LinkedHashMap>) trVarInfo.get("data");
+    	if(source.size()>0)
+    	{
+    		LinkedHashMap infoMap = new LinkedHashMap();
+    		HashMap info = new HashMap();
+    		HashMap srcInfo = (HashMap) sourceInfo.get("info");
+			info.put("count", Long.parseLong(srcInfo.get("count").toString()));
+			info.put("amount", Double.parseDouble(srcInfo.get("amount").toString()));
+			info.put("amountQualifier", srcAmountQualifier);
+			infoMap.put("info", info);
+			source.add(infoMap);
+    	}
+    	if(target.size()>0)
+    	{
+    		LinkedHashMap infoMap = new LinkedHashMap();
+    		HashMap info = new HashMap();
+    		HashMap trInfo = (HashMap) targetInfo.get("info");
+			info.put("count", Long.parseLong(trInfo.get("count").toString()));
+			info.put("amount", Double.parseDouble(trInfo.get("amount").toString()));
+			info.put("amountQualifier", trAmountQualifier);
+    		infoMap.put("info", info);
+			target.add(infoMap);    		
+    	}
+    	if(sourceVariance.size()>0)
+    	{
+    		LinkedHashMap infoMap = new LinkedHashMap();
+    		HashMap info = new HashMap();
+    		HashMap sVarInfo = (HashMap) srcVarInfo.get("info");
+			info.put("count", Long.parseLong(sVarInfo.get("count").toString()));
+			info.put("amount", Double.parseDouble(sVarInfo.get("amount").toString()));
+			info.put("amountQualifier", srcAmountQualifier);
+			infoMap.put("info", info);
+			sourceVariance.add(infoMap);
+    	}
+    	if(targetVariance.size()>0)
+    	{
+    		LinkedHashMap infoMap = new LinkedHashMap();
+    		HashMap info = new HashMap();
+    		HashMap tVarInfo = (HashMap) trVarInfo.get("info");
+			info.put("count", Long.parseLong(tVarInfo.get("count").toString()));
+			info.put("amount", Double.parseDouble(tVarInfo.get("amount").toString()));
+			info.put("amountQualifier", trAmountQualifier);
+    		infoMap.put("info", info);
+			targetVariance.add(infoMap);    		
+    	}
+    	finalMap.put("source", source);
+    	finalMap.put("target", target);
+    	finalMap.put("sourceVariance", sourceVariance);
+    	finalMap.put("targetVariance", targetVariance);
+    	
+		return finalMap;
+    }
+    
+	 /*
+	  * Author: Shiva
+	  * Description: Posting suggested data
+	  * @Param: SuggestedPostingDTO
+	  * */
+	 @PostMapping("postSuggestedData")
+	 public ErrorReporting postSuggestedData(HttpServletRequest request, @RequestBody SuggestedPostingDTO params)
+	 {
+		 ErrorReporting errorReport = new ErrorReporting();
+		 List<String> reasons = new ArrayList<String>();
+		 
+		 HashMap map=userJdbcService.getuserInfoFromToken(request);
+		 Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		 Long userId=Long.parseLong(map.get("userId").toString());
+
+		 Long groupId = params.getGroupId();
+		 Long sViewId = params.getsViewId();
+		 Long tViewId = params.gettViewId();
+		 List<SuggestedPostDTO> source = params.getSource();
+		 List<SuggestedPostDTO> target = params.getTarget();
+		 
+		 List<String> reconRefs = new ArrayList<String>();
+		 log.info("REST API for posting suggested data for the group id: "+ groupId+", source view id: "+sViewId+", target view id: "+tViewId);
+		 
+		 if(source.size()>0)
+		 {
+			 List<ReconciliationResult> sourceRS = new ArrayList<ReconciliationResult>();
+			 for(SuggestedPostDTO src : source)
+			 {
+				 ReconciliationResult rsNew = new ReconciliationResult();
+				 rsNew.setOriginalRowId(src.getRowId());
+				 rsNew.setOriginalViewId(sViewId);
+				 rsNew.setTargetRowId(null);
+				 rsNew.setTargetViewId(null);
+				 rsNew.setTargetView(null);
+				 rsNew.setReconReference(src.getReconReference());
+				 rsNew.setReconciliationRuleGroupId(groupId);
+				 rsNew.setReconciliationRuleId(src.getRuleId());
+				 rsNew.setReconciliationUserId(userId);
+				 rsNew.setReconJobReference(src.getJobReference());
+				 rsNew.setReconciledDate(ZonedDateTime.now());
+				 rsNew.setReconStatus("RECONCILED");
+				 rsNew.setCurrentRecordFlag(true);
+				 rsNew.setTenantId(tenantId);
+				 sourceRS.add(rsNew);
+				 reconRefs.add(src.getReconReference());
+			 }
+			 try{
+				 List<ReconciliationResult> batchRSSave = reconciliationResultRepository.save(sourceRS);
+				 errorReport.setStatus("Success");
+			 }
+			 catch(Exception e)
+			 {
+				 errorReport.setStatus("Failed");
+				 reasons.add("Error while posting source suggested data");
+			 }
+		 }
+		 if(target.size()>0)
+		 {
+			 List<ReconciliationResult> targetRS = new ArrayList<ReconciliationResult>();
+			 for(SuggestedPostDTO trgt : target)
+			 {
+				 ReconciliationResult rsNew = new ReconciliationResult();
+				 rsNew.setOriginalRowId(null);
+				 rsNew.setOriginalViewId(null);
+				 rsNew.setOriginalView(null);
+				 rsNew.setTargetRowId(trgt.getRowId());
+				 rsNew.setTargetViewId(tViewId);
+				 rsNew.setReconReference(trgt.getReconReference());
+				 rsNew.setReconciliationRuleGroupId(groupId);
+				 rsNew.setReconciliationRuleId(trgt.getRuleId());
+				 rsNew.setReconciliationUserId(userId);
+				 rsNew.setReconJobReference(trgt.getJobReference());
+				 rsNew.setReconciledDate(ZonedDateTime.now());
+				 rsNew.setReconStatus("RECONCILED");
+				 rsNew.setCurrentRecordFlag(true);
+				 rsNew.setTenantId(tenantId);
+				 targetRS.add(rsNew);
+				 reconRefs.add(trgt.getReconReference());
+			 }
+			 try{
+				 List<ReconciliationResult> batchRSSave = reconciliationResultRepository.save(targetRS);
+				 errorReport.setStatus("Success");
+			 }
+			 catch(Exception e)
+			 {
+				 errorReport.setStatus("Failed");				
+				 reasons.add("Error while posting target suggested data");
+			 }
+		 }
+		 // Deleting suggested data from t_reconciliation_suggestion_data
+		 if(reconRefs.size()>0)
+		 {
+			 List<ReconciliationDuplicateResult> suggestedData = reconciliationDuplicateResultRepository.findByReconReferenceIn(reconRefs);
+			 try{
+				 reconciliationDuplicateResultRepository.delete(suggestedData);
+				 errorReport.setStatus("Success");
+				 reasons.add(suggestedData.size() + " Recods has been removed from suggesed data");
+			 }
+			 catch(Exception e)
+			 {
+				errorReport.setStatus("Failed");
+				reasons.add("Error while removing suggesed data");
+			 }
+		 }
+		 errorReport.setReasons(reasons);
+		 return errorReport;
+	 }
+	 
+ /*
+  * Author: Shiva
+  * @param manualReconciledData, tenantId, userId
+  * Description: Posting Manual Reconciliation Data
+  * @return void
+  */
+ @PostMapping("/postManualReconData")
+ @Timed
+ public ErrorReport postManualReconData(HttpServletRequest request,@RequestBody List<ManualRecDTO> manualRecDTOs) throws NumberFormatException, SQLException, ClassNotFoundException{
+ 	log.info("Rest request to posting manual reconciled data");
+ 	HashMap map=userJdbcService.getuserInfoFromToken(request);
+ 	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+ 	Long userId=Long.parseLong(map.get("userId").toString());
+ 	ErrorReport errorReport = new ErrorReport();
+ 	List<Long> leftRecords = new ArrayList<Long>();
+ 	Long recRuleGrpId=0L;
+ 	Long sViewId = 0L;
+ 	Long tViewId = 0L;
+ 	Long apprRuleGrp=0L;
+ 	
+ 	if(manualRecDTOs.size()>0)
+ 	{
+ 		//getting maximum recon reference id
+	    Long maxReconRef = reconciliationResultRepository.fetchMaxReconReference();
+	    if(maxReconRef == null)
+	    {
+	  		maxReconRef = 0L;
+	    }
+	    log.info("Max ReconReference Id: "+maxReconRef);
+	    Long reconReferenceId = maxReconRef+1;
+	    log.info("Max ReconReference Id: "+maxReconRef+", Max+1 ReferenceId: "+reconReferenceId);
+	    
+		String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
+		timeStamp=timeStamp.replaceAll(" ", "_");
+		String jobReference = "MANUAL_"+timeStamp;
+		
+		List<Long> sourceIds = new ArrayList<Long>();
+		List<Long> targetIds = new ArrayList<Long>();
+		
+		List<ViewIdRowIdDTO> source = new ArrayList<ViewIdRowIdDTO>();
+		List<ViewIdRowIdDTO> target = new ArrayList<ViewIdRowIdDTO>();
+		
+		// Removing duplicate objects from input
+		for(ManualRecDTO manualRecDTO: manualRecDTOs)
+ 		{
+ 	     	List<ViewIdRowIdDTO> sourceDTO = manualRecDTO.getSource();
+ 	     	List<ViewIdRowIdDTO> targetDTO = manualRecDTO.getTarget();
+ 	     	
+ 	     	if(sourceDTO.size()>0)
+ 	     	{
+ 	     		for(ViewIdRowIdDTO dr : sourceDTO)
+ 	     		{
+ 	     			if(!sourceIds.contains(dr.getRowId()))
+ 	     			{
+ 	     				source.add(dr);
+ 	     			}
+ 	     		}
+ 	     	}
+ 	     	if(targetDTO.size()>0)
+ 	     	{
+	     		for(ViewIdRowIdDTO dr : targetDTO)
+ 	     		{
+ 	     			if(!targetIds.contains(dr.getRowId()))
+ 	     			{
+ 	     				target.add(dr);
+ 	     			}
+ 	     		}
+ 	     	}
+ 		}
+		Long sourceCount = 0L;
+		Long targetCount = 0L;
+		// Posting manual unreconciliation
+	    List<ReconciliationResult> allRecords = new ArrayList<ReconciliationResult>();
+		if(source.size()>0)
+		{
+	    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(source.get(0).getGroupId(), tenantId);
+	    	Long groupId = rg.getId();
+	    	
+	    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, source.get(0).getViewId());
+	    	Long viewId = dv.getId();
+	    	sViewId = viewId;
+			for(ViewIdRowIdDTO dr : source)
+      		{
+      			recRuleGrpId=groupId;
+      			DataViews dataView = dataViewsRepository.findOne(viewId);
+      			if(dataView != null)
+      			{
+      				ReconciliationResult recon = new ReconciliationResult();
+      				recon.setOriginalRowId(dr.getRowId());
+      				recon.setOriginalViewId(viewId);
+      				recon.setOriginalView(dataView.getDataViewName());
+      				recon.setTargetRowId(null);
+      				recon.setTargetViewId(null);
+      				recon.setTargetView(null);
+      				recon.setReconReference(reconReferenceId.toString());
+          			recon.setReconciliationRuleName("MANUAL");
+          			recon.setReconciliationRuleId(0L);
+          			recon.setReconJobReference(jobReference);
+          			recon.setReconciledDate(ZonedDateTime.now());
+          			recon.setTenantId(tenantId);
+          			recon.setReconciliationUserId(userId);
+          			recon.setReconciliationRuleGroupId(groupId);
+          			recon.setReconStatus("RECONCILED");
+          			recon.setCurrentRecordFlag(true);
+          			ReconciliationResult rs = reconciliationResultRepository.fetchSourceUniqueRecord(dr.getRowId(), tenantId, viewId, groupId);
+              		if(rs == null)
+              			allRecords.add(recon);
+              		else
+              			leftRecords.add(dr.getRowId());
+      			}
+      		}
+		}
+		sourceCount = sourceCount + allRecords.size();
+		if(target.size()>0)
+		{
+	    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(target.get(0).getGroupId(), tenantId);
+	    	Long groupId = rg.getId();
+	    	
+	    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, target.get(0).getViewId());
+	    	Long viewId = dv.getId();
+	    	tViewId = viewId;
+      		for(ViewIdRowIdDTO dr : target)
+      		{
+      			DataViews dataView = dataViewsRepository.findOne(viewId);
+      			if(dataView != null)
+      			{
+      				ReconciliationResult recon = new ReconciliationResult();
+      				recon.setOriginalRowId(null);
+      				recon.setOriginalViewId(null);
+      				recon.setOriginalView(null);
+      				recon.setTargetRowId(dr.getRowId());
+      				recon.setTargetViewId(viewId);
+      				recon.setTargetView(dataView.getDataViewName());
+      				recon.setReconReference(reconReferenceId.toString());
+          			recon.setReconciliationRuleName("MANUAL");
+          			recon.setReconciliationRuleId(0L);
+          			recon.setReconJobReference(jobReference);
+          			recon.setReconciledDate(ZonedDateTime.now());
+          			recon.setTenantId(tenantId);
+          			recon.setReconciliationUserId(userId);
+          			recon.setReconciliationRuleGroupId(groupId);
+          			recon.setReconStatus("RECONCILED");
+          			recon.setCurrentRecordFlag(true);
+          			ReconciliationResult rs = reconciliationResultRepository.fetchTargetUniqueRecord(dr.getRowId(), tenantId, viewId, groupId);
+          			if(rs == null)
+          				allRecords.add(recon);
+          			else
+          				leftRecords.add(dr.getRowId());
+      			}
+      		}
+		}
+		
+      	reconciliationResultRepository.save(allRecords);	// Posting all records
+		targetCount = targetCount+(allRecords.size()-sourceCount);
+ 		log.info("Records Not Inserted: "+leftRecords);
+ 		log.info("Total Records Posted: "+ allRecords.size());
+ 		// Posting reconciliation source count in t_app_module_summary
+ 		log.info("Source Size: "+source.size());
+ 		log.info("Target Size: "+ target.size());
+ 		if(source.size()>0)
+ 		{
+ 			
+ 			String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(sViewId), "AMOUNT");
+ 	      	HashMap updateCountAmntsForSrc = reconciliationResultService.updateAppModuleSummaryForSource(amountQualifier, sViewId, recRuleGrpId, "Reconciliation", "Source", "RECONCILED", userId);
+ 		}
+ 		// 	Posting reconciliation target count in t_app_module_summary
+ 		if(target.size()>0)
+ 		{
+ 			
+ 			String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(tViewId), "AMOUNT");
+ 	      	HashMap updateCountAmntsForTrgt = reconciliationResultService.updateAppModuleSummaryForTarget(amountQualifier, tViewId, recRuleGrpId, "Reconciliation", "Target", "RECONCILED", userId);
+ 		}
+
+      	/* Logic to check if tenant has configured for Approvals */
+      	TenantConfigModules tenantConfigModulesList = tenantConfigModulesRepository.findByTenantIdAndModulesAndEnabledFlagTrue(tenantId, "RECON_APPROVALS");
+      	if(tenantConfigModulesList!=null){
+      	/* Logic to initiate approvals program after manual reconciliation */
+      	String prgmName="Recon Approvals";
+      	HashMap parameterSet=new HashMap();
+      	
+      	/* Fetching ApprRuleGrp from reconRuleGrp */
+      	RuleGroup ruleGrpData=ruleGroupRepository.findOne(recRuleGrpId);
+      	if(ruleGrpData!=null && ruleGrpData.getApprRuleGrpId()!=null)
+      		apprRuleGrp=ruleGrpData.getApprRuleGrpId();
+      	parameterSet.put("param1",apprRuleGrp );
+      	parameterSet.put("param3",jobReference );
+      	oozieService.jobIntiateForAcctAndRec(tenantId,userId,prgmName,parameterSet,null,request);
+      	}
+      	else{
+      		log.info("Tenant has not configured for Approvals");
+      	}
+ 	}
+	return errorReport;
+ }
+	
+ 		/**
+ 		 * Author: Shiva
+ 		 * Description: Fetching count and amounts based on view id and original row ids
+ 		 * params: viewId, rowIds
+ 		 * **/
+	    @PostMapping("/getCountAndAmountRecordWise")
+	    @Timed
+	    public HashMap getReconciliationDataByViewId(HttpServletRequest request, @RequestParam String viewId, @RequestBody List<Long> rowIds) throws ClassNotFoundException, SQLException
+	    {
+	    	log.info("Rest api for fetching count and amount based on view id "+viewId+"and row ids");
+	    	HashMap finalMap = new HashMap();
+	    	
+	    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+	    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+	    	
+	    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+	    	Long dataViewId = dv.getId();
+	    	
+	    	String amtQualifier = reconciliationResultService.getQualifier(BigInteger.valueOf(dataViewId));
+	    	finalMap = reconciliationResultService.getCountAndAmountRecordWise(dataViewId, rowIds, amtQualifier);
+	    	
+	    	return finalMap;
+	    }
+	    
+ 		/**
+ 		 * Author: Shiva
+ 		 * Description: Fetching count and amounts based on view id and original row ids
+ 		 * params: viewId, rowIds
+ 		 * **/
+	    @GetMapping("/getColumnNamesWithGroupByTrue")
+	    @Timed
+	    public List<HashMap> getColumnNamesWithGroupByTrue(@RequestParam Long viewId) throws ClassNotFoundException, SQLException
+	    {
+	    	log.info("Rest api for fetching column names with group by true for the view id: "+ viewId);
+	    	List<HashMap> finalMap = new ArrayList<HashMap>();
+	    	List<DataViewsColumns> dvcs = dataViewsColumnsRepository.findByDataViewIdAndGroupByIsTrue(viewId);
+	    	log.info("No of records fetched: "+ dvcs.size());
+	    	if(dvcs.size()>0)
+	    	{
+	    		for(DataViewsColumns dvc : dvcs)
+	    		{
+	    			HashMap hm = new HashMap();
+	    			hm.put("columnId", dvc.getId());
+	    			hm.put("columnName", dvc.getColumnName());
+	    			finalMap.add(hm);
+	    		}
+	    	}
+	    	log.info("Final Size: "+ finalMap.size());
+	    	return finalMap;
+	    }
+
+	    
+	    /** Author: Shiva
+	     * 	Purpose: Fetching RWQ Counts and Amounts based on groupBy
+		 *  Params: tenantId, groupId, rangeFrom, rangeTo, groupBy, sourceDataView, keyObjects
+		 *  Result: HashMap with RWQ header parameters list
+		 *  Date: 01-12-2017
+	     * @throws ClassNotFoundException 
+	     * @throws SQLException 
+	     * @throws ParseException 
+	     */
+/*	    @GetMapping("/getReconCountAmountsWithMultiCurrency")
+	    @Timed
+	    public HashMap getReconCountAmountsWithMultiCurrency(HttpServletRequest request,@RequestParam Long groupId, @RequestParam(value = "rangeFrom", required=true) String rangeFrom, @RequestParam(value = "rangeTo", required=true) String rangeTo,
+	    		@RequestParam(value = "groupBy", required=false) String groupBy, @RequestParam(value = "sourceViewId", required=false) Long sourceViewId,@RequestParam(value = "jobReference", required=false) String jobReference, @RequestParam(value = "columnId", required=false) Long columnId) throws ClassNotFoundException, SQLException, ParseException{
+	    	log.info("Rest api for getting reconciliation count and amounts for "+", rule group id: "+ groupId + ", groupBy: "+groupBy);
+	    	HashMap finalMap = new HashMap();
+	    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+	    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+	    	RuleGroup rg = ruleGroupRepository.findOne(groupId);
+	    	{
+	    		if(rg != null)
+	    		{
+	    			finalMap.put("ruleGroupId", rg.getId());
+	    			finalMap.put("ruleGroupName", rg.getName());
+	    			finalMap.put("groupBy", groupBy);
+	   				if(jobReference == null)
+	   				{
+	   					jobReference  = "";
+	   				}
+	           		List<HashMap> groupedList = new ArrayList<HashMap>();
+	           		if("rules".equalsIgnoreCase(groupBy))
+	           		{
+	           			log.info("Grouping by rules...");
+	           			String qualifier = reconciliationResultService.getQualifier(new BigInteger(sourceViewId.toString()));
+	           			String currencyQualifier = reconciliationResultService.getCurrencyQualifier(new BigInteger(sourceViewId.toString()));
+	           			if(currencyQualifier.length()>0)
+	           			{
+	           				List<String> distCurrencyCodes = reconciliationResultService.getDistinctTransDates(sourceViewId,rangeFrom,rangeTo,currencyQualifier);
+	           				log.info("Currency Codes: "+distCurrencyCodes);
+		           			if(qualifier.length()>0)
+		           			{
+		              			List<BigInteger> ruleIds = reconciliationResultRepository.fetchRuleIdsByGroupIdAndTenantId(tenantId, groupId,sourceViewId);
+		              			log.info("RuleIds: "+ ruleIds);
+		               			if(ruleIds.size()>0)
+		               			{
+		               				groupedList = reconciliationResultService.getGroupedRulesList(ruleIds, rangeFrom, rangeTo, sourceViewId, tenantId, groupId, qualifier, jobReference);
+		               			}
+		           			}	
+	           			}
+	       				finalMap.put("groupedList", groupedList);
+	           		}
+	           		else if("batch".equalsIgnoreCase(groupBy))
+	           		{
+	           			log.info("Grouping by batches...");
+	           			String qualifier = reconciliationResultService.getQualifier(new BigInteger(sourceViewId.toString()));
+	           			if(qualifier.length()>0)
+	           			{
+	           				List<String> batchNames = reconciliationResultService.getBatchNames(tenantId, groupId);
+	           				if(batchNames.size()>0)
+	           				{
+	           					groupedList = reconciliationResultService.getGroupedBatchesList(batchNames, rangeFrom, rangeTo, sourceViewId, tenantId, groupId,  qualifier, jobReference);
+	           				}
+	           			}
+	           			finalMap.put("groupedList", groupedList);
+	           		}
+	           		else if("days".equalsIgnoreCase(groupBy))
+	           		{
+	           			List<HashMap> transDatesList = new ArrayList<HashMap>();
+	           			log.info("Grouping by data...");
+	           			String qualifier = reconciliationResultService.getQualifier(new BigInteger(sourceViewId.toString()));
+	           			String currencyQualifier = reconciliationResultService.getCurrencyQualifier(new BigInteger(sourceViewId.toString()));
+	           			if(currencyQualifier.length()>0)
+	           			{
+		           			if(qualifier.length()>0)
+		           			{
+		             			String transDate = reconciliationResultService.getTransDateQualifier(new BigInteger(sourceViewId.toString()),"TRANSDATE");
+		             			List<String> distCurrencyCodes = reconciliationResultService.getDistinctColumnValues(sourceViewId,rangeFrom,rangeTo,currencyQualifier);
+		             			log.info("Currency Codes: "+distCurrencyCodes);
+		               			if(transDate.length()>0)
+		               			{
+		               				List<String> transDates = reconciliationResultService.getDistinctTransDates(sourceViewId, rangeFrom, rangeTo, transDate);
+		               				if(transDates.size()>0)
+		               				{
+		               					transDatesList = reconciliationResultService.getGroupedTransDatesListWithMultipleCurrencyTree(transDates, rangeFrom, rangeTo, sourceViewId, tenantId, groupId, transDate, qualifier, jobReference, distCurrencyCodes,currencyQualifier);
+		               				}
+		               			}
+		           			}
+	           			}
+	           			finalMap.put("groupedList", transDatesList);
+	           		}
+	           		else if("columnName".equalsIgnoreCase(groupBy))
+	           		{
+	           			log.info("Grouping by column name...");
+	           			String amountQualifier = reconciliationResultService.getQualifier(new BigInteger(sourceViewId.toString()));
+	           			if(amountQualifier.length()>0)
+	           			{
+	               			if(columnId != null)
+	               			{
+	               				List<String> distColValues = reconciliationResultService.getDistinctColValues(sourceViewId, rangeFrom, rangeTo, columnId, "fileDate");
+	               				if(distColValues.size()>0)
+	               				{
+	               					groupedList = reconciliationResultService.getGroupColumnValuesList(distColValues, rangeFrom, rangeTo, sourceViewId, tenantId, groupId, amountQualifier, columnId, jobReference);
+	               				}
+	               				finalMap.put("groupedList", groupedList);
+	               			}
+	           			}
+	           		}
+	           		else if("process".equalsIgnoreCase(groupBy))
+	            	{
+	            		log.info("Grouping by process...");
+	           	       	HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(groupId, tenantId);
+	           	       	List<BigInteger> distSrcIds = distinctViewIdMap.get("sourceViewIds");
+	           	       	//List<BigInteger> distTargetIds = distinctViewIdMap.get("targeViewIds");
+	           	       	if(distSrcIds.size()>0)
+	           	       	{
+	       					groupedList = reconciliationResultService.getGroupedProcessList(distSrcIds, rangeFrom, rangeTo, tenantId, groupId, jobReference);
+	           	       	}
+	           	       	finalMap.put("groupedList", groupedList);
+	           		}
+	    		}
+	    	}
+	    	return finalMap;
+	    }*/
+	    
+	    @GetMapping("/getColumnQualifierInfo")
+	    @Timed
+	    public List<HashMap> getColumnQualifierInfo(HttpServletRequest request, @RequestParam String viewId){
+	    {
+	    	List<HashMap> finalMap = new ArrayList<HashMap>();
+	    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+	    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+	    	
+	    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+	    	if(dv != null)
+	    	{
+	    		Long dataViewId = dv.getId();
+		    	log.info("Rest api for fetching qualifiers information based on view id: "+viewId+", tenant id: "+ tenantId);
+		    	List<String> lookupCodesByType = lookUpCodeRepository.fetchLookupsByTenantIdAndLookUpType(tenantId, "RECON_QUALIFIERS");
+		    	if(lookupCodesByType.size() > 0)
+		    	{
+		    		log.info("Look up types: "+lookupCodesByType);
+		    		for(String qualifier : lookupCodesByType)
+		    		{
+		    			log.info("ViewID:>> "+viewId+", Qualifier: "+qualifier);
+		    			DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndQualifier(dataViewId, qualifier);
+		    	    	if(dvc != null)
+		    	    	{
+		    	    		HashMap qualifierMap = new HashMap();
+		    				if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+		    				{
+		    					FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn().toString()));
+		    					if(ftl != null)
+		    					{
+		    						qualifierMap.put("qualifier", qualifier);
+		    						qualifierMap.put("columnName", ftl.getColumnAlias());
+		    						qualifierMap.put("columnId", dvc.getId());
+		    						qualifierMap.put("columnDisplayName", dvc.getColumnName());
+		    					}
+		    				}
+		    				else if("Data View".equalsIgnoreCase(dvc.getRefDvType()) || dvc.getRefDvType() == null)
+		    				{
+	    						qualifierMap.put("qualifier", qualifier);
+		    					qualifierMap.put("columnName", dvc.getColumnName());
+		    					qualifierMap.put("columnId", dvc.getId());
+		    					qualifierMap.put("columnDisplayName", dvc.getColumnName());
+		    				}
+		    				finalMap.add(qualifierMap);
+		    	    	}
+		    		}
+		    	}
+		    	else
+		    	{
+		    		log.info("There are no look up codes found for the tenant id "+ tenantId+", look up type: RECON_QUALIFIERS");
+		    	}
+	    	}
+	    	else
+	    	{
+	    		log.info("No data view id found with tenant id and id for display");
+	    	}
+
+	    	log.info("API execution completed. Final Size: "+finalMap.size());
+	    	return finalMap;
+	    }
+	    
+/*	    @GetMapping("/getColumnQualifierInfo")
+	    @Timed
+	    public HashMap getColumnQualifierInfo(@RequestParam(value = "qualifier", required=true) String qualifier, @RequestParam(value = "viewId", required=true) Long viewId){
+	    {
+	    	log.info("Rest api for getting column information for the qualifier: "+qualifier+", ViewId: "+ viewId);
+	    	HashMap finalMap = new HashMap();
+	    	DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndQualifier(viewId, qualifier);
+	    	if(dvc != null)
+	    	{
+				if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+				{
+					FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn().toString()));
+					if(ftl != null)
+					{
+						finalMap.put("columnName", ftl.getColumnAlias());
+						finalMap.put("columnId", dvc.getId());
+						finalMap.put("columnDisplayName", dvc.getColumnName());
+					}
+				}
+				else if("Data View".equalsIgnoreCase(dvc.getRefDvType()))
+				{
+					finalMap.put("columnName", dvc.getColumnName());
+					finalMap.put("columnId", dvc.getId());
+					finalMap.put("columnDisplayName", dvc.getColumnName());
+				}
+	    	}
+	    	return finalMap;
+	    }*/
+	}
+	    
+	/**Author: Shiva
+	 * params: Source Set Params and Target Set Params
+	 * Description: Exporting reconciliation data into Excel File
+	 * @throws SQLException 
+	 * @throws ClassNotFoundException 
+	 * @throws IOException 
+	 * @throws java.text.ParseException 
+	**/
+	@PostMapping("/exportReconDataToExcelFile")
+	@Timed
+	public HashMap exportReconDataToExcelFile(HttpServletRequest request,@RequestBody List<RWQDetailInfoDTO> params) throws ClassNotFoundException, SQLException, IOException, java.text.ParseException
+	{
+		log.info("Rest api for Exporting reconciliation data into excel file");	
+		Properties props =  propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		List<LinkedHashMap> sourceData = new ArrayList<LinkedHashMap>();
+		List<LinkedHashMap> targetData = new ArrayList<LinkedHashMap>();
+		String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss").format(new Date());
+		HashMap finalMap = new HashMap();
+		String groupName = "";
+		RuleGroup rgs = ruleGroupRepository.findByIdForDisplayAndTenantId(params.get(0).getGroupId(), tenantId);
+		RuleGroup rg = ruleGroupRepository.findOne(rgs.getId());
+		if(rg != null)
+		{
+			groupName = groupName+rg.getName();
+		}
+		String fileName="ReconciliationData_"+groupName+"_"+timeStamp+".xlsx";
+		if(params.size()>0)
+		{
+			// Fetching source and target data
+			for(RWQDetailInfoDTO recon : params)
+			{
+				if("source".equalsIgnoreCase(recon.getSourceOrTarget()))
+				{
+					/*sourceData = getReconciliationDataByViewId(0L, 25L,"YES",recon);*/
+					sourceData = getReconData(request,0L, 25L, "YES", recon);
+					log.info("Records fetched for exporting source data... "+sourceData.size());
+				}
+				else if("target".equalsIgnoreCase(recon.getSourceOrTarget()))
+				{
+					/*targetData = getReconciliationDataByViewId(0L, 25L, "YES",recon);*/
+					targetData = getReconData(request,0L, 25L, "YES", recon);
+					log.info("Records fetched for exporting target data... "+targetData.size());
+				}
+			}
+			log.info("Source Size: "+ sourceData.size());
+			log.info("Target Size: "+ targetData.size());
+			// Writing source and target data into excel work book
+			
+			String xlsxFileAddress = props.getProperty("localTempLocation")+"/"+fileName;
+			log.info("Local server file path: "+ xlsxFileAddress);
+
+			XSSFWorkbook workBook = new XSSFWorkbook();		// Creating Excel WorkBook
+			XSSFSheet source = workBook.createSheet("Source");	// Creating Sheet for Source
+			XSSFSheet target = workBook.createSheet("Target");	// Creating Sheet for Target
+			try
+			{
+				if(sourceData.size()>0)	// Writing source data into work sheets
+				{
+					log.info("In source...");
+					LinkedHashMap headerRowData = sourceData.get(0);
+					int headerCell = 0;
+					XSSFRow headerRow=source.createRow(0);
+					for(Object key : headerRowData.keySet())
+					{
+						headerRow.createCell(headerCell).setCellValue(key.toString());
+						headerCell++;
+					}
+					int rowNumber = 1;
+					for(LinkedHashMap sourceRec : sourceData)
+					{
+						XSSFRow currentRow=source.createRow(rowNumber);
+						int cellIndex = 0;
+	    	     	    for(Object key : sourceRec.keySet())
+	    	     	    {
+	    	     	    	if(sourceRec.get(key.toString()) != null)
+	    	     	    	{
+	    	     	    		currentRow.createCell(cellIndex).setCellValue(sourceRec.get(key.toString()).toString());
+	    	     	    	}
+	    	     	    	cellIndex ++;
+	    	     	    }
+	    	     	   rowNumber++;
+					}
+				}
+				if(targetData.size()>0)	// Writing target data into excel
+				{
+					log.info("In target...");
+					LinkedHashMap headerRowData = targetData.get(0);
+					int headerCell = 0;
+					XSSFRow headerRow=target.createRow(0);
+					for(Object key : headerRowData.keySet())
+					{
+						headerRow.createCell(headerCell).setCellValue(key.toString());
+						headerCell++;
+					}
+					int rowNumber = 1;
+					for(LinkedHashMap targetRec : targetData)
+					{
+						XSSFRow currentRow=target.createRow(rowNumber);
+						int cellIndex = 0;
+	    	     	    for(Object key : targetRec.keySet())
+	    	     	    {
+	    	     	    	if(targetRec.get(key.toString()) != null)
+	    	     	    	{
+	    	     	    		currentRow.createCell(cellIndex).setCellValue(targetRec.get(key.toString()).toString());
+	    	     	    	}
+	    	     	    	cellIndex ++;
+	    	     	    }
+	    	     	   rowNumber++;
+					}
+				}
+				// Writing data into excel file
+	    		FileOutputStream fileOutputStream =  new FileOutputStream(xlsxFileAddress);
+	    		workBook.write(fileOutputStream);
+	    		fileOutputStream.close();
+	    		System.out.println("Writing recon data into excel file has been completed...");
+			}
+			catch(Exception e)
+			{
+				log.info("Exception: "+ e);
+			}
+		}
+		//sftpFileTargetFolder
+		log.info("Uploading file into the remote server...");
+		File file = new File(props.getProperty("localTempLocation")+"/"+fileName);
+    	InputStream inputStream=new FileInputStream(file);
+    	fileService.fileUpload(inputStream, fileName);
+    	finalMap.put("excelFilePath", props.getProperty("sftpFileTargetFolder")+fileName);
+    	log.info(fileName + " has been moved into the remote server to the path: "+props.getProperty("sftpFileTargetFolder")+fileName);
+		return finalMap;
+	}
+	
+	 /**
+	  * Author: Jagan
+	  * @param reconcileRefIds, tenantId
+	  * Description: Processing Manual Unreconciliation Data
+	  * @return void
+	 * @throws SQLException 	
+	 * @throws ClassNotFoundException 
+	  */
+	 @PostMapping("/processManualUnReconDataAutoAcct")
+	 @Timed
+	 public ErrorReport processManualUnReconDataAutoAcct(HttpServletRequest request,  @RequestParam(value = "groupId", required=true) String groupId, @RequestParam(value = "type", required=true) String type,
+			 @RequestParam(value = "rangeFrom", required=true) String rangeFrom, @RequestParam(value = "rangeTo", required=true) String rangeTo,
+	 @RequestParam(value = "groupBy", required=true) String groupBy,@RequestParam(value = "viewId", required=true) String viewId, @RequestParam(value = "unReconcileType", required=true) String unReconcileType, @RequestBody RWQDataFetchDTO keyValues) throws URISyntaxException, SQLException, ClassNotFoundException {
+	 	log.info("Rest api for posting manual unreconciliation data");
+	 	
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	Long userId=Long.parseLong(map.get("userId").toString());
+	 	log.info("tenantId: "+tenantId+", userId: "+userId);
+	 	String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date());
+		String jobReference = "MANUAL_"+timeStamp;
+		timeStamp=timeStamp.replaceAll(" ", "_");
+		log.info("Job Reference: "+jobReference);
+	 	ManualUnRecByColumnDTO colmnInfo = keyValues.getColumnValues();
+	 	ErrorReport errorReport = new ErrorReport();
+	 	
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+    	Long ruleGroupId = rg.getId();
+    	
+    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+    	Long dataViewId = dv.getId();
+	 	
+	 	List<RuleGroup> accountingGroupIdTagged = ruleGroupRepository.findByTenantIdAndRulePurposeAndReconciliationGroupId(tenantId, "ACCOUNTING", ruleGroupId);
+	 	String transDateColumn = reconciliationResultService.getTransDateQualifier(BigInteger.valueOf(dataViewId), "TRANSDATE");
+	 	List<BigInteger> allOriginalIds = reconciliationResultService.getViewOriginalIds(dataViewId, rangeFrom, rangeTo, transDateColumn);
+	 	log.info("accountingGroupIdTagged: "+accountingGroupIdTagged);
+	 	log.info("transDateColumn: "+ transDateColumn);
+	 	
+	 	if("recordwise".equalsIgnoreCase(type))
+	 	{
+	 		log.info("Manul Un-Reconciliation with Record wise...");
+	 		List<String> reconRefs = keyValues.getReconReferences();
+	 		log.info("ReconReferences Size: "+reconRefs.size());
+	 		log.info("ReconReferences: "+reconRefs);
+	 		if(reconRefs.size()>0)
+	 		{
+	 			if("unReconcile".equalsIgnoreCase(unReconcileType))
+	 			{
+	 				log.info("UnReconcile");
+	 				reconciliationResultService.unReconcileBasedOnReconRefs(reconRefs,accountingGroupIdTagged,tenantId,userId,jobReference);
+	 			}
+	 			else if("clearReconcile".equalsIgnoreCase(unReconcileType))
+	 			{
+	 				log.info("ClearReconcile");
+	 				List<ReconciliationResult> recResults = reconciliationResultRepository.fetchRecordsByReconReferenceIds(reconRefs);
+	 				reconciliationResultRepository.delete(recResults);
+	 			}
+	 			List<BigInteger> targetViewIds = reconciliationResultRepository.fetchTargetViewIdsByReconReference(ruleGroupId, reconRefs);
+	 			targetViewIds.remove(null);
+	 			if(targetViewIds.size()>0)
+	 			{
+	 				Long targetViewId = Long.parseLong(targetViewIds.get(0).toString());
+	 		 		String tAmountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(targetViewId), "AMOUNT");
+	 		 	    HashMap updateCountAmntsForSrc = reconciliationResultService.updateAppModuleSummaryForTarget(tAmountQualifier, targetViewId, ruleGroupId, "Reconciliation", "Target", "RECONCILED", userId);
+	 			}
+	 		}
+	 	}
+	 	else if("batchwise".equalsIgnoreCase(type))
+	 	{
+	 		List<String> recRefs = new ArrayList<String>();
+	 		log.info("Manul Un-Reconciliation with Batch wise...");
+	 		if("rules".equalsIgnoreCase(groupBy))
+	 		{
+	 			log.info("Manul Un-Reconciliation with rules..");
+	 			if(keyValues.getRuleIds() != null && keyValues.getRuleIds().size()>0)
+	 			{
+	 				log.info("RuleIds: "+ keyValues.getRuleIds());
+	 				recRefs = reconciliationResultRepository.fetchDistinctReconReferenceByOriginalIdsNViewIdNRuleIds(allOriginalIds, ruleGroupId, dataViewId,tenantId, keyValues.getRuleIds());
+	 				log.info("ReconReferences Size: "+recRefs.size());
+	 				if(recRefs.size()>0)
+	 				{
+	 					if("unReconcile".equalsIgnoreCase(unReconcileType))
+	 		 			{
+	 						reconciliationResultService.unReconcileBasedOnReconRefs(recRefs,accountingGroupIdTagged,tenantId, userId,jobReference);
+	 		 			}
+	 					else if("clearReconcile".equalsIgnoreCase(unReconcileType))
+	 		 			{
+	 						List<ReconciliationResult> recResults = reconciliationResultRepository.fetchRecordsByReconReferenceIds(recRefs);
+	 		 				reconciliationResultRepository.delete(recResults);
+	 		 			}
+	 				}
+	 			}
+	 		}
+	 		else if("batch".equalsIgnoreCase(groupBy))
+	 		{
+	 			log.info("Manul Un-Reconciliation with batches..");
+	 			if(keyValues.getBatchNames() != null && keyValues.getBatchNames().size()>0)
+	 			{
+	 				log.info("Batches: "+keyValues.getBatchNames());
+	 				recRefs = reconciliationResultRepository.fetchDistinctReconReferenceByOriginalIdsNViewIdNBatches(allOriginalIds, ruleGroupId, dataViewId,tenantId, keyValues.getBatchNames());
+	 				log.info("Recon References Size: "+recRefs.size());
+	 				if(recRefs.size()>0)
+	 				{
+	 					if("unReconcile".equalsIgnoreCase(unReconcileType))
+	 		 			{
+	 						reconciliationResultService.unReconcileBasedOnReconRefs(recRefs,accountingGroupIdTagged,tenantId, userId,jobReference);
+	 		 			}
+	 					else if("clearReconcile".equalsIgnoreCase(unReconcileType))
+	 		 			{
+	 						List<ReconciliationResult> recResults = reconciliationResultRepository.fetchRecordsByReconReferenceIds(recRefs);
+	 		 				reconciliationResultRepository.delete(recResults);
+	 		 			}
+	 				}
+	 			}
+	 		}
+	 		else if("days".equalsIgnoreCase(groupBy))
+	 		{
+	 			log.info("Manul Un-Reconciliation with days..");
+	 			if(keyValues.getDays() != null && keyValues.getDays().size()>0)
+	 			{
+	 				String transDateQualifier = reconciliationResultService.getTransDateQualifier(new BigInteger(viewId.toString()),"TRANSDATE");
+	 				log.info("TransDateQualifier: "+transDateQualifier);
+	 				List<BigInteger> totalIds =  reconciliationResultService.getOriginalIdsByTransDates(dataViewId, rangeFrom, rangeTo, transDateQualifier, keyValues.getDays());
+	 				log.info("TotalIds Sizse: "+ totalIds.size());
+	 				if(totalIds.size()>0)
+	 				{
+		 				recRefs = reconciliationResultRepository.fetchDistinctReconReferenceByOriginalIdsNViewId(totalIds, ruleGroupId, dataViewId,tenantId);
+		 				log.info("ReconReferenceSize: "+recRefs.size());
+		 				if(recRefs.size()>0)
+		 				{
+		 					if("unReconcile".equalsIgnoreCase(unReconcileType))
+		 		 			{
+		 						reconciliationResultService.unReconcileBasedOnReconRefs(recRefs,accountingGroupIdTagged,tenantId, userId,jobReference);
+		 		 			}
+		 					else if("clearReconcile".equalsIgnoreCase(unReconcileType))
+		 		 			{
+		 						List<ReconciliationResult> recResults = reconciliationResultRepository.fetchRecordsByReconReferenceIds(recRefs);
+		 		 				reconciliationResultRepository.delete(recResults);
+		 		 			}
+		 				}
+	 				}
+	 			}
+	 		}
+	 		else if("columnName".equalsIgnoreCase(groupBy))
+	 		{
+	 			log.info("Manul Un-Reconciliation with column Name..");
+	 			String dataViewColName = reconciliationResultService.getDataViewColumnName(colmnInfo.getColumnId());
+	 			List<String> colValues = colmnInfo.getColumnValues();
+	 			if(colValues.size()>0)
+	 			{
+	 				log.info("Column Values: "+colValues);
+	 				List<BigInteger> totalIds = reconciliationResultService.fetchTotalIdsByColmnNameNColValues(dataViewId, dataViewColName, rangeFrom, rangeTo, colValues, colmnInfo.getColumnId());
+	 				if(totalIds.size()>0)
+	 				{
+		 				recRefs = reconciliationResultRepository.fetchDistinctReconReferenceByOriginalIdsNViewId(totalIds, ruleGroupId, dataViewId,tenantId);
+		 				log.info("Recon Ref Size: "+recRefs.size());
+		 				if(recRefs.size()>0)
+		 				{
+		 					if("unReconcile".equalsIgnoreCase(unReconcileType))
+		 		 			{
+		 						reconciliationResultService.unReconcileBasedOnReconRefs(recRefs,accountingGroupIdTagged,tenantId, userId,jobReference);
+		 		 			}
+		 					else if("clearReconcile".equalsIgnoreCase(unReconcileType))
+		 		 			{
+		 						List<ReconciliationResult> recResults = reconciliationResultRepository.fetchRecordsByReconReferenceIds(recRefs);
+		 		 				reconciliationResultRepository.delete(recResults);
+		 		 			}
+		 				}
+	 				}
+	 			}
+	 		}
+	 		else if("process".equalsIgnoreCase(groupBy))
+	 		{
+	 			log.info("Manual Un-Reconciliation with process...");
+	 			List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(dataViewId, rangeFrom, rangeTo, transDateColumn);
+	 			if(totalIds.size()>0)
+	 			{
+		 			recRefs = reconciliationResultRepository.fetchRecRefByViewId(tenantId, ruleGroupId, dataViewId, totalIds);
+		 			if(recRefs.size()>0)
+		 			{
+		 				if("unReconcile".equalsIgnoreCase(unReconcileType))
+	 		 			{
+		 					reconciliationResultService.unReconcileBasedOnReconRefs(recRefs,accountingGroupIdTagged,tenantId, userId,jobReference);
+	 		 			}
+		 				else if("clearReconcile".equalsIgnoreCase(unReconcileType))
+	 		 			{
+		 					List<ReconciliationResult> recResults = reconciliationResultRepository.fetchRecordsByReconReferenceIds(recRefs);
+	 		 				reconciliationResultRepository.delete(recResults);
+	 		 			}
+		 			}
+	 			}
+	 		}
+	 		log.info("Recon Reference Size: "+ recRefs.size());
+	 		if(recRefs.size()>0)
+	 		{
+	 			List<BigInteger> targetViewIds = reconciliationResultRepository.fetchTargetViewIdsByReconReference(ruleGroupId, recRefs);
+	 			targetViewIds.remove(null);
+	 			if(targetViewIds.size()>0)
+	 			{
+	 				Long targetViewId = Long.parseLong(targetViewIds.get(0).toString());
+	 		 		String tAmountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(targetViewId), "AMOUNT");
+	 		 	    HashMap updateCountAmntsForSrc = reconciliationResultService.updateAppModuleSummaryForTarget(tAmountQualifier, targetViewId, ruleGroupId, "Reconciliation", "Target", "RECONCILED", userId);
+	 			}
+	 		}
+	 	}
+	 	// Updating count and amounts app_module_summary table
+ 		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(dataViewId), "AMOUNT");
+ 	    HashMap updateCountAmntsForSrc = reconciliationResultService.updateAppModuleSummaryForSource(amountQualifier, dataViewId, ruleGroupId, "Reconciliation", "Source", "RECONCILED", userId);
+		 	    
+		return errorReport;
+	 }
+
+	 @PostMapping("/tesAppModuleSummary")
+	 @Timed
+	 public HashMap testAppModuleSummary(@RequestParam Long id/*@RequestParam Long ruleId*/) throws ClassNotFoundException, SQLException
+	 {
+		 log.info("testAppModuleSummary API Has been called through Java Application: "+id);
+		 HashMap hms = new HashMap();
+		 
+		 return hms;
+	 }
+	 
+	    
+	    @GetMapping("/getReconSummaryByRuleGroup")
+	    @Timed
+	    public List<HashMap> getReconSummaryByRuleGroup(HttpServletRequest request) throws ClassNotFoundException, SQLException
+	    {
+	    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+	    	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+	    	log.info("Rest API for fetching recon count and amounts for source and target views by reconciliation rule group for the tenant id: "+tenantId);
+	    	List<HashMap> finalMap = new ArrayList<HashMap>();
+	    	HashMap resultMap = new HashMap();
+	    	resultMap = reconciliationResultService.getReconSummaryByRuleGroup(tenantId);
+	    	if(resultMap.size()>0)
+	    	{
+	    		Iterator it = resultMap.entrySet().iterator();
+	    		while (it.hasNext()) {
+	    			HashMap group = new HashMap();
+	    			Map.Entry pair = (Map.Entry)it.next();
+	    			Long groupId = Long.parseLong(pair.getKey().toString());
+	    			HashMap groupInfo = (HashMap) pair.getValue();
+	    				
+	    			group.put("groupId", groupInfo.get("groupId"));
+	    			group.put("groupName", groupInfo.get("groupName"));
+	    			List<HashMap> summary = (List<HashMap>) groupInfo.get("summary");
+	    			group.put("summary", summary);
+	    			finalMap.add(group);
+	    		}
+	    	}
+
+	    	return finalMap;
+	    }
+	    
+	    
+	    /**
+	     * Author: Shiva
+	     * @throws IOException 
+	     *  
+	     * **/
+	    @PostMapping("/getReconciledTransactions")
+	    @Timed
+	    public List<LinkedHashMap> reconOutBoundAPI(HttpServletRequest request,HttpServletResponse response,
+	    		@RequestParam(value = "ruleGroupName", required=true) String ruleGroupName, 
+	    		@RequestParam(value = "sourceViewName", required=true) String sourceViewName,
+	    		@RequestParam(value = "targetViewName", required=true) String targetViewName,
+	    		@RequestParam(value = "pageNumber", required=false) Long pageNumber,
+	    		@RequestParam(value = "pageSize", required=false) Long pageSize,
+	    		@RequestParam(value = "fileExport", required=false) String fileExport,
+	    		@RequestParam(value = "fileType", required=false) String fileType,
+	    		@RequestBody HashMap<String, List<String>> filterColumns) throws IOException{
+	    	log.info("HashMap "+ filterColumns);
+	    	// Status Reconciled, Not Reconciled
+	    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+	    	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+	    	Long userId = Long.parseLong(map.get("userId").toString());
+	    	List<LinkedHashMap> finalList = new ArrayList<LinkedHashMap>();
+	    	String ruleIdString = "";
+	    	String paginationCondition = "";
+	    	if(pageNumber != null && pageSize != null)
+	    	{
+				Long limit = 0L;
+				limit = (pageNumber * pageSize + 1)-1;
+				paginationCondition = "limit "+limit+", "+pageSize;
+	    	}
+
+	    	sourceViewName = sourceViewName +"_"+tenantId;
+	    	targetViewName = targetViewName +"_"+tenantId;
+	    	log.info("Rule Ids String: "+ruleIdString);
+	    	HashMap reconInputs = reconciliationResultService.getReconSrcTrgtRulesInfo(ruleGroupName, sourceViewName, targetViewName, ruleIdString);	    	
+	    	log.info("Recon Inputs: "+reconInputs);
+	    	List<Long> inputRuleIds = (List<Long>) reconInputs.get("ruleIds");
+	    	List<String> columnNames = new ArrayList<String>();
+
+	    	if(inputRuleIds.size()>0)
+	    	{
+	    		if(reconInputs.get("sViewId") != null && reconInputs.get("tViewId") != null)
+	    		{
+	    			Long sViewId = Long.parseLong(reconInputs.get("sViewId").toString());
+	    			Long tViewId = Long.parseLong(reconInputs.get("tViewId").toString());
+	    			Long groupId = Long.parseLong(reconInputs.get("groupId").toString());
+	    			
+	    			List<String> srcColumns = reconciliationResultService.getColumnAlilasByViewId(sViewId);
+	    			srcColumns.remove("scrIds");
+	    			srcColumns.remove("srcFileInbId");
+	    			srcColumns.remove("fileDate");
+	    			List<String> trColumns = reconciliationResultService.getColumnAlilasByViewId(tViewId);
+	    			trColumns.remove("scrIds");
+	    			trColumns.remove("srcFileInbId");
+	    			trColumns.remove("fileDate");
+	    			columnNames.add("src_rec_ref");
+	    			columnNames.addAll(srcColumns);
+	    			columnNames.add("target_rec_ref");
+	    			columnNames.addAll(trColumns);
+	    			String srcQuery = "";
+	    			String trgtQuery = "";
+			    	if(filterColumns != null && filterColumns.size()>0)
+			    	{
+			    		HashMap sHeaderCols = reconciliationResultService.getColHeadersMapInSequence(sViewId, groupId, tenantId, "source");
+			    		HashMap tHeaderCols = reconciliationResultService.getColHeadersMapInSequence(sViewId, groupId, tenantId, "target");
+			    		HashMap srcTrgtCols =  new HashMap();
+			    		srcTrgtCols.putAll(sHeaderCols);
+			    		srcTrgtCols.putAll(tHeaderCols);
+			    		
+			    		Iterator it = filterColumns.entrySet().iterator();
+			    		while(it.hasNext())
+			    		{
+			    			Map.Entry<String, List<String>> pair = (Map.Entry<String, List<String>>)it.next();
+			    			String columnName = pair.getKey();
+			    			List<String> values = pair.getValue();
+			    			if(sHeaderCols.containsKey(columnName))
+			    			{
+			    				String valuesAsString = reconciliationResultService.getStringWithStrings(values);
+			    				srcQuery = srcQuery + " AND "+columnName + " in ("+valuesAsString+") ";
+			    			}
+			    			if(tHeaderCols.containsKey(columnName))
+			    			{
+			    				String valuesAsString = reconciliationResultService.getStringWithStrings(values);
+			    				trgtQuery = trgtQuery + " AND "+columnName + " in ("+valuesAsString+") ";			    				
+			    			}
+			    		}
+			    	}
+	    			String inputRuleIdString = reconciliationResultService.getStringWithNumbers(inputRuleIds);
+	    			finalList = reconciliationResultService.getReconciledTransactionData(sourceViewName, targetViewName, groupId, sViewId, tViewId, inputRuleIdString, paginationCondition, srcQuery, trgtQuery);
+	    			log.info("Reconciled OutBound Data Size: "+ finalList.size());
+	    		}
+	    		else
+	    		{
+	    			log.info("Source Or Target Views Ids Doesn't exist.");
+	    		}
+	    	}
+
+	    	// Exporting to file
+	    	if(fileExport != null && fileExport.length()>0 && fileType != null && fileType.length()>0)
+	    	{
+		    	log.info("Exporting data into the file . . .");
+	        	if(fileType.equalsIgnoreCase("csv"))
+	        	{
+	        		log.info("Exporting data into CSV File...");
+	        		response.setContentType ("application/csv");
+	        		response.setHeader ("Content-Disposition", "attachment; filename=\"ReconciledTransactions.csv\"");
+	        		fileExportService.jsonToCSV(finalList,columnNames,response.getWriter());
+	        	}
+	        	if(fileType.equalsIgnoreCase("pdf"))
+	        	{
+	        		log.info("Exporting data into PDF File...");
+	        		response.setContentType ("application/pdf");
+	        		response.setHeader ("Content-Disposition", "attachment; filename=\"ReconciledTransactions.pdf\"");
+	        		fileExportService.jsonToCSV(finalList, columnNames,response.getWriter());
+	        	}
+	        	else if(fileType.equalsIgnoreCase("excel"))
+	        	{
+	        		response.setContentType("application/vnd.ms-excel");
+	        		response.setHeader("Content-Disposition","attachment; filename=\"ReconciledTransactions.xlsx\"");
+	        		fileExportService.jsonToCSV(finalList, columnNames,response.getWriter());
+	        	}	   
+	        	return null;
+	    	}
+	    	else
+	    	{
+		    	return finalList;
+	    	}
+	    }
+	    
+	    
+	    /**
+	     * Author: Shiva
+	     * @throws IOException 
+	     *  
+	     * **/
+	    @PostMapping("/getUnReconciledTransactions")
+	    @Timed
+	    public List<LinkedHashMap> unReconOutBoundAPI(HttpServletRequest request,HttpServletResponse response,
+	    		@RequestParam(value = "ruleGroupName", required=true) String ruleGroupName, 
+	    		@RequestParam(value = "sourceViewName", required=false) String sourceViewName,
+	    		@RequestParam(value = "targetViewName", required=false) String targetViewName,
+	    		@RequestParam(value = "pageNumber", required=false) Long pageNumber,
+	    		@RequestParam(value = "pageSize", required=false) Long pageSize,
+	    		@RequestParam(value = "fileExport", required=false) String fileExport,
+	    		@RequestParam(value = "fileType", required=false) String fileType,
+	    		@RequestBody HashMap<String, List<String>> filterColumns) throws IOException{
+	    	
+	    	log.info("Rest API for fetching un reconciled transactions data");
+	    	String paginationCondition = "";
+	    	if(pageNumber != null && pageSize != null)
+	    	{
+				Long limit = 0L;
+				limit = (pageNumber * pageSize + 1)-1;
+				paginationCondition = "limit "+limit+", "+pageSize;
+	    	}
+
+	    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+	    	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+	    	Long userId = Long.parseLong(map.get("userId").toString());
+
+	    	List<LinkedHashMap> finalList = new ArrayList<LinkedHashMap>();
+	    	HashMap inputsInfo = null;
+	    	String sourceOrTarget = "";
+	    	if(sourceViewName != null)
+	    	{
+	    		sourceViewName = sourceViewName+"_"+tenantId;
+	    		inputsInfo = reconciliationResultService.getReconInputsInfo("source", ruleGroupName, sourceViewName);
+	    		sourceOrTarget = "source";
+	    	}
+	    	else if(targetViewName != null)
+	    	{
+	    		targetViewName = targetViewName+"_"+tenantId;
+	    		inputsInfo = reconciliationResultService.getReconInputsInfo("target", ruleGroupName, targetViewName);
+	    		sourceOrTarget = "target";
+	    	}
+	    	log.info("Recon Input Parameter Obj: "+ inputsInfo);
+	    	HashMap headerColumns = null;
+	    	if(inputsInfo != null && inputsInfo.size()>0)
+	    	{
+	    		Long groupId = Long.parseLong(inputsInfo.get("groupId").toString());
+	    		Long viewId = Long.parseLong(inputsInfo.get("viewId").toString());
+	    		String viewName = inputsInfo.get("viewName").toString();
+	    		String filterQuery = "";
+	    		if(sourceViewName != null)
+	    		{
+	    			headerColumns = reconciliationResultService.getColHeadersMapInSequence(viewId, groupId, tenantId, "source");
+	    		}
+	    		else if(targetViewName != null)
+	    		{
+	    			headerColumns = reconciliationResultService.getColHeadersMapInSequence(viewId, groupId, tenantId, "target");
+	    		}
+	    		
+	    		List<String> colString = new ArrayList<String>();
+	    		colString = reconciliationResultService.getColumnsAsList(headerColumns);
+	    		
+	    		if(filterColumns != null && filterColumns.size()>0)
+		    	{
+		    		Iterator it = filterColumns.entrySet().iterator();
+		    		while(it.hasNext())
+		    		{
+		    			Map.Entry<String, List<String>> pair = (Map.Entry<String, List<String>>)it.next();
+		    			String columnName = pair.getKey();
+		    			List<String> values = pair.getValue();
+		    			if(headerColumns.containsKey(columnName))
+		    			{
+		    				String valuesAsString = reconciliationResultService.getStringWithStrings(values);
+		    				filterQuery = filterQuery + " AND "+columnName + " in ("+valuesAsString+") ";
+		    			}
+		    		}
+		    	}
+	    		finalList = reconciliationResultService.getUnReconciledTransactions(sourceOrTarget, groupId, viewId, viewName, paginationCondition, filterQuery);
+	    		log.info("Final Data Size: "+ finalList.size());
+	    		
+		    	// Exporting to file
+		    	if(fileExport != null && fileExport.length()>0 && fileType != null && fileType.length()>0)
+		    	{
+			    	log.info("Exporting data into the file . . .");
+		        	if(fileType.equalsIgnoreCase("csv"))
+		        	{
+		        		log.info("Exporting data into CSV File...");
+		        		response.setContentType ("application/csv");
+		        		response.setHeader ("Content-Disposition", "attachment; filename=\"UnRecTransactions.csv\"");
+		        		fileExportService.jsonToCSV(finalList,colString,response.getWriter());
+		        	}
+		        	if(fileType.equalsIgnoreCase("pdf"))
+		        	{
+		        		log.info("Exporting data into PDF File...");
+		        		response.setContentType ("application/pdf");
+		        		response.setHeader ("Content-Disposition", "attachment; filename=\"UnRecTransactions.pdf\"");
+		        		fileExportService.jsonToCSV(finalList, colString,response.getWriter());
+		        	}
+		        	else if(fileType.equalsIgnoreCase("excel"))
+		        	{
+		        		response.setContentType("application/vnd.ms-excel");
+		        		response.setHeader(
+		        				"Content-Disposition",
+		        				"attachment; filename=\"UnRecTransactions.xlsx\""
+		        				);
+		        		fileExportService.jsonToCSV(finalList, colString,response.getWriter());
+		        	}	
+		        	return null;
+		    	}	
+		    	else
+		    	{
+			    	return finalList;
+		    	}
+	    	}
+	    	else 
+	    	{
+	    		return finalList;	
+	    	}
+	    }
+}

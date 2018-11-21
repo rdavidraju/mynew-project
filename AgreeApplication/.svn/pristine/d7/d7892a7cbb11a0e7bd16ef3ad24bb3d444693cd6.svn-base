@@ -1,0 +1,726 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.BatchHeader;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.domain.SourceFileInbHistory;
+import com.nspl.app.domain.SourceProfileFileAssignments;
+import com.nspl.app.domain.SourceProfiles;
+import com.nspl.app.repository.BatchHeaderRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.SourceFileInbHistoryRepository;
+import com.nspl.app.repository.SourceProfileFileAssignmentsRepository;
+import com.nspl.app.repository.SourceProfilesRepository;
+import com.nspl.app.repository.search.BatchHeaderSearchRepository;
+import com.nspl.app.service.OozieService;
+import com.nspl.app.web.rest.dto.BatchDetailsDTO;
+import com.nspl.app.web.rest.dto.BatchHeaderDTO;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+import org.springframework.data.domain.Sort.Direction;
+/**
+ * REST controller for managing BatchHeader.
+ */
+@RestController
+@RequestMapping("/api")
+public class BatchHeaderResource {
+
+    private final Logger log = LoggerFactory.getLogger(BatchHeaderResource.class);
+
+    private static final String ENTITY_NAME = "batchHeader";
+
+    private final BatchHeaderRepository batchHeaderRepository;
+    
+    private final SourceFileInbHistoryRepository sourceFileInbHistoryRepository;
+    
+    private final SourceProfilesRepository sourceProfilesRepository;
+    
+    private final SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository;
+    
+    private final FileTemplatesRepository fileTemplatesRepository;
+    
+    private final BatchHeaderSearchRepository batchHeaderSearchRepository; 
+    
+    private final SchedulerDetailsRepository schedulerDetailsRepository;
+    
+    @Inject
+ 	OozieService oozieService;
+    
+    public BatchHeaderResource(BatchHeaderRepository batchHeaderRepository,
+    		SourceFileInbHistoryRepository sourceFileInbHistoryRepository,
+    		SourceProfilesRepository sourceProfilesRepository,
+    		SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository,
+    		FileTemplatesRepository fileTemplatesRepository,
+    		BatchHeaderSearchRepository batchHeaderSearchRepository,
+    		SchedulerDetailsRepository schedulerDetailsRepository
+    		) {
+        this.batchHeaderRepository = batchHeaderRepository;
+        this.sourceFileInbHistoryRepository = sourceFileInbHistoryRepository;
+        this.sourceProfilesRepository = sourceProfilesRepository;
+        this.sourceProfileFileAssignmentsRepository = sourceProfileFileAssignmentsRepository;
+        this.fileTemplatesRepository = fileTemplatesRepository;
+        this.batchHeaderSearchRepository = batchHeaderSearchRepository;
+        this.schedulerDetailsRepository = schedulerDetailsRepository;
+    }
+
+    /**
+     * POST  /batch-headers : Create a new batchHeader.
+     *
+     * @param batchHeader the batchHeader to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new batchHeader, or with status 400 (Bad Request) if the batchHeader has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/batch-headers")
+    @Timed
+    public ResponseEntity<BatchHeader> createBatchHeader(@RequestBody BatchHeader batchHeader) throws URISyntaxException {
+        log.debug("REST request to save BatchHeader : {}", batchHeader);
+        if (batchHeader.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new batchHeader cannot already have an ID")).body(null);
+        }
+        BatchHeader result = batchHeaderRepository.save(batchHeader);
+        batchHeaderSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/batch-headers/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /batch-headers : Updates an existing batchHeader.
+     *
+     * @param batchHeader the batchHeader to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated batchHeader,
+     * or with status 400 (Bad Request) if the batchHeader is not valid,
+     * or with status 500 (Internal Server Error) if the batchHeader couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/batch-headers")
+    @Timed
+    public ResponseEntity<BatchHeader> updateBatchHeader(@RequestBody BatchHeader batchHeader) throws URISyntaxException {
+        log.debug("REST request to update BatchHeader : {}", batchHeader);
+        if (batchHeader.getId() == null) {
+            return createBatchHeader(batchHeader);
+        }
+        BatchHeader result = batchHeaderRepository.save(batchHeader);
+        batchHeaderSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, batchHeader.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /batch-headers : get all the batchHeaders.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of batchHeaders in body
+     */
+    @GetMapping("/batch-headers")
+    @Timed
+    public ResponseEntity<List<BatchHeader>> getAllBatchHeaders(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of BatchHeaders");
+        Page<BatchHeader> page = batchHeaderRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/batch-headers");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /batch-headers/:id : get the "id" batchHeader.
+     *
+     * @param id the id of the batchHeader to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the batchHeader, or with status 404 (Not Found)
+     */
+    @GetMapping("/batch-headers/{id}")
+    @Timed
+    public ResponseEntity<BatchHeader> getBatchHeader(@PathVariable Long id) {
+        log.debug("REST request to get BatchHeader : {}", id);
+        BatchHeader batchHeader = batchHeaderRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(batchHeader));
+    }
+
+    /**
+     * DELETE  /batch-headers/:id : delete the "id" batchHeader.
+     *
+     * @param id the id of the batchHeader to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/batch-headers/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteBatchHeader(@PathVariable Long id) {
+        log.debug("REST request to delete BatchHeader : {}", id);
+        batchHeaderRepository.delete(id);
+        batchHeaderSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Shiva
+     * @param tenantId
+     * @param filterValue
+     * @param pageable
+     * @return
+     */
+    @GetMapping("/_search/batch-header")
+    @Timed
+    public List<BatchHeader> searchBatchHeader(@RequestParam Long tenantId, @RequestParam(value="filterValue",required=false) String filterValue,@RequestParam(value = "pageNumber", required=false) Long pageNumber, @RequestParam(value = "pageSize", required=false) Long pageSize) {
+    	log.info("Rest api for fetching batch header data usgin full text search for the tenant_id: "+tenantId);
+		Long limit = 0L;
+		limit = (pageNumber * pageSize + 1)-1;
+		log.info("Limit Starting Values : "+ limit);
+		log.info("Page Number : "+ pageNumber);
+    	
+    	List<BatchHeader> batchHeaders = batchHeaderRepository.fetchRecordsWithKeyWord(tenantId, filterValue, pageNumber, limit);
+    	return batchHeaders;
+    }
+    
+    /**
+     * Author : Shobha
+     * @param sourceProfileId
+     * @return
+     */
+    @GetMapping("/batchHeader")
+    @Timed
+    public List<BatchHeaderDTO> getBatchHeaders(@RequestParam(value = "page" , required = false) Integer offset,@RequestParam(value = "per_page", required = false) Integer limit,
+    		HttpServletResponse response,@RequestParam List<Long> sourceProfileId,@RequestParam(required=false) Long srcProfAssgnId, @RequestParam String status) throws ClassNotFoundException, SQLException{
+    	log.debug("Rest request to fetch batch list by pagination");
+    	List<BatchHeaderDTO> batchHeaderList = new ArrayList<BatchHeaderDTO>();
+    	List<Object> batchIds = new ArrayList<Object>();
+    	if(srcProfAssgnId == null )
+    	{
+    		batchIds = sourceFileInbHistoryRepository.findDistinctBatchIdsByProfileIdIn(sourceProfileId);
+    		
+    	}
+    	else
+    		batchIds = sourceFileInbHistoryRepository.findDistinctBatchIdsBySrcPrfFileAsmtId(srcProfAssgnId);
+    	//get distinct batch id's of these profile
+    	log.info("batchIds:"+batchIds);
+    	
+    	
+    	PaginationUtil paginationUtil=new PaginationUtil();
+    	int maxlmt=paginationUtil.MAX_LIMIT;
+		int minlmt=paginationUtil.MIN_OFFSET;
+    	int totalCount = 0;
+		if(limit==null || limit<minlmt){
+			limit =batchIds.size();
+		}
+		//totalCount = batchIds.size();
+		if(limit == 0 )
+    	{
+    		limit = paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+    	{
+    		offset = paginationUtil.DEFAULT_OFFSET;
+    	}
+    	
+    	Page<BatchHeader> page = null;
+    	if(batchIds .size()>0) {
+    		List<Long> batchesIds = new ArrayList<Long>();
+    		for(int i=0;i<batchIds.size();i++)
+    		{
+    			if(batchIds.get(i) != null && !batchIds.get(i).toString().isEmpty() && batchIds.get(i) != "")
+    			batchesIds.add(Long.valueOf(batchIds.get(i).toString()));
+    		}
+    		log.info("status:"+status+"limit"+limit+"offset"+offset);
+    		log.info("batchesIds"+batchesIds);
+    		Pageable pageable = null;
+    		//holded 
+    		List<BatchHeader> filteredBatchHistoryList = new ArrayList<BatchHeader>();
+    	if(limit>maxlmt)
+		{
+    		//extraction_status//transformation_status
+    		if( status == null || status.equals("")  || status.isEmpty())
+    		{
+    			log.info("status is null so fetch this way");
+    			pageable =	PaginationUtil.generatePageRequest2WithSort(offset, limit,"transformedDatetime","extractedDatetime");
+    			//pageable.getSort().and( new Sort(new Sort.Order(Direction.DESC, "transformed_datetime"),new Sort.Order(Direction.DESC, "extracted_datetime")));
+    			page = batchHeaderRepository.findByIdIn(batchesIds,pageable);
+    			filteredBatchHistoryList = page.getContent();
+    			List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    			if(batchesIds.size()>0)
+    			{
+    			unFilteredBatches = batchHeaderRepository.findByIdIn(batchesIds);
+    			totalCount = unFilteredBatches.size();
+    			}
+    		}
+    			
+    		else
+    		{	
+    			log.info("status is not null so fetch this way");
+    			pageable =	PaginationUtil.generatePageRequest2WithSort(offset, limit,"transformedDatetime","extractedDatetime");
+    			//pageable.getSort().and( new Sort(new Sort.Order(Direction.DESC, "transformed_datetime"),new Sort.Order(Direction.DESC, "extracted_datetime")));
+    			if(status.equalsIgnoreCase("hold"))
+    			{
+    				page = batchHeaderRepository.findByIdInAndHoldIsTrue(batchesIds,pageable);
+    				filteredBatchHistoryList = page.getContent();
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.findByIdInAndHoldIsTrue(batchesIds);
+        			totalCount = unFilteredBatches.size();
+    				}
+    			}
+    			else if(status.equalsIgnoreCase("scheduled"))
+    			{
+    				List<String> scheduled = new ArrayList<String>();
+    				scheduled.add("Manual");
+    				page = batchHeaderRepository.findByIdInAndTypeNotIn(batchesIds,pageable,scheduled);
+    				filteredBatchHistoryList = page.getContent();
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.findByIdInAndTypeNotIn(batchesIds,scheduled);
+        			totalCount = unFilteredBatches.size();
+    				}
+    			}
+    			else if(status.equalsIgnoreCase("manual"))
+    			{
+    				page = batchHeaderRepository.findByIdInAndTypeContains(batchesIds,pageable,"Manual");
+    				filteredBatchHistoryList = page.getContent();
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.findByIdInAndTypeContains(batchesIds,"Manual");
+        			totalCount = unFilteredBatches.size();
+    				}
+    			}
+    			else {
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.fetchCountByStatus(batchesIds,status,status);
+        			totalCount = unFilteredBatches.size();
+    				}
+    				page = batchHeaderRepository.findByIdInAndExtractionStatusContains(batchesIds,pageable,status);
+    				if(page.getContent().size() > 0)
+    				{
+    					filteredBatchHistoryList = page.getContent();
+    				}
+    				page = batchHeaderRepository.findByIdInAndTransformationStatusContains(batchesIds,pageable,status);
+    				if(page.getContent().size() > 0)
+    				{
+    					filteredBatchHistoryList.addAll(page.getContent());
+    				}
+    			}
+    			
+    		}
+		}
+    	else
+    	{
+    		log.info("limit is okay, its not greater");
+    		if( status == null || status.equals("") || status.isEmpty())
+    		{
+    			log.info("status is null so fetch this way");
+    			pageable =	PaginationUtil.generatePageRequestWithSort(offset, limit,"transformedDatetime","extractedDatetime");
+    			//pageable.getSort().and( new Sort(new Sort.Order(Direction.DESC, "transformed_datetime"),new Sort.Order(Direction.DESC, "extracted_datetime")));
+    			page = batchHeaderRepository.findByIdIn(batchesIds,pageable);
+    			filteredBatchHistoryList = page.getContent();
+    			
+    			List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    			if(batchesIds.size()>0)
+				{
+    			unFilteredBatches = batchHeaderRepository.findByIdIn(batchesIds);
+    			totalCount = unFilteredBatches.size();
+				}
+    		}
+    		else
+    		{
+    			log.info("status is not null so fetch this way");
+    			pageable =	PaginationUtil.generatePageRequestWithSort(offset, limit,"transformedDatetime","extractedDatetime");
+    			//pageable.getSort().and( new Sort(new Sort.Order(Direction.DESC, "transformed_datetime"),new Sort.Order(Direction.DESC, "extracted_datetime")));
+    			/*page = batchHeaderRepository.findByIdInAndExtractionStatusContainsOrTransformationStatusContains(batchesIds,pageable,status,status);*/
+    			
+    			if(status.equalsIgnoreCase("hold"))
+    			{
+    				log.info("fetch by hold");
+    				page = batchHeaderRepository.findByIdInAndHoldIsTrue(batchesIds,pageable);
+    				filteredBatchHistoryList = page.getContent();
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.findByIdInAndHoldIsTrue(batchesIds);
+        			totalCount = unFilteredBatches.size();
+    				}
+    			}
+    			else if(status.equalsIgnoreCase("scheduled"))
+    			{
+    				log.info("fetch by scheduled");
+    				List<String> scheduled = new ArrayList<String>();
+    				scheduled.add("Manual");
+    				page = batchHeaderRepository.findByIdInAndTypeNotIn(batchesIds,pageable,scheduled);
+    				filteredBatchHistoryList = page.getContent();
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.findByIdInAndTypeNotIn(batchesIds,scheduled);
+        			totalCount = unFilteredBatches.size();
+    				}
+    			}
+    			else if(status.equalsIgnoreCase("manual"))
+    			{
+    				log.info("fetch by manual");
+    				page = batchHeaderRepository.findByIdInAndTypeContains(batchesIds,pageable,"Manual");
+    				filteredBatchHistoryList = page.getContent();
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+        			unFilteredBatches = batchHeaderRepository.findByIdInAndTypeContains(batchesIds,"Manual");
+        			totalCount = unFilteredBatches.size();
+    				}
+    			}
+    			else {
+    				log.info("fetch by ..."+status);
+    				
+    				List<BatchHeader> unFilteredBatches = new ArrayList<BatchHeader>();
+    				if(batchesIds.size()>0)
+    				{
+    					unFilteredBatches = batchHeaderRepository.fetchCountByStatus(batchesIds,status,status);
+            			totalCount = unFilteredBatches.size();
+            			
+    				}
+        			
+    				page = batchHeaderRepository.findByIdInAndTransformationStatusContains(batchesIds,pageable,status);
+    				if(page.getContent().size() > 0)
+    				{
+    					filteredBatchHistoryList = page.getContent();
+    				}
+    				page = batchHeaderRepository.findByIdInAndExtractionStatusContains(batchesIds,pageable,status);
+    				if(page.getContent().size() > 0)
+    				{
+    					filteredBatchHistoryList.addAll(page.getContent());
+    				}
+    			}
+    		}
+    	}
+    	log.info("totalCount:"+totalCount);
+    	  /*Sort sort = Sort.by(
+    		  Sort.Order.("numberOfHands"));
+    		return batchHeaderRepository.findByIdInAndExtractionStatusContainsOrTransformationStatusContainsOrderByExtractedDatetimeTransformedDatetimeDesc(sort,batchesIds,PaginationUtil.generatePageRequest(offset, limit),status,status);*/
+    	//List<BatchHeader> pageContentData =new ArrayList<BatchHeader>();
+    	//log.info("filteredBatchHistoryList"+filteredBatchHistoryList);
+    	if(filteredBatchHistoryList != null && filteredBatchHistoryList.size()>0)
+    	{
+    		/*pageContentData =page.getContent();
+    		List<Long> batchIdsFiltered = new ArrayList<Long>();
+    		for(int i = 0;i<pageContentData.size();i++)
+        	{
+    			batchIdsFiltered.add(pageContentData.get(i).getId());
+        	}*/
+    		//pageContentData = batchHeaderRepository.orderBatchesByExtractedAndTransformedTimeStamp(batchIdsFiltered);
+    		for(int i = 0;i<filteredBatchHistoryList.size();i++)
+        	{
+        	//	BigInteger batchId = BigInteger.valueOf(Long.valueOf(batchIds.get(i).toString()));
+    			BatchHeader batchHeader = new BatchHeader();
+    			batchHeader =filteredBatchHistoryList.get(i);
+        		if(batchHeader != null)
+        		{
+        			BatchHeaderDTO batchDTO = new BatchHeaderDTO();
+        			
+        			
+        			if(batchHeader != null)
+        			{
+        				batchDTO.setTotalCount(totalCount);
+        				if(batchHeader.getId() != null)
+        				batchDTO.setId(batchHeader.getId());
+        				if(batchHeader.getExtRef() != null)
+        				batchDTO.setReference(batchHeader.getExtRef());
+        				if(batchHeader.getJobRef() != null)
+        				batchDTO.setJobRef(batchHeader.getJobRef());
+        				if(batchHeader.getBatchName() != null)
+        				batchDTO.setBatchName(batchHeader.getBatchName());
+        				if(batchHeader.getType() == null || batchHeader.getType() == "" || batchHeader.getType().isEmpty())
+        					batchDTO.setBatchType("Scheduled");        			
+        				else
+        				batchDTO.setBatchType(batchHeader.getType());
+        				if(batchHeader.getExtractionStatus() != null)
+        				batchDTO.setExtractionStatus(batchHeader.getExtractionStatus());
+        				if(batchHeader.getExtractedDatetime() != null)
+        				batchDTO.setExtractedDateTime(batchHeader.getExtractedDatetime());
+        				if(batchHeader.getTransformationStatus() != null)
+        				batchDTO.setTransformationStatus(batchHeader.getTransformationStatus());
+        				if(batchHeader.getTransformedDatetime() != null)
+        				batchDTO.setTransformedDateTime(batchHeader.getTransformedDatetime());
+
+        				if(batchHeader.getJobRef() != null)
+        				{
+        					SchedulerDetails schedulesByJobRef = new SchedulerDetails();
+        					schedulesByJobRef = schedulerDetailsRepository.findByOozieJobIdAndTenantID(batchHeader.getTenantId(),batchHeader.getJobRef());
+        					if(schedulesByJobRef != null && schedulesByJobRef.getFrequency() != null && !schedulesByJobRef.getFrequency().equalsIgnoreCase("ONDEMAND"))
+        					{
+        						HashMap lastRunMap=new HashMap();
+        						lastRunMap = oozieService.getNextRunByOozieJobId(schedulesByJobRef.getOozieJobId());
+        						if(lastRunMap.size()>0 )
+        							{
+        							if( lastRunMap.get("nextMatdTime") != null)
+        							{
+        								batchDTO.setNextSchedule( lastRunMap.get("nextMatdTime").toString());
+        							}
+        							else
+        							{
+        								batchDTO.setNextSchedule("No Schedule");
+        							}
+        							}
+        						
+        					}
+        				}
+        				/*	if(batchHeader.getNextSchedule() != null)
+        				batchDTO.setNextSchedule(batchHeader.getNextSchedule());*/
+        				batchDTO.setSelected(false);
+        				if(batchHeader.getHold() != null)
+        				batchDTO.setHold(batchHeader.getHold());
+        				if(batchHeader.getHolReason() != null)
+        				batchDTO.setHoldReason(batchHeader.getHolReason());
+        				batchHeaderList.add(batchDTO);
+        			}
+        		}
+        	}
+    	}
+    	else
+    	{
+    		log.info("filteredBatchHistoryList is null and content doesniot exist");
+    	}
+    }
+    	
+    	return batchHeaderList;
+    }
+    /**
+     * Author : Shobha
+     * @param batchId
+     * @return
+     */
+    @GetMapping("/batchDetailsByBatchId")
+    @Timed
+    public List<BatchDetailsDTO> getBatchDetailsByBatchId(@RequestParam(value = "page" , required = false) Integer offset,@RequestParam(value = "per_page", required = false) Integer limit,
+    		HttpServletResponse response,@RequestParam Long batchId) {
+    	log.info("Rest request to get batch details by batch id"+batchId);
+    	List<ErrorReport> errorReportsList = new ArrayList<ErrorReport>();
+    	List<BatchDetailsDTO> batchDetailsList  = new ArrayList<BatchDetailsDTO>();
+    	List<SourceFileInbHistory> srcFileInbHistList = new ArrayList<SourceFileInbHistory>();
+    	ErrorReport errorReport = new ErrorReport();
+    	errorReport.setTaskName("Batch List by batch id");
+    	if(batchId != null)
+    	{
+    		BatchHeader batchHeader = new BatchHeader();
+    		batchHeader = batchHeaderRepository.findOne(batchId);
+    		srcFileInbHistList = sourceFileInbHistoryRepository.findByBatchId(batchId);
+    		PaginationUtil paginationUtil=new PaginationUtil();
+        	int maxlmt=paginationUtil.MAX_LIMIT;
+    		int minlmt=paginationUtil.MIN_OFFSET;
+        	int totalCount = 0;
+        	
+        	if(limit==null || limit<minlmt){
+    			limit =srcFileInbHistList.size();
+    		}
+        	totalCount = srcFileInbHistList.size();
+    		if(limit == 0 )
+        	{
+        		limit = paginationUtil.DEFAULT_LIMIT;
+        	}
+        	if(offset == null || offset == 0)
+        	{
+        		offset = paginationUtil.DEFAULT_OFFSET;
+        	}
+        	Page<SourceFileInbHistory> page = null;
+        	
+        	log.info("limit"+limit+"=>offset"+offset);
+        	if(srcFileInbHistList.size()>0)
+        	{
+        		if(limit>maxlmt)
+        		{
+        			page = sourceFileInbHistoryRepository.findByBatchId(batchId,PaginationUtil.generatePageRequest2(offset, limit));
+        		}
+        		else
+            	{
+        			page = sourceFileInbHistoryRepository.findByBatchId(batchId,PaginationUtil.generatePageRequest(offset, limit));
+            	}
+        		if(page != null && page.getContent() != null && page.getContent().size()>0)
+            	{
+        		srcFileInbHistList = page.getContent();
+        		for(SourceFileInbHistory srcInbHistory : srcFileInbHistList)
+        		{
+        			BatchDetailsDTO batchDetailsDto = new BatchDetailsDTO();
+        			batchDetailsDto.setTotalCount(totalCount);
+        			if(srcInbHistory.getId() != null)
+        			batchDetailsDto.setSrcInbHistId(srcInbHistory.getId());
+        			if(batchHeader.getBatchName() != null)
+        				batchDetailsDto.setBatchHeaderName(batchHeader.getBatchName());
+        			if(srcInbHistory.getFileSize() != null)
+        			batchDetailsDto.setFileSize(srcInbHistory.getFileSize());
+        			if(srcInbHistory.getHold() != null)
+        			batchDetailsDto.setHold(srcInbHistory.getHold());
+        			if(srcInbHistory.getFileTransformedDate() != null)
+        				batchDetailsDto.setFileTransformedDate(srcInbHistory.getFileTransformedDate());
+        			if(srcInbHistory.getFileName() != null)
+        				batchDetailsDto.setFileName(srcInbHistory.getFileName());
+        			SourceProfiles srcProf = new SourceProfiles();
+        			if(srcInbHistory.getProfileId() != null)
+        			srcProf = sourceProfilesRepository.findOne(srcInbHistory.getProfileId());
+        			
+        			if(srcProf != null && srcProf.getSourceProfileName() != null)
+        			batchDetailsDto.setProfileName(srcProf.getSourceProfileName());
+        			if(srcInbHistory.getStatus() != null)
+        			batchDetailsDto.setStatus(srcInbHistory.getStatus());
+        			
+        			SourceProfileFileAssignments spa = new SourceProfileFileAssignments();
+        			if(srcInbHistory.getSrcPrfFileAsmtId() != null)
+        			{
+        				log.info("Long.valueOf(srcInbHistory.getSrcPrfFileAsmtId()):"+srcInbHistory.getSrcPrfFileAsmtId());
+        				spa = sourceProfileFileAssignmentsRepository.findOne(Long.valueOf(srcInbHistory.getSrcPrfFileAsmtId()));
+        				log.info("spa is null");
+        				if(spa != null && spa.getTemplateId() != null)	
+            			{
+        					batchDetailsDto.setSrcProfAssId(srcInbHistory.getSrcPrfFileAsmtId());
+        					log.info("spa.getTemplateId():"+spa.getTemplateId());
+            				FileTemplates filetemplate = new FileTemplates();
+            				filetemplate = fileTemplatesRepository.findOne(Long.valueOf(spa.getTemplateId()));
+            				log.info("filetemplate.getTemplateName()"+filetemplate.getTemplateName());
+            				batchDetailsDto.setTemplateName(filetemplate.getTemplateName());
+            				if( spa.getTemplateId() != null)
+                				batchDetailsDto.setTemplateId( spa.getTemplateId() );
+            				
+            			}
+            			else
+            				
+            				log.info("spa is null");
+        			}
+        			
+        			
+        			batchDetailsList.add(batchDetailsDto);
+        		}
+            	}
+        	}
+    	}
+    	
+    	
+    	return batchDetailsList;
+    }
+    /**
+     * Author : shobha
+     * @param srcFileInbHistId
+     * @return
+     */
+    @PutMapping("/holdBatchDetail")
+	@Timed
+	public String holdBatchDetail(@RequestParam Long srcFileInbHistId,@RequestParam String reason) {
+    	SourceFileInbHistory srcFileInbHist = new SourceFileInbHistory();
+    	srcFileInbHist = sourceFileInbHistoryRepository.findOne(srcFileInbHistId);
+		if(srcFileInbHist != null )
+		{
+			srcFileInbHist.setHold(true);
+			srcFileInbHist.setHoldReason(reason);
+			sourceFileInbHistoryRepository.save(srcFileInbHist);
+			return "success";
+		}
+		return "failed";
+	}
+    /**
+     *  Author : shobha
+     * @param srcFileInbHistId
+     * @return
+     */
+	@PutMapping("/releaseHoldForBatchDetail")
+	@Timed
+	public String releaseHoldForBatchDetail(@RequestParam Long srcFileInbHistId,@RequestParam String reason) {
+		SourceFileInbHistory srcFileInbHist = new SourceFileInbHistory();
+    	srcFileInbHist = sourceFileInbHistoryRepository.findOne(srcFileInbHistId);
+		if(srcFileInbHist != null )
+		{
+			srcFileInbHist.setHold(false);
+			srcFileInbHist.setHoldReason(reason);
+			sourceFileInbHistoryRepository.save(srcFileInbHist);
+			return "success";
+		}
+		return "failed";
+	}
+	/**
+	 *  Author : shobha
+	 * @param batchId
+	 * @return
+	 */
+	 @PutMapping("/holdBatch")
+		@Timed
+		public String holdBatch(@RequestParam Long batchId,@RequestParam String reason) {
+			BatchHeader batchHeader  = new BatchHeader();
+			batchHeader = batchHeaderRepository.findOne(batchId);
+			if(batchHeader != null )
+			{
+				batchHeader.setHold(true);
+				batchHeader.setHolReason(reason);
+				BatchHeader bh = batchHeaderRepository.save(batchHeader);
+				batchHeaderSearchRepository.save(bh);
+				return "success";
+			}
+			return "failed";
+		}
+	 /**
+	  *  Author : shobha
+	  * @param batchId
+	  * @return
+	  */
+		@PutMapping("/releaseHoldForBatch")
+		@Timed
+		public String releaseHoldForBatch(@RequestParam Long batchId,@RequestParam String reason) {
+			BatchHeader batchHeader  = new BatchHeader();
+			batchHeader = batchHeaderRepository.findOne(batchId);
+			if(batchHeader != null )
+			{
+				batchHeader.setHold(false);
+				batchHeader.setHolReason(reason);
+				BatchHeader bh = batchHeaderRepository.save(batchHeader);
+				batchHeaderSearchRepository.save(bh);
+				return "success";
+			}
+			return "failed";
+		}
+		@GetMapping("/fetchDistinctBatchStatus")
+		@Timed
+		public List<HashMap<String,String>> fetchDistinctBatchStatus() {
+			List<HashMap<String,String> > statusList = new ArrayList<HashMap<String,String>>();
+			return statusList;
+		}
+		
+}

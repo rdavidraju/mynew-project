@@ -1,0 +1,340 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.Periods;
+import com.nspl.app.repository.PeriodsRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the PeriodsResource REST controller.
+ *
+ * @see PeriodsResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class PeriodsResourceIntTest {
+
+    private static final Long DEFAULT_CAL_ID = 1L;
+    private static final Long UPDATED_CAL_ID = 2L;
+
+    private static final String DEFAULT_PERIOD_NAME = "AAAAAAAAAA";
+    private static final String UPDATED_PERIOD_NAME = "BBBBBBBBBB";
+
+    private static final LocalDate DEFAULT_FROM_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate UPDATED_FROM_DATE = LocalDate.now(ZoneId.systemDefault());
+
+    private static final LocalDate DEFAULT_TO_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate UPDATED_TO_DATE = LocalDate.now(ZoneId.systemDefault());
+
+    private static final Integer DEFAULT_PERIOD_NUM = 1;
+    private static final Integer UPDATED_PERIOD_NUM = 2;
+
+    private static final Integer DEFAULT_QUARTER = 1;
+    private static final Integer UPDATED_QUARTER = 2;
+
+    private static final Integer DEFAULT_YEAR = 1;
+    private static final Integer UPDATED_YEAR = 2;
+
+    private static final Boolean DEFAULT_ADJUSTMENT = false;
+    private static final Boolean UPDATED_ADJUSTMENT = true;
+
+    private static final String DEFAULT_STATUS = "AAAAAAAAAA";
+    private static final String UPDATED_STATUS = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private PeriodsRepository periodsRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restPeriodsMockMvc;
+
+    private Periods periods;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        PeriodsResource periodsResource = new PeriodsResource(periodsRepository);
+        this.restPeriodsMockMvc = MockMvcBuilders.standaloneSetup(periodsResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static Periods createEntity(EntityManager em) {
+        Periods periods = new Periods()
+            .calId(DEFAULT_CAL_ID)
+            .periodName(DEFAULT_PERIOD_NAME)
+            .fromDate(DEFAULT_FROM_DATE)
+            .toDate(DEFAULT_TO_DATE)
+            .periodNum(DEFAULT_PERIOD_NUM)
+            .quarter(DEFAULT_QUARTER)
+            .year(DEFAULT_YEAR)
+            .adjustment(DEFAULT_ADJUSTMENT)
+            .status(DEFAULT_STATUS)
+            .createdBy(DEFAULT_CREATED_BY)
+            .createdDate(DEFAULT_CREATED_DATE)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return periods;
+    }
+
+    @Before
+    public void initTest() {
+        periods = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createPeriods() throws Exception {
+        int databaseSizeBeforeCreate = periodsRepository.findAll().size();
+
+        // Create the Periods
+        restPeriodsMockMvc.perform(post("/api/periods")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(periods)))
+            .andExpect(status().isCreated());
+
+        // Validate the Periods in the database
+        List<Periods> periodsList = periodsRepository.findAll();
+        assertThat(periodsList).hasSize(databaseSizeBeforeCreate + 1);
+        Periods testPeriods = periodsList.get(periodsList.size() - 1);
+        assertThat(testPeriods.getCalId()).isEqualTo(DEFAULT_CAL_ID);
+        assertThat(testPeriods.getPeriodName()).isEqualTo(DEFAULT_PERIOD_NAME);
+        assertThat(testPeriods.getFromDate()).isEqualTo(DEFAULT_FROM_DATE);
+        assertThat(testPeriods.getToDate()).isEqualTo(DEFAULT_TO_DATE);
+        assertThat(testPeriods.getPeriodNum()).isEqualTo(DEFAULT_PERIOD_NUM);
+        assertThat(testPeriods.getQuarter()).isEqualTo(DEFAULT_QUARTER);
+        assertThat(testPeriods.getYear()).isEqualTo(DEFAULT_YEAR);
+        assertThat(testPeriods.isAdjustment()).isEqualTo(DEFAULT_ADJUSTMENT);
+        assertThat(testPeriods.getStatus()).isEqualTo(DEFAULT_STATUS);
+        assertThat(testPeriods.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testPeriods.getCreatedDate()).isEqualTo(DEFAULT_CREATED_DATE);
+        assertThat(testPeriods.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testPeriods.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void createPeriodsWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = periodsRepository.findAll().size();
+
+        // Create the Periods with an existing ID
+        periods.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restPeriodsMockMvc.perform(post("/api/periods")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(periods)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<Periods> periodsList = periodsRepository.findAll();
+        assertThat(periodsList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllPeriods() throws Exception {
+        // Initialize the database
+        periodsRepository.saveAndFlush(periods);
+
+        // Get all the periodsList
+        restPeriodsMockMvc.perform(get("/api/periods?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(periods.getId().intValue())))
+            .andExpect(jsonPath("$.[*].calId").value(hasItem(DEFAULT_CAL_ID.intValue())))
+            .andExpect(jsonPath("$.[*].periodName").value(hasItem(DEFAULT_PERIOD_NAME.toString())))
+            .andExpect(jsonPath("$.[*].fromDate").value(hasItem(DEFAULT_FROM_DATE.toString())))
+            .andExpect(jsonPath("$.[*].toDate").value(hasItem(DEFAULT_TO_DATE.toString())))
+            .andExpect(jsonPath("$.[*].periodNum").value(hasItem(DEFAULT_PERIOD_NUM)))
+            .andExpect(jsonPath("$.[*].quarter").value(hasItem(DEFAULT_QUARTER)))
+            .andExpect(jsonPath("$.[*].year").value(hasItem(DEFAULT_YEAR)))
+            .andExpect(jsonPath("$.[*].adjustment").value(hasItem(DEFAULT_ADJUSTMENT.booleanValue())))
+            .andExpect(jsonPath("$.[*].status").value(hasItem(DEFAULT_STATUS.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].createdDate").value(hasItem(sameInstant(DEFAULT_CREATED_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getPeriods() throws Exception {
+        // Initialize the database
+        periodsRepository.saveAndFlush(periods);
+
+        // Get the periods
+        restPeriodsMockMvc.perform(get("/api/periods/{id}", periods.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(periods.getId().intValue()))
+            .andExpect(jsonPath("$.calId").value(DEFAULT_CAL_ID.intValue()))
+            .andExpect(jsonPath("$.periodName").value(DEFAULT_PERIOD_NAME.toString()))
+            .andExpect(jsonPath("$.fromDate").value(DEFAULT_FROM_DATE.toString()))
+            .andExpect(jsonPath("$.toDate").value(DEFAULT_TO_DATE.toString()))
+            .andExpect(jsonPath("$.periodNum").value(DEFAULT_PERIOD_NUM))
+            .andExpect(jsonPath("$.quarter").value(DEFAULT_QUARTER))
+            .andExpect(jsonPath("$.year").value(DEFAULT_YEAR))
+            .andExpect(jsonPath("$.adjustment").value(DEFAULT_ADJUSTMENT.booleanValue()))
+            .andExpect(jsonPath("$.status").value(DEFAULT_STATUS.toString()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.createdDate").value(sameInstant(DEFAULT_CREATED_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingPeriods() throws Exception {
+        // Get the periods
+        restPeriodsMockMvc.perform(get("/api/periods/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updatePeriods() throws Exception {
+        // Initialize the database
+        periodsRepository.saveAndFlush(periods);
+        int databaseSizeBeforeUpdate = periodsRepository.findAll().size();
+
+        // Update the periods
+        Periods updatedPeriods = periodsRepository.findOne(periods.getId());
+        updatedPeriods
+            .calId(UPDATED_CAL_ID)
+            .periodName(UPDATED_PERIOD_NAME)
+            .fromDate(UPDATED_FROM_DATE)
+            .toDate(UPDATED_TO_DATE)
+            .periodNum(UPDATED_PERIOD_NUM)
+            .quarter(UPDATED_QUARTER)
+            .year(UPDATED_YEAR)
+            .adjustment(UPDATED_ADJUSTMENT)
+            .status(UPDATED_STATUS)
+            .createdBy(UPDATED_CREATED_BY)
+            .createdDate(UPDATED_CREATED_DATE)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restPeriodsMockMvc.perform(put("/api/periods")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedPeriods)))
+            .andExpect(status().isOk());
+
+        // Validate the Periods in the database
+        List<Periods> periodsList = periodsRepository.findAll();
+        assertThat(periodsList).hasSize(databaseSizeBeforeUpdate);
+        Periods testPeriods = periodsList.get(periodsList.size() - 1);
+        assertThat(testPeriods.getCalId()).isEqualTo(UPDATED_CAL_ID);
+        assertThat(testPeriods.getPeriodName()).isEqualTo(UPDATED_PERIOD_NAME);
+        assertThat(testPeriods.getFromDate()).isEqualTo(UPDATED_FROM_DATE);
+        assertThat(testPeriods.getToDate()).isEqualTo(UPDATED_TO_DATE);
+        assertThat(testPeriods.getPeriodNum()).isEqualTo(UPDATED_PERIOD_NUM);
+        assertThat(testPeriods.getQuarter()).isEqualTo(UPDATED_QUARTER);
+        assertThat(testPeriods.getYear()).isEqualTo(UPDATED_YEAR);
+        assertThat(testPeriods.isAdjustment()).isEqualTo(UPDATED_ADJUSTMENT);
+        assertThat(testPeriods.getStatus()).isEqualTo(UPDATED_STATUS);
+        assertThat(testPeriods.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testPeriods.getCreatedDate()).isEqualTo(UPDATED_CREATED_DATE);
+        assertThat(testPeriods.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testPeriods.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingPeriods() throws Exception {
+        int databaseSizeBeforeUpdate = periodsRepository.findAll().size();
+
+        // Create the Periods
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restPeriodsMockMvc.perform(put("/api/periods")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(periods)))
+            .andExpect(status().isCreated());
+
+        // Validate the Periods in the database
+        List<Periods> periodsList = periodsRepository.findAll();
+        assertThat(periodsList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deletePeriods() throws Exception {
+        // Initialize the database
+        periodsRepository.saveAndFlush(periods);
+        int databaseSizeBeforeDelete = periodsRepository.findAll().size();
+
+        // Get the periods
+        restPeriodsMockMvc.perform(delete("/api/periods/{id}", periods.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate the database is empty
+        List<Periods> periodsList = periodsRepository.findAll();
+        assertThat(periodsList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(Periods.class);
+    }
+}

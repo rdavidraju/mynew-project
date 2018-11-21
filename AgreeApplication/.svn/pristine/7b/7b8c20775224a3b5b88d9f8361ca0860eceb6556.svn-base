@@ -1,0 +1,1883 @@
+package com.nspl.app.service;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.ReconciliationResult;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleConditionsRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.search.ReconciliationResultSearchRepository;
+import com.nspl.app.web.rest.DataViewsResource;
+import com.nspl.app.web.rest.dto.FilterColumns;
+
+/**
+ * Service Implementation for managing ReconciliationResult.
+ */
+@Service
+@Transactional
+public class ReconciliationResultService {
+
+    private final Logger log = LoggerFactory.getLogger(ReconciliationResultService.class);
+    
+    private final ReconciliationResultRepository reconciliationResultRepository;
+
+    private final ReconciliationResultSearchRepository reconciliationResultSearchRepository;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    RuleGroupRepository ruleGroupRepository;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    DataViewsResource dataViewsResource;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    RuleConditionsRepository ruleConditionsRepository;
+    
+    @Inject
+    ReconciliationResultService reconciliationResultService;
+    
+    @Inject
+    AccountingDataService accountingDataService;
+    
+    @Inject
+    private Environment env;
+    
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+
+    public ReconciliationResultService(ReconciliationResultRepository reconciliationResultRepository, ReconciliationResultSearchRepository reconciliationResultSearchRepository) {
+        this.reconciliationResultRepository = reconciliationResultRepository;
+        this.reconciliationResultSearchRepository = reconciliationResultSearchRepository;
+    }
+
+    /**
+     * Save a reconciliationResult.
+     *
+     * @param reconciliationResult the entity to save
+     * @return the persisted entity
+     */
+    public ReconciliationResult save(ReconciliationResult reconciliationResult) {
+        log.debug("Request to save ReconciliationResult : {}", reconciliationResult);
+        ReconciliationResult result = reconciliationResultRepository.save(reconciliationResult);
+        reconciliationResultSearchRepository.save(result);
+        return result;
+    }
+
+    /**
+     *  Get all the reconciliationResults.
+     *  
+     *  @param pageable the pagination information
+     *  @return the list of entities
+     */
+    @Transactional(readOnly = true)
+    public Page<ReconciliationResult> findAll(Pageable pageable) {
+        log.debug("Request to get all ReconciliationResults");
+        Page<ReconciliationResult> result = reconciliationResultRepository.findAll(pageable);
+        return result;
+    }
+
+    /**
+     *  Get one reconciliationResult by id.
+     *
+     *  @param id the id of the entity
+     *  @return the entity
+     */
+    @Transactional(readOnly = true)
+    public ReconciliationResult findOne(Long id) {
+        log.debug("Request to get ReconciliationResult : {}", id);
+        ReconciliationResult reconciliationResult = reconciliationResultRepository.findOne(id);
+        return reconciliationResult;
+    }
+
+    /**
+     *  Delete the  reconciliationResult by id.
+     *
+     *  @param id the id of the entity
+     */
+    public void delete(Long id) {
+        log.debug("Request to delete ReconciliationResult : {}", id);
+        reconciliationResultRepository.delete(id);
+        reconciliationResultSearchRepository.delete(id);
+    }
+
+    /**
+     * Search for the reconciliationResult corresponding to the query.
+     *
+     *  @param query the query of the search
+     *  @param pageable the pagination information
+     *  @return the list of entities
+     */
+    @Transactional(readOnly = true)
+    public Page<ReconciliationResult> search(String query, Pageable pageable) {
+        log.debug("Request to search for a page of ReconciliationResults for query {}", query);
+        Page<ReconciliationResult> result = reconciliationResultSearchRepository.search(queryStringQuery(query), pageable);
+        return result;
+    }
+    
+    public String getActualFieldName(String fieldName)
+    {
+    	switch(fieldName)
+    	{
+    	case "field_01" :
+    	case "FIELD_01" : return "field01";
+    	case "field_02" :
+    	case "FIELD_02" : return "field02";
+    	case "field_03" :
+    	case "FIELD_03" : return "field03";
+    	case "field_04" :
+    	case "FIELD_04" : return "field04";
+    	case "field_05" :
+    	case "FIELD_05" : return "field05";
+    	case "field_06" :
+    	case "FIELD_06" : return "field06";
+    	case "field_07" :
+    	case "FIELD_07" : return "field07";
+    	case "field_08" :
+    	case "FIELD_08" : return "field08";
+    	case "field_09" :
+    	case "FIELD_09" : return "field09";
+    	case "field_10" :
+    	case "FIELD_10" : return "field10";
+    	case "field_11" :
+    	case "FIELD_11" : return "field11";
+    	case "field_12" :
+    	case "FIELD_12" : return "field12";
+    	case "field_13" :
+    	case "FIELD_13" : return "field13";
+    	case "field_14" :
+    	case "FIELD_14" : return "field14";
+    	case "field_15" :
+    	case "FIELD_15" : return "field15";
+    	case "field_16" :
+    	case "FIELD_16" : return "field16";
+    	case "field_17" :
+    	case "FIELD_17" : return "field17";
+    	case "field_18" :
+    	case "FIELD_18" : return "field18";
+    	case "field_19" :
+    	case "FIELD_19" : return "field19";
+    	case "field_20" :
+    	case "FIELD_20" : return "field20";
+    	case "field_21" :
+    	case "FIELD_21" : return "field21";
+    	case "field_22" :
+    	case "FIELD_22" : return "field22";
+    	case "field_23" :
+    	case "FIELD_23" : return "field23";
+    	case "field_24" :
+    	case "FIELD_24" : return "field24";
+    	case "field_25" :
+    	case "FIELD_25" : return "field25";
+    	case "field_26" :
+    	case "FIELD_26" : return "field26";
+    	case "field_27" :
+    	case "FIELD_27" : return "field27";
+    	case "field_28" :
+    	case "FIELD_28" : return "field28";
+    	case "field_29" :
+    	case "FIELD_29" : return "field29";
+    	case "field_30" :
+    	case "FIELD_30" : return "field30";
+    	case "field_31" :
+    	case "FIELD_31" : return "field31";
+    	case "field_32" :
+    	case "FIELD_32" : return "field32";
+    	case "field_33" :
+    	case "FIELD_33" : return "field33";
+    	case "field_34" :
+    	case "FIELD_34" : return "field34";
+    	case "field_35" :
+    	case "FIELD_35" : return "field35";
+    	case "field_36" :
+    	case "FIELD_36" : return "field36";
+    	case "field_37" :
+    	case "FIELD_37" : return "field37";
+    	case "field_38" :
+    	case "FIELD_38" : return "field38";
+    	case "field_39" :
+    	case "FIELD_39" : return "field39";
+    	case "field_40" :
+    	case "FIELD_40" : return "field40";
+    	case "field_41" :
+    	case "FIELD_41" : return "field41";
+    	case "field_42" :
+    	case "FIELD_42" : return "field42";
+    	case "field_43" :
+    	case "FIELD_43" : return "field43";
+    	case "field_44" :
+    	case "FIELD_44" : return "field44";
+    	case "field_45" :
+    	case "FIELD_45" : return "field45";
+    	case "field_46" :
+    	case "FIELD_46" : return "field46";
+    	case "field_47" :
+    	case "FIELD_47" : return "field47";
+    	case "field_48" :
+    	case "FIELD_48" : return "field48";
+    	case "field_49" :
+    	case "FIELD_49" : return "field49";
+    	case "field_50" :
+    	case "FIELD_50" : return "field50";
+    	case "field_51" :
+    	case "FIELD_51" : return "field51";
+    	case "field_52" :
+    	case "FIELD_52" : return "field52";
+    	case "field_53" :
+    	case "FIELD_53" : return "field53";
+    	case "field_54" :
+    	case "FIELD_54" : return "field54";
+    	case "field_55" :
+    	case "FIELD_55" : return "field55";
+    	case "field_56" :
+    	case "FIELD_56" : return "field56";
+    	case "field_57" :
+    	case "FIELD_57" : return "field57";
+    	case "field_58" :
+    	case "FIELD_58" : return "field58";
+    	case "field_59" :
+    	case "FIELD_59" : return "field59";
+    	case "field_60" :
+    	case "FIELD_60" : return "field60";
+    	case "field_61" :
+    	case "FIELD_61" : return "field61";
+    	case "field_62" :
+    	case "FIELD_62" : return "field62";
+    	case "field_63" :
+    	case "FIELD_63" : return "field63";
+    	case "field_64" :
+    	case "FIELD_64" : return "field64";
+    	case "field_65" :
+    	case "FIELD_65" : return "field65";
+    	case "field_66" :
+    	case "FIELD_66" : return "field66";
+    	case "field_67" :
+    	case "FIELD_67" : return "field67";
+    	case "field_68" :
+    	case "FIELD_68" : return "field68";
+    	case "field_69" :
+    	case "FIELD_69" : return "field69";
+    	case "field_70" :
+    	case "FIELD_70" : return "field70";
+    	case "field_71" :
+    	case "FIELD_71" : return "field71";
+    	case "field_72" :
+    	case "FIELD_72" : return "field72";
+    	case "field_73" :
+    	case "FIELD_73" : return "field73";
+    	case "field_74" :
+    	case "FIELD_74" : return "field74";
+    	case "field_75" :
+    	case "FIELD_75" : return "field75";
+    	case "field_76" :
+    	case "FIELD_76" : return "field76";
+    	case "field_77" :
+    	case "FIELD_77" : return "field77";
+    	case "field_78" :
+    	case "FIELD_78" : return "field78";
+    	case "field_79" :
+    	case "FIELD_79" : return "field79";
+    	case "field_80" :
+    	case "FIELD_80" : return "field80";
+    	case "field_81" :
+    	case "FIELD_81" : return "field81";
+    	case "field_82" :
+    	case "FIELD_82" : return "field82";
+    	case "field_83" :
+    	case "FIELD_83" : return "field83";
+    	case "field_84" :
+    	case "FIELD_84" : return "field84";
+    	case "field_85" :
+    	case "FIELD_85" : return "field85";
+    	case "field_86" :
+    	case "FIELD_86" : return "field86";
+    	case "field_87" :
+    	case "FIELD_87" : return "field87";
+    	case "field_88" :
+    	case "FIELD_88" : return "field88";
+    	case "field_89" :
+    	case "FIELD_89" : return "field89";
+    	case "field_90" :
+    	case "FIELD_90" : return "field90";
+    	case "field_91" :
+    	case "FIELD_91" : return "field91";
+    	case "field_92" :
+    	case "FIELD_92" : return "field92";
+    	case "field_93" :
+    	case "FIELD_93" : return "field93";
+    	case "field_94" :
+    	case "FIELD_94" : return "field94";
+    	case "field_95" :
+    	case "FIELD_95" : return "field95";
+    	case "field_96" :
+    	case "FIELD_96" : return "field96";
+    	case "field_97" :
+    	case "FIELD_97" : return "field97";
+    	case "field_98" :
+    	case "FIELD_98" : return "field98";
+    	case "field_99" :
+    	case "FIELD_99" : return "field99";
+    	case "field_100" :
+    	case "FIELD_100" : return "field100";
+    	case "id" :
+    	case "ID" : return "id";
+    	default : return "";
+
+    	}
+    }  
+    /**
+     * Author: Shiva
+     * Description: Service to get original ids based on view id
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    public List<BigInteger> getViewIds(BigInteger viewId) throws ClassNotFoundException, SQLException
+    {
+    	List<BigInteger> originalIds = new ArrayList<BigInteger>();
+		Connection conn = null;
+		Statement stmt = null;
+		ResultSet result = null; 
+    	try{
+    		String dbUrl=env.getProperty("spring.datasource.url");
+    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+    		String host = parts[0].split("/")[2].split(":")[0];
+    		String schemaName=parts[0].split("/")[3];
+    		String userName = env.getProperty("spring.datasource.username");
+    		String password = env.getProperty("spring.datasource.password");
+    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");  
+    		
+    		Class.forName(jdbcDriver);
+     	    conn = DriverManager.getConnection(dbUrl, userName, password);
+     	    stmt = conn.createStatement();
+      	    DataViews dv=dataViewsRepository.findOne(viewId.longValue());
+      	    if(dv!= null)
+      	    {
+         	    String viewName=dv.getDataViewName();
+         	    result=stmt.executeQuery("select scrIds from "+schemaName+"."+viewName.toLowerCase());
+         	 	while(result.next()){
+         	 	    	originalIds.add(new BigInteger((result.getString(1))));
+         	 	}  
+      	    }
+      	    else
+      	    {
+      	    	log.info("View doen't not exist for the view id: "+viewId);
+      	    }
+    	 }catch(SQLException se){
+    		   log.info("Error while executing query: "+se);
+         }catch(Exception e)
+    	{
+        	 log.info("Exception while getting databse properties");
+    	}
+    	finally{
+    		if(result != null)
+    		{
+    			result.close();	
+    		}
+			stmt.close();
+			conn.close();
+		}
+    	 log.info("View ID: "+ viewId+", Row Ids Size: "+originalIds.size());
+    	 return originalIds;
+    }
+   
+/*    public HashMap<BigInteger, List<BigInteger>> getAllViewIds(List<Long> viewIds) throws ClassNotFoundException, SQLException
+    {
+    	HashMap finalMap = new HashMap();
+		String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		log.info("host :"+host);
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+    	Connection conn = null;
+    	try{
+    		Class.forName(jdbcDriver);
+     	    conn = DriverManager.getConnection(dbUrl, userName, password);
+     	    log.info("Connected database successfully...");
+     	    if(viewIds.size()>0)
+     	    {
+     	    	for(Long viewId : viewIds)
+     	    	{
+     	    		List<BigInteger> originalIds = new ArrayList<BigInteger>();
+     	    		Statement stmt = null;
+     	    		ResultSet result = null;
+     	    		try{
+     	        	    stmt = conn.createStatement();
+     	         	    DataViews dv=dataViewsRepository.findOne(viewId);
+     	        	    String viewName=dv.getDataViewName();
+     	        	    result=stmt.executeQuery("select scrIds from "+schemaName+"."+viewName.toLowerCase());
+     	        	 	while(result.next()){
+     	     	 	    	originalIds.add(new BigInteger(result.getString(1)));
+     	        	 	}
+     	        	 	finalMap.put(viewId, originalIds);
+     	    		}catch(SQLException e)
+     	    		{
+     	    			log.info("Failed to execute statemnt or resultset: "+e);
+     	    		}
+     	    		finally{
+     	    			result.close();
+     	    			stmt.close();
+     	    		}
+     	    		log.info(">> ViewId: "+ viewId + ", Ids length: "+originalIds.size());
+     	    	}
+     	    }
+     	    
+    	}catch(SQLException se)
+    	{
+    		log.info("Failed to Connect Database: "+ se);
+    	}
+    	finally
+    	{
+    		conn.close();
+    	}
+    	//log.info("FinalMap: "+ finalMap);
+    	 return finalMap;
+    }
+*/
+    /**
+     * Author: Swetha
+     * Description: Api to fetch the dataView data
+     * @param viewName
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    public List<HashMap> getDataViewsData(@RequestParam Long viewId) throws ClassNotFoundException, SQLException {
+    	
+		String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		//log.info("host :"+host);
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+
+    	   Connection conn = null;
+    	   Statement stmt = null;
+    	   Statement stmt2 = null;
+    	   ResultSet result = null;
+    	   ResultSet result2=null;
+    	   List<HashMap> mapList=new ArrayList<HashMap>();
+    	   try{
+    	      Class.forName(jdbcDriver);
+    	      conn = DriverManager.getConnection(dbUrl, userName, password);
+    	      log.info("Connected database successfully...");
+ 	      stmt = conn.createStatement();
+ 	      stmt2 = conn.createStatement();
+ 	     String count = null;
+ 	     DataViews dv=dataViewsRepository.findOne(viewId);
+ 	     String viewName=dv.getDataViewName().toLowerCase();
+ 	    result2=stmt.executeQuery("SELECT count(*) FROM information_schema.columns WHERE table_schema = '"+schemaName+"' AND table_name = '"+viewName+"'");
+ 	    while(result2.next()){
+ 	  count=result2.getString(1);
+ 	    }
+ 	      
+ 	    result=stmt2.executeQuery("select * from "+schemaName+"."+viewName);
+	   ResultSet rs=stmt2.getResultSet();
+	
+	  ResultSetMetaData rsmd2 = rs.getMetaData();
+	int columnsNumber = rsmd2.getColumnCount();
+	int columnCount = rsmd2.getColumnCount();
+	while(rs.next()){
+  	 HashMap<String,String> map2=new HashMap<String,String>();
+  	for (int i = 1; i <= columnCount; i++ ) {
+			  String name = rsmd2.getColumnName(i); //ACC_27
+  	 for(int t=0,num=1;t<columnsNumber;t++, num++){ //num=1 
+  		 String Val=rs.getString(num);
+  	 }
+  	 map2.put(name, rs.getString(i)); //ACC_27,CAD
+  	
+  	}
+  	mapList.add(map2);
+   }
+	   }catch(SQLException se){
+		   log.info("se: "+se);
+     }
+   finally{
+    			result2.close();
+    			result.close();
+    			stmt.close();
+    			stmt2.close();
+    			conn.close();
+    		}
+	return mapList;
+	}
+    
+    /* Get Distinct DvIds based on RuleGroup */
+    public HashMap<String, List<BigInteger>> getDistinctDVIdsforRuleGrp(Long ruleGrpId, Long tenantId){
+    	log.info("In Service for getting distinct source and target ids for grup id: "+ruleGrpId);
+    	HashMap<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+    	List<BigInteger> distSrcIds = new ArrayList<BigInteger>();
+    	List<BigInteger> distTargetIds = new ArrayList<BigInteger>();
+    	List<Long> ruleIds = ruleGroupDetailsRepository.fetchByRuleGroupIdAndTenantId(ruleGrpId, tenantId);
+    	log.info("Rule Ids Size for Group Id "+ruleGrpId+": "+ruleIds.size()+", "+ruleIds);
+    	if(ruleIds.size()>0)
+    	{
+    		distSrcIds = rulesRepository.fetchDistictSrcViewIdsByRuleId(ruleIds);
+    		distTargetIds = rulesRepository.fetchDistictTargetViewIdsByRuleId(ruleIds);
+    	}
+    	log.info("Distinct Source View Ids for GroupId "+ruleGrpId+" : "+distSrcIds);
+    	log.info("Distinct Target View Ids for GroupId "+ruleGrpId+" : "+distTargetIds);
+    	finalMap.put("sourceViewIds", distSrcIds);
+    	finalMap.put("targeViewIds", distTargetIds);
+		return finalMap;
+    }
+
+	/* Get Amount Qualifier for DataViewId */
+	public String getQualifier(BigInteger dataViewId) throws ClassNotFoundException{
+		log.info("In Service for getting qualifier column name for the view id: "+ dataViewId);
+    	DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndQualifier(dataViewId.longValue(), "AMOUNT");
+    	String qualifier = "";
+    	if(dvc != null)
+    	{
+    		FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn()));
+    		if(ftl != null)
+    		{
+    			qualifier = ftl.getMasterTableReferenceColumn().toLowerCase();
+    		}
+    		log.info("Qualifier for View ID "+ dataViewId +" is ["+dvc.getColumnName()+", "+qualifier+"]");
+    	}
+    	else
+    	{
+    		log.info("There is no Qualifier for the view id : "+ dataViewId);
+    	}
+    	return qualifier;
+ }
+	
+	public String getQualifierColumnName(BigInteger dataViewId) throws ClassNotFoundException{
+		log.info("In Service for getting qualifier column name for the view id: "+ dataViewId);
+    	DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndQualifier(dataViewId.longValue(), "AMOUNT");
+    	String qualifier = "";
+    	if(dvc != null)
+    	{
+    		qualifier = qualifier + dvc.getColumnName();
+    		log.info("Qualifier column name for data view id "+ dataViewId + " is: "+ qualifier);
+    	}
+    	else
+    	{
+    		log.info("There is no Qualifier for the view id : "+ dataViewId);
+    	}
+    	return qualifier;
+ }
+	
+    /* Get Count and Amount based on DVId */
+    public HashMap getCountNAmountForDVId(BigInteger dataViewId, Long tenantId, String quaifierCol, List<BigInteger> viewTotalIds) throws ClassNotFoundException{
+    	log.info("In Service for geeting total count and amount for view id: "+dataViewId);
+    	HashMap finalMap=new HashMap();
+    	Double totalAmount = 0.0d;
+    	totalAmount = totalAmount + Double.parseDouble(getAmountSumByIds(viewTotalIds, quaifierCol));
+    	finalMap.put("totalCount", viewTotalIds.size());
+    	finalMap.put("totalAmount", totalAmount);
+    	finalMap.put("totalIds", viewTotalIds);
+		return finalMap;
+    }   
+       
+    /* Get Reconciled Map<String, List<Long>>and UnReconciled Id's for source*/
+    public Map<String, List<BigInteger>> getSourceRecNUnRecIds(Long dataViewId, Long tenantId, List<BigInteger> srcTotalIds, Long groupId) throws ClassNotFoundException{
+    	List<Long> ruleIds = rulesRepository.fetchIdsByViewId(dataViewId, tenantId);
+    	Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+    	List<BigInteger> reconciledIds = new ArrayList<BigInteger>();
+    	List<BigInteger> sourceUnreconciledIds = new ArrayList<BigInteger>();
+    	if(ruleIds.size()>0)
+    	{
+    		reconciledIds = reconciliationResultRepository.fetchOriginalRowIdsByTenantIdAndRuleIdsAndSourceViewId(tenantId, ruleIds, dataViewId, groupId);
+    	}
+    	if(srcTotalIds.size()>0)
+    	{
+			for(BigInteger id : srcTotalIds)
+			{
+				if(!reconciledIds.contains(id))
+				{
+					sourceUnreconciledIds.add(id);
+				}
+			}
+    	}
+    	finalMap.put("reconciled", reconciledIds);
+    	finalMap.put("unReconciled", sourceUnreconciledIds);
+    	log.info("Source View ID: "+dataViewId+", Total Size: "+srcTotalIds.size());
+    	log.info("Source View ID: "+dataViewId+", Reconciled Size: "+reconciledIds.size());
+    	log.info("Source View ID: "+dataViewId+", UnReconciled Size: "+sourceUnreconciledIds.size());
+		return finalMap;
+    }
+    
+    /* Get Reconciled Map<String, List<Long>>and UnReconciled Id's for Target*/
+    	public Map<String, List<BigInteger>> getTargetRecNUnRecIds(Long dataViewId, Long tenantId, List<BigInteger> srcTotalIds,  Long groupId) throws ClassNotFoundException{
+    	List<Long> ruleIds = rulesRepository.fetchTargetIdsByViewId(dataViewId, tenantId);
+    	Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+    	List<BigInteger> reconciledIds = new ArrayList<BigInteger>();
+    	List<BigInteger> sourceUnreconciledIds = new ArrayList<BigInteger>();
+    	if(ruleIds.size()>0)
+    	{
+    		reconciledIds = reconciliationResultRepository.fetchOriginalRowIdsByTenantIdAndRuleIdsAndTargetViewId(tenantId, ruleIds, dataViewId, groupId);
+    	}
+    	if(srcTotalIds.size()>0)
+    	{
+			for(BigInteger id : srcTotalIds)
+			{
+			
+				if(!reconciledIds.contains(id))
+				{
+					sourceUnreconciledIds.add(id);
+				}
+			}
+    	}
+    	finalMap.put("reconciled", reconciledIds);
+    	finalMap.put("unReconciled", sourceUnreconciledIds);
+    	log.info("Target View ID: "+dataViewId+", Total Size: "+srcTotalIds.size());
+    	log.info("Target View ID: "+dataViewId+", Reconciled Size: "+reconciledIds.size());
+    	log.info("Target View ID: "+dataViewId+", UnReconciled Size: "+sourceUnreconciledIds.size());
+		return finalMap;
+    }
+   
+    /* Get sum of amount qualifier field */
+    public String getAmountSumByIds(List<BigInteger> ids, String qualifierField)
+    {
+    	String idStr=ids.toString();
+    	idStr=idStr.replace("[", "");
+    	idStr=idStr.replace("]", "");
+    	String res="";
+    	if(idStr!=null && !(idStr.isEmpty())){
+    		log.info("Qualifier Filed: "+qualifierField);
+    		String qualifierFileName = getActualFieldName(qualifierField);
+    		if(qualifierFileName.length()>0)
+    		{
+    	    	List entity = em.createQuery("SELECT SUM("+qualifierFileName +") FROM DataMaster where id in ("+idStr+")").getResultList();
+    	    	res= entity.get(0).toString();
+    		}
+    		else
+    		{
+    			log.info("Invalid qualifier field found");
+    		}
+    	}
+    	else
+    	{
+    		res = res + "0";
+    	}
+		return res;
+    }   
+    /*fetching data based on view id*/
+    public List<HashMap> fetchDataByViewId(Page<DataMaster> dms, List<String> headerColumns, String sourceOrTarget, Long tenantId, Long viewId, Long groupId) throws ClassNotFoundException{
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	try{
+        	if(dms.getSize()>0)
+    		{
+    			for(DataMaster dm : dms)
+    			{
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				for(String key : headerColumns)
+    				{
+    					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+    					if(ftl != null)
+    					{
+    						String actualFieldName = getActualFieldName(ftl.getMasterTableReferenceColumn());
+    						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+    						if(entity.size()>0 && entity.get(0) != null)
+    						{
+    							reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+    						}
+    					}	
+    				}
+    				if("source".equalsIgnoreCase(sourceOrTarget))
+    				{
+    					ReconciliationResult rs = reconciliationResultRepository.findByOriginalRowIdAndTenantIdAndOriginalViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    					if(rs != null)
+    					{
+    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    						reconData.put("Status", "Reconciled");
+    					}
+    					else if(rs == null)
+    					{
+    						reconData.put("Recon_Ref_Id", "");
+    						reconData.put("Status", "Un-Reconciled");
+    					}
+    				}
+    				if("target".equalsIgnoreCase(sourceOrTarget))
+    				{
+    					ReconciliationResult rs = reconciliationResultRepository.findByTargetRowIdAndTenantIdAndTargetViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    					if(rs != null)
+    					{
+    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    						reconData.put("Status", "Reconciled");
+    					}
+    					else if(rs == null)
+    					{
+    						reconData.put("Recon_Ref_Id", "");
+    						reconData.put("Status", "Un-Reconciled");
+    					}
+    				}
+    				finalMap.add(reconData);
+    			}
+    		}
+    	}catch(Exception e)
+    	{
+    		log.info("Error while fetching header columns data from data master data");
+    	}
+
+    	return finalMap;
+    }
+    
+
+    /*fetching data based on view id*/
+    public List<HashMap> fetchDataByViewIdInSequence(Page<DataMaster> dms, List<String> headerColumns, String sourceOrTarget, Long tenantId, Long viewId, Long groupId) throws ClassNotFoundException{
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	log.info("In fetching reconciliation data sevice");
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+    	String currencyFormat = props.getProperty("currencyFormat");
+    	try{
+        	if(dms.getSize()>0)
+    		{
+    			for(DataMaster dm : dms)
+    			{
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				for(String key : headerColumns)
+    				{
+    					if("Status".equalsIgnoreCase(key))
+    					{
+    	    				if("source".equalsIgnoreCase(sourceOrTarget))
+    	    				{
+    	    					ReconciliationResult rs = reconciliationResultRepository.findByOriginalRowIdAndTenantIdAndOriginalViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    	    					if(rs != null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    	    						reconData.put("Status", "Reconciled");
+    	    					}
+    	    					else if(rs == null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", "");
+    	    						reconData.put("Status", "Un-Reconciled");
+    	    					}
+    	    				}
+    	    				if("target".equalsIgnoreCase(sourceOrTarget))
+    	    				{
+    	    					ReconciliationResult rs = reconciliationResultRepository.findByTargetRowIdAndTenantIdAndTargetViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    	    					if(rs != null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    	    						reconData.put("Status", "Reconciled");
+    	    					}
+    	    					else if(rs == null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", "");
+    	    						reconData.put("Status", "Un-Reconciled");
+    	    					}
+    	    				}
+    					}
+    					else
+    					{
+        					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+        					if(ftl != null)
+        					{
+        						String actualFieldName = getActualFieldName(ftl.getMasterTableReferenceColumn());
+        						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+        						if(entity.size()>0 && entity.get(0) != null)
+        						{
+        							/*reconData.put(ftl.getColumnHeader(), entity.get(0).toString());*/
+               						/*reconData.put(ftl.getColumnHeader(), entity.get(0).toString());*/
+            						DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndRefDvColumn(viewId, ftl.getId().toString());
+            						if(dvc != null)
+            						{
+            							if("DECIMAL".equalsIgnoreCase(dvc.getColDataType()))
+            							{
+            								String amountInCurrency = reconciliationResultService.getAmountInFormat(entity.get(0).toString().replace(",", ""),currencyFormat);
+            								reconData.put(ftl.getColumnHeader(), amountInCurrency);
+            							}
+            							else
+            							{
+            								reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+            							}
+            						}
+        						}
+        					}	
+    					}
+    				}
+    				finalMap.add(reconData);
+    			}
+    		}
+    	}catch(Exception e)
+    	{
+    		log.info("Error while fetching header columns data from data master data");
+    	}
+    	return finalMap;
+    }
+    
+    /*fetching data based on view id*/
+    public List<HashMap> fetchDataByViewIdInSequence(List<DataMaster> dms, List<String> headerColumns, String sourceOrTarget, Long tenantId, Long viewId, Long groupId) throws ClassNotFoundException{
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	log.info("In fetching reconciliation data sevice");
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+    	String currencyFormat = props.getProperty("currencyFormat");
+    	try{
+        	if(dms.size()>0)
+    		{
+    			for(DataMaster dm : dms)
+    			{
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				for(String key : headerColumns)
+    				{
+    					if("Status".equalsIgnoreCase(key))
+    					{
+    	    				if("source".equalsIgnoreCase(sourceOrTarget))
+    	    				{
+    	    					ReconciliationResult rs = reconciliationResultRepository.findByOriginalRowIdAndTenantIdAndOriginalViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    	    					if(rs != null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    	    						reconData.put("Status", "Reconciled");
+    	    					}
+    	    					else if(rs == null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", "");
+    	    						reconData.put("Status", "Un-Reconciled");
+    	    					}
+    	    				}
+    	    				if("target".equalsIgnoreCase(sourceOrTarget))
+    	    				{
+    	    					ReconciliationResult rs = reconciliationResultRepository.findByTargetRowIdAndTenantIdAndTargetViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    	    					if(rs != null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    	    						reconData.put("Status", "Reconciled");
+    	    					}
+    	    					else if(rs == null)
+    	    					{
+    	    						reconData.put("Recon_Ref_Id", "");
+    	    						reconData.put("Status", "Un-Reconciled");
+    	    					}
+    	    				}
+    					}
+    					else
+    					{
+        					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+        					if(ftl != null)
+        					{
+        						String actualFieldName = getActualFieldName(ftl.getMasterTableReferenceColumn());
+        						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+        						if(entity.size()>0 && entity.get(0) != null)
+        						{
+        							/*reconData.put(ftl.getColumnHeader(), entity.get(0).toString());*/
+            						DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndRefDvColumn(viewId, ftl.getId().toString());
+            						if(dvc != null)
+            						{
+            							if("DECIMAL".equalsIgnoreCase(dvc.getColDataType()))
+            							{
+            								String amountInCurrency = reconciliationResultService.getAmountInFormat(entity.get(0).toString().replace(",", ""),currencyFormat);
+            								reconData.put(ftl.getColumnHeader(), amountInCurrency);
+            							}
+            							else
+            							{
+            								reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+            							}
+            						}
+        						}
+        					}	
+    					}
+    				}
+    				finalMap.add(reconData);
+    			}
+    		}
+    	}catch(Exception e)
+    	{
+    		log.info("Error while fetching header columns data from data master data");
+    	}
+    	return finalMap;
+    }
+
+    
+    /*Converting BigIntegers into Long type*/
+    public List<Long> getBigIntegerAsLong(List<BigInteger> bigIntIds)
+    {
+    	List<Long> bidIntAsLong = new ArrayList<Long>();
+    	if(bigIntIds.size()>0)
+    	{
+        	for(BigInteger id : bigIntIds)
+        	{
+        		bidIntAsLong.add(id.longValue());
+        	}
+    	}
+    	return bidIntAsLong;
+    }
+    /*Getting View Name based on View Id*/
+    public String getViewNameByViewId(Long viewId)
+    {
+    	String dataViewName = "";
+    	DataViews dv = dataViewsRepository.findOne(viewId);
+    	if(dv != null)
+    	{
+    		dataViewName = dv.getDataViewDispName();
+    	}
+    	log.info("View Id : " + viewId+", View Name: "+ dataViewName);
+    	return dataViewName;
+    }
+    
+    /*Getting column alias based on view id*/
+    public List<String> getViewColumnHeaders(Long dataViewId)
+    {
+    	log.info("In service for getting column headers");
+    	List<String> colNames = new ArrayList<String>();
+    	List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIds(dataViewId);
+    	if(dvc.size()>0)
+    	{
+    		List<Long> idsAsLong = new ArrayList<Long>();
+    		for(String idString : dvc)
+    		{
+    			idsAsLong.add(Long.parseLong(idString));
+    		}
+    		colNames = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	}
+    	return colNames;
+    }
+    
+    public HashMap<BigInteger, String> getRecSequenceColumns(Long viewId, Long groupId, Long tenantId, String sourceOrTarget)
+    {
+    	HashMap<BigInteger, String> seqCols = new HashMap<BigInteger, String>();
+    	log.info("In service for getting column headers in sequence");
+    	List<BigInteger> ruleIds = ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(groupId, tenantId);
+    	log.info("Rule Ids "+ ruleIds+" for the group id "+ groupId);
+    	if(ruleIds.size()>0)
+    	{
+    		if("source".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			log.info("In Source : "+ viewId);
+    			List<BigInteger> ids = rulesRepository.fetchIdsBySourceViewIdAndIds(tenantId, viewId, ruleIds);
+    			log.info("Rule Ids "+ ids +" tagged to source view id"+ viewId);
+    			if(ids.size()>0)
+    			{
+    				List<BigInteger> sColumnIds = ruleConditionsRepository.fetchSourceColumnIdsByRuleIds(ids);
+    				log.info("Source Column Ids: "+ sColumnIds+" for Source View Id: "+viewId);
+    				if(sColumnIds.size()>0 && !sColumnIds.contains(null))
+    				{
+    		   			for(BigInteger id : sColumnIds)
+    		   			{
+    		   				DataViewsColumns dc = dataViewsColumnsRepository.findOne(id.longValue());
+    		   				if(dc != null)
+    		   				{
+    		       				seqCols.put(id, dc.getColumnName());	
+    		   				}
+    		   			}
+    				}
+    			}
+    		}
+    		else if("target".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			log.info("In Target : "+ viewId);
+    			List<BigInteger> ids = rulesRepository.fetchIdsByTargetViewIdAndIds(tenantId, viewId, ruleIds);
+    			log.info("Rule Ids "+ ids + " which are tagged to target view id : "+ ids);
+    			if(ids.size()>0)
+    			{
+    				List<BigInteger> tColumnIds = ruleConditionsRepository.fetchTargetColumnIdsByRuleIds(ids);
+    				log.info("Target view id "+viewId+"Target Column Ids: "+ tColumnIds);
+    				if(tColumnIds.size()>0 && !tColumnIds.contains(null))
+    				{
+    		   			for(BigInteger id : tColumnIds)
+    		   			{
+    		   				DataViewsColumns dc = dataViewsColumnsRepository.findOne(id.longValue());
+    		   				if(dc != null)
+    		   				{
+    		       				seqCols.put(id, dc.getColumnName());	
+    		   				}
+    		   			}	
+    				}
+    			}
+    		}
+    	}
+    	return seqCols;
+    }
+    /*Getting column alias based on view id*/
+    public List<String> getViewColumnHeadersInSequence(Long viewId, Long groupId, Long tenantId, String sourceOrTarget)
+    {
+    	log.info("In service for getting column headers in sequence");
+    	List<String> colNames = new ArrayList<String>();
+    	List<BigInteger> ruleIds = ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(groupId, tenantId);
+    	log.info("Rule Ids "+ ruleIds+" for the group id "+ groupId);
+    	List<BigInteger> allViewColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(viewId);
+    	log.info("All View Column Ids: "+ allViewColIds);
+    	List<String> sysColumns = new ArrayList<String>();
+    	sysColumns.add("Status");
+    	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+    	if(ruleIds.size()>0)
+    	{
+    		if("source".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			log.info("In Source : "+ viewId);
+    			List<BigInteger> ids = rulesRepository.fetchIdsBySourceViewIdAndIds(tenantId, viewId, ruleIds);
+    			log.info("Rule Ids "+ ids +" tagged to source view id"+ viewId);
+    			if(ids.size()>0)
+    			{
+    				List<BigInteger> sColumnIds = ruleConditionsRepository.fetchSourceColumnIdsByRuleIds(ids);
+    				sColumnIds.remove(null);
+    				log.info("Source Column Ids: "+ sColumnIds+" for Source View Id: "+viewId);
+    				if(sColumnIds.size()>0)
+    				{
+    	    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(sColumnIds);
+    	    			List<String> seqColumns = new ArrayList<String>();
+    	    	    	if(dvc.size()>0)
+    	    	    	{
+    	    	    		List<Long> idsAsLong = new ArrayList<Long>();
+    	    	    		for(String idString : dvc)
+    	    	    		{
+    	    	    			idsAsLong.add(Long.parseLong(idString));
+    	    	    		}
+    	    	    		seqColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	    	    		log.info("Sequence Columns "+ seqColumns);
+    	    	    		colNames.addAll(seqColumns);
+    	    	    	}
+    				}
+    				colNames.addAll(sysColumns);
+    				log.info("System Columns: "+sysColumns);
+    				if(allViewColIds.size()>0)
+    				{
+    					for(BigInteger id : allViewColIds)
+    					{
+    						if(!sColumnIds.contains(id))
+    						{
+    							remainingSequence.add(id);
+    						}
+    					}
+    				}
+    				log.info("Sourece View id: "+ viewId + ", Remaining Column Ids: "+ remainingSequence);
+    				if(remainingSequence.size()>0)
+    				{
+    	    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(remainingSequence);
+    	    			List<String> remainingColumns = new ArrayList<String>();
+    	    	    	if(dvc.size()>0)
+    	    	    	{
+    	    	    		List<Long> idsAsLong = new ArrayList<Long>();
+    	    	    		for(String idString : dvc)
+    	    	    		{
+    	    	    			idsAsLong.add(Long.parseLong(idString));
+    	    	    		}
+    	    	    		remainingColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	    	    		log.info("Remaining Columns "+ remainingColumns);
+    	    	    		colNames.addAll(remainingColumns);
+    	    	    	}
+    	    	    	log.info("Source View Id: "+ viewId + ", Remaining Columns: "+ remainingColumns);
+    				}
+    			}
+    		}
+    		else if("target".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			log.info("In Target : "+ viewId);
+    			List<BigInteger> ids = rulesRepository.fetchIdsByTargetViewIdAndIds(tenantId, viewId, ruleIds);
+    			log.info("Rule Ids "+ ids + " which are tagged to target view id : "+ ids);
+    			if(ids.size()>0)
+    			{
+    				List<BigInteger> tColumnIds = ruleConditionsRepository.fetchTargetColumnIdsByRuleIds(ids);
+    				tColumnIds.remove(null);
+    				log.info("Target view id "+viewId+"Target Column Ids: "+ tColumnIds);
+    				if(tColumnIds.size()>0)
+    				{
+    	    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(tColumnIds);
+    	    			List<String> seqColumns = new ArrayList<String>();
+    	    	    	if(dvc.size()>0)
+    	    	    	{
+    	    	    		List<Long> idsAsLong = new ArrayList<Long>();
+    	    	    		for(String idString : dvc)
+    	    	    		{
+    	    	    			idsAsLong.add(Long.parseLong(idString));
+    	    	    		}
+    	    	    		seqColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	    	    		log.info("Target View Id"+viewId+"Sequence Columns "+ seqColumns);
+    	    	    		colNames.addAll(seqColumns);
+    	    	    	}
+    				}
+    				colNames.addAll(sysColumns);
+    				log.info("System Columns Columns "+ sysColumns);
+    				if(allViewColIds.size()>0)
+    				{
+    					for(BigInteger id : allViewColIds)
+    					{
+    						if(!tColumnIds.contains(id))
+    						{
+    							remainingSequence.add(id);
+    						}
+    					}
+    				}
+    				log.info("View Id : "+ viewId + ", Remaining Column Ids "+ remainingSequence);
+    				if(remainingSequence.size()>0)
+    				{
+    	    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(remainingSequence);
+    	    			List<String> remainingColumns = new ArrayList<String>();
+    	    	    	if(dvc.size()>0)
+    	    	    	{
+    	    	    		List<Long> idsAsLong = new ArrayList<Long>();
+    	    	    		for(String idString : dvc)
+    	    	    		{
+    	    	    			idsAsLong.add(Long.parseLong(idString));
+    	    	    		}
+    	    	    		remainingColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	    	    		log.info("Target View Id "+viewId+"Remaining Columns "+ remainingColumns);
+    	    	    		colNames.addAll(remainingColumns);
+    	    	    	}
+    				}
+    			}
+    		}
+    	}
+    	else
+    	{
+    		log.info("No Rule Ids found for the group id: "+ groupId);
+    	}
+    	return colNames;
+    }
+   
+/*    public List<String> getHeaderColsAsFieldNames(Long ViewId)
+    {
+    	List<String> ftlids = dataViewsColumnsRepository.fetchFileTemplateLineIds(ViewId);
+    	List<String> fieldNames = new ArrayList<String>();
+    	if(ftlids.size()>0)
+    	{
+    		for(String col : ftlids)
+    		{
+    			FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(col));
+    			if(ftl != null)
+    			{
+    				fieldNames.add(ftl.getMasterTableReferenceColumn());
+    			}
+    		}
+    	}
+    	return fieldNames;	
+    }
+*/    
+/*    public List<String> getQueryFields(List<String> colNames)
+    {
+    	List<String> queryFields = new ArrayList<String>();
+    	for(String field : colNames)
+    	{
+    		queryFields.add(getActualFieldName(field));
+    	}
+    	return queryFields;
+    }
+*/    
+    public String getListAsString(List<Long> colsIds)
+    {
+    	String idsAsString = "";
+    	if(colsIds.size()>0)
+    	{
+    		for(int i=0; i<colsIds.size(); i++)
+    		{
+    			if(i == colsIds.size()-1)
+    			{
+    				idsAsString = idsAsString +colsIds.get(i);
+    			}
+    			else
+    			{
+    				idsAsString = idsAsString+colsIds.get(i)+",";
+    			}
+    		}
+    	}
+    	return idsAsString;
+    }
+    /*fetching data based on view id*/
+    public List<HashMap> fetchDataByViewId(List<DataMaster> dms, List<String> headerColumns, String sourceOrTarget, Long tenantId, Long viewId, Long groupId) throws ClassNotFoundException{
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	log.info("Header Columns: "+headerColumns);
+    	if(dms.size()>0)
+		{
+    		try{
+    			for(DataMaster dm : dms)
+    			{
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				for(String key : headerColumns)
+    				{
+    					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+    					if(ftl != null)
+    					{
+    						String actualFieldName = getActualFieldName(ftl.getMasterTableReferenceColumn());
+    						if(actualFieldName.length()>0)
+    						{
+    							List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+    							if(entity.size()>0 && (entity.get(0) != null))
+    							{
+    								reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+    							}
+    						
+    						}
+    					}	
+    				}
+    				if("source".equalsIgnoreCase(sourceOrTarget))
+    				{
+    					ReconciliationResult rs = reconciliationResultRepository.findByOriginalRowIdAndTenantIdAndOriginalViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    					if(rs != null)
+    					{
+    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    						reconData.put("Status", "Reconciled");
+    					}
+    					else if(rs == null)
+    					{
+    						reconData.put("Recon_Ref_Id", "");
+    						reconData.put("Status", "Un-Reconciled");
+    					}
+    				}
+    				if("target".equalsIgnoreCase(sourceOrTarget))
+    				{
+    					ReconciliationResult rs = reconciliationResultRepository.findByTargetRowIdAndTenantIdAndTargetViewIdAndReconciliationRuleGroupId(dm.getId(), tenantId, viewId, groupId);
+    					if(rs != null)
+    					{
+    						reconData.put("Recon_Ref_Id", rs.getReconReference());
+    						reconData.put("Status", "Reconciled");
+    					}
+    					else if(rs == null)
+    					{
+    						reconData.put("Recon_Ref_Id", "");
+    						reconData.put("Status", "Un-Reconciled");
+    					}
+    				}
+    				finalMap.add(reconData);
+    			}
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Unable to get the fetch data from data master table"+e);
+    		}
+
+		}
+    	return finalMap;
+    }
+    
+    public List<DataMaster> getObjectsAsDataMaster(List<Object> dmObjects)
+    {
+    	List<DataMaster> dmList = new ArrayList<DataMaster>();
+		if(dmObjects.size()>0)
+		{
+			for(int i=0; i<dmObjects.size(); i++)
+			{
+				HashMap trec = new HashMap();
+				dmList.add((DataMaster)dmObjects.get(i));
+			}
+		}
+		return dmList;
+    }
+    
+    /*Building Query based on custom column filters*/
+   public String buildCustomQuery(List<FilterColumns> filterCols, Long viewId)
+    {
+	    String whereString = "";
+	    if(filterCols.size()>0)
+	    {
+	    	try{
+		        for(FilterColumns fc : filterCols)
+		        {
+		        	String colDataType = "";
+		        	String col = "";
+		        	log.info("ViewId: "+ viewId+", ColumnName: "+fc.getColumnName());
+		        	DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndColumnName(viewId, fc.getColumnName());
+		        	if(dvc != null)
+		        	{
+		        		colDataType = colDataType+dvc.getColDataType();
+		        		log.info("colDataType: " + colDataType);
+		        		FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn()));
+		        		if(ftl != null)
+		        		{
+		        			col = getActualFieldName(ftl.getMasterTableReferenceColumn());
+		        		}
+		        		log.info("col:" +col);
+		        	}
+		        	else
+		        	{
+		        		log.info("Custom col found");
+		        		whereString=whereString+"custom column";
+		        	}
+		        	if(/*colDataType!=null && !(colDataType.isEmpty()) && */"VARCHAR".equalsIgnoreCase(colDataType) || "STRING".equalsIgnoreCase(colDataType))
+		        	{
+		        		log.info("Building query string");
+		        		String columnValue = fc.getColumnValue();
+		        		columnValue = "'"+columnValue.replace(",", "','")+"'";
+		        		if("=".equalsIgnoreCase(fc.getOperator()) || "EQUALS".equals(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND "+ col + " IN ("+columnValue+")";
+		        		}
+		        		else if("!=".equalsIgnoreCase(fc.getOperator()) || "NOT_EQUALS".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND "+ col + " NOT IN ("+columnValue+")";
+		        		}
+		        		else if("CONTAINS".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND "+col+" LIKE '%"+fc.getColumnValue()+"%'";
+		        			/*whereString = whereString + " AND "+col+" REGEXP '"+fc.getColumnValue().replace(",", "|")+"'";*/
+		        		}
+		        		else if("BEGINS_WITH".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND "+col +" LIKE '"+fc.getColumnValue()+"%'";
+		        		}
+		        		else if("ENDS_WITH".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND " + col + " LIKE '%"+fc.getColumnValue()+"'";
+		        		}
+		        	}
+		        	else if(/*colDataType!=null && !(colDataType.isEmpty()) && */"INTEGER".equalsIgnoreCase(colDataType) || "NUMBER".equalsIgnoreCase(colDataType) || "DECIMAL".equalsIgnoreCase(colDataType))
+		        	{
+		        		log.info("Building query integer");
+		        		if("=".equalsIgnoreCase(fc.getOperator()) || "EQUALS".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND "+ col + " IN("+fc.getColumnValue()+")";
+		        		}
+		        		else if("!=".equalsIgnoreCase(fc.getOperator()) || "NOT_EQUALS".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND "+ col + " NOT IN("+fc.getColumnValue()+")";
+		        		}
+		        		else if("BETWEEN".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			String[] dateRange = fc.getColumnValue().toString().split("\\,");
+		        			whereString = whereString + " AND (" + col + " BETWEEN "+dateRange[0]+" AND "+dateRange[1]+")";
+		        		}
+		        		else
+		        		{
+		        			whereString = whereString + " AND "+ col + " "+ fc.getOperator()+ " " + fc.getColumnValue();
+		        		}
+		        	}
+		        	else if(/*colDataType!=null && !(colDataType.isEmpty()) && */"DATE".equalsIgnoreCase(colDataType) || "DATETIME".equalsIgnoreCase(colDataType))
+		        	{
+		        		log.info("Building query date");
+		        		String columnValue = fc.getColumnValue();
+		        		columnValue = "'"+columnValue.replace(",", "','")+"'";
+		        		if("=".equalsIgnoreCase(fc.getOperator()) || "EQUALS".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND " + col + " IN("+columnValue+")";
+		        		}
+		        		else if("!=".equalsIgnoreCase(fc.getOperator()) || "NOT_EQUALS".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			whereString = whereString + " AND " + col + " NOT IN("+ columnValue +")";
+		        		}
+		        		else if("BETWEEN".equalsIgnoreCase(fc.getOperator()))
+		        		{
+		        			String[] dateRange = fc.getColumnValue().split("\\,");
+		        			whereString = whereString + " AND ("+col+" BETWEEN '"+dateRange[0]+"' AND '"+ dateRange[1]+"')";
+		        		}
+		        		else
+		        		{
+		        			whereString = whereString + " AND "+col+fc.getOperator()+columnValue;
+		        		}
+		        	}
+		        }
+	    	}
+	    	catch(Exception e)
+	    	{
+	    		log.info("Error while building query"+e);
+	    	}
+	    }
+	    log.info("Final Where String in Service: "+ whereString);
+    	return whereString;
+    }
+       
+   public String getAmountInFormat(String value, String currencyType)
+    {
+	   //log.info("Service for displaying amounts in currency format");
+    	String valueInCurrency = "";
+    	if("US".equalsIgnoreCase(currencyType))
+    	{
+    		if(value.length()>0)
+    		{
+    			valueInCurrency = valueInCurrency+String.format("%,.2f", Double.parseDouble(value));
+    		}
+    	}
+    	if(valueInCurrency.length() == 0)
+    	{
+    		valueInCurrency = valueInCurrency + "0";
+    	}
+    	return valueInCurrency;
+    }
+   
+   
+/*   public HashMap getColumnSet(Long vi)
+   {
+		if("source".equalsIgnoreCase(sourceOrTarget))
+		{
+			HashMap<BigInteger, String> seqCols = reconciliationResultService.getRecSequenceColumns(viewId, groupId,tenantId, "source");
+			if(seqCols.size()>0)
+			{
+				for (Map.Entry<BigInteger, String> entry : seqCols.entrySet())
+				{
+					log.info("Id: " + entry.getKey()+", Column Name: " + entry.getValue());
+					String colFieldName = accountingDataService.getColFieldName(entry.getKey());
+					List<HashMap> colValuesMap = new ArrayList<HashMap>();
+					if(colFieldName.length()>0)
+					{
+						HashMap colMap = new HashMap();
+						colMap.put("id", entry.getKey());
+						colMap.put("columnName", entry.getValue());
+						log.info("Column Field Name: "+ colFieldName);
+						List<String> entity = em.createQuery("SELECT distinct("+colFieldName+") FROM DataMaster where id in ("+idStr+")").getResultList();
+						if(entity.size()<=15)
+						{
+							log.info("Distinct Values Size: "+entity.size() +", Column "+ colFieldName);
+							log.info("Distinct Values: "+entity);
+							for(String colValue : entity)
+							{
+								HashMap colValueMp = new HashMap();
+								List<Long> count = em.createQuery("SELECT id FROM DataMaster where id in ("+idStr+") and "+colFieldName+" = '"+colValue+"'").getResultList();
+								colValueMp.put("name", colValue);
+								colValueMp.put("count", count.size());
+								colValuesMap.add(colValueMp);
+							}
+							colMap.put("columnValuesSet", colValuesMap);
+               				finalMap.add(colMap);
+						}
+						else
+						{
+							log.info("Column "+ colFieldName +" has "+entity.size()+" size");
+						}
+					}
+					else
+					{
+						log.info("Invalid Column Field");
+					}
+				}
+			}
+		}
+		else if("target".equalsIgnoreCase(sourceOrTarget))
+		{
+			HashMap<BigInteger, String> seqCols = reconciliationResultService.getRecSequenceColumns(viewId, groupId,tenantId, "target");
+			if(seqCols.size()>0)
+			{
+				for (Map.Entry<BigInteger, String> entry : seqCols.entrySet())
+				{
+					log.info("Id: " + entry.getKey()+", Column Name: " + entry.getValue());
+					String colFieldName = accountingDataService.getColFieldName(entry.getKey());
+					List<HashMap> colValuesMap = new ArrayList<HashMap>();
+					if(colFieldName.length()>0)
+					{
+						HashMap colMap = new HashMap();
+						colMap.put("id", entry.getKey());
+						colMap.put("columnName", entry.getValue());
+						log.info("Column Field Name: "+ colFieldName);
+						List<String> entity = em.createQuery("SELECT distinct("+colFieldName+") FROM DataMaster where id in ("+idStr+")").getResultList();
+						if(entity.size()<=15)
+						{
+							log.info("Distinct Values Size: "+entity.size() +", Column "+ colFieldName);
+							log.info("Distinct Values: "+entity);
+							for(String colValue : entity)
+							{
+								HashMap colValueMp = new HashMap();
+								List<Long> count = em.createQuery("SELECT id FROM DataMaster where id in ("+idStr+") and "+colFieldName+" = '"+colValue+"'").getResultList();
+								colValueMp.put("name", colValue);
+								colValueMp.put("count", count.size());
+								colValuesMap.add(colValueMp);
+							}
+							colMap.put("columnValuesSet", colValuesMap);
+							finalMap.add(colMap);
+						}
+						else
+						{
+							log.info("Column "+ colFieldName +" has "+entity.size()+" size");
+						}
+					}
+					else
+					{
+						log.info("Invalid Column Field");
+					}
+				}
+			}
+		}
+   	}*/
+   
+    /*Building Custom Filtered Columns Query And Execute*/
+/*    public List<HashMap> buildCustomQueryAndExecute(List<FilterColumns> filterCols, Long viewId, int pageNumber, int pageSize, String viewName)
+    {
+	    String whereString = "";
+	    List<HashMap> finalRecords = new ArrayList<HashMap>();
+	    if(filterCols.size()>0)
+	    {
+	        for(FilterColumns fc : filterCols)	//iterating custom filter columns
+	        {
+	        	String col = "";
+	        	String colDataType = "";
+	        	DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndColumnName(viewId, fc.getColumnName());
+	        	if(dvc != null)
+	        	{
+	        		colDataType = colDataType + dvc.getColDataType();
+	        		FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn()));
+	        		if(ftl != null)
+	        		{
+	        			col = getActualFieldName(ftl.getMasterTableReferenceColumn());
+	        		}
+	        	}
+	        	if("VARCHAR".equalsIgnoreCase(colDataType) || "STRING".equalsIgnoreCase(colDataType))
+	        	{
+	        		if("=".equalsIgnoreCase(fc.getOperator()) || "EQUALS".equals(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND "+ col + " IN ("+fc.getColumnValue()+")";
+	        		}
+	        		else if("!=".equalsIgnoreCase(fc.getOperator()) || "NOT_EQUALS".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND "+ col + " NOT IN ("+fc.getColumnValue()+")";
+	        		}
+	        		else if("CONTAINS".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND "+col+" LIKE '%"+fc.getColumnValue()+"%'";
+	        		}
+	        		else if("BEGINS_WITH".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND "+col +" LIKE '"+fc.getColumnValue()+"%'";
+	        		}
+	        		else if("ENDS_WITH".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND " + col + " LIKE '%"+fc.getColumnValue()+"";
+	        		}
+	        	}
+	        	else if("INTEGER".equalsIgnoreCase(colDataType) || "NUMBER".equalsIgnoreCase(colDataType))
+	        	{
+	        		if("=".equalsIgnoreCase(fc.getOperator()) || "EQUALS".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND "+ col + " IN("+fc.getColumnValue()+")";
+	        		}
+	        		else if("!=".equalsIgnoreCase(fc.getOperator()) || "NOT_EQUALS".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND "+ col + " NOT IN("+fc.getColumnValue()+")";
+	        		}
+	        		else
+	        		{
+	        			whereString = whereString + " AND "+ col + " "+ fc.getOperator()+ " " + fc.getColumnValue();
+	        		}
+	        	}
+	        	else if("DATE".equalsIgnoreCase(colDataType))
+	        	{
+	        		if("=".equalsIgnoreCase(fc.getOperator()) || "EQUALS".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND " + col + " IN("+fc.getColumnValue()+")";
+	        		}
+	        		else if("!=".equalsIgnoreCase(fc.getOperator()) || "NOT_EQUALS".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			whereString = whereString + " AND " + col + " NOT IN("+ fc.getColumnValue()+")";
+	        		}
+	        		else if("BETWEEN".equalsIgnoreCase(fc.getOperator()))
+	        		{
+	        			String[] dateRange = fc.getColumnValue().toString().split("\\,s");
+	        			whereString = whereString + " AND ("+col+" BETWEEN '"+dateRange[0]+"' AND '"+ dateRange[1]+"')";
+	        		}
+	        		else
+	        		{
+	        			whereString = whereString + " AND "+col+fc.getOperator()+fc.getColumnValue();
+	        		}
+	        	}
+	        }
+    		Query queryTotal = em.createQuery("FROM "+viewName+" where 1=1"+whereString);
+    		queryTotal.setFirstResult((pageNumber-1) * pageSize);
+    		queryTotal.setMaxResults(pageSize);
+    		finalRecords = queryTotal.getResultList();
+	    }
+    	return finalRecords;
+    }
+*/
+   
+   
+   public List<HashMap> getRecColsAlignInfo(Long viewId, Long groupId, Long tenantId, String sourceOrTarget)
+   {
+   	log.info("In service for getting column headers in sequence");
+   	List<HashMap> finalMap = new ArrayList<HashMap>();
+   	List<BigInteger> ruleIds = ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(groupId, tenantId);
+   	log.info("Rule Ids "+ ruleIds+" for the group id "+ groupId);
+   	List<BigInteger> allViewColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(viewId);
+   	log.info("All View Column Ids: "+ allViewColIds);
+   	List<String> sysColumns = new ArrayList<String>();
+   	sysColumns.add("Status");
+   	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+   	if(ruleIds.size()>0)
+   	{
+   		if("source".equalsIgnoreCase(sourceOrTarget))
+   		{
+	   		HashMap idMp = new HashMap();
+	   		idMp.put("field", "Id");
+	   		idMp.put("header", "Id");
+	   		idMp.put("align", "left");
+	   		idMp.put("width", "150px");
+	   		finalMap.add(idMp);
+   			log.info("In Source : "+ viewId);
+   			List<BigInteger> ids = rulesRepository.fetchIdsBySourceViewIdAndIds(tenantId, viewId, ruleIds);
+   			log.info("Rule Ids "+ ids +" tagged to source view id"+ viewId);
+   			if(ids.size()>0)
+   			{
+   				List<BigInteger> sColumnIds = ruleConditionsRepository.fetchSourceColumnIdsByRuleIds(ids);
+   				log.info("Source Column Ids: "+ sColumnIds+" for Source View Id: "+viewId);
+   				if(sColumnIds.size()>0)
+   				{
+   					finalMap.addAll(getColAlignInfo(sColumnIds));
+   				}
+   				HashMap statusMp = new HashMap();
+   				
+   				HashMap reconRefMp = new HashMap();
+   				reconRefMp.put("field", "Recon_Ref_Id");
+   				reconRefMp.put("header", "Recon_Ref_Id");
+   				reconRefMp.put("align", "left");
+   				reconRefMp.put("width", "150px");
+   				
+   				statusMp.put("field", "Status");
+   				statusMp.put("header", "Status");
+   				statusMp.put("align", "left");
+   				statusMp.put("width", "150px");
+   				
+   				finalMap.add(statusMp);
+   				finalMap.add(reconRefMp);
+   				if(allViewColIds.size()>0)
+   				{
+   					for(BigInteger id : allViewColIds)
+   					{
+   						if(!sColumnIds.contains(id))
+   						{
+   							remainingSequence.add(id);
+   						}
+   					}
+   				}
+   				log.info("Sourece View id: "+ viewId + ", Remaining Column Ids: "+ remainingSequence);
+   				if(remainingSequence.size()>0)
+   				{
+   					finalMap.addAll(getColAlignInfo(remainingSequence));
+   				}
+   			}
+   		}
+   		else if("target".equalsIgnoreCase(sourceOrTarget))
+   		{
+	   		HashMap idMp = new HashMap();
+	   		idMp.put("field", "Id");
+	   		idMp.put("header", "Id");
+	   		idMp.put("align", "left");
+	   		idMp.put("width", "150px");
+	   		finalMap.add(idMp);
+   			log.info("In Target : "+ viewId);
+   			List<BigInteger> ids = rulesRepository.fetchIdsByTargetViewIdAndIds(tenantId, viewId, ruleIds);
+   			log.info("Rule Ids "+ ids + " which are tagged to target view id : "+ ids);
+   			if(ids.size()>0)
+   			{
+   				List<BigInteger> tColumnIds = ruleConditionsRepository.fetchTargetColumnIdsByRuleIds(ids);
+   				log.info("Target view id "+viewId+"Target Column Ids: "+ tColumnIds);
+   				if(tColumnIds.size()>0)
+   				{
+   					finalMap.addAll(getColAlignInfo(tColumnIds));
+   				}
+   				HashMap statusMp = new HashMap();
+   				
+   				HashMap reconRefMp = new HashMap();
+   				reconRefMp.put("field", "Recon_Ref_Id");
+   				reconRefMp.put("header", "Recon_Ref_Id");
+   				reconRefMp.put("align", "left");
+   				reconRefMp.put("width", "150px");
+   				
+   				statusMp.put("field", "Status");
+   				statusMp.put("header", "Status");
+   				statusMp.put("align", "left");
+   				statusMp.put("width", "150px");
+
+   				finalMap.add(statusMp);
+   				finalMap.add(reconRefMp);
+   				if(allViewColIds.size()>0)
+   				{
+   					for(BigInteger id : allViewColIds)
+   					{
+   						if(!tColumnIds.contains(id))
+   						{
+   							remainingSequence.add(id);
+   						}
+   					}
+   				}
+   				log.info("View Id : "+ viewId + ", Remaining Column Ids "+ remainingSequence);
+   				if(remainingSequence.size()>0)
+   				{
+   					finalMap.addAll(getColAlignInfo(remainingSequence));
+   				}
+   			}
+   		}
+   	}
+   	else
+   	{
+   		log.info("No Rule Ids found for the group id: "+ groupId);
+   	}
+   	return finalMap;
+   }
+
+   public List<HashMap> getColAlignInfo(List<BigInteger> columnIds)
+   {
+	   		List<HashMap> finalMap = new ArrayList<HashMap>();
+			for(BigInteger id : columnIds)
+			{
+				HashMap hm = new HashMap();
+				DataViewsColumns dvc = dataViewsColumnsRepository.findOne(id.longValue());
+				if(dvc != null)
+				{
+					hm.put("field", dvc.getColumnName());
+					hm.put("header", dvc.getColumnName());
+					if("DECIMAL".equalsIgnoreCase(dvc.getColDataType()))
+					{
+						hm.put("align", "right");
+					}
+					else
+					{
+						hm.put("align", "left");
+					}
+					hm.put("width", "150px");
+					finalMap.add(hm);
+				}
+			}
+			return finalMap;
+   }
+   
+   public List<HashMap> getViewColumnSetWithStatus(String sourceOrTarget, Long viewId, Long groupId, Long tenantId, List<BigInteger> idStr)
+   {
+   	String idsString=idStr.toString();
+   	idsString=idsString.replace("[", "");
+   	idsString=idsString.replace("]", "");
+
+	   	List<HashMap> finalMap = new ArrayList<HashMap>();
+		if("source".equalsIgnoreCase(sourceOrTarget))
+		{
+	   		HashMap<BigInteger, String> seqCols = reconciliationResultService.getRecSequenceColumns(viewId, groupId,tenantId, "source");
+	       	if(seqCols.size()>0)
+	       	{
+	       		for (Map.Entry<BigInteger, String> entry : seqCols.entrySet())
+	       		{
+	       			log.info("Id: " + entry.getKey()+", Column Name: " + entry.getValue());
+	       			String colFieldName = accountingDataService.getColFieldName(entry.getKey());
+	       			List<HashMap> colValuesMap = new ArrayList<HashMap>();
+	       			if(colFieldName.length()>0)
+	       			{
+	           			HashMap colMap = new HashMap();
+	           			colMap.put("id", entry.getKey());
+	           			colMap.put("columnName", entry.getValue());
+	           			log.info("Column Field Name: "+ colFieldName);
+	           			//log.info("idStr "+idsString);
+
+	           			List<String> entity = em.createQuery("SELECT distinct("+colFieldName+") FROM DataMaster where id in ("+idsString+")").getResultList();
+	           			if(entity.size()<=15)
+	           			{
+	               			log.info("Distinct Values Size: "+entity.size() +", Column "+ colFieldName);
+	               			log.info("Distinct Values: "+entity);
+	           				for(String colValue : entity)
+	           				{
+	           					HashMap colValueMp = new HashMap();
+	           					List<Long> count = em.createQuery("SELECT id FROM DataMaster where id in ("+idsString+") and "+colFieldName+" = '"+colValue+"'").getResultList();
+	           					colValueMp.put("name", colValue);
+	           					colValueMp.put("count", count.size());
+	           					colValuesMap.add(colValueMp);
+	           				}
+	               			colMap.put("columnValuesSet", colValuesMap);
+	               			finalMap.add(colMap);
+	           			}
+	           			else
+	           			{
+	           				log.info("Column "+ colFieldName +" has "+entity.size()+" size");
+	           			}
+	       			}
+	       			else
+	       			{
+	       				log.info("Invalid Column Field");
+	       			}
+	       		}
+				return finalMap;
+			}
+	       	else
+	       	{
+	       		return null;
+	       	}
+	}
+	else if("target".equalsIgnoreCase(sourceOrTarget))
+	{
+	 	HashMap<BigInteger, String> seqCols = reconciliationResultService.getRecSequenceColumns(viewId, groupId,tenantId, "target");
+	   	if(seqCols.size()>0)
+	   	{
+	   		for (Map.Entry<BigInteger, String> entry : seqCols.entrySet())
+	   		{
+	   			log.info("Id: " + entry.getKey()+", Column Name: " + entry.getValue());
+	   			String colFieldName = accountingDataService.getColFieldName(entry.getKey());
+	   			List<HashMap> colValuesMap = new ArrayList<HashMap>();
+	   			if(colFieldName.length()>0)
+	   			{
+	       			HashMap colMap = new HashMap();
+	       			colMap.put("id", entry.getKey());
+	       			colMap.put("columnName", entry.getValue());
+	       			log.info("Column Field Name: "+ colFieldName);
+	       			List<String> entity = em.createQuery("SELECT distinct("+colFieldName+") FROM DataMaster where id in ("+idsString+")").getResultList();
+	       			if(entity.size()<=15)
+	       			{
+	           			log.info("Distinct Values Size: "+entity.size() +", Column "+ colFieldName);
+	           			log.info("Distinct Values: "+entity);
+	       				for(String colValue : entity)
+	       				{
+	       					HashMap colValueMp = new HashMap();
+	       					List<Long> count = em.createQuery("SELECT id FROM DataMaster where id in ("+idsString+") and "+colFieldName+" = '"+colValue+"'").getResultList();
+	       					colValueMp.put("name", colValue);
+	       					colValueMp.put("count", count.size());
+	       					colValuesMap.add(colValueMp);
+	       				}
+	           			colMap.put("columnValuesSet", colValuesMap);
+	           			finalMap.add(colMap);
+	       			}
+	       			else
+	       			{
+	       				log.info("Column "+ colFieldName +" has "+entity.size()+" size");
+	       			}
+	   			}
+	   			else
+	   			{
+	   				log.info("Invalid Column Field");
+	   			}
+	   		}
+			return finalMap;
+	   		}
+	   	else 
+	   	{
+	   		return null;
+	   	}
+		}
+	else
+	{
+		return null;
+	}
+   }
+}

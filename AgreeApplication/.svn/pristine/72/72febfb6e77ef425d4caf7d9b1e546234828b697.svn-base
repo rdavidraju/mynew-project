@@ -1,0 +1,1170 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViewConditions;
+import com.nspl.app.domain.DataViewFilters;
+import com.nspl.app.domain.DataViewUnion;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.DataViewsSrcMappings;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.repository.AccountingLineTypesRepository;
+import com.nspl.app.repository.AcctRuleConditionsRepository;
+import com.nspl.app.repository.DataViewConditionsRepository;
+import com.nspl.app.repository.DataViewFiltersRepository;
+import com.nspl.app.repository.DataViewUnionRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.DataViewsSrcMappingsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.search.DataViewsColumnsSearchRepository;
+import com.nspl.app.service.AccountingDataService;
+import com.nspl.app.service.DataViewsService;
+import com.nspl.app.service.ExcelFunctionsService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.web.rest.dto.DataViewColmnDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+
+/**
+ * REST controller for managing DataViewsColumns.
+ */
+@RestController
+@RequestMapping("/api")
+public class DataViewsColumnsResource {
+
+    private final Logger log = LoggerFactory.getLogger(DataViewsColumnsResource.class);
+
+    private static final String ENTITY_NAME = "dataViewsColumns";
+        
+    private final DataViewsColumnsRepository dataViewsColumnsRepository;
+
+    private final DataViewsColumnsSearchRepository dataViewsColumnsSearchRepository;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    FileTemplatesRepository fileTemplatesRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    DataViewConditionsRepository dataViewConditionsRepository;
+    
+    @Inject
+    DataViewFiltersRepository dataViewFiltersRepository;
+    
+    @Inject
+    ExcelFunctionsService excelFunctionsService;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    DataViewsService dataViewsService;
+    
+    @Inject
+    DataViewsSrcMappingsRepository dataViewsSrcMappingsRepository;
+    
+    @Inject
+    ReconciliationResultService reconciliationResultService;
+    
+    @Inject
+    DataViewUnionRepository dataviewUnionRepositorty;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    AccountingLineTypesRepository accountingLineTypesRepository;
+    
+    @Inject
+    AcctRuleConditionsRepository acctRuleConditionsRepository;
+    
+    @Inject
+    AccountingDataService accountingDataService;
+    
+    @Inject
+    private Environment env;
+    
+    public DataViewsColumnsResource(DataViewsColumnsRepository dataViewsColumnsRepository, DataViewsColumnsSearchRepository dataViewsColumnsSearchRepository) {
+        this.dataViewsColumnsRepository = dataViewsColumnsRepository;
+        this.dataViewsColumnsSearchRepository = dataViewsColumnsSearchRepository;
+    }
+
+    /**
+     * POST  /data-views-columns : Create a new dataViewsColumns.
+     *
+     * @param dataViewsColumns the dataViewsColumns to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new dataViewsColumns, or with status 400 (Bad Request) if the dataViewsColumns has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/data-views-columns")
+    @Timed
+    public ResponseEntity<DataViewsColumns> createDataViewsColumns(@RequestBody DataViewsColumns dataViewsColumns) throws URISyntaxException {
+        log.debug("REST request to save DataViewsColumns : {}", dataViewsColumns);
+        if (dataViewsColumns.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataViewsColumns cannot already have an ID")).body(null);
+        }
+        DataViewsColumns result = dataViewsColumnsRepository.save(dataViewsColumns);
+        dataViewsColumnsSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/data-views-columns/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+   
+    /**
+     * Author: Swetha
+     * Description: Posting and Updating DataView Columns and Filters
+     * @param dataViewColmnDTO
+     * @param userId
+     * @return
+     * @throws URISyntaxException
+     * @throws ClassNotFoundException 
+     */
+    @PostMapping("/postDataViewsColumns")
+    @Timed
+public ResponseEntity<DataViewsColumns> createDataViewsColumns(@RequestBody DataViewColmnDTO dataViewColmnDTO,@RequestParam Long userId) throws URISyntaxException, ClassNotFoundException {
+        log.debug("REST request to save DataViewsColumns : {}", dataViewColmnDTO);
+        log.info("filter operator: "+dataViewColmnDTO.getOperator()+" filter val: "+dataViewColmnDTO.getColValue());
+        DataViews dvId=dataViewsRepository.findOne(dataViewColmnDTO.getDataViewId()); 
+     	log.info("dv: "+dvId);
+     	List<String> tempIdList=new ArrayList<String>();
+     	tempIdList=dataViewsColumnsRepository.fetchDistinctTemplateId(dvId.getId());
+     	log.info("tempIdList sz for viewId: "+dataViewColmnDTO.getDataViewId()+" are: "+tempIdList.size());
+        	DataViewsColumns dataViewsColumns=new DataViewsColumns();
+        	if(dataViewColmnDTO.getDataViewId()!=null);
+        	dataViewsColumns.setDataViewId(dataViewColmnDTO.getDataViewId());
+        	if(dataViewColmnDTO.getRefDvType()!=null)
+        	dataViewsColumns.setRefDvType(dataViewColmnDTO.getRefDvType());
+        	if(dataViewColmnDTO.getRefDvName()!=null)
+        	dataViewsColumns.setRefDvName(dataViewColmnDTO.getRefDvName());
+        	else if(dataViewColmnDTO.getRefDvName()==null)
+        		dataViewsColumns.setRefDvType("Data View");
+        	if(dataViewColmnDTO.getRefDvColumn()!=null)
+        	dataViewsColumns.setRefDvColumn(dataViewColmnDTO.getRefDvColumn());
+        	if(dataViewColmnDTO.getColumnName()!=null)
+        	dataViewsColumns.setColumnName(dataViewColmnDTO.getColumnName());
+        	if(dataViewColmnDTO.getColDataType()!=null)
+        	dataViewsColumns.setColDataType(dataViewColmnDTO.getColDataType());
+        	dataViewsColumns.setCreatedBy(userId);
+        	dataViewsColumns.setLastUpdatedBy(userId);      
+        	dataViewsColumns.setCreationDate(ZonedDateTime.now());
+        	dataViewsColumns.setLastUpdatedDate(ZonedDateTime.now());
+        	if(dataViewColmnDTO.getFormula()!=null)
+        	{
+        	dataViewsColumns.setFormula(dataViewColmnDTO.getFormula());
+        	log.info("dataViewColmnDTO.getform :"+dataViewColmnDTO.getFormula());
+            String Str=dataViewsService.excelFormulas(dataViewColmnDTO.getFormula(),dvId.getTenantId(),tempIdList);
+            dataViewsColumns.setFormulaAlias(Str);
+        	}
+        	if(dataViewColmnDTO.getQualifier()!=null)
+            	dataViewsColumns.setQualifier(dataViewColmnDTO.getQualifier());
+        	
+		    if (dataViewColmnDTO.getId()!= null) {
+		    	dataViewsColumns.setId(dataViewColmnDTO.getId());
+		    }
+		    DataViewsColumns result = dataViewsColumnsRepository.save(dataViewsColumns);
+		    log.info("result: "+result);
+		    log.info("dataViewColmnDTO.getDataViewId(): "+dataViewColmnDTO.getDataViewId()+"dataViewColmnDTO.getRefDvType():: "+dataViewColmnDTO.getRefDvType()+ "dataViewColmnDTO.getId(): "+dataViewColmnDTO.getId());
+		    DataViewFilters dataViewFilter=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcColId(dataViewColmnDTO.getDataViewId(),dataViewColmnDTO.getRefDvType(),dataViewColmnDTO.getId());
+       	 	log.info("dataViewFilter: "+dataViewFilter);
+	       	 if(dataViewFilter!=null && dataViewFilter.getId()!=null){
+	    		 dataViewFilter.setId( dataViewFilter.getId());
+	    	 }
+	       	 else{
+	       		dataViewFilter=new DataViewFilters();
+	       	 }
+	       	 if(dataViewColmnDTO.getDataViewId()!=null)
+		    dataViewFilter.setDataViewId(dataViewColmnDTO.getDataViewId());
+	       	 if(dataViewColmnDTO.getRefDvType()!=null)
+        	dataViewFilter.setRefSrcType(dataViewColmnDTO.getRefDvType());
+	       	 if(result.getId()!=null)
+        	dataViewFilter.setRefSrcColId(result.getId());
+        	if(dataViewColmnDTO.getRefDvName()!=null){
+        	dataViewFilter.setRefSrcId(Long.parseLong(dataViewColmnDTO.getRefDvName()));
+        	}
+        	if(dataViewColmnDTO.getOperator()!=null && !(dataViewColmnDTO.getOperator().isEmpty())){
+        	dataViewFilter.setFilterOperator(dataViewColmnDTO.getOperator());
+        	}
+        	else {
+        		dataViewFilter.setFilterOperator(null);
+        	}
+        	if(dataViewColmnDTO.getColValue()!=null && !(dataViewColmnDTO.getColValue().isEmpty())){
+        	dataViewFilter.setFilterValue(dataViewColmnDTO.getColValue());
+        	}
+        	else{
+        		dataViewFilter.setFilterValue(null);
+        	}
+        	dataViewFilter.setCreatedBy(userId);
+        	dataViewFilter.setLastUpdatedBy(userId);
+        	dataViewFilter.setCreationDate(ZonedDateTime.now());
+        	dataViewFilter.setLastUpdatedDate(ZonedDateTime.now());
+        	
+        	DataViewFilters dvfNew=new DataViewFilters();
+        	if(dataViewFilter.getFilterOperator()!=null && !(dataViewFilter.getFilterOperator().isEmpty()) && dataViewFilter.getFilterValue()!=null && !(dataViewFilter.getFilterValue().isEmpty())){
+		    dvfNew=dataViewFiltersRepository.save(dataViewFilter);
+		    log.info("dvfNew: "+dvfNew);
+        	}
+        	else{
+        		log.info("filter deleted");
+        		dataViewFiltersRepository.delete(dataViewFilter);
+        	}
+		    
+		    DataViews dv=dataViewsRepository.findOne(result.getDataViewId());
+		    
+		    if(result!=null || dvfNew!=null){
+		    }
+	        return ResponseEntity.created(new URI("/api/data-views-columns/" + result.getId()))
+	            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+	            .body(result);
+    
+    }
+    /**
+     * PUT  /data-views-columns : Updates an existing dataViewsColumns.
+     *
+     * @param dataViewsColumns the dataViewsColumns to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataViewsColumns,
+     * or with status 400 (Bad Request) if the dataViewsColumns is not valid,
+     * or with status 500 (Internal Server Error) if the dataViewsColumns couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/updateDataViewsColumns")
+    @Timed
+    public void updateDataViewsColumns(@RequestBody DataViewsColumns dataViewsColumns,@RequestParam Long userId) throws URISyntaxException {
+        log.debug("REST request to update DataViewsColumns : {}", dataViewsColumns);
+       
+        dataViewsColumns.setLastUpdatedBy(userId);
+        dataViewsColumns.setLastUpdatedDate(ZonedDateTime.now());
+        DataViewsColumns result = dataViewsColumnsRepository.save(dataViewsColumns);
+       
+    }
+
+    /**
+     * GET  /data-views-columns : get all the dataViewsColumns.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of dataViewsColumns in body
+     */
+    @GetMapping("/data-views-columns")
+    @Timed
+    public List<DataViewsColumns> getAllDataViewsColumns() {
+        log.debug("REST request to get all DataViewsColumns");
+        List<DataViewsColumns> dataViewsColumns = dataViewsColumnsRepository.findAll();
+        return dataViewsColumns;
+    }
+
+    /**
+     * GET  /data-views-columns/:id : get the "id" dataViewsColumns.
+     *
+     * @param id the id of the dataViewsColumns to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataViewsColumns, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-views-columns/{id}")
+    @Timed
+    public ResponseEntity<DataViewsColumns> getDataViewsColumns(@PathVariable Long id) {
+        log.debug("REST request to get DataViewsColumns : {}", id);
+        DataViewsColumns dataViewsColumns = dataViewsColumnsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataViewsColumns));
+    }
+
+    /**
+     * DELETE  /data-views-columns/:id : delete the "id" dataViewsColumns.
+     *
+     * @param id the id of the dataViewsColumns to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-views-columns/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataViewsColumns(@PathVariable Long id) {
+        log.debug("REST request to delete DataViewsColumns : {}", id);
+        
+        DataViewsColumns dvc=dataViewsColumnsRepository.findOne(id);
+        /* Deleting Data View Filters Tagged to Data View Columns */
+        log.info("dvc.getDataViewId(): "+dvc.getDataViewId()+"dvc.getRefDvType():: "+dvc.getRefDvType()+ "dvc.getId(): "+dvc.getId());
+	    DataViewFilters dataViewFilter=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcColId(dvc.getDataViewId(),dvc.getRefDvType(),dvc.getId());
+   	 	log.info("dataViewFilter: "+dataViewFilter);
+   	 	if(dataViewFilter!=null){
+   	 	dataViewFiltersRepository.delete(dataViewFilter);
+   	 	log.info("dataViewFilter deleted with id: "+dataViewFilter.getId());
+   	 	}
+   	 	else{
+   	 		log.info("dataViewFilter doesn't exist");
+   	 	}
+   	 	
+        dataViewsColumnsRepository.delete(id);
+        dataViewsColumnsSearchRepository.delete(id);
+        log.info("deleteDataViewsColumns with dataViewColumnId: "+id);
+        
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/data-views-columns?query=:query : search for the dataViewsColumns corresponding
+     * to the query.
+     *
+     * @param query the query of the dataViewsColumns search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/data-views-columns")
+    @Timed
+    public List<DataViewsColumns> searchDataViewsColumns(@RequestParam String query) {
+        log.debug("REST request to search DataViewsColumns for query {}", query);
+        return StreamSupport
+            .stream(dataViewsColumnsSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Author: Swetha
+     * Description: Retrieve DataViewColumns / FileTemplateLines based on Id and Type
+     * @param viewOrTemplateList
+     * @return
+     */
+    @PostMapping("/getViewColumnsOrTemplateLines")
+    @Timed
+    public List getViewColumnsOrTemplateLines(@RequestBody List<JSONObject> viewOrTemplateList){
+    	log.info("Rest Request to get dataViewColumns or Template Lines");
+    	log.info("viewOrTemplateList :"+viewOrTemplateList);
+    	int sz=viewOrTemplateList.size();
+    	List finalList=new ArrayList<>();
+    	List<Long> dvIdList=new ArrayList<Long>();
+    	List<Long> tempIdList=new ArrayList<Long>();
+    	for(int i=0;i<sz;i++){
+    		JSONObject obj=viewOrTemplateList.get(i);
+    		log.info("obj["+i+"]: "+obj);
+    		if(obj.get("type").toString().equalsIgnoreCase("Data View")){
+    			dvIdList.add(Long.parseLong(obj.get("typeId").toString()));
+    		}
+    		else if(obj.get("type").toString().equalsIgnoreCase("File Template")){
+    			tempIdList.add(Long.parseLong(obj.get("typeId").toString()));
+    		}
+    	}
+    	log.info("dvIdList: "+dvIdList);
+    	log.info("tempIdList: "+tempIdList);
+    	String colDataType="";
+    	List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewIdIn(dvIdList);
+    	log.info("dvcList sz: "+dvcList.size());
+    	for(int j=0;j<dvcList.size();j++){
+    		DataViewsColumns dvc=dvcList.get(j);
+    		HashMap map=new HashMap();
+    		map.put("id", dvc.getId());
+    		if(dvc.getDataViewId()!=null)
+    		{
+    			DataViews dataView=dataViewsRepository.findOne(dvc.getDataViewId());
+    		map.put("dataViewId", dvc.getDataViewId());
+    		if(dataView.getDataViewName()!=null)
+    		map.put("dataViewName", dataView.getDataViewName());
+    		if(dataView.getDataViewDispName()!=null)
+    		map.put("dataViewDisplayName", dataView.getDataViewDispName());
+    		
+    		}
+    		/*if(dvc.getFormula()!=null)
+    		map.put("formula", dvc.getFormula());*/	
+    		if(dvc.getRefDvType()!=null)
+    		map.put("refDvType", dvc.getRefDvType());
+    		if(dvc.getRefDvName()!=null)
+    		map.put("refDvName", dvc.getRefDvName());
+    		if(dvc.getRefDvColumn()!=null)
+    		map.put("refDvColumn", dvc.getRefDvColumn());
+    		if(dvc.getColumnName()!=null){
+    			//Presently mapped to master table reference
+    			/* Get reference field from fileTemplateLines */
+    			if(dvc.getRefDvName()!=null){
+    			FileTemplateLines ftl=fileTemplateLinesRepository.findByTemplateIdAndMasterTableReferenceColumn(Long.parseLong(dvc.getRefDvName()),dvc.getColumnName());
+    			log.info("ftl for dvc.getRefDvName(): "+dvc.getRefDvName()+" and dvc.getColumnName(): "+dvc.getColumnName()+" is: "+ftl);
+    			if(ftl!=null){
+    				map.put("columnName",ftl.getColumnHeader());
+    			}
+    			}
+    		}
+    		if(dvc.getColDataType()!=null)
+    		map.put("colDataType", dvc.getColDataType());
+    		if(dvc.getCreatedBy()!=null)
+    		map.put("createdBy", dvc.getCreatedBy());
+    		if(dvc.getLastUpdatedBy()!=null)
+    		map.put("lastUpdatedBy", dvc.getLastUpdatedBy());
+    		if(dvc.getCreationDate()!=null)
+    		map.put("creationDate", dvc.getCreationDate());
+    		if(dvc.getLastUpdatedDate()!=null)
+    		map.put("lastUpdatedDate", dvc.getLastUpdatedDate());
+    		if(map!=null)
+    		finalList.add(map);
+    		
+    	}
+    	
+    	List<FileTemplateLines> ftempList=fileTemplateLinesRepository.findByTemplateIdIn(tempIdList);
+    	log.info("ftempList sz: "+ftempList.size());
+    	for(int k=0;k<ftempList.size();k++){
+    		FileTemplateLines ftemp=ftempList.get(k);
+    		HashMap map=new HashMap();
+    		map.put("id", ftemp.getId());
+    		map.put("dataViewId", ftemp.getTemplateId());
+    		FileTemplates fileTemplate=fileTemplatesRepository.findOne(ftemp.getTemplateId());
+    		if(fileTemplate!=null && fileTemplate.getTemplateName()!=null)
+    		{
+    		map.put("templateName", fileTemplate.getTemplateName());
+    		map.put("dataViewName", fileTemplate.getTemplateName());
+    		map.put("dataViewDisplayName", fileTemplate.getTemplateName());
+    		}
+    		map.put("refDvType", "File Template");
+    		map.put("colDataType", colDataType);
+    		if(ftemp.getLineNumber()!=null)
+    		map.put("lineNumber", ftemp.getLineNumber());
+    		if(ftemp.getColumnHeader()!=null)
+    		map.put("columnName", ftemp.getColumnHeader());
+    		if(ftemp.getMasterTableReferenceColumn()!=null)
+    		map.put("masterTableReferenceColumn", ftemp.getMasterTableReferenceColumn());
+    		if(ftemp.getRecordTYpe()!=null)
+    		map.put("recordTYpe", ftemp.getRecordTYpe());
+    		if(ftemp.getRecordIdentifier()!=null)
+    		map.put("recordIdentifier",ftemp.getRecordIdentifier());
+    		if(ftemp.getColumnNumber()!=null)
+    		map.put("columnNumber", ftemp.getColumnNumber());
+    		if(ftemp.getEnclosedChar()!=null)
+    		map.put("enclosedChar", ftemp.getEnclosedChar());
+    		if(ftemp.getPositionBegin()!=null)
+    		map.put("positionBegin", ftemp.getPositionBegin());
+    		if(ftemp.getPositionEnd()!=null)
+    		map.put("positionEnd", ftemp.getPositionEnd());
+    		if(ftemp.getColumnHeader()!=null)
+    		map.put("columnHeader", ftemp.getColumnHeader());
+    		if(ftemp.getConstantValue()!=null)
+    		map.put("constantValue", ftemp.getConstantValue());
+    		if(ftemp.getZeroFill()!=null)
+    		map.put("zeroFill", ftemp.getZeroFill());
+    		if(ftemp.getAlign()!=null)
+    		map.put("align", ftemp.getAlign());
+    		/*if(ftemp.getFormula()!=null)
+    		map.put("formula", ftemp.getFormula());*/
+    		if(ftemp.getDateFormat()!=null)
+    		map.put("dateFormat", ftemp.getDateFormat());
+    		if(ftemp.getTimeFormat()!=null)
+    		map.put("timeFormat",ftemp.getTimeFormat());
+    		if(ftemp.getAmountFormat()!=null)
+    		map.put("amountFormat", ftemp.getAmountFormat());
+    		if(ftemp.getOverFlow()!=null)
+    		map.put("overFlow",ftemp.getOverFlow()!=null);
+    		if(ftemp.getSkipColumn()!=null)
+    		map.put("skipColumn", ftemp.getSkipColumn());
+    		if(ftemp.getColumnDelimiter()!=null)
+    		map.put("columnDelimiter", ftemp.getColumnDelimiter());
+    		if(ftemp.getCreatedBy()!=null)
+    		map.put("createdBy", ftemp.getCreatedBy());
+    		if(ftemp.getCreatedDate()!=null)
+    		map.put("createdDate", ftemp.getCreatedDate());
+    		if(ftemp.getLastUpdatedBy()!=null)
+    		map.put("lastUpdatedBy", ftemp.getLastUpdatedBy());
+    		if( ftemp.getLastUpdatedDate()!=null)
+    		map.put("lastUpdatedDate", ftemp.getLastUpdatedDate());
+    		if(map!=null)
+    		finalList.add(map);
+    	}
+    	log.info("finalList sz: "+finalList.size());
+		return finalList;
+    	
+    }
+    
+    /**
+     * Author: Swetha
+     * Description: Api to Post Data View along with the Tagged DataView Columns and File Template Lines
+     * @param viewOrTemplateList
+     * @param tenantId
+     * @param userId
+     */
+    @PostMapping("/postViewColumnsOrTemplateLines")
+    @Timed
+    public HashMap postViewColumnsOrTemplateLines(@RequestBody List<HashMap> viewOrTemplateList, @RequestParam Long tenantId, @RequestParam Long userId){
+    	log.info("Rest Request to post dataViewColumns or Template Lines");
+    	
+    	HashMap map=new HashMap();
+    	DataViews dv=new DataViews();
+    	HashMap obj=(HashMap) viewOrTemplateList.get(0);
+    	log.info("obj: "+obj);
+    	String disName="";
+    	if(obj.get("id")==null){
+    		log.info("New DataView Creation");
+    		dv.setCreatedBy(userId);
+        	map.put("createdBy",userId);
+        	dv.setCreationDate(ZonedDateTime.now());
+        	map.put("creationDate", ZonedDateTime.now());
+        	if(obj.get("dataViewDispName")!=null){
+        		disName=obj.get("dataViewDispName").toString();
+        		log.info("disName: "+disName);
+        	dv.setDataViewDispName(disName);
+        	disName=disName.replaceAll(" ", "_");
+        	disName=disName+"_"+tenantId;
+        	log.info("disName after replacing: "+disName);
+        	dv.setDataViewName(disName);
+        	map.put("dataViewDispName", obj.get("dataViewDispName").toString());
+        	map.put("dataViewName", disName);
+        	}
+    	}
+    	else{
+    		if(obj.get("id")!=null)
+    		dv=dataViewsRepository.findOne(Long.parseLong(obj.get("id").toString()));
+    		dv.setDataViewName(dv.getDataViewName());
+    		if(obj.get("dataViewDispName")!=null){
+        		disName=obj.get("dataViewDispName").toString();
+        		dv.setDataViewDispName(disName);
+        		map.put("dataViewDispName", obj.get("dataViewDispName").toString());
+            	map.put("dataViewName", dv.getDataViewName());
+    		}
+    	}
+    	dv.setLastUpdatedBy(userId);
+    	map.put("lastUpdatedBy",userId);
+    	dv.setLastUpdatedDate(ZonedDateTime.now());
+    	map.put("lastUpdatedDate", ZonedDateTime.now());
+    	if(obj.get("enabledFlag")!=null){
+    	dv.setEnabledFlag((Boolean)obj.get("enabledFlag"));
+    	map.put("enabledFlag", obj.get("enabledFlag"));
+    	}
+    	dv.setTenantId(tenantId);
+    	map.put("tenantId", tenantId);
+    	if(obj.get("startDate")!=null)
+    	{	
+    	ZonedDateTime stDate=ZonedDateTime.parse(obj.get("startDate").toString());
+    	dv.setStartDate(stDate.toLocalDate().plusDays(1));
+    	map.put("startDate", stDate.toLocalDate().plusDays(1));
+    	}
+    	if(obj.get("endDate")!=null)
+    	{
+    	ZonedDateTime edDate=ZonedDateTime.parse(obj.get("endDate").toString());
+    	dv.setEndDate(edDate.toLocalDate().plusDays(1));
+    	map.put("endDate", edDate.toLocalDate().plusDays(1));
+    	}
+    	if(obj.get("description")!=null){
+    	dv.setDescription(obj.get("description").toString());
+    	map.put("description", obj.get("description").toString());
+    	}
+    	DataViews dvNew=dataViewsRepository.save(dv);
+    	Long dvId=dvNew.getId();
+    	map.put("id", dvId);
+    	log.info("davaViews created with DvId: "+dvId);
+    	log.info("dvId: "+dvId+" and obj.getid: "+obj.get("id"));
+    	 
+    	/* Posting Data View Columns */
+    	 List<String> temp=new ArrayList<String>();
+         if(obj.get("dataViewsColumnsList")!=null){
+             List colOrTempList=(List) obj.get("dataViewsColumnsList");
+             for(int i=0;i<colOrTempList.size();i++){
+                 HashMap colOrTempObj=(HashMap) colOrTempList.get(i);
+                 if(colOrTempObj.get("refDvName")!=null){
+                     temp.add(colOrTempObj.get("refDvName").toString());
+                     }
+             }
+         }
+         log.info("temp :"+temp);
+         if(obj.get("dataViewsColumnsList")!=null){
+         List colOrTempList=(List) obj.get("dataViewsColumnsList");
+    	log.info("colOrTempList sz: "+colOrTempList.size());
+    	List<HashMap> colOrTempMapList=new ArrayList<HashMap>();
+    	for(int i=0;i<colOrTempList.size();i++){
+    		
+    		HashMap colOrTempMap=new HashMap();
+    		HashMap colOrTempObj=(HashMap) colOrTempList.get(i);
+    		log.info("colOrTempObj["+i+"] is: "+colOrTempObj);
+    		DataViewsColumns dvc=new DataViewsColumns();
+    		if(colOrTempObj.get("refDvType")!=null){
+    		if(colOrTempObj.get("refDvType").toString().equalsIgnoreCase("Data View")){
+    			log.info("in type: "+colOrTempObj.get("refDvType").toString());
+    		}
+    		else if(colOrTempObj.get("refDvType").toString().equalsIgnoreCase("File Template")){
+    			log.info("in type: "+colOrTempObj.get("refDvType").toString());
+    		}
+    		}
+    		else{
+    			log.info("colOrTempObj.getrefDvType: "+colOrTempObj.get("refDvType")+" is null");
+    			
+    		}
+    		if(colOrTempObj.get("qualifier")!=null){
+    			dvc.setQualifier(colOrTempObj.get("qualifier").toString());
+    			colOrTempMap.put("qualifier", colOrTempObj.get("qualifier").toString());
+    		}
+    		if(colOrTempObj.get("colDataType")!=null){
+    		dvc.setColDataType(colOrTempObj.get("colDataType").toString());
+    		colOrTempMap.put("colDataType", colOrTempObj.get("colDataType").toString());
+    		}
+    		if(colOrTempObj.get("formula")!=null)
+    		dvc.setFormula(colOrTempObj.get("formula").toString());	
+    		dvc.setCreatedBy(userId);
+    		colOrTempMap.put("createdBy", userId);
+    		dvc.setCreationDate(ZonedDateTime.now());
+    		colOrTempMap.put("creationDate", ZonedDateTime.now());
+    		if(colOrTempObj.get("refDvType")!=null){
+    		dvc.setRefDvType(colOrTempObj.get("refDvType").toString());
+    		colOrTempMap.put("refDvType", colOrTempObj.get("refDvType").toString());
+    		}
+    		else{
+    			log.info("setRefDvType is null");
+    			dvc.setRefDvType("Data View");
+    		}
+    		if(colOrTempObj.get("refDvName")!=null){
+    		dvc.setRefDvName(colOrTempObj.get("refDvName").toString());
+    		}
+    		else{
+    			log.info("new data view column found");
+    			
+    		}
+    		dvc.setDataViewId(dvId);
+    		colOrTempMap.put("dataViewId", dvId);
+    		if(colOrTempObj.get("refDvColumn")!=null){
+    		dvc.refDvColumn(colOrTempObj.get("refDvColumn").toString());
+    		colOrTempMap.put("refDvColumn",colOrTempObj.get("refDvColumn").toString());
+    		}
+    		if(colOrTempObj.get("columnName")!=null){
+        		dvc.setColumnName(colOrTempObj.get("columnName").toString());
+        		colOrTempMap.put("columnName", colOrTempObj.get("columnName").toString());
+        		}
+    		   if(colOrTempObj.get("formula")!=null)
+               {
+                   log.info("dvc.getform :"+dvc.getFormula());
+               String Str=dataViewsService.excelFormulas(dvc.getFormula(), tenantId,temp);
+               dvc.setFormulaAlias(Str);
+               }
+    		if(colOrTempObj.get("id")!=null){
+    		}
+    		DataViewsColumns dvcNew=dataViewsColumnsRepository.save(dvc);
+    		Long dvcNewId=dvcNew.getId();
+    		colOrTempMap.put("id", dvcNewId);
+
+    		/* Posting data view filters */
+    		if(colOrTempObj.get("operator")!=null){
+    		DataViewFilters dvf=new DataViewFilters();
+    		dvf.setCreatedBy(userId);
+    		dvf.setCreationDate(ZonedDateTime.now());
+    		if(dvId!=null)
+    		dvf.setDataViewId(dvId);
+    		if(colOrTempObj.get("operator")!=null)
+    		dvf.setFilterOperator(colOrTempObj.get("operator").toString());
+    		if(dvcNewId!=null)
+    		dvf.setRefSrcColId(dvcNewId);
+    		if(colOrTempObj.get("refDvName")!=null){
+    			dvf.setRefSrcId(Long.parseLong(colOrTempObj.get("refDvName").toString()));
+    		}
+    		if(colOrTempObj.get("refDvType")!=null)
+    		dvf.setRefSrcType(colOrTempObj.get("refDvType").toString());
+    		else dvf.setRefSrcType(dvcNew.getRefDvType());
+    		if(colOrTempObj.get("colValue")!=null)
+    		dvf.setFilterValue(colOrTempObj.get("colValue").toString());
+    		DataViewFilters dvfNew=dataViewFiltersRepository.save(dvf);
+    		log.info("dvfNew created with id: "+dvfNew.getId());
+    		
+    		if(colOrTempObj.get("operator")!=null)
+    		colOrTempMap.put("operator", colOrTempObj.get("operator").toString());
+    		if(colOrTempObj.get("colValue")!=null)
+    		colOrTempMap.put("colValue",colOrTempObj.get("colValue").toString());
+    		}
+    		
+    		colOrTempMapList.add(colOrTempMap);
+    		map.put("dataViewsColumnsList", colOrTempMapList);
+    		log.info("DataViewsColumns has been created with id: "+dvcNewId);
+    		
+    	}
+    	
+    	/* Posting Data View Conditions */
+    	List<HashMap> condMapList=new ArrayList<HashMap>();
+    	if(obj.get("conditions")!=null){
+        	List colCondList=(List) obj.get("conditions");
+        	log.info("colCondList sz: "+colCondList.size());
+        	List<HashMap> colCondMapList=new ArrayList<HashMap>();
+        		
+        		HashMap conMap=new HashMap();
+        		HashMap dvCon=(HashMap) colCondList.get(0);
+        		DataViewConditions dvConditions=new DataViewConditions();
+        		dvConditions.setDataViewId(dvId);
+        		if(dvCon.get("srcType1")!=null){
+        			dvConditions.setRefSrcType(dvCon.get("srcType1").toString());
+        		conMap.put("srcType1", dvCon.get("srcType1"));
+        		}
+        		if(dvCon.get("srcType2")!=null){
+        			dvConditions.setRefSrcType2(dvCon.get("srcType2").toString());
+        		conMap.put("srcType2", dvCon.get("srcType2"));
+        		}
+        		if(dvCon.get("scr1")!=null){
+        			dvConditions.setRefSrcId(Long.parseLong(dvCon.get("scr1").toString()));
+        		conMap.put("scr1", dvCon.get("scr1"));
+        		}
+        		if(dvCon.get("scr2")!=null){
+        			dvConditions.setRefSrcId2(Long.parseLong(dvCon.get("scr2").toString()));
+        		conMap.put("scr2", dvCon.get("scr2"));
+        		}
+        		if(dvCon.get("srcCol1")!=null){
+        			dvConditions.setRefSrcColId(Long.parseLong(dvCon.get("srcCol1").toString()));
+        		conMap.put("srcCol1", dvCon.get("srcCol1"));
+        		}
+        		if(dvCon.get("srcCol2")!=null){
+        			dvConditions.setRefSrcColId2(Long.parseLong(dvCon.get("srcCol2").toString()));
+        		conMap.put("srcCol2", dvCon.get("srcCol2"));
+        		}
+        		if(dvCon.get("conditionOperator")!=null){
+        			dvConditions.setFilterOperator(dvCon.get("conditionOperator").toString());
+        		conMap.put("conditionOperator", dvCon.get("conditionOperator"));
+        		}
+        		
+        		DataViewConditions dvcNew=dataViewConditionsRepository.save(dvConditions);
+        		condMapList.add(conMap);
+        		map.put("conditions", condMapList);
+    	}
+    	
+    	/* Posting Data View Src Mappings */
+    	List<String> dvcList=dataViewsColumnsRepository.fetchDistinctTemplateId(dvId);
+    	for(int y=0;y<dvcList.size();y++){
+    		log.info("dvcList.get(y): "+dvcList.get(y));
+    		if(dvcList.get(y)!=null){
+    		Long temId=Long.parseLong(dvcList.get(y));
+    		DataViewsSrcMappings dvSrcMap=new DataViewsSrcMappings();
+    		if(obj.get("basedTemplate")!=null && (temId==Long.parseLong(obj.get("basedTemplate").toString()))){
+    			dvSrcMap.setBase("Primary");
+    		}
+    		dvSrcMap.setDataViewId(dvId);
+    		dvSrcMap.setTemplateId(temId);
+    		if(y==0 && dvcList.size()>1){
+    			if(obj.get("viewRelation")!=null)
+    		dvSrcMap.setRelation(obj.get("viewRelation").toString());
+    		}
+    		dvSrcMap.setCreationDate(ZonedDateTime.now());
+    		dvSrcMap.setCreatedBy(userId);
+    		dataViewsSrcMappingsRepository.save(dvSrcMap);
+    	}
+    	}
+    }
+    	/* Posting Data View Columns and unions */
+    	else if(obj.get("dataViewsUnionColumnsList")!=null)
+    	{
+    		List<String> tempIdList=new ArrayList<String>();
+        	List colOrTempList=(List) obj.get("dataViewsUnionColumnsList");
+        	log.info("colOrTempList sz: "+colOrTempList.size());
+        	List<HashMap> colOrTempMapList=new ArrayList<HashMap>();
+        	for(int i=0;i<colOrTempList.size();i++){
+        		
+        		HashMap colOrTempMap=new HashMap();
+        		HashMap colOrTempObj=(HashMap) colOrTempList.get(i);
+        		log.info("colOrTempObj["+i+"] is: "+colOrTempObj);
+        		DataViewsColumns dvc=new DataViewsColumns();
+        		
+        		if(colOrTempObj.get("qualifier")!=null){
+        			dvc.setQualifier(colOrTempObj.get("qualifier").toString());
+        			colOrTempMap.put("qualifier", colOrTempObj.get("qualifier").toString());
+        		}
+        		if(colOrTempObj.get("colDataType")!=null){
+        		dvc.setColDataType(colOrTempObj.get("colDataType").toString());
+        		colOrTempMap.put("colDataType", colOrTempObj.get("colDataType").toString());
+        		}
+        		if(colOrTempObj.get("formula")!=null)
+        		dvc.setFormula(colOrTempObj.get("formula").toString());	
+        		dvc.setCreatedBy(userId);
+        		colOrTempMap.put("createdBy", userId);
+        		dvc.setCreationDate(ZonedDateTime.now());
+        		colOrTempMap.put("creationDate", ZonedDateTime.now());
+        		
+        		if(colOrTempObj.get("refDvName")!=null){
+        		dvc.setRefDvName(colOrTempObj.get("refDvName").toString());
+        		}
+        		else{
+        			log.info("new data view column found");
+        			
+        		}
+        		dvc.setDataViewId(dvId);
+        		colOrTempMap.put("dataViewId", dvId);
+        		
+        		if(colOrTempObj.get("columnName")!=null){
+            		dvc.setColumnName(colOrTempObj.get("columnName").toString());
+            		colOrTempMap.put("columnName", colOrTempObj.get("columnName").toString());
+            		}
+        		if(colOrTempObj.get("colDataType")!=null){
+            		dvc.setColDataType(colOrTempObj.get("colDataType").toString());
+            		colOrTempMap.put("colDataType", colOrTempObj.get("colDataType").toString());
+            		}
+        		
+        		
+        		if(colOrTempObj.get("id")!=null){
+        		}
+        		DataViewsColumns dvcNew=dataViewsColumnsRepository.save(dvc);
+        		Long dvcNewId=dvcNew.getId();
+        		colOrTempMap.put("id", dvcNewId);
+
+        		map.put("dataViewsColumnsList", colOrTempMapList);
+        		log.info("DataViewsColumns has been created with id: "+dvcNewId);
+        		
+        		List<DataViewUnion> dvuList=new ArrayList<DataViewUnion>();
+        		if(colOrTempObj.get("src")!=null){
+        			HashMap setSrc=new HashMap();
+        			List<DataViewUnion> dataViewUnionList=new ArrayList<DataViewUnion>();
+        			List<HashMap> src=(List<HashMap>) colOrTempObj.get("src");
+        			for(int s=0;s<src.size();s++)
+        			{
+        			DataViewUnion dvu=new DataViewUnion();
+        			dvu.setDataViewLineId(dvcNewId);
+        			if(src.get(s).get("refDvColumn")!=null)
+        			{
+        			dvu.setRefDvColumn(Long.parseLong(src.get(s).get("refDvColumn").toString()));
+        			setSrc.put("refDvColumn", Long.parseLong(src.get(s).get("refDvColumn").toString()));
+        			
+        			}
+        			if(src.get(s).get("refDvName")!=null)
+        			{
+        				dvu.setRefDvName(Long.parseLong(src.get(s).get("refDvName").toString()));
+        				tempIdList.add((src.get(s).get("refDvName").toString()));
+        				setSrc.put("refDvName",Long.parseLong(src.get(s).get("refDvName").toString()));
+        			}
+        			if(src.get(s).get("refDvType")!=null)
+        			{
+        				dvu.setRefDvType(src.get(s).get("refDvType").toString());
+        				setSrc.put("refDvType", src.get(s).get("refDvType").toString());
+        			}
+        			
+        			dvu.setCreatedBy(userId);
+        			dvu.setCreationDate(ZonedDateTime.now());
+        			dvu.setLastUpdatedBy(userId);
+        			dvu.setLastUpdatedDate(ZonedDateTime.now());
+        			dataViewUnionList.add(dvu);
+        			
+        		}
+        			dataviewUnionRepositorty.save(dataViewUnionList);
+        			colOrTempMap.put("src", setSrc);
+        		}
+        		
+        		log.info("tempIdList: "+tempIdList);
+    			if(colOrTempObj.get("formula")!=null){
+            		dvc.setFormula(colOrTempObj.get("formula").toString());	
+            		DataViewsColumns dvcol=dataViewsColumnsRepository.findOne(dvcNew.getId());
+            		log.info("dvcol :"+dvcol.getFormula());
+            		String Str=dataViewsService.excelFormulas(colOrTempObj.get("formula").toString(),tenantId,tempIdList);
+            		log.info("Str :"+Str);
+            		dvcol.setFormulaAlias(Str);
+            		dataViewsColumnsRepository.save(dvcol);
+            		log.info("updated dvc with id: "+dvcNew.getId());
+            		}
+        	
+        		colOrTempMapList.add(colOrTempMap);
+        	}
+        		
+        		/* Posting Data View Src Mappings */
+            	List<BigInteger> dvunionList=dataviewUnionRepositorty.fetchDistinctTemplateIdsByViewId(dvId);
+            	for(int y=0;y<dvunionList.size();y++){
+            		log.info("dvcList.get(y): "+dvunionList.get(y));
+            		if(dvunionList.get(y)!=null){
+            		Long temId=dvunionList.get(y).longValue();
+            		DataViewsSrcMappings dvSrcMap=new DataViewsSrcMappings();
+            		if(obj.get("basedTemplate")!=null && (temId==Long.parseLong(obj.get("basedTemplate").toString()))){
+            			dvSrcMap.setBase("Primary");
+            		}
+            		dvSrcMap.setDataViewId(dvId);
+            		dvSrcMap.setTemplateId(temId);
+            		dvSrcMap.setRelation(obj.get("viewRelation").toString());
+            		dvSrcMap.setCreationDate(ZonedDateTime.now());
+            		dvSrcMap.setCreatedBy(userId);
+            		dataViewsSrcMappingsRepository.save(dvSrcMap);
+            	}
+            	}
+    	}
+		return map;
+    }
+    
+    
+    /**
+     * Author: Swetha
+     * Description: Api to fetch the dataView data
+     * @param viewName
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getDataViewsData")
+    @Timed
+    public List<HashMap> getDataViewsData(@RequestParam Long viewId) throws ClassNotFoundException, SQLException {
+    	
+    	List<HashMap> mapList=reconciliationResultService.getDataViewsData(viewId);
+    	return mapList;
+	}
+ 	   
+    
+    /**
+     * Author: Swetha
+     * Description: Api to Create a Data View
+     * @param viewId
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */    
+    @GetMapping("/createDataView")
+    @Timed
+    public void createDataView(@RequestParam Long viewId, @RequestParam Long tenanatId) throws ClassNotFoundException, SQLException {	
+		String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		log.info("host :"+host);
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+	   
+	   Connection conn = null;
+	   Statement stmt = null;
+	   try{
+	      Class.forName(jdbcDriver);
+	      conn = DriverManager.getConnection(dbUrl, userName, password);
+	      log.info("Connected database successfully...");
+	      stmt = conn.createStatement();
+	      
+	      DataViews dv=dataViewsRepository.findOne(viewId);
+	      String createViewQuery="create or replace view "+schemaName+"."+dv.getDataViewName().toLowerCase()+" as " ;
+	      List<DataViewsSrcMappings> dvSrcMapList=dataViewsSrcMappingsRepository.findByDataViewIdAndRelation(viewId, "UNION");
+	      String viewQuery="";
+	      if(dvSrcMapList!=null && dvSrcMapList.size()!=0){
+	    	  viewQuery=dataViewsService.frameUnionsQuery(viewId, tenanatId);
+	      }
+	      else viewQuery=dataViewsService.frameQuery(viewId, tenanatId);
+	      log.info("viewQuery in createDataView: "+viewQuery);
+	      viewQuery=createViewQuery+viewQuery;
+	      log.info("final view creation query viewQuery: "+viewQuery);
+	      int out=stmt.executeUpdate(viewQuery);
+	      log.info("query executed");
+	   }catch(SQLException se){
+		   log.info("se: "+se);
+      }
+	   finally{
+			stmt.close();
+			conn.close();
+		}}
+
+    /**
+     * Author:Ravali
+     * API to update DVColumns and Unions
+     * @param dVColsNUnions
+     * @param tenantId
+     * @param userId
+     * @return
+     */
+    @PostMapping("/updateDataViewColsNUnions")
+    @Timed
+    public HashMap updateDataViewColumnsNUnion(@RequestBody HashMap dVColsNUnions, @RequestParam Long tenantId, @RequestParam Long userId){
+    	log.info("Rest Request to post dataViewColumns or Template Lines");
+
+    	HashMap map=new HashMap();
+    	List<String> tempIdList=new ArrayList<String>();
+    	log.info("dVColsNUnions :"+dVColsNUnions);
+    	DataViewsColumns dvc=new DataViewsColumns();
+
+    	log.info("obj :"+dVColsNUnions);
+    	if(dVColsNUnions.get("id")==null){
+    		log.info("New DataView Column Creation");
+    		dvc.setCreatedBy(userId);
+    		map.put("createdBy",userId);
+    		dvc.setCreationDate(ZonedDateTime.now());
+    		map.put("creationDate", ZonedDateTime.now());
+    	}
+    	else{
+    		if(dVColsNUnions.get("id")!=null)
+    			dvc=dataViewsColumnsRepository.findOne(Long.parseLong(dVColsNUnions.get("id").toString()));
+    	}
+    	if(dVColsNUnions.get("colDataType")!=null)
+    	{
+    		dvc.setColDataType(dVColsNUnions.get("colDataType").toString());
+    		map.put("colDataType", dVColsNUnions.get("colDataType").toString());
+    	}
+    	if(dVColsNUnions.get("dataViewId")!=null)
+    	{
+    		dvc.setDataViewId(Long.parseLong(dVColsNUnions.get("dataViewId").toString()));
+    		map.put("dataViewId", dVColsNUnions.get("dataViewId").toString());
+
+    	}
+    	if(dVColsNUnions.get("qualifier")!=null)
+    	{
+    		dvc.setQualifier(dVColsNUnions.get("qualifier").toString());
+    		map.put("qualifier", dVColsNUnions.get("qualifier").toString());
+
+    	}
+    	if(dVColsNUnions.get("columnName")!=null)
+    	{
+    		dvc.setColumnName(dVColsNUnions.get("columnName").toString());
+    		map.put("columnName", dVColsNUnions.get("columnName").toString());
+
+    	}
+    	if(dVColsNUnions.get("formula")!=null)
+    	{
+    		log.info(" formula: "+dVColsNUnions.get("formula"));
+    		dvc.setFormula(dVColsNUnions.get("formula").toString());
+    		map.put("formula", dVColsNUnions.get("formula").toString());
+
+    	}
+    	DataViewsColumns newDvc=dataViewsColumnsRepository.save(dvc);
+    	log.info("newDvc: "+newDvc);
+    	log.info("dvc.getId() :"+newDvc.getId());
+    	if(dVColsNUnions.get("src")!=null)
+    	{
+    		List unionsList=(List) dVColsNUnions.get("src");
+    		log.info("unionsList.size :"+unionsList.size());
+    		List<HashMap> dvuListMap=new ArrayList<HashMap>();
+    		for(int i=0;i<unionsList.size();i++)
+    		{
+    			DataViewUnion dvu=new DataViewUnion();
+    			HashMap dvuMap=new HashMap();
+    			DataViewUnion dvuId=new DataViewUnion();
+    			HashMap uni=(HashMap) unionsList.get(i);
+    			if(uni.get("id")!=null)
+    			{
+    				dvu.setId(Long.parseLong(uni.get("id").toString()));
+    				dvuMap.put("id", Long.parseLong(uni.get("id").toString()));
+    				if(uni.get("refDvName")!=null)
+    				{
+    					dvu.setRefDvName(Long.parseLong(uni.get("refDvName").toString()));
+    					dvuMap.put("refDvName", Long.parseLong(uni.get("refDvName").toString()));
+    					tempIdList.add((uni.get("refDvName").toString()));
+    				}
+    				if(uni.get("refDvType")!=null)
+    				{
+    					dvu.setRefDvType(uni.get("refDvType").toString());
+    					dvuMap.put("refDvType", uni.get("refDvType").toString());
+
+    				}
+    				if(uni.get("refDvColumn")!=null)
+    				{
+    					dvu.setRefDvColumn(Long.parseLong(uni.get("refDvColumn").toString()));
+    					dvuMap.put("refDvColumn",uni.get("refDvColumn").toString());
+    				}
+
+    				dvu.setDataViewLineId(newDvc.getId());
+    				dvuMap.put("dataViewLineId",newDvc.getId());
+    				dvu.setLastUpdatedDate(ZonedDateTime.now());
+    				dvu.setLastUpdatedBy(userId);
+    				dvuId=dataviewUnionRepositorty.save(dvu);
+    				dvuListMap.add(dvuMap);
+    			}
+    			else
+    			{
+
+    				if(uni.get("refDvName")!=null)
+    				{
+    					dvu.setRefDvName(Long.parseLong(uni.get("refDvName").toString()));
+    					dvuMap.put("refDvName", Long.parseLong(uni.get("refDvName").toString()));
+    				}
+    				if(uni.get("refDvType")!=null)
+    				{
+    					dvu.setRefDvType(uni.get("refDvType").toString());
+    					dvuMap.put("refDvType", uni.get("refDvType").toString());
+
+    				}
+    				if(uni.get("refDvColumn")!=null)
+    				{
+    					dvu.setRefDvColumn(Long.parseLong(uni.get("refDvColumn").toString()));
+    					dvuMap.put("refDvColumn",uni.get("refDvColumn").toString());
+    				}
+    				dvu.setDataViewLineId(newDvc.getId());
+    				dvuMap.put("dataViewLineId",newDvc.getId());
+    				dvu.setLastUpdatedDate(ZonedDateTime.now());
+    				dvu.setLastUpdatedBy(userId);
+    				dvuId=dataviewUnionRepositorty.save(dvu);
+    				log.info("");
+    				dvuMap.put("id", dvuId.getId());
+    				dvuListMap.add(dvuMap);
+
+    			}
+
+    			log.info("dvuId :"+dvuId);
+    		}
+    		map.put("src", dvuListMap);
+    	}
+    	if(newDvc.getFormula()!=null){
+    	DataViewsColumns dvcol=dataViewsColumnsRepository.findOne(newDvc.getId());
+    	log.info("dvcol: "+dvcol);
+    	log.info("tempIdList: "+tempIdList);
+    	String Str=dataViewsService.excelFormulas(dvcol.getFormula(),tenantId,tempIdList);
+    	log.info("Str: "+Str);
+    	dvcol.setFormulaAlias(Str);
+    	dataViewsColumnsRepository.save(dvcol);
+    	}
+    	log.info("tempIdList: "+tempIdList);
+    	log.info("newDvc.getId() :"+newDvc.getId());
+    	List<BigInteger> dvunionList=dataviewUnionRepositorty.fetchDistinctTemplateIdsByViewId(Long.parseLong(map.get("dataViewId").toString()));
+    	log.info("dvunionList :"+dvunionList);
+    	for(int y=0;y<dvunionList.size();y++){
+    		log.info("dVColsNUnions.getDataViewId() :"+Long.parseLong(dVColsNUnions.get("dataViewId").toString()));
+    		log.info("dvunionList.get(y).longValue() :"+dvunionList.get(y).longValue());
+    		List<DataViewsSrcMappings> dvsm=dataViewsSrcMappingsRepository.findByDataViewIdAndRelationAndTemplateId(Long.parseLong(dVColsNUnions.get("dataViewId").toString()),"UNION",dvunionList.get(y).longValue());
+    		log.info("dvsm.size() :"+dvsm.size());
+    		if(dvsm.size()==0)
+    		{
+    			log.info("dvcList.get(y): "+dvunionList.get(y));
+    			if(dvunionList.get(y)!=null){
+    				Long temId=dvunionList.get(y).longValue();
+    				DataViewsSrcMappings dvSrcMap=new DataViewsSrcMappings();
+
+    				dvSrcMap.setDataViewId(newDvc.getDataViewId());
+    				dvSrcMap.setTemplateId(temId);
+    				dvSrcMap.setRelation("UNION");
+    				dvSrcMap.setCreationDate(ZonedDateTime.now());
+    				dvSrcMap.setCreatedBy(userId);
+    				dataViewsSrcMappingsRepository.save(dvSrcMap);
+    			}
+    		}
+    	}
+
+    	return map;
+
+    }
+    
+    /**
+     * author: Ravali
+     * @param id
+     * @return data view column name
+     * API to delete data view column and unions 
+     */
+    @DeleteMapping("/dataViewsColumnAndUnionDelete")
+    @Timed
+    public HashMap dvcAndUnionDel(@RequestParam Long id)
+    {
+    	log.info("Request rest to delete data view columns and data view unions");
+    	DataViewsColumns dvc=dataViewsColumnsRepository.findOne(id);
+    	HashMap map=new HashMap();
+    	if(dvc.getColumnName()!=null)
+    		map.put("columnName", dvc.getColumnName());
+    	List<DataViewUnion> dvu=dataviewUnionRepositorty.findByDataViewLineId(id);
+    	dataViewsColumnsRepository.delete(dvc);
+    	dataviewUnionRepositorty.delete(dvu);
+    	return map;
+    }
+
+}

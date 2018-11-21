@@ -1,0 +1,1882 @@
+package com.nspl.app.web.rest;
+
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.Month;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Properties;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.apache.commons.lang.WordUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.mysql.fabric.xmlrpc.base.Array;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.ProcessDetails;
+import com.nspl.app.domain.ReconciliationResult;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.repository.AppModuleSummaryRepository;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.JobDetailsRepository;
+import com.nspl.app.repository.ProcessDetailsRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.SourceFileInbHistoryRepository;
+import com.nspl.app.repository.SourceProfileFileAssignmentsRepository;
+import com.nspl.app.service.DashBoardV2Service;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.UserJdbcService;
+
+
+@RestController
+@RequestMapping("/api")
+public class DashBoardResourceV2 {
+	
+	
+	
+	 private final Logger log = LoggerFactory.getLogger(AppModuleSummaryResource.class);
+
+	   
+	    @Inject
+	    DataViewsColumnsRepository dataViewsColumnsRepository;
+	    
+	    @Inject
+	    RulesRepository rulesRepository;
+	    
+	    @Inject
+	    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+	    
+	    @Inject
+	    RuleGroupRepository ruleGroupRepository;
+	    
+	    @Inject
+	    DataViewsRepository dataViewsRepository;
+	    
+	    @Autowired
+	   	Environment env;
+	    
+	    @Inject
+		PropertiesUtilService propertiesUtilService;
+	    
+	    @Inject
+	    SourceFileInbHistoryRepository sourceFileInbHistoryRepository;
+	    
+	    @Inject
+	    ProcessDetailsRepository processDetailsRepository;
+	    
+	    @Inject
+	    SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository;
+	    
+	    @Inject
+	    JobDetailsRepository jobDetailsRepository;
+	    
+	    @Inject
+	    SchedulerDetailsRepository schedulerDetailsRepository;
+	    
+	    @Inject
+	    ApplicationProgramsRepository applicationProgramsRepository;
+	    
+	    
+	    @Inject
+	    AppModuleSummaryRepository appModuleSummaryRepository;
+	    
+	    @Inject
+	    DashBoardV2Service dashBoardV2Service;
+	    
+	    
+	    @Inject
+	    ReconciliationResultRepository reconciliationResultRepository;
+	    
+	    @Inject
+	    UserJdbcService userJdbcService;
+	
+	    
+	    //declaration for round off
+	    
+	    
+	    private String roundOff="0.00";
+	   
+	
+	
+	 @PostMapping("/getEachModuleAnalysisForAProcess")
+     @Timed
+     public List<LinkedHashMap> getEachDayAnalysisForAProcess(@RequestParam Long processId,@RequestParam Long tenantId,@RequestBody HashMap dates) throws SQLException 
+     {
+     	log.info("Rest Request to get aging analysis :"+dates);
+     
+     	
+   	List<LinkedHashMap> finalMap=new ArrayList<LinkedHashMap>();
+     	
+     
+   	if(processId!=null)
+   	{
+     	List<BigInteger> procDetails=processDetailsRepository.findTypeIdByProcessIdAndTagType(processId, "sourceProfile");
+
+     	ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+     	ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+     	log.info("fmDate :"+fmDate);
+     	log.info("toDate :"+toDate);
+     	java.time.LocalDate fDate=fmDate.toLocalDate();
+     	java.time.LocalDate tDate=toDate.toLocalDate();
+     	log.info("fDate :"+fDate);
+     	log.info("tDate :"+tDate);
+     
+     	ApplicationPrograms app=applicationProgramsRepository.findByPrgmNameAndTenantId("DataExtraction", tenantId);
+
+     //	DataViews dv=dataViewsRepository.findOne(dvId);
+     	log.info("fDate :"+fDate);
+     	log.info("tDate :"+tDate);
+     
+   
+       // while(fDate.isBefore(tDate.plusDays(1)))
+     //	 while(tDate.plusDays(1).isAfter(fDate))
+     //   {
+       	 Double totalCount = 0d;
+     	   log.info("in while tDate :"+tDate.toString());
+     	   LinkedHashMap map=new LinkedHashMap();
+     	   
+     	   /**
+     	    * extraction
+     	    */
+     	 int finalCount=0;
+		int extractedCount=0;
+		log.info("finalCount :"+finalCount);
+
+		for(BigInteger profileId:procDetails)
+		{
+
+		
+			log.info("profileId Long:"+profileId);
+			List<LinkedHashMap> templateMapList=new ArrayList<LinkedHashMap>();
+			List<BigInteger> tempIds=sourceProfileFileAssignmentsRepository.fetchTempIdsBySrcProfile(profileId.longValue());
+			for(BigInteger tempId:tempIds)
+			{
+				LinkedHashMap tempMap=new LinkedHashMap();
+				log.info("tempId :"+tempId);
+			
+				log.info("fDate1 :"+fDate);	
+				log.info("tDate1 :"+tDate);	
+
+				List<BigInteger> jobDetails=jobDetailsRepository.findByTenantIdAndProgrammIdAndParameterArgument1In(app.getId(),profileId.longValue(),"%"+tempId.longValue()+"%",tDate+"%");
+				log.info("jobDetails :"+jobDetails);
+
+				for(BigInteger job:jobDetails)
+				{
+
+
+					log.info("in while");
+					List<SchedulerDetails> sch=schedulerDetailsRepository.findByJobIdIn(job);
+					log.info("sch :"+sch);
+					for(int i=0;i<sch.size();i++)
+					{
+
+						if(sch.get(i).getOozieJobId()!=null)
+						{
+						if(sch.get(i).getFrequency().equalsIgnoreCase("hourly"))
+						{
+							log.info("sch.get(i).getHours() :"+sch.get(i).getHours());
+
+							log.info("tDate.getDayOfWeek()1 :"+tDate.getDayOfWeek());
+							if(toDate.isBefore(sch.get(i).getEndDate()))
+							{
+								Long totalRuns=24/sch.get(i).getHours();
+								log.info("totalRuns1 :"+totalRuns.intValue());
+								finalCount=finalCount+totalRuns.intValue();
+								int extractedFileCount=getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.get(i).getOozieJobId());
+								extractedCount=extractedCount+extractedFileCount;
+
+							}
+
+						}
+						if(sch.get(i).getFrequency().equalsIgnoreCase("minutes"))
+						{
+							log.info("sch.get(i).getMinutes :"+sch.get(i).getMinutes());
+
+							if(toDate.isBefore(sch.get(i).getEndDate()))
+							{
+								Long totalRuns=24*60/sch.get(i).getMinutes();
+								log.info("totalRuns1 :"+totalRuns);
+								finalCount=finalCount+totalRuns.intValue();
+								int extractedFileCount=getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.get(i).getOozieJobId());
+								extractedCount=extractedCount+extractedFileCount;
+
+							}
+
+						}
+
+						if(sch.get(i).getFrequency().equalsIgnoreCase("Daily"))
+						{
+							log.info("sch.get(i).getMinutes :"+sch.get(i).getMinutes());
+
+							if(toDate.isBefore(sch.get(i).getEndDate()))
+							{
+								Long totalRuns=1l;
+								log.info("totalRuns1 :"+totalRuns);
+								finalCount=finalCount+totalRuns.intValue();
+								int extractedFileCount=getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.get(i).getOozieJobId());
+								extractedCount=extractedCount+extractedFileCount;
+
+							}
+
+						}
+						if(sch.get(i).getFrequency().equalsIgnoreCase("weekly"))
+						{
+
+							log.info("sch.get(i).getWeekDay() :"+sch.get(i).getWeekDay());
+							String weekDay=tDate.getDayOfWeek().toString();
+							String day=weekDay.subSequence(0, 3).toString();
+							log.info("tDate.getDayOfWeek() :"+weekDay.subSequence(0, 3));
+							if(sch.get(i).getWeekDay().equalsIgnoreCase(day))
+							{
+								if(toDate.isBefore(sch.get(i).getEndDate()))
+								{
+									Long weeks=1l;
+
+									finalCount=finalCount+weeks.intValue();
+									int extractedFileCount=getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.get(i).getOozieJobId());
+									extractedCount=extractedCount+extractedFileCount;
+
+								}
+							}
+
+						}
+						if(sch.get(i).getFrequency().equalsIgnoreCase("MONTHLY"))
+						{
+
+							log.info("sch.get(i).getMonth() :"+sch.get(i).getMonth());
+							String month=tDate.getMonth().toString();
+							String mon=month.subSequence(0, 3).toString();
+							log.info("tDate.getMonth() :"+mon.subSequence(0, 3));
+							if(sch.get(i).getMonth().equalsIgnoreCase(mon))
+							{
+								if(toDate.isBefore(sch.get(i).getEndDate()))
+								{
+
+									Long months=1l;
+									finalCount=finalCount+months.intValue();
+									int extractedFileCount=getOutOfCountForProfileExtractionFromOozieDV2(tDate,sch.get(i).getOozieJobId());
+									extractedCount=extractedCount+extractedFileCount;
+
+								}
+							}
+
+
+						}
+					}
+					}
+
+
+				}
+
+			}
+
+		}
+
+		map.put("count", finalCount);
+		map.put("extractedCount", extractedCount);
+		map.put("extracted", extractedCount);
+     	   
+     	   
+     	   
+     	   
+     	   /**transformation**/
+     	 
+     	 List< Object[]> transformedSummary=sourceFileInbHistoryRepository.fetchTransfomedCountBetweenGivenDate(procDetails,fDate+"%",tDate.toString()+"%");
+     	 if(transformedSummary!=null)
+    	  {
+     	 for(int i=0;i<transformedSummary.size();i++)
+     	 {
+     	  log.info("transformation :"+transformedSummary.size());
+     	 
+     	
+     	
+     	  if(transformedSummary.get(i)!=null)
+     	  {
+     	  map.put("transformation", transformedSummary.get(i)[2]);
+     	  if(map.get("transformation")!=null)
+     	//totalCount=totalCount+Long.valueOf(map.get("transformation").toString());
+     	log.info("totalCount :"+totalCount);
+     	  }
+     	  else
+     		  map.put("transformation", "");
+     	  if(transformedSummary.get(i)!=null)
+     	  map.put("ntTransformedPer", transformedSummary.get(i)[3]);
+     	  else
+     		  map.put("ntTransformedPer", "");
+     	  //finalMap.add(map);
+     	 // fDate=fDate.plusDays(1);
+     	 
+     	  }
+     	  }
+     	 
+     	 
+     	 /**accounting**/
+     	 
+     	  ProcessDetails procesActDet=processDetailsRepository.findByProcessIdAndTagType(processId, "accountingRuleGroup");
+     	 
+     	 List< Object[]> actSummary=appModuleSummaryRepository.fetchProcessedAndUnProcessedCountBetweenGivenDates(procesActDet.getTypeId(),"Final Accounted",fDate,tDate);
+		  for(int i=0;i<actSummary.size();i++)
+		  {
+			  log.info("reconSummary :"+actSummary.size());
+			  if(actSummary!=null)
+			  {
+				
+				  if(actSummary.get(i)[2]!=null)
+				  {
+					  map.put("accounting", actSummary.get(i)[2]);
+					  if(map.get("accounting")!=null)
+						//totalCount=totalCount+Long.valueOf(map.get("accounting").toString());
+				      	log.info("totalCount :"+totalCount);
+				  }
+				  else
+					  map.put("accounting", 0);
+
+				 // finalMap.add(map);
+				 // fDate=fDate.plusDays(1);
+				 
+			  }
+		  }
+		  
+		  
+		  /**Reconciliation**/
+			ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+			List< Object[]> reconSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountBetweenGivenDates(procesRecDet.getTypeId(),fDate,tDate);
+			for(int i=0;i<reconSummary.size();i++)
+			{
+				log.info("reconSummary :"+reconSummary.size());
+				if(reconSummary!=null)
+				{
+					
+					if(reconSummary.get(i)[2]!=null)
+					{
+						map.put("reconciliation", reconSummary.get(i)[2]);
+						if(map.get("Reconciliation")!=null)
+						//totalCount=totalCount+Long.valueOf(map.get("Reconciliation").toString());
+				      	log.info("totalCount :"+totalCount);
+					}
+					else
+						map.put("reconciliation", 0);
+					if(reconSummary.get(i)[3]!=null)
+						map.put("unReconciledPer", reconSummary.get(i)[3]);
+					else
+						map.put("unReconciledPer", "");
+					//finalMap.add(map);
+					
+					
+				}
+			}
+			map.put("journals", 0);
+			//map.put("extraction", 0);
+		//Double total=totalCount/5d;s
+			//map.put("total", total);
+			finalMap.add(map);
+			//tDate=tDate.minusDays(1);
+			log.info("end of while fDate :"+fDate);
+	 // }
+     }
+     	 log.info("finalMap :"+finalMap);
+       
+     	return finalMap;
+
+
+     }
+     
+     
+     /**
+      * author:ravali
+      * Feb16-Ping Oozie jobId
+      * @param dates
+      * @param tenantId
+      * @param processId
+      * @return
+      * @throws SQLException 
+      */
+     @PostMapping("/getOutOfCountForProfileExtractionFromOozieDV2")
+     @Timed
+     public int getOutOfCountForProfileExtractionFromOozieDV2(@RequestBody java.time.LocalDate tDate,@RequestParam String oozieJobId) throws SQLException 
+     {
+     	
+      	log.info("Request Rest to fetch schedulers list with oozieJobId"+oozieJobId);
+     	log.info("Request Rest to local date"+tDate);
+     	List<SchedulerDetails> schList = new ArrayList<SchedulerDetails>();
+     	//to get the total count and adding attribute to response header
+     	
+     	List<HashMap> finalSchList=new ArrayList<HashMap>();
+
+     	String oozieUrl=env.getProperty("oozie.OozieClient");
+     	//	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+     	String DB_URL = env.getProperty("oozie.ozieUrl");
+     	String USER = env.getProperty("oozie.ozieUser");
+     	String PASS = env.getProperty("oozie.oziePswd");
+     	String schema = env.getProperty("oozie.ozieSchema");
+
+     	Connection conn =null;
+     	conn = DriverManager.getConnection(DB_URL, USER, PASS);
+     	Statement stmt = null;
+     	
+     	stmt = conn.createStatement();
+     	
+     	ResultSet result2=null;
+     	int totalCount =0;
+ 	
+     	
+     	String query="select count(job_id) from "+schema+".recon_oozie_jobs_v where parent_id ='"+oozieJobId+"' and job_id !='"+oozieJobId+"' and '"+tDate+"%'"+" = Date(start_time)";
+     	log.info("query :"+query);
+ 			result2=stmt.executeQuery(query);
+ 			while(result2.next())
+ 	    	{
+ 				totalCount=Integer.parseInt(result2.getString("count(job_id)").toString());
+ 	    	}
+ 			
+ 			
+ 	    	if(conn!=null)
+ 	    		conn.close();
+ 	    	if(stmt!=null)
+ 	    		stmt.close();
+ 	    	if(result2!=null)
+ 	    		result2.close();
+ 	  
+ 			
+ 			log.info("totalCount :"+totalCount);
+ 			return totalCount;
+ 		
+     }
+     
+     /**
+      * author:ravali
+      * @param processId
+      * @param tenantId
+      * @param dates
+      * @return
+      * @throws SQLException
+      * @throws ParseException
+      * Desc :APi to fetch grouped reconciliation data for 1W,2W,1M,3M
+      */
+     
+     @PostMapping("/reconciliationAnalysisforGivenPeriod")
+     @Timed
+     public LinkedHashMap reconciliationAnalysisforGivenPeriod(@RequestParam Long processId,@RequestBody HashMap dates) throws SQLException, ParseException 
+     {
+    	 log.info("Rest Request to get aging analysis :"+dates);
+
+
+    	 LinkedHashMap eachMap=new LinkedHashMap();
+    	 if(processId!=null)
+    	 {
+
+
+    		 ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+    		 ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+    		 log.info("fmDate :"+fmDate);
+    		 log.info("toDate :"+toDate);
+    		 LocalDate fDate=fmDate.toLocalDate();
+    		 LocalDate tDate=toDate.toLocalDate();
+    		 log.info("fDate :"+fDate);
+    		 log.info("tDate :"+tDate);
+
+
+
+    		 /**Reconciliation 1w**/
+
+
+
+    		 Duration dur = Duration.between(fmDate, toDate);
+    		 log.info("dur.toDays(): "+dur.toDays());
+    		 if(dur.toDays()>=7)
+
+    		 {
+    			 log.info("for one week");
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(7);
+    			 log.info("tillDate :"+tillDate);
+    			 List<LocalDate> datesList=new ArrayList<LocalDate>();
+
+
+
+
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> recon=new ArrayList<String>();
+    			 List<String> unRecon=new ArrayList<String>();
+
+    			 while(fromDate.isBefore(tillDate))
+    			 {
+    				 datesList.add(fromDate);
+    				 fromDate=fromDate.plusDays(1);
+    				 log.info("end of while fromDate :"+fromDate);
+    			 }
+
+    			 log.info("datesList :"+datesList);
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+    			 log.info("procesRecDet :"+procesRecDet);
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> reconSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountWithDates(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+reconSummary.size());
+    			 //List<LinkedHashMap> datesMapList=new ArrayList<LinkedHashMap>();
+    			 Double totalReconAmt=0d;
+    			 Double totaldvAmt=0d;
+    			 Double totalUnReconAmt=0d;
+    			 Double totalReconAmtPer=0d;
+    			 Double totalUnReconPer=0d;
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<reconSummary.size();i++)
+    			 {
+    				 if(reconSummary!=null)
+    				 {
+    					 log.info("reconSummary.get(i)[8].toString() :"+reconSummary.get(i)[8].toString());
+    					 log.info("reconSummary.get(i)[2].toString() :"+reconSummary.get(i)[2].toString());
+    					 log.info("reconSummary.get(i)[3].toString() :"+reconSummary.get(i)[3].toString());
+    					 totaldvAmt=totaldvAmt+Double.valueOf(reconSummary.get(i)[4].toString());
+    					 totalReconAmt=totalReconAmt+Double.valueOf(reconSummary.get(i)[5].toString());
+    					 totalReconAmtPer=totalReconAmtPer+Double.valueOf(reconSummary.get(i)[6].toString());
+    					 totalUnReconPer=totalUnReconPer+Double.valueOf(reconSummary.get(i)[7].toString());
+    					 datesMap.put(reconSummary.get(i)[8].toString(), reconSummary.get(i)[2].toString()+","+reconSummary.get(i)[3].toString());
+
+    				 }
+
+    			 }
+
+    			 log.info("totalReconAmt :"+totalReconAmt); 
+    			 log.info("totaldvAmt :"+totaldvAmt); 
+    			 log.info("totalReconAmtPer :"+totalReconAmtPer); 
+    			 log.info("totalUnReconPer :"+totalUnReconPer); 
+    			 totalUnReconAmt=totaldvAmt-totalReconAmt;
+    			 log.info("totalUnReconAmt :"+totalUnReconAmt); 
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int d=0;d<datesList.size();d++)
+    			 {
+    				 log.info("datesList.get(d) :"+datesList.get(d));
+    				 LocalDate dt=LocalDate.parse(datesList.get(d).toString());
+    				 String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());
+    				 labelValue.add(dt.getDayOfMonth()+" "+month);
+    				 if(datesMap.get(datesList.get(d).toString())!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get(datesList.get(d).toString()));
+    					 String[] split=datesMap.get(datesList.get(d).toString()).toString().split(",");
+    					 log.info("split [0]"+split[0]);
+    					 log.info("split [1]"+split[1]);
+    					 recon.add(split[0]);
+    					 unRecon.add(split[1]);
+    				 }
+    				 else
+    				 {
+    					 log.info("in else");
+    					 Long l=0l;
+    					 recon.add(l.toString());
+    					 unRecon.add(l.toString());
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("recon :"+recon);
+    			 log.info("unRecon :"+unRecon);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("recon", recon);
+    			 map.put("unRecon", unRecon);
+
+    			 // weekMap
+    			 LinkedHashMap wmap=new LinkedHashMap();
+
+    			 wmap.put("reconAmount", totalReconAmt);
+    			 wmap.put("reconPercentage", totalReconAmtPer);
+    			 wmap.put("unReconAmount", totalUnReconAmt);
+    			 wmap.put("unReconPercentage", totalUnReconPer);
+    			 wmap.put("detailedData", map);
+    			 eachMap.put("1W", wmap);
+    			 //	 finalMap.add(weekMap);
+    		 }
+    		 /** reconciliation 2w**/
+    		 if(dur.toDays()>=14)
+
+    		 {
+    			 log.info("for 2 week");
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(14);
+    			 log.info("tillDate :"+tillDate);
+    			 List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> recon=new ArrayList<String>();
+    			 List<String> unRecon=new ArrayList<String>();
+
+    			 while(fromDate.isBefore(tillDate))
+    			 {
+    				 datesList.add(fromDate);
+    				 fromDate=fromDate.plusDays(1);
+    				 log.info("end of while fromDate :"+fromDate);
+    			 }
+
+    			 log.info("datesList :"+datesList);
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+    			 log.info("procesRecDet :"+procesRecDet);
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> reconSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountWithDates(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+reconSummary.size());
+    			 //List<LinkedHashMap> datesMapList=new ArrayList<LinkedHashMap>();
+    			 Double totalReconAmt=0d;
+    			 Double totaldvAmt=0d;
+    			 Double totalUnReconAmt=0d;
+    			 Double totalReconAmtPer=0d;
+    			 Double totalUnReconPer=0d;
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<reconSummary.size();i++)
+    			 {
+    				 if(reconSummary!=null)
+    				 {
+    					 log.info("reconSummary.get(i)[8].toString() :"+reconSummary.get(i)[8].toString());
+    					 log.info("reconSummary.get(i)[2].toString() :"+reconSummary.get(i)[2].toString());
+    					 log.info("reconSummary.get(i)[3].toString() :"+reconSummary.get(i)[3].toString());
+    					 totaldvAmt=totaldvAmt+Double.valueOf(reconSummary.get(i)[4].toString());
+    					 totalReconAmt=totalReconAmt+Double.valueOf(reconSummary.get(i)[5].toString());
+    					 totalReconAmtPer=totalReconAmtPer+Double.valueOf(reconSummary.get(i)[6].toString());
+    					 totalUnReconPer=totalUnReconPer+Double.valueOf(reconSummary.get(i)[7].toString());
+    					 datesMap.put(reconSummary.get(i)[8].toString(), reconSummary.get(i)[2].toString()+","+reconSummary.get(i)[3].toString());
+
+    				 }
+
+    			 }
+
+    			 log.info("totalReconAmt :"+totalReconAmt); 
+    			 log.info("totaldvAmt :"+totaldvAmt); 
+    			 log.info("totalReconAmtPer :"+totalReconAmtPer); 
+    			 log.info("totalUnReconPer :"+totalUnReconPer); 
+    			 totalUnReconAmt=totaldvAmt-totalReconAmt;
+    			 log.info("totalUnReconAmt :"+totalUnReconAmt); 
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int d=0;d<datesList.size();d++)
+    			 {
+    				 log.info("datesList.get(d) :"+datesList.get(d));
+    				 LocalDate dt=LocalDate.parse(datesList.get(d).toString());
+    				 String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());
+    				 labelValue.add(dt.getDayOfMonth()+" "+month);
+    				 if(datesMap.get(datesList.get(d).toString())!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get(datesList.get(d).toString()));
+    					 String[] split=datesMap.get(datesList.get(d).toString()).toString().split(",");
+    					 log.info("split [0]"+split[0]);
+    					 log.info("split [1]"+split[1]);
+    					 recon.add(split[0]);
+    					 unRecon.add(split[1]);
+    				 }
+    				 else
+    				 {
+    					 log.info("in else");
+    					 Long l=0l;
+    					 recon.add(l.toString());
+    					 unRecon.add(l.toString());
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("recon :"+recon);
+    			 log.info("unRecon :"+unRecon);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("recon", recon);
+    			 map.put("unRecon", unRecon);
+
+    			 // weekMap
+    			 LinkedHashMap twomap=new LinkedHashMap();
+
+    			 twomap.put("reconAmount", totalReconAmt);
+    			 twomap.put("reconPercentage", totalReconAmtPer);
+    			 twomap.put("unReconAmount", totalUnReconAmt);
+    			 twomap.put("unReconPercentage", totalUnReconPer);
+    			 twomap.put("detailedData", map);
+    			 eachMap.put("2W", twomap);
+    			 //	 finalMap.add(weekMap);
+    		 }
+
+    		 /**1month**/
+
+
+    		 if(dur.toDays()>=28)
+
+    		 {
+    			 log.info("for 1month week");
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(14);
+    			 log.info("tillDate :"+tillDate);
+    			 //	 List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> recon=new ArrayList<String>();
+    			 List<String> unRecon=new ArrayList<String>();
+    			 Long weeks=4l;
+
+    			 
+    			/* Calendar cal = Calendar.getInstance();
+    			 cal.setTime(fDate);
+    			 int week = cal.get(Calendar.WEEK_OF_YEAR);*/
+    			 
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+    			 log.info("procesRecDet :"+procesRecDet);
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> reconSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountWithweeks(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+reconSummary.size());
+    			 //List<LinkedHashMap> datesMapList=new ArrayList<LinkedHashMap>();
+    			 Double totalReconAmt=0d;
+    			 Double totaldvAmt=0d;
+    			 Double totalUnReconAmt=0d;
+    			 Double totalReconAmtPer=0d;
+    			 Double totalUnReconPer=0d;
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<reconSummary.size();i++)
+    			 {
+    				 if(reconSummary!=null)
+    				 {
+    					 log.info("reconSummary.get(i)[8].toString() :"+reconSummary.get(i)[8].toString());
+    					 log.info("reconSummary.get(i)[2].toString() :"+reconSummary.get(i)[2].toString());
+    					 log.info("reconSummary.get(i)[3].toString() :"+reconSummary.get(i)[3].toString());
+    					 totaldvAmt=totaldvAmt+Double.valueOf(reconSummary.get(i)[4].toString());
+    					 totalReconAmt=totalReconAmt+Double.valueOf(reconSummary.get(i)[5].toString());
+    					 totalReconAmtPer=totalReconAmtPer+Double.valueOf(reconSummary.get(i)[6].toString());
+    					 totalUnReconPer=totalUnReconPer+Double.valueOf(reconSummary.get(i)[7].toString());
+    					 datesMap.put(reconSummary.get(i)[8].toString(), reconSummary.get(i)[2].toString()+","+reconSummary.get(i)[3].toString());
+
+    				 }
+
+    			 }
+
+    			 log.info("totalReconAmt :"+totalReconAmt); 
+    			 log.info("totaldvAmt :"+totaldvAmt); 
+    			 log.info("totalReconAmtPer :"+totalReconAmtPer); 
+    			 log.info("totalUnReconPer :"+totalUnReconPer); 
+    			 totalUnReconAmt=totaldvAmt-totalReconAmt;
+    			 log.info("totalUnReconAmt :"+totalUnReconAmt); 
+
+    			 log.info("datesMap 1month:"+datesMap);
+
+    			 for(int d=1;d<=weeks;d++)
+    			 {
+    				 log.info("for "+d+" week");
+    				 labelValue.add(d+" week");
+    				 if(datesMap.get(String.valueOf(d))!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get(d));
+    					 String[] split=datesMap.get(String.valueOf(d)).toString().split(",");
+    					 log.info("split [0]"+split[0]);
+    					 log.info("split [1]"+split[1]);
+    					 recon.add(split[0]);
+    					 unRecon.add(split[1]);
+    				 }
+    				 else
+    				 {
+    					 log.info("in else");
+    					 Long l=0l;
+    					 recon.add(l.toString());
+    					 unRecon.add(l.toString());
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("recon :"+recon);
+    			 log.info("unRecon :"+unRecon);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("recon", recon);
+    			 map.put("unRecon", unRecon);
+
+    			 // weekMap
+    			 LinkedHashMap ommap=new LinkedHashMap();
+
+    			 ommap.put("reconAmount", totalReconAmt);
+    			 ommap.put("reconPercentage", totalReconAmtPer);
+    			 ommap.put("unReconAmount", totalUnReconAmt);
+    			 ommap.put("unReconPercentage", totalUnReconPer);
+    			 ommap.put("detailedData", map);
+    			 eachMap.put("1M", ommap);
+    			 //	 finalMap.add(weekMap);
+    		 }
+
+    		 /**3month**/
+
+    		 /* LocalDate till1MDate=fDate.plusDays(30);
+     		 LocalDate till3MDate=fDate.plusDays(90);*/
+    		 if(dur.toDays()>=30 || dur.toDays()>=28)
+
+    		 {
+    			 log.info("for 3 months");
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(14);
+    			 log.info("tillDate :"+tillDate);
+    			 //	 List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> recon=new ArrayList<String>();
+    			 List<String> unRecon=new ArrayList<String>();
+    			 Long weeks=12l;
+
+
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+    			 log.info("procesRecDet :"+procesRecDet);
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> reconSummary=appModuleSummaryRepository.fetchReconCountAndUnReconciledCountWithweeks(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+reconSummary.size());
+    			 //List<LinkedHashMap> datesMapList=new ArrayList<LinkedHashMap>();
+    			 Double totalReconAmt=0d;
+    			 Double totaldvAmt=0d;
+    			 Double totalUnReconAmt=0d;
+    			 Double totalReconAmtPer=0d;
+    			 Double totalUnReconPer=0d;
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<reconSummary.size();i++)
+    			 {
+    				 if(reconSummary!=null)
+    				 {
+    					 log.info("reconSummary.get(i)[8].toString() :"+reconSummary.get(i)[8].toString());
+    					 log.info("reconSummary.get(i)[2].toString() :"+reconSummary.get(i)[2].toString());
+    					 log.info("reconSummary.get(i)[3].toString() :"+reconSummary.get(i)[3].toString());
+    					 totaldvAmt=totaldvAmt+Double.valueOf(reconSummary.get(i)[4].toString());
+    					 totalReconAmt=totalReconAmt+Double.valueOf(reconSummary.get(i)[5].toString());
+    					 totalReconAmtPer=totalReconAmtPer+Double.valueOf(reconSummary.get(i)[6].toString());
+    					 totalUnReconPer=totalUnReconPer+Double.valueOf(reconSummary.get(i)[7].toString());
+    					 datesMap.put(reconSummary.get(i)[8].toString(), reconSummary.get(i)[2].toString()+","+reconSummary.get(i)[3].toString());
+
+    				 }
+
+    			 }
+
+    			 log.info("totalReconAmt :"+totalReconAmt); 
+    			 log.info("totaldvAmt :"+totaldvAmt); 
+    			 log.info("totalReconAmtPer :"+totalReconAmtPer); 
+    			 log.info("totalUnReconPer :"+totalUnReconPer); 
+    			 totalUnReconAmt=totaldvAmt-totalReconAmt;
+    			 log.info("totalUnReconAmt :"+totalUnReconAmt); 
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int d=1;d<=weeks;d++)
+    			 {
+
+    				 /* LocalDate dt=LocalDate.parse(datesList.get(d).toString());
+    				 String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());*/
+    				 labelValue.add(d+" week");
+    				 if(datesMap.get(String.valueOf(d))!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get(d));
+    					 String[] split=datesMap.get(String.valueOf(d)).toString().split(",");
+    					 log.info("split [0]"+split[0]);
+    					 log.info("split [1]"+split[1]);
+    					 recon.add(split[0]);
+    					 unRecon.add(split[1]);
+    				 }
+    				 else
+    				 {
+    					 log.info("in else");
+    					 Long l=0l;
+    					 recon.add(l.toString());
+    					 unRecon.add(l.toString());
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("recon :"+recon);
+    			 log.info("unRecon :"+unRecon);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("recon", recon);
+    			 map.put("unRecon", unRecon);
+
+    			 // weekMap
+    			 LinkedHashMap tmmap=new LinkedHashMap();
+
+    			 tmmap.put("reconAmount", totalReconAmt);
+    			 tmmap.put("reconPercentage", totalReconAmtPer);
+    			 tmmap.put("unReconAmount", totalUnReconAmt);
+    			 tmmap.put("unReconPercentage", totalUnReconPer);
+    			 tmmap.put("detailedData", map);
+    			 eachMap.put("3M", tmmap);
+    			 //	 finalMap.add(weekMap);
+    		 }
+
+
+    	 }
+    	 return eachMap;
+
+     }
+     
+     
+     
+     /**
+      * author :ravali
+      * @param processId
+      * @param tenantId
+      * @param dates
+      * @return
+      * @throws SQLException
+      * @throws ParseException
+      * Desc :APi to fetch grouped accounted data for 1W,2W,1M,3M
+      */
+     
+     @PostMapping("/AccountingAnalysisforGivenPeriod")
+     @Timed
+     public LinkedHashMap accountingAnalysisforGivenPeriod(@RequestParam Long processId,@RequestBody HashMap dates) throws SQLException, ParseException 
+     {
+    	 log.info("Rest Request to get aging analysis :"+dates);
+
+    	 LinkedHashMap finalMap=new LinkedHashMap();
+    	 LinkedHashMap eachMap=new LinkedHashMap();
+    
+    	 if(processId!=null)
+    	 {
+
+    		 ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+    		 ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+    		 log.info("fmDate :"+fmDate);
+    		 log.info("toDate :"+toDate);
+    		 LocalDate fDate=fmDate.toLocalDate();
+    		 LocalDate tDate=toDate.toLocalDate();
+    		 log.info("fDate :"+fDate);
+    		 log.info("tDate :"+tDate);
+
+    		 Duration dur = Duration.between(fmDate, toDate);
+    		 log.info("dur.toDays(): "+dur.toDays());
+
+    		 /**Acounting For a week**/
+    		 if(dur.toDays()>=7)
+    		 {
+    			 log.info("if 1W :"+dur.toDays());
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(7);
+    			 log.info("tillDate :"+tillDate);
+    			 List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 while(fromDate.isBefore(tillDate))
+    			 {
+    				 datesList.add(fromDate);
+    				 fromDate=fromDate.plusDays(1);
+    				 log.info("end of while fromDate :"+fromDate);
+    			 }
+
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> accounted=new ArrayList<String>();
+    			 List<String> accountingInProcess=new ArrayList<String>();
+    			 List<String> finalAccounted=new ArrayList<String>();
+    			 List<String> notAccounted=new ArrayList<String>();
+
+
+    			 log.info("datesList in Acounting For a week:"+datesList);
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "accountingRuleGroup");
+
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> acctSummary=appModuleSummaryRepository.fetchAccountingAnalysisWithDates(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+acctSummary.size());
+
+
+    			 Double totalActAmt=0d;
+    			 Double totalActInProcAmt=0d;
+    			 Double totalFinalActAmt=0d;
+    			 Double totalNotActAmt=0d;
+    			 Double totalActAmtPer=0d;
+    			 Double totalActInProcPer=0d;
+    			 Double totalFinalActPer=0d;
+    			 Double totalNotActPer=0d;
+
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<acctSummary.size();i++)
+    			 {
+    				 if(acctSummary!=null)
+    				 {
+    					 datesMap.put(acctSummary.get(i)[0].toString()+acctSummary.get(i)[1].toString(), acctSummary.get(i)[6]);
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalActAmtPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounting inprocess"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalActInProcAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalActInProcPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Final accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalFinalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalFinalActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Not accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalNotActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalNotActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+
+    				 }
+
+    			 }
+
+
+    			 log.info("totalActAmt :"+totalActAmt); 
+    			 log.info("totalActInProcAmt :"+totalActInProcAmt); 
+    			 log.info("totalFinalActAmt :"+totalFinalActAmt); 
+    			 log.info("totalNotActAmt :"+totalNotActAmt); 
+    			 log.info("totalActAmtPer :"+totalActAmtPer); 
+    			 log.info("totalActInProcPer :"+totalActInProcPer); 
+    			 log.info("totalFinalActPer :"+totalFinalActPer); 
+    			 log.info("totalNotActPer :"+totalNotActPer); 
+
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int d=0;d<datesList.size();d++)
+    			 {
+    				 log.info("datesList.get(d) :"+datesList.get(d));
+    				 LocalDate dt=LocalDate.parse(datesList.get(d).toString());
+    				 String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());
+    				 labelValue.add(dt.getDayOfMonth()+" "+month);
+    				 if(datesMap.get("Accounted"+datesList.get(d).toString())!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get("Accounted"+datesList.get(d).toString()));
+    					 // String[] split=datesMap.get(datesList.get(d).toString()).toString().split(",");
+    					 accounted.add(datesMap.get("Accounted"+datesList.get(d).toString()).toString());
+    					 // unRecon.add(split[1]);
+    				 }
+    				 if (datesMap.get("Accounting inprocess"+datesList.get(d).toString())!=null)
+    				 {
+    					 log.info("in Accounting inprocess : "+datesMap.get("Accounted"+datesList.get(d).toString()));
+
+    					 accountingInProcess.add(datesMap.get("Accounted"+datesList.get(d).toString()).toString());
+
+    				 }
+    				 if (datesMap.get("Final accounted"+datesList.get(d).toString())!=null)
+    				 {
+    					 log.info("in Final accounted : "+datesMap.get("Final accounted"+datesList.get(d).toString()));
+    					 finalAccounted.add(datesMap.get("Final accounted"+datesList.get(d).toString()).toString());
+
+    				 }
+    				 if (datesMap.get("Not accounted"+datesList.get(d).toString())!=null)
+    				 {
+    					 log.info("in Not accounted : "+datesMap.get("Not accounted"+datesList.get(d).toString()));
+    					 notAccounted.add(datesMap.get("Final accounted"+datesList.get(d).toString()).toString());
+
+    				 }
+    				 else
+    				 {
+    					 String l="0";
+    					 accounted.add(l);
+    					 accountingInProcess.add(l);
+    					 finalAccounted.add(l);
+    					 notAccounted.add(l);
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("accounted :"+accounted);
+    			 log.info("accountingInProcess :"+accountingInProcess);
+    			 log.info("finalAccounted :"+finalAccounted);
+    			 log.info("notAccounted :"+notAccounted);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("accounted", accounted);
+    			 map.put("accountingInProcess", accountingInProcess);
+    			 map.put("finalAccounted", finalAccounted);
+    			 map.put("notAccounted", notAccounted);
+
+    			 // weekMap
+    			 LinkedHashMap wmap=new LinkedHashMap();
+
+    			 wmap.put("actamount", totalActAmt);
+    			 wmap.put("actPercentage", totalActAmtPer);
+    			 wmap.put("actInProcessamount", totalActInProcAmt);
+    			 wmap.put("actInProcessPercentage", totalActInProcPer);
+    			 wmap.put("finalActamount", totalFinalActAmt);
+    			 wmap.put("finalActPercentage", totalFinalActPer);
+    			 wmap.put("notActamount", totalNotActAmt);
+    			 wmap.put("notActPercentage", totalNotActPer);
+    			 wmap.put("detailedData", map);
+    			 eachMap.put("1W", wmap);
+
+    			 log.info("weekMap :"+eachMap);
+    			 //	 finalMap.add(weekMap);
+    		 }
+    		 /** Accounting 2w**/
+
+    		 if(dur.toDays()>=14)
+    		 {
+    			 log.info("if one 2W :"+dur.toDays());
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(14);
+    			 log.info("tillDate :"+tillDate);
+    			 List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 while(fromDate.isBefore(tillDate))
+    			 {
+    				 datesList.add(fromDate);
+    				 fromDate=fromDate.plusDays(1);
+    				 log.info("end of while fromDate :"+fromDate);
+    			 }
+
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> accounted=new ArrayList<String>();
+    			 List<String> accountingInProcess=new ArrayList<String>();
+    			 List<String> finalAccounted=new ArrayList<String>();
+    			 List<String> notAccounted=new ArrayList<String>();
+
+
+    			 log.info("datesList in Acounting For a week:"+datesList);
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "accountingRuleGroup");
+
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> acctSummary=appModuleSummaryRepository.fetchAccountingAnalysisWithDates(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+acctSummary.size());
+
+
+    			 Double totalActAmt=0d;
+    			 Double totalActInProcAmt=0d;
+    			 Double totalFinalActAmt=0d;
+    			 Double totalNotActAmt=0d;
+    			 Double totalActAmtPer=0d;
+    			 Double totalActInProcPer=0d;
+    			 Double totalFinalActPer=0d;
+    			 Double totalNotActPer=0d;
+
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<acctSummary.size();i++)
+    			 {
+					 datesMap.put(acctSummary.get(i)[0].toString()+acctSummary.get(i)[1].toString(), acctSummary.get(i)[6]);
+
+					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounted"))
+					 {
+						 if(acctSummary.get(i)[5]!=null)
+						 totalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+						 if(acctSummary.get(i)[7]!=null)
+						 totalActAmtPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+					 }
+					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounting inprocess"))
+					 {
+						 if(acctSummary.get(i)[5]!=null)
+						 totalActInProcAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+						 if(acctSummary.get(i)[7]!=null)
+						 totalActInProcPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+					 }
+					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Final accounted"))
+					 {
+						 if(acctSummary.get(i)[5]!=null)
+						 totalFinalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+						 if(acctSummary.get(i)[7]!=null)
+						 totalFinalActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+					 }
+					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Not accounted"))
+					 {
+						 if(acctSummary.get(i)[5]!=null)
+						 totalNotActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+						 if(acctSummary.get(i)[7]!=null)
+						 totalNotActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+					 }
+
+				 }
+
+
+    			 log.info("totalActAmt :"+totalActAmt); 
+    			 log.info("totalActInProcAmt :"+totalActInProcAmt); 
+    			 log.info("totalFinalActAmt :"+totalFinalActAmt); 
+    			 log.info("totalNotActAmt :"+totalNotActAmt); 
+    			 log.info("totalActAmtPer :"+totalActAmtPer); 
+    			 log.info("totalActInProcPer :"+totalActInProcPer); 
+    			 log.info("totalFinalActPer :"+totalFinalActPer); 
+    			 log.info("totalNotActPer :"+totalNotActPer); 
+
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int d=0;d<datesList.size();d++)
+    			 {
+    				 log.info("datesList.get(d) :"+datesList.get(d));
+    				 LocalDate dt=LocalDate.parse(datesList.get(d).toString());
+    				 String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());
+    				 labelValue.add(dt.getDayOfMonth()+" "+month);
+    				 if(datesMap.get("Accounted"+datesList.get(d).toString())!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get("Accounted"+datesList.get(d).toString()));
+    					 // String[] split=datesMap.get(datesList.get(d).toString()).toString().split(",");
+    					 accounted.add(datesMap.get("Accounted"+datesList.get(d).toString()).toString());
+    					 // unRecon.add(split[1]);
+    				 }
+    				 if (datesMap.get("Accounting inprocess"+datesList.get(d).toString())!=null)
+    				 {
+    					 log.info("in Accounting inprocess : "+datesMap.get("Accounted"+datesList.get(d).toString()));
+
+    					 accountingInProcess.add(datesMap.get("Accounted"+datesList.get(d).toString()).toString());
+
+    				 }
+    				 if (datesMap.get("Final accounted"+datesList.get(d).toString())!=null)
+    				 {
+    					 log.info("in Final accounted : "+datesMap.get("Final accounted"+datesList.get(d).toString()));
+    					 finalAccounted.add(datesMap.get("Final accounted"+datesList.get(d).toString()).toString());
+
+    				 }
+    				 if (datesMap.get("Not accounted"+datesList.get(d).toString())!=null)
+    				 {
+    					 log.info("in Not accounted : "+datesMap.get("Not accounted"+datesList.get(d).toString()));
+    					 notAccounted.add(datesMap.get("Final accounted"+datesList.get(d).toString()).toString());
+
+    				 }
+    				 else
+    				 {
+    					 String l="0";
+    					 accounted.add(l);
+    					 accountingInProcess.add(l);
+    					 finalAccounted.add(l);
+    					 notAccounted.add(l);
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("accounted :"+accounted);
+    			 log.info("accountingInProcess :"+accountingInProcess);
+    			 log.info("finalAccounted :"+finalAccounted);
+    			 log.info("notAccounted :"+notAccounted);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("accounted", accounted);
+    			 map.put("accountingInProcess", accountingInProcess);
+    			 map.put("finalAccounted", finalAccounted);
+    			 map.put("notAccounted", notAccounted);
+
+    			 // 2weekMap
+    			 LinkedHashMap twmap=new LinkedHashMap();
+
+    			 twmap.put("actamount", totalActAmt);
+    			 twmap.put("actPercentage", totalActAmtPer);
+    			 twmap.put("actInProcessamount", totalActInProcAmt);
+    			 twmap.put("actInProcessPercentage", totalActInProcPer);
+    			 twmap.put("finalActamount", totalFinalActAmt);
+    			 twmap.put("finalActPercentage", totalFinalActPer);
+    			 twmap.put("notActamount", totalNotActAmt);
+    			 twmap.put("notActPercentage", totalNotActPer);
+    			 twmap.put("detailedData", map);
+    			 eachMap.put("2W", twmap);
+
+    			 log.info("2weekMap :"+eachMap);
+
+    		 }
+
+    		 /**Accounting for a month**/
+
+    		 if(dur.toDays()>=30 || dur.toDays()>=28)
+    		 {
+    			 log.info("if one month :"+dur.toDays());
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(30);
+    			 log.info("tillDate :"+tillDate);
+    			 /* List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 while(fromDate.isBefore(tillDate))
+    			 {
+    				 datesList.add(fromDate);
+    				 fromDate=fromDate.plusDays(1);
+    				 log.info("end of while fromDate :"+fromDate);
+    			 }*/
+    			 Long weeks=4l;
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> accounted=new ArrayList<String>();
+    			 List<String> accountingInProcess=new ArrayList<String>();
+    			 List<String> finalAccounted=new ArrayList<String>();
+    			 List<String> notAccounted=new ArrayList<String>();
+
+
+    			 // log.info("datesList in Acounting For a week:"+datesList);
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "accountingRuleGroup");
+
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> acctSummary=appModuleSummaryRepository.fetchAccountingAnalysisWithWeeks(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+acctSummary.size());
+
+
+    			 Double totalActAmt=0d;
+    			 Double totalActInProcAmt=0d;
+    			 Double totalFinalActAmt=0d;
+    			 Double totalNotActAmt=0d;
+    			 Double totalActAmtPer=0d;
+    			 Double totalActInProcPer=0d;
+    			 Double totalFinalActPer=0d;
+    			 Double totalNotActPer=0d;
+
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<acctSummary.size();i++)
+    			 {
+    				 if(acctSummary!=null)
+    				 {
+    					 datesMap.put(acctSummary.get(i)[0].toString()+acctSummary.get(i)[1].toString(), acctSummary.get(i)[6]);
+
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalActAmtPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounting inprocess"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalActInProcAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalActInProcPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Final accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalFinalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalFinalActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Not accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalNotActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalNotActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+
+    				 }
+
+    			 }
+
+
+    			 log.info("totalActAmt :"+totalActAmt); 
+    			 log.info("totalActInProcAmt :"+totalActInProcAmt); 
+    			 log.info("totalFinalActAmt :"+totalFinalActAmt); 
+    			 log.info("totalNotActAmt :"+totalNotActAmt); 
+    			 log.info("totalActAmtPer :"+totalActAmtPer); 
+    			 log.info("totalActInProcPer :"+totalActInProcPer); 
+    			 log.info("totalFinalActPer :"+totalFinalActPer); 
+    			 log.info("totalNotActPer :"+totalNotActPer); 
+
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int i=1;i<=weeks;i++)
+    			 {
+    				 log.info("week at["+i+"] ");
+
+    				 // String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());
+    				 labelValue.add(i+" week");
+    				 if(datesMap.get("Accounted"+i)!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get("Accounted"+i).toString());
+    					 // String[] split=datesMap.get(datesList.get(d).toString()).toString().split(",");
+    					 accounted.add(datesMap.get("Accounted"+i).toString());
+    					 // unRecon.add(split[1]);
+    				 }
+    				 if (datesMap.get("Accounting inprocess"+i)!=null)
+    				 {
+    					 log.info("in Accounting inprocess : "+datesMap.get("Accounting inprocess"+i).toString());
+
+    					 accountingInProcess.add(datesMap.get("Accounted"+i).toString());
+
+    				 }
+    				 if (datesMap.get("Final accounted"+i)!=null)
+    				 {
+    					 log.info("in Final accounted : "+datesMap.get("Final accounted"+i).toString());
+    					 finalAccounted.add(datesMap.get("Final accounted"+i).toString());
+    				 }
+    				 if (datesMap.get("Not accounted"+i)!=null)
+    				 {
+    					 log.info("in Not accounted : "+datesMap.get("Not accounted"+i).toString());
+    					 notAccounted.add(datesMap.get("Final accounted"+i).toString());
+
+    				 }
+    				 else
+    				 {
+    					 String l="0";
+    					 accounted.add(l);
+    					 accountingInProcess.add(l);
+    					 finalAccounted.add(l);
+    					 notAccounted.add(l);
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("accounted :"+accounted);
+    			 log.info("accountingInProcess :"+accountingInProcess);
+    			 log.info("finalAccounted :"+finalAccounted);
+    			 log.info("notAccounted :"+notAccounted);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("accounted", accounted);
+    			 map.put("accountingInProcess", accountingInProcess);
+    			 map.put("finalAccounted", finalAccounted);
+    			 map.put("notAccounted", notAccounted);
+
+    			 // OneMonthMap
+    			 LinkedHashMap ommap=new LinkedHashMap();
+
+    			 ommap.put("actamount", totalActAmt);
+    			 ommap.put("actPercentage", totalActAmtPer);
+    			 ommap.put("actInProcessamount", totalActInProcAmt);
+    			 ommap.put("actInProcessPercentage", totalActInProcPer);
+    			 ommap.put("finalActamount", totalFinalActAmt);
+    			 ommap.put("finalActPercentage", totalFinalActPer);
+    			 ommap.put("notActamount", totalNotActAmt);
+    			 ommap.put("notActPercentage", totalNotActPer);
+    			 ommap.put("detailedData", map);
+    			 eachMap.put("1M", ommap);
+
+    			 log.info("1MonthMap :"+eachMap);
+
+    		 }
+
+
+
+    		 if(dur.toDays()>31)
+    		 {
+    			 log.info("if 3 month :"+dur.toDays());
+    			 LocalDate fromDate=fDate;
+    			 LocalDate tillDate=fDate.plusDays(90);
+    			 log.info("tillDate :"+tillDate);
+    			 /* List<LocalDate> datesList=new ArrayList<LocalDate>();
+    			 while(fromDate.isBefore(tillDate))
+    			 {
+    				 datesList.add(fromDate);
+    				 fromDate=fromDate.plusDays(1);
+    				 log.info("end of while fromDate :"+fromDate);
+    			 }*/
+    			 Long weeks=12l;
+    			 log.info("fromDate :"+fromDate);
+    			 List<String> labelValue=new ArrayList<String>();
+    			 List<String> accounted=new ArrayList<String>();
+    			 List<String> accountingInProcess=new ArrayList<String>();
+    			 List<String> finalAccounted=new ArrayList<String>();
+    			 List<String> notAccounted=new ArrayList<String>();
+
+
+    			 // log.info("datesList in Acounting For a week:"+datesList);
+    			 ProcessDetails procesRecDet=processDetailsRepository.findByProcessIdAndTagType(processId, "accountingRuleGroup");
+
+    			 log.info("fDate befor query :"+fDate);
+    			 log.info("tillDate befor query :"+tillDate);
+    			 List< Object[]> acctSummary=appModuleSummaryRepository.fetchAccountingAnalysisWithWeeks(procesRecDet.getTypeId(),fDate,tillDate);
+    			 log.info("reconSummary size :"+acctSummary.size());
+
+
+    			 Double totalActAmt=0d;
+    			 Double totalActInProcAmt=0d;
+    			 Double totalFinalActAmt=0d;
+    			 Double totalNotActAmt=0d;
+    			 Double totalActAmtPer=0d;
+    			 Double totalActInProcPer=0d;
+    			 Double totalFinalActPer=0d;
+    			 Double totalNotActPer=0d;
+
+    			 LinkedHashMap datesMap=new LinkedHashMap();
+    			 for(int i=0;i<acctSummary.size();i++)
+    			 {
+    				 if(acctSummary!=null)
+    				 {
+    					 datesMap.put(acctSummary.get(i)[0].toString()+acctSummary.get(i)[1].toString(), acctSummary.get(i)[6]);
+
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalActAmtPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Accounting inprocess"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalActInProcAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalActInProcPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Final accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalFinalActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalFinalActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+    					 if(acctSummary.get(i)[0].toString().equalsIgnoreCase("Not accounted"))
+    					 {
+    						 if(acctSummary.get(i)[5]!=null)
+    						 totalNotActAmt=totalActAmt+Double.valueOf(acctSummary.get(i)[5].toString());
+    						 if(acctSummary.get(i)[7]!=null)
+    						 totalNotActPer=totalActAmt+Double.valueOf(acctSummary.get(i)[7].toString());
+    					 }
+
+    				 }
+
+    			 }
+
+
+    			 log.info("totalActAmt :"+totalActAmt); 
+    			 log.info("totalActInProcAmt :"+totalActInProcAmt); 
+    			 log.info("totalFinalActAmt :"+totalFinalActAmt); 
+    			 log.info("totalNotActAmt :"+totalNotActAmt); 
+    			 log.info("totalActAmtPer :"+totalActAmtPer); 
+    			 log.info("totalActInProcPer :"+totalActInProcPer); 
+    			 log.info("totalFinalActPer :"+totalFinalActPer); 
+    			 log.info("totalNotActPer :"+totalNotActPer); 
+
+
+    			 log.info("datesMap :"+datesMap);
+
+    			 for(int i=1;i<=weeks;i++)
+    			 {
+    				 log.info("week at["+i+"] ");
+
+    				 // String month=dashBoardV2Service.dateFormat(datesList.get(d).toString());
+    				 labelValue.add(i+" week");
+    				 if(datesMap.get("Accounted"+i)!=null)
+    				 {
+    					 // DateFormatSymbols().getMonths()[month]
+    					 log.info("in if datesList.get(d)key :"+datesMap.get("Accounted"+i).toString());
+    					 // String[] split=datesMap.get(datesList.get(d).toString()).toString().split(",");
+    					 accounted.add(datesMap.get("Accounted"+i).toString());
+    					 // unRecon.add(split[1]);
+    				 }
+    				 if (datesMap.get("Accounting inprocess"+i)!=null)
+    				 {
+    					 log.info("in Accounting inprocess : "+datesMap.get("Accounting inprocess"+i).toString());
+
+    					 accountingInProcess.add(datesMap.get("Accounted"+i).toString());
+
+    				 }
+    				 if (datesMap.get("Final accounted"+i)!=null)
+    				 {
+    					 log.info("in Final accounted : "+datesMap.get("Final accounted"+i).toString());
+    					 finalAccounted.add(datesMap.get("Final accounted"+i).toString());
+    				 }
+    				 if (datesMap.get("Not accounted"+i)!=null)
+    				 {
+    					 log.info("in Not accounted : "+datesMap.get("Not accounted"+i).toString());
+    					 notAccounted.add(datesMap.get("Final accounted"+i).toString());
+
+    				 }
+    				 else
+    				 {
+    					 String l="0";
+    					 accounted.add(l);
+    					 accountingInProcess.add(l);
+    					 finalAccounted.add(l);
+    					 notAccounted.add(l);
+    				 }
+
+    			 }
+    			 log.info("labelValue :"+labelValue);
+    			 log.info("accounted :"+accounted);
+    			 log.info("accountingInProcess :"+accountingInProcess);
+    			 log.info("finalAccounted :"+finalAccounted);
+    			 log.info("notAccounted :"+notAccounted);
+    			 LinkedHashMap map=new LinkedHashMap();
+    			 map.put("labelValue", labelValue);
+    			 map.put("accounted", accounted);
+    			 map.put("accountingInProcess", accountingInProcess);
+    			 map.put("finalAccounted", finalAccounted);
+    			 map.put("notAccounted", notAccounted);
+
+    			 // twoMonthMap
+    			 LinkedHashMap tmmap=new LinkedHashMap();
+
+    			 tmmap.put("actamount", totalActAmt);
+    			 tmmap.put("actPercentage", totalActAmtPer);
+    			 tmmap.put("actInProcessamount", totalActInProcAmt);
+    			 tmmap.put("actInProcessPercentage", totalActInProcPer);
+    			 tmmap.put("finalActamount", totalFinalActAmt);
+    			 tmmap.put("finalActPercentage", totalFinalActPer);
+    			 tmmap.put("notActamount", totalNotActAmt);
+    			 tmmap.put("notActPercentage", totalNotActPer);
+    			 tmmap.put("detailedData", map);
+    			 eachMap.put("3M", tmmap);
+
+    			 log.info("3MonthMap :"+eachMap);
+
+    		 }
+
+    	 }
+    	 return eachMap;
+
+     }
+     
+     
+     /**
+      * bar graph for reconciliation
+      * @param processId
+      * @param dates
+      * @return
+      * @throws SQLException
+     * @throws ParseException 
+      */
+     @PostMapping("/getSummaryInfoForReconciliationV2")
+     @Timed 
+     public LinkedHashMap getSummaryInfoForReconciliationV2(@RequestParam Long processId ,@RequestBody HashMap dates) throws SQLException, ParseException
+     {
+     	LinkedHashMap finalMap=new LinkedHashMap();
+     	List<LinkedHashMap> dataMap=new ArrayList<LinkedHashMap>();
+     
+     	ProcessDetails procesDet=processDetailsRepository.findByProcessIdAndTagType(processId, "reconciliationRuleGroup");
+     	if(procesDet!=null)
+     	{
+     	ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+     	ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+     	log.info("fmDate :"+fmDate);
+     	log.info("toDate :"+toDate);
+     	java.time.LocalDate fDate=fmDate.toLocalDate();
+     	java.time.LocalDate tDate=toDate.toLocalDate();
+     	List<String> rulesList=new ArrayList<String>();
+     	List<Long> rulesIdList=new ArrayList<Long>();
+     	Object[] unrecontotalCount=appModuleSummaryRepository.fetchUnRecCountsByGroupIdAndFileDate(procesDet.getTypeId(),fDate,tDate);
+     	log.info("unrecontotalCount :"+Double.valueOf(unrecontotalCount[0].toString()));
+     	Double totalUnReconct=Double.valueOf(unrecontotalCount[0].toString());
+     	List<Object[]> reconSummary=appModuleSummaryRepository.fetchRecCountsByGroupIdAndFileDate(procesDet.getTypeId(),fDate,tDate);
+     	Double totalUnReconAmt=0d;
+     	Double totalUnApprovedCt=0d;
+     	for(int i=0;i<reconSummary.size();i++)
+     	{
+     	//	List<Object>  data=new ArrayList<Object>();
+     		LinkedHashMap map=new LinkedHashMap();
+     		map.put("DvCount", reconSummary.get(i)[0]);
+     		map.put("ReconciledCount", reconSummary.get(i)[1]);
+     		map.put("unReconciledCount", reconSummary.get(i)[2]);
+     		map.put("reconciledPer", reconSummary.get(i)[3]);
+     	//	data.add(reconSummary.get(i)[3]);
+     		//log.info("reconSummary.get(i)[4].toString() :"+reconSummary.get(i)[4].toString());
+     		Double unReconCount=Double.valueOf(reconSummary.get(i)[2].toString());
+     		 
+     		
+     		Double unReconper=(unReconCount/totalUnReconct)*100;
+     		
+     		log.info("unReconper :"+unReconper);
+     		Double finalUnReconper= Math.round( unReconper * 100.0 ) / 100.0;
+     		log.info("finalUnReconper :"+finalUnReconper);
+     		
+     		map.put("unReconciledPer", finalUnReconper);
+     	//	data.add(reconSummary.get(i)[4]);
+     		map.put("dvType", reconSummary.get(i)[5]);
+     		map.put("ruleId", reconSummary.get(i)[6]);
+     		map.put("viewId", reconSummary.get(i)[7]);
+     		
+     		totalUnReconAmt=totalUnReconAmt+Double.valueOf(reconSummary.get(i)[8].toString());
+     		totalUnApprovedCt=totalUnApprovedCt+Double.valueOf(reconSummary.get(i)[9].toString());
+     		if(!rulesIdList.contains(Long.valueOf(reconSummary.get(i)[6].toString())))
+     			rulesIdList.add(Long.valueOf(reconSummary.get(i)[6].toString()));
+     		
+     		Rules rule=rulesRepository.findOne(Long.valueOf(reconSummary.get(i)[6].toString()));
+     		map.put("stack", rule.getRuleCode());
+     		if(!rulesList.contains(rule.getRuleCode()))
+     			rulesList.add(rule.getRuleCode());
+     		DataViews dv=dataViewsRepository.findOne(Long.valueOf(reconSummary.get(i)[7].toString()));
+     		map.put("viewName", dv.getDataViewName());
+     		
+     	
+     		
+ 			//log.info("data :"+data);
+ 			//map.put("data",data);
+ 			dataMap.add(map);
+     		
+     	}
+     	log.info("totalUnReconAmt :"+totalUnReconAmt);
+     	log.info("rulesList :"+rulesList);
+     	finalMap.put("rulesList", rulesList);
+     	finalMap.put("rulesIdList", rulesIdList);
+     	finalMap.put("unReconItemsValue", totalUnReconAmt);
+     	finalMap.put("unReconItemsViolation", 0);
+     	finalMap.put("awaitingAppCount", totalUnApprovedCt);
+     	finalMap.put("reconciliationData", dataMap);
+ 
+     	 }
+     	
+     	
+ 		return finalMap;
+     }
+     
+     
+     
+     @PostMapping("/getSummaryInfoForAccountingV2")
+     @Timed 
+     public LinkedHashMap getSummaryInfoForAccountingV2(@RequestParam Long processId ,@RequestBody HashMap dates) throws SQLException, ParseException
+     {
+    	 log.info("getSummaryInfoForAccountingV2 of processId:"+processId);
+     	LinkedHashMap finalMap=new LinkedHashMap();
+     	List<LinkedHashMap> dataMap=new ArrayList<LinkedHashMap>();
+     
+     	ProcessDetails procesDet=processDetailsRepository.findByProcessIdAndTagType(processId, "accountingRuleGroup");
+     	log.info("procesDet :"+procesDet);
+     	if(procesDet!=null)
+     	{
+     	ZonedDateTime fmDate=ZonedDateTime.parse(dates.get("startDate").toString());
+     	ZonedDateTime toDate=ZonedDateTime.parse(dates.get("endDate").toString());
+     	log.info("fmDate :"+fmDate);
+     	log.info("toDate :"+toDate);
+     	java.time.LocalDate fDate=fmDate.toLocalDate();
+     	java.time.LocalDate tDate=toDate.toLocalDate();
+     	List<String> rulesList=new ArrayList<String>();
+     	List<Long> rulesIdList=new ArrayList<Long>();
+     	Object[] unActCount=appModuleSummaryRepository.fetchUnActCountsByGroupIdAndFileDate(procesDet.getTypeId(),fDate,tDate);
+     	log.info("unrecontotalCount :"+Double.valueOf(unActCount[0].toString()));
+     	Double totalActct=Double.valueOf(unActCount[0].toString());
+     	
+     	List<BigInteger> distViewsIds=appModuleSummaryRepository.findDistinctViewIdByRuleGroupId(procesDet.getTypeId(),fDate,tDate);
+      	log.info("distViewsIds :"+distViewsIds);
+      
+      	for(BigInteger viewId:distViewsIds)
+      	{
+
+      		LinkedHashMap map=new LinkedHashMap();
+      		map.put("viewId", viewId);
+      		List<Object[]> accountingSummary=appModuleSummaryRepository.fetchActCountsByGroupIdAndViewIdAndFileDate(Long.valueOf(procesDet.getTypeId()),viewId.longValue(),fDate,tDate);
+      		for(int i=0;i<accountingSummary.size();i++)
+      		{
+      			
+      			String capitalized = WordUtils.capitalizeFully(accountingSummary.get(i)[3].toString());
+     		    log.info("capitalized :"+capitalized);
+     		   map.put("dvCount", accountingSummary.get(i)[0].toString());
+     		  String process=capitalized.substring(0, 1).toLowerCase() + capitalized.substring(1);
+     		  log.info("process :"+process);
+     		 map.put(process.replaceAll("\\s", "")+"Count", accountingSummary.get(i)[1].toString());
+     		  
+     		  if(process .equalsIgnoreCase("Not accounted"))
+     		  {
+     			 Double unActct=(Double.valueOf(accountingSummary.get(i)[1].toString())/totalActct)*100;
+          		
+          		log.info("unActct :"+unActct);
+          		Double finalUnActper= Math.round( unActct * 100.0 ) / 100.0;
+          		log.info("finalUnActper :"+finalUnActper);
+          		 map.put(process.replaceAll("\\s", "")+"per", finalUnActper);
+     		  }
+     		  else
+     			 map.put(process.replaceAll("\\s", "")+"per", accountingSummary.get(i)[2].toString());
+     			  
+     		
+ 			//log.info("data :"+data);
+ 			//map.put("data",data);
+ 			
+     		
+     	}
+      		DataViews dv=dataViewsRepository.findOne(viewId.longValue());
+     		map.put("viewName", dv.getDataViewName());
+     		if(!rulesIdList.contains(Long.valueOf(accountingSummary.get(0)[4].toString())))
+     			rulesIdList.add(Long.valueOf(accountingSummary.get(0)[4].toString()));
+     		
+     		Rules rule=rulesRepository.findOne(Long.valueOf(accountingSummary.get(0)[4].toString()));
+     		map.put("stack", rule.getRuleCode());
+     		if(!rulesList.contains(rule.getRuleCode()))
+     			rulesList.add(rule.getRuleCode());
+     		dataMap.add(map);
+     	}
+      	
+     	log.info("rulesList :"+rulesList);
+     	finalMap.put("rulesList", rulesList);
+     	finalMap.put("rulesIdList", rulesIdList);
+     	finalMap.put("unAccountedItemsValue", 0);
+     	finalMap.put("unAccountedItemsViolation", 0);
+     	finalMap.put("awaitingAppCount", 0);
+     	finalMap.put("accountingData", dataMap);
+ 
+     	 }
+     	
+     	
+ 		return finalMap;
+     }
+     
+     
+     @PostMapping("/getUnProcessedData")
+     @Timed 
+     public void getUnProcessedData(@RequestParam Long ruleGrpId,@RequestParam Long viewId,@RequestParam String module
+    		 ,@RequestParam List<String> groupByColmns,@RequestBody HashMap dates,HttpServletRequest request) throws SQLException, ParseException
+     {
+    	 
+    	 HashMap map=userJdbcService.getuserInfoFromToken(request);
+     	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	 List<BigInteger> finalReconciledIdList=new ArrayList<BigInteger>();
+    	 List<BigInteger> reconciliedSrcIds=reconciliationResultRepository.fetchReconciledSourceIds(tenantId, ruleGrpId, viewId);	 
+    	 finalReconciledIdList.addAll(reconciliedSrcIds);
+    	 List<BigInteger> reconciliedTrgIds=reconciliationResultRepository.fetchReconciledTargetIds(tenantId, ruleGrpId, viewId);	 
+    	 finalReconciledIdList.addAll(reconciliedTrgIds);
+    	 
+    	 String dbUrl=env.getProperty("spring.datasource.url");
+	    	String[] parts=dbUrl.split("[\\s@&?$+-]+");
+	    	String host = parts[0].split("/")[2].split(":")[0];
+	    	log.info("host :"+host);
+	    	String schemaName=parts[0].split("/")[3];
+	    	log.info("schemaName :"+schemaName);
+	    	String userName = env.getProperty("spring.datasource.username");
+	    	String password = env.getProperty("spring.datasource.password");
+	    	String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+
+	    	Connection conn = null;
+	    	Statement stmtDv = null;
+	    	
+
+
+	    	conn = DriverManager.getConnection(dbUrl, userName, password);
+	    	log.info("Connected database successfully...");
+	    	stmtDv = conn.createStatement();
+	    	
+	    	ResultSet resultDv=null;
+	    	ResultSet resultAct=null;
+	    	
+	    	String groupBy=groupByColmns.stream().collect(Collectors.joining("','", "'", "'"));
+	    	log.info("groupBy :"+groupBy);
+	    //	String query="select DATE(fileDate), count(*) from "+schemaName+"."+dvName.getDataViewName().toLowerCase().toLowerCase()+" group by DATE(fileDate)";
+	    //	resultDv=stmtDv.executeQuery("select * from "+schema+".recon_oozie_jobs_v where parent_id in ("+str+")");
+	    	
+    	 List<BigInteger> reconciliedIds=reconciliationResultRepository.fetchReconciledSourceIds(tenantId, ruleGrpId, viewId);	 
+
+    	 
+     }
+     
+
+}

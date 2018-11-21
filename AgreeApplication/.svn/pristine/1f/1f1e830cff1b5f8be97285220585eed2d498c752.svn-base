@@ -1,0 +1,147 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.AccountingDataMapping;
+
+import com.nspl.app.repository.AccountingDataMappingRepository;
+import com.nspl.app.repository.search.AccountingDataMappingSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing AccountingDataMapping.
+ */
+@RestController
+@RequestMapping("/api")
+public class AccountingDataMappingResource {
+
+    private final Logger log = LoggerFactory.getLogger(AccountingDataMappingResource.class);
+
+    private static final String ENTITY_NAME = "accountingDataMapping";
+        
+    private final AccountingDataMappingRepository accountingDataMappingRepository;
+
+    private final AccountingDataMappingSearchRepository accountingDataMappingSearchRepository;
+
+    public AccountingDataMappingResource(AccountingDataMappingRepository accountingDataMappingRepository, AccountingDataMappingSearchRepository accountingDataMappingSearchRepository) {
+        this.accountingDataMappingRepository = accountingDataMappingRepository;
+        this.accountingDataMappingSearchRepository = accountingDataMappingSearchRepository;
+    }
+
+    /**
+     * POST  /accounting-data-mappings : Create a new accountingDataMapping.
+     *
+     * @param accountingDataMapping the accountingDataMapping to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new accountingDataMapping, or with status 400 (Bad Request) if the accountingDataMapping has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/accounting-data-mappings")
+    @Timed
+    public ResponseEntity<AccountingDataMapping> createAccountingDataMapping(@RequestBody AccountingDataMapping accountingDataMapping) throws URISyntaxException {
+        log.debug("REST request to save AccountingDataMapping : {}", accountingDataMapping);
+        if (accountingDataMapping.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new accountingDataMapping cannot already have an ID")).body(null);
+        }
+        AccountingDataMapping result = accountingDataMappingRepository.save(accountingDataMapping);
+        accountingDataMappingSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/accounting-data-mappings/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /accounting-data-mappings : Updates an existing accountingDataMapping.
+     *
+     * @param accountingDataMapping the accountingDataMapping to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated accountingDataMapping,
+     * or with status 400 (Bad Request) if the accountingDataMapping is not valid,
+     * or with status 500 (Internal Server Error) if the accountingDataMapping couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/accounting-data-mappings")
+    @Timed
+    public ResponseEntity<AccountingDataMapping> updateAccountingDataMapping(@RequestBody AccountingDataMapping accountingDataMapping) throws URISyntaxException {
+        log.debug("REST request to update AccountingDataMapping : {}", accountingDataMapping);
+        if (accountingDataMapping.getId() == null) {
+            return createAccountingDataMapping(accountingDataMapping);
+        }
+        AccountingDataMapping result = accountingDataMappingRepository.save(accountingDataMapping);
+        accountingDataMappingSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, accountingDataMapping.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /accounting-data-mappings : get all the accountingDataMappings.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of accountingDataMappings in body
+     */
+    @GetMapping("/accounting-data-mappings")
+    @Timed
+    public List<AccountingDataMapping> getAllAccountingDataMappings() {
+        log.debug("REST request to get all AccountingDataMappings");
+        List<AccountingDataMapping> accountingDataMappings = accountingDataMappingRepository.findAll();
+        return accountingDataMappings;
+    }
+
+    /**
+     * GET  /accounting-data-mappings/:id : get the "id" accountingDataMapping.
+     *
+     * @param id the id of the accountingDataMapping to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the accountingDataMapping, or with status 404 (Not Found)
+     */
+    @GetMapping("/accounting-data-mappings/{id}")
+    @Timed
+    public ResponseEntity<AccountingDataMapping> getAccountingDataMapping(@PathVariable Long id) {
+        log.debug("REST request to get AccountingDataMapping : {}", id);
+        AccountingDataMapping accountingDataMapping = accountingDataMappingRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(accountingDataMapping));
+    }
+
+    /**
+     * DELETE  /accounting-data-mappings/:id : delete the "id" accountingDataMapping.
+     *
+     * @param id the id of the accountingDataMapping to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/accounting-data-mappings/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteAccountingDataMapping(@PathVariable Long id) {
+        log.debug("REST request to delete AccountingDataMapping : {}", id);
+        accountingDataMappingRepository.delete(id);
+        accountingDataMappingSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/accounting-data-mappings?query=:query : search for the accountingDataMapping corresponding
+     * to the query.
+     *
+     * @param query the query of the accountingDataMapping search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/accounting-data-mappings")
+    @Timed
+    public List<AccountingDataMapping> searchAccountingDataMappings(@RequestParam String query) {
+        log.debug("REST request to search AccountingDataMappings for query {}", query);
+        return StreamSupport
+            .stream(accountingDataMappingSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+
+}

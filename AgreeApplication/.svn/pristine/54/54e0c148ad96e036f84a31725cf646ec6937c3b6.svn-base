@@ -1,0 +1,49 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.DataViewsSrcMappings;
+
+import org.json.simple.JSONObject;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.util.HashMap;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the DataViewsSrcMappings entity.
+ */
+@SuppressWarnings("unused")
+public interface DataViewsSrcMappingsRepository extends JpaRepository<DataViewsSrcMappings,Long> {
+
+	DataViewsSrcMappings findByDataViewIdAndBase(Long dataViewId, String base);
+	
+	List<DataViewsSrcMappings> findByDataViewId(Long dataViewId);
+
+	List<DataViewsSrcMappings> findByDataViewIdAndRelation(Long dataViewId,
+			String string);
+
+	List<DataViewsSrcMappings> findByDataViewIdAndRelationAndTemplateId(
+			Long dataViewId, String string, long longValue);
+	
+	//SELECT * FROM applicationjagan.t_data_views_src_mappings where data_view_id=65 order by template_id asc;
+	List<DataViewsSrcMappings> findByDataViewIdOrderByTemplateIdAsc(Long dataViewId);
+	
+	//select relation, case when relation='UNION' then count(*)/2  ELSE COUNT(*) END AS COUNT FROM applicationjagan.t_data_views_src_mappings group by relation
+	/*@Query(value="select d.relation, count(*) AS count FROM DataViewsSrcMappings d group by d.relation")
+	List<JSONObject> fetchRelationGroupedData();*/
+	
+	/*@Query(value="select relation, case when relation='UNION' then count(*) div 2  ELSE count(*) END AS count FROM t_data_views_src_mappings group by relation",nativeQuery=true)
+	List<HashMap> fetchRelationGroupedData();*/
+	
+	
+	@Query(value="select distinct relation FROM t_data_views_src_mappings  where data_view_id in (select id from t_data_views where tenant_id= :tenant_id)",nativeQuery=true)
+	List<String> fetchDistinctRelations(@Param(value = "tenant_id") Long tenant_id);
+	
+	DataViewsSrcMappings findByDataViewIdAndTemplateIdAndIntermediateId(Long dataViewId, Long templateId, Long intermediateId);
+	
+	DataViewsSrcMappings findByDataViewIdAndTemplateId(Long dataViewId, Long templateId);
+	
+	@Query(value="SELECT template_id,intermediate_id FROM t_data_views_src_mappings where data_view_id = :dataViewId group by template_id,intermediate_id",nativeQuery=true)
+	List<Object[]> fetchDVUniqueCombinations(@Param(value = "dataViewId") Long dataViewId);
+	
+}

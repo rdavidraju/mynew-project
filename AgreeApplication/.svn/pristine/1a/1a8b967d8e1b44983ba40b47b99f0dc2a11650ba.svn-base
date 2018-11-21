@@ -1,0 +1,165 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViewConditions;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.repository.DataViewConditionsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+/**
+ * REST controller for managing DataViewConditions.
+ */
+@RestController
+@RequestMapping("/api")
+public class DataViewConditionsResource {
+
+    private final Logger log = LoggerFactory.getLogger(DataViewConditionsResource.class);
+
+    private static final String ENTITY_NAME = "dataViewConditions";
+
+    private final DataViewConditionsRepository dataViewConditionsRepository;
+    
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    UserJdbcService userJdbcService;
+    
+    
+    @Inject
+    FileTemplatesRepository fileTemplatesRepository;
+
+    public DataViewConditionsResource(DataViewConditionsRepository dataViewConditionsRepository) {
+        this.dataViewConditionsRepository = dataViewConditionsRepository;
+    }
+
+    /**
+     * POST  /data-view-conditions : Create a new dataViewConditions.
+     *
+     * @param dataViewConditions the dataViewConditions to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new dataViewConditions, or with status 400 (Bad Request) if the dataViewConditions has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/data-view-conditions")
+    @Timed
+    public ResponseEntity<DataViewConditions> createDataViewConditions(@RequestBody DataViewConditions dataViewConditions) throws URISyntaxException {
+        log.debug("REST request to save DataViewConditions : {}", dataViewConditions);
+        if (dataViewConditions.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataViewConditions cannot already have an ID")).body(null);
+        }
+        DataViewConditions result = dataViewConditionsRepository.save(dataViewConditions);
+        return ResponseEntity.created(new URI("/api/data-view-conditions/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /data-view-conditions : Updates an existing dataViewConditions.
+     *
+     * @param dataViewConditions the dataViewConditions to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataViewConditions,
+     * or with status 400 (Bad Request) if the dataViewConditions is not valid,
+     * or with status 500 (Internal Server Error) if the dataViewConditions couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/data-view-conditions")
+    @Timed
+    public LinkedHashMap updateDataViewConditions(@RequestBody LinkedHashMap dataViewConditions,
+    		@RequestParam String dataViewId,HttpServletRequest request) throws URISyntaxException {
+    	log.debug("REST request to update DataViewConditions : {}", dataViewConditions);
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+
+    	DataViews dv=dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, dataViewId);
+    	FileTemplates ftData=new FileTemplates();
+    	LinkedHashMap condUpdateMap=new LinkedHashMap();
+    	condUpdateMap.put("colId", dv.getId());
+    	condUpdateMap.put("dvConditionUpdated", dv.getId());
+
+    	DataViewConditions dvc=new DataViewConditions();
+
+    	dvc.setFilterOperator(dataViewConditions.get("filterOperator").toString());
+
+    	dvc.setRefSrcColId(Long.valueOf(dataViewConditions.get("refSrcColId").toString()));
+    	dvc.setRefSrcColId2(Long.valueOf(dataViewConditions.get("refSrcColId2").toString()));
+    	if(dataViewConditions.get("refSrcId")!=null)
+    	{
+    		ftData=fileTemplatesRepository.findByIdForDisplayAndTenantId(dataViewConditions.get("refSrcId").toString(), tenantId);
+    		dvc.setRefSrcId(ftData.getId());
+    	}
+    	if(dataViewConditions.get("refSrcId2")!=null)
+    	{
+    		ftData=fileTemplatesRepository.findByIdForDisplayAndTenantId(dataViewConditions.get("refSrcId2").toString(),tenantId);
+    		dvc.setRefSrcId2(ftData.getId());
+    	}
+    	dvc.setRefSrcType(dataViewConditions.get("refSrcType").toString());
+    	dvc.setRefSrcType2(dataViewConditions.get("refSrcType2").toString());
+    	dvc.setDataViewId(dv.getId());
+    	dvc.setId(Long.valueOf(dataViewConditions.get("id").toString()));
+
+    	DataViewConditions result = dataViewConditionsRepository.save(dvc);
+    	return condUpdateMap;
+    }
+
+    /**
+     * GET  /data-view-conditions : get all the dataViewConditions.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of dataViewConditions in body
+     */
+    @GetMapping("/data-view-conditions")
+    @Timed
+    public List<DataViewConditions> getAllDataViewConditions() {
+        log.debug("REST request to get all DataViewConditions");
+        return dataViewConditionsRepository.findAll();
+    }
+
+    /**
+     * GET  /data-view-conditions/:id : get the "id" dataViewConditions.
+     *
+     * @param id the id of the dataViewConditions to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataViewConditions, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-view-conditions/{id}")
+    @Timed
+    public ResponseEntity<DataViewConditions> getDataViewConditions(@PathVariable Long id) {
+        log.debug("REST request to get DataViewConditions : {}", id);
+        DataViewConditions dataViewConditions = dataViewConditionsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataViewConditions));
+    }
+
+    /**
+     * DELETE  /data-view-conditions/:id : delete the "id" dataViewConditions.
+     *
+     * @param id the id of the dataViewConditions to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-view-conditions/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataViewConditions(@PathVariable Long id) {
+        log.debug("REST request to delete DataViewConditions : {}", id);
+        dataViewConditionsRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+}

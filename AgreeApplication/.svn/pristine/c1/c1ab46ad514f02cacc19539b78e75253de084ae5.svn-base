@@ -1,0 +1,109 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.JobDetails;
+import com.nspl.app.domain.RuleGroup;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the JobDetails entity.
+ */
+@SuppressWarnings("unused")
+public interface JobDetailsRepository extends JpaRepository<JobDetails,Long> {
+
+	JobDetails findByTenantIdAndId(Long tenantId, Long id);
+
+	List<JobDetails> findByTenantId(Long tenantId);
+
+
+	List<JobDetails> findByJobNameAndTenantId(String jobName, Long tenantId);
+
+	@Query(value="SELECT * FROM t_job_details WHERE id= :id and tenant_id= :tenant_id and programm_id in "
+			+ "(SELECT id FROM t_application_programs WHERE prgm_name= :prgm_name)",nativeQuery=true)
+	List<JobDetails> fetchByJobNameAndTenantIdAndProgramName(@Param("id") Long id,
+			@Param("tenant_id") Long tenant_id,@Param("prgm_name") String prgm_name);
+
+
+	@Query(value="SELECT * FROM t_job_details WHERE tenant_id= :tenant_id order by id desc",nativeQuery=true)
+	List<JobDetails> findByTenantIdAndOrderById(@Param("tenant_id") Long tenant_id);
+
+	Page<JobDetails> findByTenantIdOrderByIdDesc(Long tenantId,
+			Pageable generatePageRequest2);
+
+	@Query(value="SELECT * FROM t_job_details WHERE programm_id in (:progIds) and created_by=:createdBy",nativeQuery=true)
+	List<JobDetails> findByCreatedByAndProgramIds(@Param("progIds") List<BigInteger> progIds,@Param("createdBy") Long createdBy);
+
+
+	@Query(value="SELECT id FROM t_job_details WHERE programm_id =:progId and parameter_arguments_1 =:profId and "
+			+ "(parameter_arguments_2 is null or parameter_arguments_2 Like :tempId)  and (start_date between :fmDate and :toDate)",nativeQuery=true)
+	List<BigInteger> findByTenantIdAndProgrammIdAndParameterArgument1(
+			@Param("progId") Long progId,@Param("profId") Long profId,@Param("tempId") String tempId, @Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	 
+
+	@Query(value="SELECT id FROM t_job_details WHERE programm_id =:progId and parameter_arguments_1=:profId and "
+			+ "(start_date between :fmDate and :toDate)",nativeQuery=true)
+	List<BigInteger> findByTenantIdAndProgrammIdAndParameterArgument1And2(
+			@Param("progId") Long progId,@Param("profId") Long profId, @Param("fmDate") LocalDate fmDate,@Param("toDate") LocalDate toDate);
+	
+	@Query(value="SELECT id FROM t_job_details WHERE programm_id =:progId and parameter_arguments_1 =:profId and "
+			+ "(parameter_arguments_2 is null or parameter_arguments_2 Like :tempId)  and (:fmDate between start_date and end_date)",nativeQuery=true)
+	List<BigInteger> findByTenantIdAndProgrammIdAndParameterArgument1In(
+			@Param("progId") Long progId,@Param("profId") Long profId,@Param("tempId") String tempId, @Param("fmDate") String fmDate);
+
+	
+	@Query(value="SELECT id FROM t_job_details WHERE created_by=:createdBy and programm_id =:programIds",nativeQuery=true)
+	List<BigInteger> findByCreatedByAndProgrammId(@Param("createdBy") Long createdBy,@Param("programIds") Long programIds);
+	
+	@Query(value="SELECT id FROM t_job_details WHERE created_by=:createdBy ",nativeQuery=true)
+	List<BigInteger> fetchByCreatedBy(@Param("createdBy")Long createdBy);
+	
+	
+	@Query(value="SELECT id FROM t_job_details WHERE programm_id =:progId and parameter_arguments_1 in (:profId) and "
+			+ "(start_date between :fmDate and :toDate)",nativeQuery=true)
+	List<BigInteger> findByTenantIdAndProgrammIdAndParameterArgument1(
+			@Param("progId") Long progId,@Param("profId") List<BigInteger> profId, @Param("fmDate") String fmDate, @Param("toDate") String toDate);
+	
+	
+	
+	@Query(value="SELECT id FROM t_job_details WHERE programm_id =:progId and parameter_arguments_1=:profId and "
+			+ "(start_date>=:fmDate and start_date<=:toDate)",nativeQuery=true)
+	List<BigInteger> findByTenantIdAndProgrammIdAndParameterArgument1ForProfie(
+			@Param("progId") Long progId,@Param("profId") String profId, @Param("fmDate") String fmDate, @Param("toDate") String toDate);
+	
+	@Query(value="SELECT id FROM t_job_details WHERE programm_id =:progId and parameter_arguments_1 in (:profId) and "
+			+ "start_date=:toDate",nativeQuery=true)
+	List<BigInteger> findByTenantIdAndProgrammIdAndParameterArgument1AndStartDate(
+			@Param("progId") Long progId,@Param("profId") List<BigInteger> profId, @Param("toDate") String toDate);
+	
+//	@Rk
+//	Selected programs and selected schedule types
+	@Query(value="SELECT schDetails.oozie_job_id FROM t_job_details jobDetails, t_scheduler_details schDetails WHERE jobDetails.id=schDetails.job_id and jobDetails.created_by=:userId and jobDetails.programm_id =:programIds and schDetails.frequency =:scheduleTypes and schDetails.delete_flag is null and schDetails.oozie_job_id is not Null;    ",nativeQuery=true)
+	List<String> getSchedListByUserByProgramBySched(@Param("userId") Long userId, @Param("programIds") Long programIds, @Param("scheduleTypes") String scheduleTypes);
+	
+//	All programs and selected schedule types
+	@Query(value="SELECT schDetails.oozie_job_id FROM t_job_details jobDetails, t_scheduler_details schDetails WHERE jobDetails.id=schDetails.job_id and jobDetails.created_by=:userId and schDetails.frequency =:scheduleTypes and schDetails.delete_flag is null and schDetails.oozie_job_id is not Null;    ",nativeQuery=true)
+	List<String> getSchedListByUserBySched(@Param("userId") Long userId, @Param("scheduleTypes") String scheduleTypes);
+	
+//	Selected programs and All schedule types
+	@Query(value="SELECT schDetails.oozie_job_id FROM t_job_details jobDetails, t_scheduler_details schDetails WHERE jobDetails.id=schDetails.job_id and jobDetails.created_by=:userId and jobDetails.programm_id =:programIds and schDetails.delete_flag is null and schDetails.oozie_job_id is not Null;    ",nativeQuery=true)
+	List<String> getSchedListByUserByProgram(@Param("userId") Long userId, @Param("programIds") Long programIds);
+	
+//	All programs and All schedule types
+	@Query(value="SELECT schDetails.oozie_job_id FROM t_job_details jobDetails, t_scheduler_details schDetails WHERE jobDetails.id=schDetails.job_id and jobDetails.created_by=:userId and schDetails.delete_flag is null and schDetails.oozie_job_id is not Null;    ",nativeQuery=true)
+	List<String> getSchedListByUser(@Param("userId") Long userId);
+
+	//kiran
+	Page<JobDetails> findByTenantId(Long tenantId,Pageable generatePageRequest2);
+
+
+
+		JobDetails findByIdForDisplayAndTenantId(String id, Long tenantId);
+}

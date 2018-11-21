@@ -1,0 +1,990 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.ws.rs.ForbiddenException;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.AccountingData;
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.repository.AccountingDataRepository;
+import com.nspl.app.repository.AccountingLineTypesRepository;
+import com.nspl.app.repository.AcctRuleConditionsRepository;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.search.AccountingDataSearchRepository;
+import com.nspl.app.service.AccountingDataService;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.ErrorReporting;
+import com.nspl.app.web.rest.dto.FilterColumns;
+import com.nspl.app.web.rest.dto.ManualAccDTO;
+import com.nspl.app.web.rest.dto.ReconcileCustomFilter;
+import com.nspl.app.web.rest.dto.RowIdCreditDebitDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing AccountingData.
+ */
+@RestController
+@RequestMapping("/api")
+public class AccountingDataResource {
+
+    private final Logger log = LoggerFactory.getLogger(AccountingDataResource.class);
+
+    private static final String ENTITY_NAME = "accountingData";
+        
+    private final AccountingDataRepository accountingDataRepository;
+
+    private final AccountingDataSearchRepository accountingDataSearchRepository;
+    
+    @Inject
+    AccountingDataService accountingDataService;
+    
+    @Inject
+    DataMasterRepository dataMasterRepository;
+    
+    @Inject
+    ReconciliationResultService reconciliationResultService;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    RuleGroupRepository ruleGroupRepository;
+    
+    @Inject
+    RuleGroupResource ruleGroupResource;
+    
+    @Inject
+    AcctRuleConditionsRepository acctRuleConditionsRepository;
+    
+    @Inject
+    AccountingLineTypesRepository accountingLineTypesRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+
+    public AccountingDataResource(AccountingDataRepository accountingDataRepository, AccountingDataSearchRepository accountingDataSearchRepository) {
+        this.accountingDataRepository = accountingDataRepository;
+        this.accountingDataSearchRepository = accountingDataSearchRepository;
+    }
+
+    /**
+     * POST  /accounting-data : Create a new accountingData.
+     *
+     * @param accountingData the accountingData to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new accountingData, or with status 400 (Bad Request) if the accountingData has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/accounting-data")
+    @Timed
+    public ResponseEntity<AccountingData> createAccountingData(@RequestBody AccountingData accountingData) throws URISyntaxException {
+        log.debug("REST request to save AccountingData : {}", accountingData);
+        if (accountingData.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new accountingData cannot already have an ID")).body(null);
+        }
+        AccountingData result = accountingDataRepository.save(accountingData);
+        accountingDataSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/accounting-data/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /accounting-data : Updates an existing accountingData.
+     *
+     * @param accountingData the accountingData to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated accountingData,
+     * or with status 400 (Bad Request) if the accountingData is not valid,
+     * or with status 500 (Internal Server Error) if the accountingData couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/accounting-data")
+    @Timed
+    public ResponseEntity<AccountingData> updateAccountingData(@RequestBody AccountingData accountingData) throws URISyntaxException {
+        log.debug("REST request to update AccountingData : {}", accountingData);
+        if (accountingData.getId() == null) {
+            return createAccountingData(accountingData);
+        }
+        AccountingData result = accountingDataRepository.save(accountingData);
+        accountingDataSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, accountingData.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /accounting-data : get all the accountingData.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of accountingData in body
+     */
+    @GetMapping("/accounting-data")
+    @Timed
+    public ResponseEntity<List<AccountingData>> getAllAccountingData(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of AccountingData");
+        Page<AccountingData> page = accountingDataRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/accounting-data");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /accounting-data/:id : get the "id" accountingData.
+     *
+     * @param id the id of the accountingData to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the accountingData, or with status 404 (Not Found)
+     */
+    @GetMapping("/accounting-data/{id}")
+    @Timed
+    public ResponseEntity<AccountingData> getAccountingData(@PathVariable Long id) {
+        log.debug("REST request to get AccountingData : {}", id);
+        AccountingData accountingData = accountingDataRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(accountingData));
+    }
+
+    /**
+     * DELETE  /accounting-data/:id : delete the "id" accountingData.
+     *
+     * @param id the id of the accountingData to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/accounting-data/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteAccountingData(@PathVariable Long id) {
+        log.debug("REST request to delete AccountingData : {}", id);
+        accountingDataRepository.delete(id);
+        accountingDataSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/accounting-data?query=:query : search for the accountingData corresponding
+     * to the query.
+     *
+     * @param query the query of the accountingData search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/accounting-data")
+    @Timed
+    public ResponseEntity<List<AccountingData>> searchAccountingData(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of AccountingData for query {}", query);
+        Page<AccountingData> page = accountingDataSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/accounting-data");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**Author: Shiva
+     * Description: API for Fetching Accounting Data ased on view id
+     * @param tenantId
+     * @param groupId
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     * @throws URISyntaxException 
+     */
+    @GetMapping("/getAccountingDataByViewId")
+    @Timed
+    public List<HashMap> getAccountingDataByViewId(@RequestParam(value = "tenantId", required=true) Long tenantId,@RequestParam(value = "dataViewId", required=true) Long dataViewId, 
+    		@RequestParam(value = "status", required=false) String status,@RequestParam(value = "groupId", required=true) Long groupId, @ApiParam Pageable pageable) throws ClassNotFoundException, SQLException{
+    	log.info("Rest api for getting accounting data based on view id"+ dataViewId);
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+    	/*List<String> headerColumns = reconciliationResultService.getViewColumnHeaders(dataViewId);*/
+    	// Getting column header in sequence order
+    	List<String> headerColumns = accountingDataService.getViewColumnHeadersInSequence(dataViewId, tenantId, groupId);
+    	List<HashMap> result = new ArrayList<HashMap>();
+    	if(headerColumns.size()>0)
+    	{
+        	log.info("Column Headers"+ headerColumns);
+        	List<HashMap> finalData = new ArrayList<HashMap>();
+        	
+        	Map<String, List<BigInteger>> accUnaccAllIds = accountingDataService.getAccntdUnAccntIds(dataViewId, tenantId, groupId);
+        	List<BigInteger> allIds = accUnaccAllIds.get("allIds");
+        	List<BigInteger> accIds = accUnaccAllIds.get("accounted");
+        	List<BigInteger> unAccIds = accUnaccAllIds.get("unAccounted");
+        	List<BigInteger> partiallyAccIds = accUnaccAllIds.get("partiallyAccounted");
+        	log.info("Size for View's All Ids: "+ allIds.size()+", Accounted Ids: "+ accIds.size()+", Un-Accounted Ids: "+ unAccIds.size()+", Partially-Accounted Ids: "+partiallyAccIds.size());
+/*        	int parSegmentsLength = 0;
+        	int accSegmentsLength = 0;
+        	
+        	if(partiallyAccIds.size()>0)
+        	{
+        		parSegmentsLength = parSegmentsLength + accountingDataService.getSegmentsLength(partiallyAccIds.get(0), tenantId);
+        		log.info("First Partially Accounted ID: "+ partiallyAccIds.get(0));
+        	}
+        	if(accIds.size()>0)
+        	{
+        		accSegmentsLength = accSegmentsLength + accountingDataService.getSegmentsLength(accIds.get(0), tenantId);
+        		log.info("First Accounted ID: "+ accIds.get(0));
+        	}*/
+        	
+    		HashMap totHm = new HashMap();
+    		HashMap totHmMain = new HashMap();
+    		
+    		HashMap accHm = new HashMap();
+    		HashMap accHmMain = new HashMap();
+    		
+    		HashMap unAccHm = new HashMap();
+    		HashMap unAccMain = new HashMap();
+    		
+    		HashMap parAccHm = new HashMap();
+    		HashMap parAccMain = new HashMap();
+/*        	log.info("Partial Accounted Segments Length: "+parSegmentsLength);
+        	log.info("Accounted Segments Length: "+accSegmentsLength);*/
+               	if("accounted".equalsIgnoreCase(status))
+            	{
+        			List<HashMap> accFinalData = new ArrayList<HashMap>();
+            		if(accIds.size()>0)
+            		{
+            			List<Long> accIdsAsLong = reconciliationResultService.getBigIntegerAsLong(accIds);
+                		Page<DataMaster> accData = dataMasterRepository.findByIdIn(accIdsAsLong,  pageable);
+                		/*accFinalData = accountingDataService.fetchAccountingDataByViewId(accData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength);*/
+                		/*accFinalData = accountingDataService.fetchAccDataInSequence(accData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength,dataViewId, groupId);*/
+                		accFinalData = accountingDataService.fetchAccDataInSequence(accData,headerColumns, tenantId,dataViewId, groupId);
+                		accHm.put("totalCount", accIdsAsLong.size());
+                		accHm.put("status", "Success");
+                		accHmMain.put("info", accHm);
+                		accFinalData.add(accHmMain);
+            		}
+            		return accFinalData;
+            	}
+            	else if("unaccounted".equalsIgnoreCase(status))
+            	{
+            		List<HashMap> unAccFinalData = new ArrayList<HashMap>();
+            		if(unAccIds.size()>0)
+            		{
+                		List<Long> unAccIdsAsLong = reconciliationResultService.getBigIntegerAsLong(unAccIds);
+                		Page<DataMaster> unAccData = dataMasterRepository.findByIdIn(unAccIdsAsLong,pageable);
+                		/*unAccFinalData = accountingDataService.fetchAccountingDataByViewId(unAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength);*/
+                		/*unAccFinalData = accountingDataService.fetchAccDataInSequence(unAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength,dataViewId, groupId);*/
+                		unAccFinalData = accountingDataService.fetchAccDataInSequence(unAccData,headerColumns, tenantId, dataViewId, groupId);
+                		unAccHm.put("totalCount", unAccIdsAsLong.size());
+                		unAccHm.put("status", "Success");
+                		unAccMain.put("info", unAccHm);
+                		unAccFinalData.add(unAccMain);
+            		}
+            		return unAccFinalData;
+            	}
+            	else if("partiallyaccounted".equalsIgnoreCase(status))
+            	{
+            		List<HashMap> parAccFinalData = new ArrayList<HashMap>();
+            		if(partiallyAccIds.size()>0)
+            		{
+                		List<Long> parAccIdsAsLong = reconciliationResultService.getBigIntegerAsLong(partiallyAccIds);
+                		Page<DataMaster> parAccData = dataMasterRepository.findByIdIn(parAccIdsAsLong,pageable);
+                		/*parAccFinalData = accountingDataService.fetchAccountingDataByViewId(parAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength);*/
+                		/*parAccFinalData = accountingDataService.fetchAccDataInSequence(parAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength,dataViewId, groupId);*/
+                		parAccFinalData = accountingDataService.fetchAccDataInSequence(parAccData,headerColumns, tenantId, dataViewId, groupId);
+                		parAccHm.put("totalCount", parAccIdsAsLong.size());
+                		parAccHm.put("status", "Success");
+                		parAccMain.put("info", parAccHm);
+                		parAccFinalData.add(parAccMain);
+            		}
+            		return parAccFinalData;
+            	}
+            	else
+            	{
+            		List<HashMap> allFinalData = new ArrayList<HashMap>();
+            		if(allIds.size()>0)
+            		{
+                		List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+                		Page<DataMaster> allAccUnAccData = dataMasterRepository.findByIdIn(allIdsAsLong,pageable);
+                		/*allFinalData = accountingDataService.fetchAccountingDataByViewId(allAccUnAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength);*/
+                		/*allFinalData = accountingDataService.fetchAccDataInSequence(allAccUnAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength,dataViewId,groupId);*/
+                		allFinalData = accountingDataService.fetchAccDataInSequence(allAccUnAccData,headerColumns, tenantId, dataViewId,groupId);
+                		totHm.put("totalCount", allIdsAsLong.size());
+                		totHm.put("status", "Success");
+                		totHmMain.put("info", totHm);
+                		allFinalData.add(totHmMain);
+            		}
+            		return allFinalData;
+            	}
+     	}
+    	else
+    	{
+	    	HashMap hm = new HashMap();
+	    	HashMap hmResult = new HashMap();
+	    	hm.put("status", "Failed");
+	    	reasons.add("Data view column headers not found for the view id"+dataViewId);
+	    	hm.put("reasons", reasons);
+	    	hmResult.put("info", hm);
+	    	result.add(hmResult);
+    		return result;
+    	}
+    }
+    
+    /**Author: Shiva
+     * Description: api to for getting accounted, unaccounted counts and amounts
+     * @param tenantId
+     * @param viewId
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getAccountingCountAndAmount")
+    @Timed
+    public HashMap getReconciliationCountAndAmountNew(@RequestParam(value = "tenantId", required=true) Long tenantId, @RequestParam(value = "groupId", required=true) Long groupId, @RequestParam(value = "dataViewId", required=false) Long dataViewId) throws ClassNotFoundException, SQLException{
+    	log.info("Rest api for getting reconciled unreconciled amount and count for bot source and target views based on gruoup id: "+ dataViewId);
+    	HashMap finalMap = new HashMap();
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+    	RuleGroup rg = ruleGroupRepository.findOne(groupId);
+    	if(rg != null)
+    	{
+    		finalMap.put("id", groupId);
+    		finalMap.put("groupName", rg.getName());
+    		finalMap.put("type", "Accounting");
+        	List<HashMap> views = new ArrayList<HashMap>();
+        	List<BigInteger> viewIds = accountingLineTypesRepository.fetchDataViewIdsByTenantIdAndRuleId(tenantId,groupId);
+        	log.info("Views Ids: "+ viewIds.size());
+        	log.info("View IDS: "+ viewIds);
+         	if(dataViewId != null)
+        	{
+         		HashMap	view = accountingDataService.getViewStatistics(new BigInteger(dataViewId.toString()), tenantId, groupId);
+         		if(view.containsKey("status"))
+         		{
+         			HashMap statusMap = new HashMap();
+         			reasons.add(view.get("status").toString());
+         			statusMap.put("status", "Failed");
+         			statusMap.put("reasons", reasons);
+         			finalMap.put("info", statusMap);
+         		}
+         		else
+         		{
+         			HashMap statusMap = new HashMap();
+            		views.add(view);
+            		statusMap.put("status", "Success");
+                	finalMap.put("dataView", views);
+                	finalMap.put("info", statusMap);
+         		}
+            	return finalMap;
+        	}
+        	else
+        	{
+        		if(viewIds.size()>0 && !viewIds.contains(null))
+        		{
+        			for(BigInteger viewId : viewIds)
+        			{
+        				HashMap view = accountingDataService.getViewStatistics(viewId, tenantId, groupId);
+        				if(view.containsKey("status"))
+        				{
+        					reasons.add(view.get("status").toString());
+        				}
+        				else
+        				{
+            				views.add(view);	
+        				}
+        			}
+        			if(reasons.size()>0)
+        			{
+        				HashMap statusMap = new HashMap();
+        				statusMap.put("status", "Failed");
+        				statusMap.put("reasons", reasons);
+        				finalMap.put("info", statusMap);
+        			}
+        			else
+        			{
+        				HashMap statusMap = new HashMap();
+        				statusMap.put("status", "Success");
+        				finalMap.put("dataView", views);
+        				finalMap.put("info", statusMap);
+        			}
+        		}
+        		else
+        		{
+        			HashMap hm = new HashMap();
+        			hm.put("status", "Failed");
+        			reasons.add("No Views found for the group id: "+groupId+" ("+rg.getName()+")");
+        			hm.put("reasons", reasons);
+        			finalMap.put("info", hm);
+        		}
+            	finalMap.put("dataView", views);
+            	return finalMap;
+        	}
+    	}
+    	else
+    	{
+    		log.info("Rule Group Id "+groupId+" Doesn't exist");
+    		return finalMap;
+    	}
+    }
+    
+    /**Author: Shiva
+     * Description: API for Fetching accounting data with custom filter columns
+     * @param ReconcileCustomFilter DTO
+     * @return Filtered Accounting Data with custom filter columns as HashMap
+     * @throws SQLException 
+     */
+    @PostMapping("/getAccDataWithCustomFilter")
+    @Timed
+    public List<HashMap> getAccDataWithCustomFilter(@RequestBody ReconcileCustomFilter customFilter) throws ClassNotFoundException, SQLException{
+    	log.info("Rest api for fetching accounting data with custom filter columns for the view id: "+ customFilter.getViewId());
+    	ErrorReporting errorReport = new ErrorReporting();
+		List<HashMap> result = new ArrayList<HashMap>();
+    	List<String> reasons = new ArrayList<String>();
+    	if(customFilter.getPage() == null || customFilter.getPage() == 0)
+    	{
+    		customFilter.setPage(0);
+    	}
+    	if(customFilter.getLimit() == null || customFilter.getLimit() == 0)
+    	{
+    		customFilter.setLimit(25);
+    	}
+    	int pageNumber = customFilter.getPage(); 
+    	int pageSize = customFilter.getLimit();
+    	// Getting view header columns
+    	/*List<String> headerColumns = reconciliationResultService.getViewColumnHeaders(customFilter.getViewId());*/
+    	List<String> headerColumns = accountingDataService.getViewColumnHeadersInSequence(customFilter.getViewId(), customFilter.getTenantId(), customFilter.getGroupId());
+    	if(headerColumns.size()>0)
+    	{
+        	log.info("Column Headers for the view id "+customFilter.getViewId()+" : "+ headerColumns);
+        	// Getting custom filter columns
+        	List<FilterColumns> filterCols = customFilter.getFilterColumns();
+        	// Building where condition
+        	String whereString = reconciliationResultService.buildCustomQuery(filterCols, customFilter.getViewId());
+        	log.info("Where String: "+ whereString);
+        	// Getting Accounted, Un-Accounted, Partially-Accounted ids based on view id
+        	Map<String, List<BigInteger>> accUnaccAllIds = accountingDataService.getAccntdUnAccntIds(customFilter.getViewId(), customFilter.getTenantId(), customFilter.getGroupId());
+        	List<BigInteger> allIds = accUnaccAllIds.get("allIds");
+        	List<BigInteger> accIds = accUnaccAllIds.get("accounted");
+        	List<BigInteger> unAccIds = accUnaccAllIds.get("unAccounted");
+        	List<BigInteger> partiallyAccIds = accUnaccAllIds.get("partiallyAccounted");
+        	log.info("Size for View's All Ids: "+ allIds.size()+", Accounted Ids: "+ accIds.size()+", Un-Accounted Ids: "+ unAccIds.size()+", Partially-Accounted Ids: "+partiallyAccIds.size());
+        
+/*           	int parSegmentsLength = 0;
+        	int accSegmentsLength = 0;
+        	if(partiallyAccIds.size()>0)
+        	{
+        		parSegmentsLength = accountingDataService.getSegmentsLength(partiallyAccIds.get(0), customFilter.getTenantId());
+        		log.info("First Partially Accounted ID: "+ partiallyAccIds.get(0));
+        	}
+        	if(accIds.size()>0)
+        	{
+        		accSegmentsLength = accountingDataService.getSegmentsLength(accIds.get(0), customFilter.getTenantId());
+        		log.info("First Accounted ID: "+ partiallyAccIds.get(0));
+        	}
+        	log.info("Partial Accounted Segments Length: "+parSegmentsLength);
+        	log.info("Accounted Segments Length: "+accSegmentsLength);*/
+        	if(whereString.length()>0)
+        	{
+        		if("accounted".equalsIgnoreCase(customFilter.getStatus()))// Custom Columns Filtering for Accounting Data
+        		{
+        			List<HashMap> accData = new ArrayList<HashMap>();
+        			List<DataMaster> acctCount = new ArrayList<DataMaster>();
+        			if(accIds.size()>0)
+        			{
+            			List<Long> accIdsAsLong = reconciliationResultService.getBigIntegerAsLong(accIds);
+            			String accIdsAsString = reconciliationResultService.getListAsString(accIdsAsLong);
+        	    		Query queryAcc = em.createQuery("FROM DataMaster where id in ("+accIdsAsString+")"+whereString);
+        	    		Query queryRecCount = em.createQuery("FROM DataMaster where id in ("+accIdsAsString+")"+whereString);
+        	    		acctCount = queryRecCount.getResultList();	
+        	    		queryAcc.setFirstResult(((pageNumber+1)-1) * pageSize);
+        	    		queryAcc.setMaxResults(pageSize);
+        	    		List<DataMaster> accRecords = queryAcc.getResultList();
+        	    		/*accData = accountingDataService.fetchAccDataInSequence(accRecords,headerColumns, customFilter.getTenantId(),parSegmentsLength,accSegmentsLength,customFilter.getViewId());*/
+        	    		accData = accountingDataService.fetchAccDataInSequence(accRecords,headerColumns, customFilter.getTenantId(),customFilter.getViewId(), customFilter.getGroupId());
+    			    	if(acctCount.size()>0)
+    			    	{
+    				   		HashMap recHm = new HashMap();
+    				    	HashMap recHmMain = new HashMap();
+    				    	recHm.put("totalCount", acctCount.size());
+    				    	recHm.put("status", "Success");
+    				    	recHmMain.put("info", recHm);
+    				    	accData.add(recHmMain);
+    			    	}
+        			}
+    	    		return accData;
+        		}
+        		else if("unaccounted".equalsIgnoreCase(customFilter.getStatus())) // Custom Columns Filtering for Un-Accounting Data
+        		{
+        			List<DataMaster> unAcctCount = new ArrayList<DataMaster>();
+        			List<HashMap> unAccData = new ArrayList<HashMap>();
+        			if(unAccIds.size()>0)
+        			{
+            			List<Long> unAccIdsAsLong = reconciliationResultService.getBigIntegerAsLong(unAccIds);
+            			String unAccIdsAsString = reconciliationResultService.getListAsString(unAccIdsAsLong);
+        	    		Query queryUnAcc = em.createQuery("FROM DataMaster where id in ("+unAccIdsAsString+")"+whereString);
+        	    		Query queryUnAccCount = em.createQuery("FROM DataMaster where id in ("+unAccIdsAsString+")"+whereString);
+        	    		unAcctCount = queryUnAccCount.getResultList();
+        	    		queryUnAcc.setFirstResult(((pageNumber+1)-1) * pageSize);;
+        	    		queryUnAcc.setMaxResults(pageSize);
+        	    		List<DataMaster> unAccRecords = queryUnAcc.getResultList();
+        	    		/*unAccData = accountingDataService.fetchAccDataInSequence(unAccRecords,headerColumns, customFilter.getTenantId(),parSegmentsLength,accSegmentsLength,customFilter.getViewId());*/
+        	    		unAccData = accountingDataService.fetchAccDataInSequence(unAccRecords,headerColumns, customFilter.getTenantId(),customFilter.getViewId(), customFilter.getGroupId());
+    			    	if(unAcctCount.size()>0)
+    			    	{
+    				   		HashMap recHm = new HashMap();
+    				    	HashMap recHmMain = new HashMap();
+    				    	recHm.put("totalCount", unAccData.size());
+    				    	recHm.put("status", "Success");
+    				    	recHmMain.put("info", recHm);
+    				    	unAccData.add(recHmMain);
+    			    	}
+        			}
+    	    		return unAccData;
+        		}
+        		else if("partiallyaccounted".equalsIgnoreCase(customFilter.getStatus())) // Custom Columns Filtering for Partically Accounting Data
+        		{
+        			List<DataMaster> parAcctCount = new ArrayList<DataMaster>();
+        			List<HashMap> parAccData = new ArrayList<HashMap>();
+        			if(partiallyAccIds.size()>0)
+        			{
+            			List<Long> parAccIdsAsLong = reconciliationResultService.getBigIntegerAsLong(partiallyAccIds);
+            			String parAccIdsAsString = reconciliationResultService.getListAsString(parAccIdsAsLong);
+        	    		Query queryParAcc = em.createQuery("FROM DataMaster where id in ("+parAccIdsAsString+")"+whereString);
+        	    		Query queryParCount = em.createQuery("FROM DataMaster where id in ("+parAccIdsAsString+")"+whereString);
+        	    		parAcctCount = queryParCount.getResultList();
+        	    		queryParAcc.setFirstResult(((pageNumber+1)-1) * pageSize);;
+        	    		queryParAcc.setMaxResults(pageSize);
+        	    		List<DataMaster> parAccRecords = queryParAcc.getResultList();
+        	    		/*parAccData = accountingDataService.fetchAccDataInSequence(parAccRecords,headerColumns, customFilter.getTenantId(),parSegmentsLength,accSegmentsLength,customFilter.getViewId());*/
+        	    		parAccData = accountingDataService.fetchAccDataInSequence(parAccRecords,headerColumns, customFilter.getTenantId(),customFilter.getViewId(), customFilter.getGroupId());
+    			    	if(parAcctCount.size()>0)
+    			    	{
+    				   		HashMap recHm = new HashMap();
+    				    	HashMap recHmMain = new HashMap();
+    				    	recHm.put("totalCount", parAcctCount.size());
+    				    	recHm.put("status", "Success");
+    				    	recHmMain.put("info", recHm);
+    				    	parAccData.add(recHmMain);
+    			    	}
+        			}
+    	    		return parAccData;
+        		}
+        		else // Custom Columns Filtering for Total Accouning Data
+        		{
+        			List<DataMaster> totAcctCount = new ArrayList<DataMaster>();
+        			List<HashMap> totAccData = new ArrayList<HashMap>();
+        			if(allIds.size()>0)
+        			{
+            			List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+            			String allIdsAsString = reconciliationResultService.getListAsString(allIdsAsLong);
+        	    		Query queryAll = em.createQuery("FROM DataMaster where id in ("+allIdsAsString+")"+whereString);
+        	    		Query queryRecCount = em.createQuery("FROM DataMaster where id in ("+allIdsAsString+")"+whereString);
+        	    		totAcctCount = queryRecCount.getResultList();
+        	    		queryAll.setFirstResult(((pageNumber+1)-1) * pageSize);
+        	    		queryAll.setMaxResults(pageSize);
+        	    		List<DataMaster> allRecords = queryAll.getResultList();
+        	    		/*totAccData = accountingDataService.fetchAccDataInSequence(allRecords,headerColumns, customFilter.getTenantId(),parSegmentsLength,accSegmentsLength,customFilter.getViewId());*/
+        	    		totAccData = accountingDataService.fetchAccDataInSequence(allRecords,headerColumns, customFilter.getTenantId(),customFilter.getViewId(), customFilter.getGroupId());
+    			    	if(totAcctCount.size()>0)
+    			    	{
+    				   		HashMap recHm = new HashMap();
+    				    	HashMap recHmMain = new HashMap();
+    				    	recHm.put("totalCount", totAcctCount.size());
+    				    	recHm.put("status", "Success");
+    				    	recHmMain.put("info", recHm);
+    				    	totAccData.add(recHmMain);
+    			    	}
+        			}
+    	    		return totAccData;
+        		}
+        	}
+        	else
+        	{
+        		HashMap hm = new HashMap();
+        		hm.put("status", "Failed");
+        		reasons.add("Unable to build the custom query");
+        		hm.put("reasons", reasons);
+        		HashMap hmResult = new HashMap();
+        		hmResult.put("info", hm);
+        		result.add(hmResult);
+        		return result;
+        	}
+    	}
+    	else
+    	{
+    		HashMap hm = new HashMap();
+    		hm.put("status", "Failed");
+    		reasons.add("No header columns found for the view id: "+ customFilter.getViewId());
+    		hm.put("reasons", reasons);
+    		HashMap hmResult = new HashMap();
+    		hmResult.put("info", hm);
+    		result.add(hmResult);
+    		return result;
+    	}
+    }
+    
+    /*
+     * Author: Shiva
+     * @param ManualAccountingData, tenantId
+     * Description: Posting Manual Accounting Data
+     * @return ErrorReport
+     */
+    @PostMapping("/postManualAccountingData")
+    @Timed
+    public ErrorReport postManualAccountingData(@RequestBody ManualAccDTO manualAccDTO, @RequestParam Long tenantId, @RequestParam Long userId){
+    	log.info("Rest api for posting manual accounted data");
+    	ErrorReport errorReport = new ErrorReport();
+    	Long viewId = manualAccDTO.getViewId();
+    	List<RowIdCreditDebitDTO> rows = manualAccDTO.getRows();
+    	if(rows.size()>0)
+    	{
+    		List<AccountingData> allRecords = new ArrayList<AccountingData>();
+    		for(RowIdCreditDebitDTO row : rows)
+    		{
+    			String[] credit = row.getCredit().toString().split("\\-");
+    			String[] debit = row.getDebit().toString().split("\\-");
+    			if(credit.length>0 && debit.length>0)
+    			{
+    	   			AccountingData creditAD = new AccountingData();
+        			AccountingData debitAD = new AccountingData();
+        			
+        			creditAD.setTenantId(tenantId);
+        			creditAD.setOriginalRowId(row.getRowId());
+        			creditAD.setLineType("CREDIT");
+        			creditAD.setCreatedBy(userId);
+        			creditAD.setCreatedDate(ZonedDateTime.now());
+        			creditAD.setLastUpdatedBy(userId);
+        			creditAD.setLastUpdatedDate(ZonedDateTime.now());
+        			creditAD.setStatus("ACCOUNTED");
+        			creditAD.setAcctRuleId(null);
+        			creditAD.setOriginalViewId(manualAccDTO.getViewId());
+        			creditAD.setCoaRef(row.getCoaRef());
+        			creditAD.setAcctGroupId(manualAccDTO.getGroupId());
+        			for(int i=0; i<credit.length; i++)
+        			{
+        				if(i == 0)
+        				{
+        					creditAD.setAccountingRef1(credit[i]);
+        				}else if(i == 1)
+        				{
+        					creditAD.setAccountingRef2(credit[i]);
+        				}
+        				else if(i == 2)
+        				{
+        					creditAD.setAccountingRef3(credit[i]);
+        				}
+        				else if(i == 3)
+        				{
+        					creditAD.setAccountingRef4(credit[i]);
+        				}
+        				else if(i == 4)
+        				{
+        					creditAD.setAccountingRef5(credit[i]);
+        				}
+        				else if(i == 5)
+        				{
+        					creditAD.setAccountingRef6(credit[i]);
+        				}
+        				else if(i ==6)
+        				{
+        					creditAD.setAccountingRef7(credit[i]);
+        				}
+        				else if(i == 7)
+        				{
+        					creditAD.setAccountingRef8(credit[i]);
+        				}
+        				else if(i == 8)
+        				{
+        					creditAD.setAccountingRef9(credit[i]);
+        				}
+        				else if(i == 9)
+        				{
+        					creditAD.setAccountingRef10(credit[i]);
+        				}
+        			}
+        			for(int i=0; i<debit.length; i++)
+        			{
+        				if(i == 0)
+        				{
+        					debitAD.setAccountingRef1(debit[i]);
+        				}else if(i == 1)
+        				{
+        					debitAD.setAccountingRef2(debit[i]);
+        				}
+        				else if(i == 2)
+        				{
+        					debitAD.setAccountingRef3(debit[i]);
+        				}
+        				else if(i == 3)
+        				{
+        					debitAD.setAccountingRef4(debit[i]);
+        				}
+        				else if(i == 4)
+        				{
+        					debitAD.setAccountingRef5(debit[i]);
+        				}
+        				else if(i == 5)
+        				{
+        					debitAD.setAccountingRef6(debit[i]);
+        				}
+        				else if(i == 6)
+        				{
+        					debitAD.setAccountingRef7(debit[i]);
+        				}
+        				else if(i == 7)
+        				{
+        					debitAD.setAccountingRef8(debit[i]);
+        				}
+        				else if(i == 8)
+        				{
+        					debitAD.setAccountingRef9(debit[i]);
+        				}
+        				else if(i == 9)
+        				{
+        					debitAD.setAccountingRef10(debit[i]);
+        				}
+        			}
+        			debitAD.setTenantId(tenantId);
+        			debitAD.setOriginalRowId(row.getRowId());
+        			debitAD.setLineType("DEBIT");
+        			debitAD.setCreatedBy(userId);
+        			debitAD.setCreatedDate(ZonedDateTime.now());
+        			debitAD.setLastUpdatedBy(userId);
+        			debitAD.setLastUpdatedDate(ZonedDateTime.now());
+        			debitAD.setStatus("ACCOUNTED");
+        			debitAD.setAcctRuleId(null);
+        			debitAD.setOriginalViewId(manualAccDTO.getViewId());
+        			debitAD.setCoaRef(row.getCoaRef());
+        			debitAD.setAcctGroupId(manualAccDTO.getGroupId());
+        			AccountingData adCredit = accountingDataRepository.findByTenantIdAndOriginalRowIdAndLineTypeAndOriginalViewIdAndAcctGroupId(tenantId, row.getRowId(), "Credit",manualAccDTO.getViewId(), manualAccDTO.getGroupId());
+        			AccountingData adDebit = accountingDataRepository.findByTenantIdAndOriginalRowIdAndLineTypeAndOriginalViewIdAndAcctGroupId(tenantId, row.getRowId(), "Debit", manualAccDTO.getViewId(), manualAccDTO.getGroupId());
+        			if(adCredit != null)
+        			{// Updating credit record
+        				creditAD.setId(adCredit.getId());
+        				accountingDataRepository.save(creditAD);
+        			}
+        			if(adDebit != null)
+        			{// Updating debit record
+        				debitAD.setId(adDebit.getId());
+        				accountingDataRepository.save(debitAD);
+        			}
+        			allRecords.add(creditAD);
+        			allRecords.add(debitAD);
+    			}
+    		}
+    		List<AccountingData> dataPosting = accountingDataRepository.save(allRecords);
+    		log.info(dataPosting.size()+" Records Posted.");
+    	}
+    	return errorReport;
+    }
+    
+    /**
+     * Author: Shiva
+     * @param orginalRowIds, tenantId
+     * Description: Processing Manual Un-Accounting Data
+     * @return ErrorReport
+     */
+    @PostMapping("/processManualUnAccountingData")
+    @Timed
+    public ErrorReporting processManualUnAccountingData(@RequestBody List<Long> orginalRowIds, @RequestParam Long tenantId, @RequestParam Long dataViewId, @RequestParam Long groupId) throws URISyntaxException {
+    	log.info("Rest api for processing manual un accounting data");
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+    	try{
+    		//log.info("Original Row Ids:"+orginalRowIds);
+        	if(orginalRowIds.size()>0)
+        	{
+        		List<BigInteger> accntingIds = accountingDataRepository.fetchIdsByOriginalRowIdsAndTenantidAndViewIdAndGroupId(orginalRowIds, tenantId, dataViewId,groupId);
+        		//log.info("Accounting Ids:"+accntingIds);
+        		if(accntingIds.size()>0)
+        		{
+        			for(BigInteger id : accntingIds)
+        			{
+        				log.info("Deleting id : "+ id);
+        				accountingDataRepository.delete(id.longValue());
+        			}
+        		}
+        	}
+    	}catch(Exception e)
+    	{
+    		log.info("Exception: "+e);
+    	}
+    	return errorReport;
+    }
+    
+    /**
+     * Author: Shiva
+     * @param tenantId, groupId, viewId
+     * Description: Gettring data view column sequence order
+     * @return HashMap with sequence order of data view columns
+     * @throws SQLException 
+     * @throws ClassNotFoundException 
+     */
+    @GetMapping("/getAccountingDataInSequence")
+    @Timed
+    public List<HashMap> getDataViewColumnsSequence(@RequestParam Long tenantId, @RequestParam Long groupId, @RequestParam Long viewId,@RequestParam(value = "page" , required = false) Integer offset,
+			@RequestParam(value = "per_page", required = false) Integer limit) throws ClassNotFoundException, SQLException{
+    	log.info("Rest request to getting accounting data in sequnce order for the group "+ groupId+", data view id "+ viewId);
+
+    	// Getting column header in sequence order
+    	List<String> headerColumns = accountingDataService.getViewColumnHeadersInSequence(viewId, tenantId, groupId);
+    	log.info("Header Columns: " + headerColumns);
+    	
+    	Map<String, List<BigInteger>> accUnaccAllIds = accountingDataService.getAccntdUnAccntIds(viewId, tenantId, groupId);
+    	List<BigInteger> allIds = accUnaccAllIds.get("allIds");
+    	List<BigInteger> accIds = accUnaccAllIds.get("accounted");
+    	List<BigInteger> unAccIds = accUnaccAllIds.get("unAccounted");
+    	List<BigInteger> partiallyAccIds = accUnaccAllIds.get("partiallyAccounted");
+    	log.info("Size for View's All Ids: "+ allIds.size()+", Accounted Ids: "+ accIds.size()+", Un-Accounted Ids: "+ unAccIds.size()+", Partially-Accounted Ids: "+partiallyAccIds.size());
+/*    	int parSegmentsLength = 0;
+    	int accSegmentsLength = 0;
+    	
+    	if(partiallyAccIds.size()>0)
+    	{
+    		parSegmentsLength = accountingDataService.getSegmentsLength(partiallyAccIds.get(0), tenantId);
+    		log.info("First Partially Accounted ID: "+ partiallyAccIds.get(0));
+    	}
+    	if(accIds.size()>0)
+    	{
+    		accSegmentsLength = accountingDataService.getSegmentsLength(accIds.get(0), tenantId);
+    		log.info("First Accounted ID: "+ accIds.get(0));
+    	}*/
+    	
+		PaginationUtil paginationUtil=new PaginationUtil();
+		Page<DataMaster> page = null;
+		HttpHeaders headers = null;
+		if(limit == null || limit == 0)
+    	{
+    		limit = paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+    	{
+    		offset = paginationUtil.DEFAULT_OFFSET;
+    	}
+    	
+    	//Getting total ids
+    //	List<BigInteger> totalIds = new ArrayList<BigInteger>();
+		List<HashMap> allFinalData = new ArrayList<HashMap>();
+    	try {
+    		allIds = reconciliationResultService.getViewIds(new BigInteger(viewId.toString()));
+		}catch (ClassNotFoundException | SQLException e) {
+			log.info("Exceptin while getting total Ids.");
+		}
+    	if(allIds.size()>0)
+    	{
+    		List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+    		Page<DataMaster> allAccUnAccData = dataMasterRepository.findByIdIn(allIdsAsLong,  PaginationUtil.generatePageRequest(offset, limit));
+    		/*allFinalData = accountingDataService.fetchAccDataInSequence(allAccUnAccData,headerColumns, tenantId,parSegmentsLength,accSegmentsLength,viewId,groupId);*/
+    		allFinalData = accountingDataService.fetchAccDataInSequence(allAccUnAccData,headerColumns, tenantId, viewId, groupId);
+    	}
+    	return allFinalData;
+    }
+    
+    /**
+     * Author: Shiva
+     * Description: API to fetch accounting data view sequence columns with valuesset
+     * @param tenantId, viewId, groupId
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getAccountingViewColumnValueSet")
+    @Timed
+    public List<HashMap> getAccountingViewColumnValueSet(@RequestParam(value = "tenantId", required=true) Long tenantId, @RequestParam(value = "viewId", required=true) Long viewId, @RequestParam(value = "groupId", required=true) Long groupId,
+    		@RequestParam(value = "status", required=false) String status) throws ClassNotFoundException, SQLException {
+    	log.info("Rest api to get data view sequence columns values set for the view id: "+ viewId);
+    	
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+        Map<String, List<BigInteger>> accUnaccAllIds = accountingDataService.getAccntdUnAccntIds(viewId, tenantId, groupId);
+/*       	HashMap<BigInteger, String> seqCols = accountingDataService.getSequenceColumns(tenantId, groupId);*/
+       	if("accounted".equalsIgnoreCase(status))
+       	{
+            List<BigInteger> accIds = accUnaccAllIds.get("accounted");
+            if(accIds.size()>0)
+            {
+            	finalMap = accountingDataService.getAccViewColumnSetInfo(accIds, tenantId, groupId, viewId);
+            }
+       	}
+       	else if("unaccounted".equalsIgnoreCase(status))
+       	{
+            List<BigInteger> unAccIds = accUnaccAllIds.get("unAccounted");
+            if(unAccIds.size()>0)
+            {
+            	finalMap = accountingDataService.getAccViewColumnSetInfo(unAccIds, tenantId, groupId, viewId);
+            }
+       	}
+       	else if("partiallyaccounted".equalsIgnoreCase(status))
+       	{
+            List<BigInteger> partiallyAccIds = accUnaccAllIds.get("partiallyAccounted");
+            if(partiallyAccIds.size()>0)
+            {
+            	finalMap = accountingDataService.getAccViewColumnSetInfo(partiallyAccIds, tenantId, groupId, viewId);
+            }
+       	}
+       	else
+       	{
+            List<BigInteger> allIds = accUnaccAllIds.get("allIds");
+            if(allIds.size()>0)
+            {
+            	finalMap = accountingDataService.getAccViewColumnSetInfo(allIds, tenantId, groupId, viewId);
+            }
+       	}
+       	return finalMap;
+	}
+    
+    /**
+     * Author: Shiva
+     * Description: Api to fetch columns Aligns
+     * @param viewName
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getAccountingColumnAlignmentInfo")
+    @Timed
+    public HashMap getAccountingColumnAlignmentInfo(@RequestParam Long tenantId, @RequestParam Long groupId, @RequestParam Long viewId) throws ClassNotFoundException, SQLException {
+    	log.info("Rest api to fetching Recon view columns alignments details for the view id: "+viewId);
+    	HashMap finalMap = new HashMap();
+    	finalMap.put("viewId", viewId);
+    	List<HashMap> cols = accountingDataService.getAccColsAlignInfo(viewId, groupId, tenantId);
+    	finalMap.put("columns", cols);
+    	return finalMap;
+	}
+
+}

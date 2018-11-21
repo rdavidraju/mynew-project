@@ -1,0 +1,310 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApprovalGroupMembers;
+import com.nspl.app.domain.ApprovalGroups;
+import com.nspl.app.repository.ApprovalGroupMembersRepository;
+import com.nspl.app.repository.ApprovalGroupsRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing ApprovalGroupMembers.
+ */
+@RestController
+@RequestMapping("/api")
+public class ApprovalGroupMembersResource {
+
+    private final Logger log = LoggerFactory.getLogger(ApprovalGroupMembersResource.class);
+
+    private static final String ENTITY_NAME = "approvalGroupMembers";
+        
+    private final ApprovalGroupMembersRepository approvalGroupMembersRepository;
+    
+    @Inject
+    ApprovalGroupsRepository approvalGroupsRepository;
+    
+    @Inject
+    UserJdbcService userJdbcService;
+
+    public ApprovalGroupMembersResource(ApprovalGroupMembersRepository approvalGroupMembersRepository) {
+        this.approvalGroupMembersRepository = approvalGroupMembersRepository;
+    }
+
+    /**
+     * POST  /approval-group-members : Create a new approvalGroupMembers.
+     *
+     * @param approvalGroupMembers the approvalGroupMembers to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new approvalGroupMembers, or with status 400 (Bad Request) if the approvalGroupMembers has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/approval-group-members")
+    @Timed
+    public ResponseEntity<ApprovalGroupMembers> createApprovalGroupMembers(@RequestBody ApprovalGroupMembers approvalGroupMembers) throws URISyntaxException {
+        log.debug("REST request to save ApprovalGroupMembers : {}", approvalGroupMembers);
+        if (approvalGroupMembers.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new approvalGroupMembers cannot already have an ID")).body(null);
+        }
+        ApprovalGroupMembers result = approvalGroupMembersRepository.save(approvalGroupMembers);
+        return ResponseEntity.created(new URI("/api/approval-group-members/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /approval-group-members : Updates an existing approvalGroupMembers.
+     *
+     * @param approvalGroupMembers the approvalGroupMembers to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated approvalGroupMembers,
+     * or with status 400 (Bad Request) if the approvalGroupMembers is not valid,
+     * or with status 500 (Internal Server Error) if the approvalGroupMembers couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/approval-group-members")
+    @Timed
+    public ResponseEntity<ApprovalGroupMembers> updateApprovalGroupMembers(@RequestBody ApprovalGroupMembers approvalGroupMembers,@RequestParam Long userId) throws URISyntaxException {
+        log.debug("REST request to update ApprovalGroupMembers : {}", approvalGroupMembers);
+        approvalGroupMembers.setStartDate(approvalGroupMembers.getStartDate().plusDays(1));
+        if(approvalGroupMembers.getEndDate()!=null){
+        approvalGroupMembers.setEndDate(approvalGroupMembers.getEndDate().plusDays(1));
+        }
+       
+        if (approvalGroupMembers.getId() == null) {
+        	 approvalGroupMembers.setCreatedBy(userId);
+             approvalGroupMembers.setCreatedDate(ZonedDateTime.now());
+             approvalGroupMembers.setLastUpdatedBy(userId);
+             approvalGroupMembers.setLastUpdatedDate(ZonedDateTime.now());
+            return createApprovalGroupMembers(approvalGroupMembers);
+        }
+        approvalGroupMembers.setLastUpdatedBy(userId);
+        approvalGroupMembers.setLastUpdatedDate(ZonedDateTime.now());
+        ApprovalGroupMembers result = approvalGroupMembersRepository.save(approvalGroupMembers);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, approvalGroupMembers.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /approval-group-members : get all the approvalGroupMembers.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of approvalGroupMembers in body
+     */
+    @GetMapping("/approval-group-members")
+    @Timed
+    public ResponseEntity<List<ApprovalGroupMembers>> getAllApprovalGroupMembers(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ApprovalGroupMembers");
+        Page<ApprovalGroupMembers> page = approvalGroupMembersRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/approval-group-members");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /approval-group-members/:id : get the "id" approvalGroupMembers.
+     *
+     * @param id the id of the approvalGroupMembers to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the approvalGroupMembers, or with status 404 (Not Found)
+     */
+    @GetMapping("/approval-group-members/{id}")
+    @Timed
+    public ResponseEntity<ApprovalGroupMembers> getApprovalGroupMembers(@PathVariable Long id) {
+        log.debug("REST request to get ApprovalGroupMembers : {}", id);
+        ApprovalGroupMembers approvalGroupMembers = approvalGroupMembersRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(approvalGroupMembers));
+    }
+
+    /**
+     * DELETE  /approval-group-members/:id : delete the "id" approvalGroupMembers.
+     *
+     * @param id the id of the approvalGroupMembers to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/approval-group-members/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteApprovalGroupMembers(@PathVariable Long id) {
+        log.debug("REST request to delete ApprovalGroupMembers : {}", id);
+        approvalGroupMembersRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    @GetMapping("/getApprovalGroupMembers")
+    @Timed
+    public List<HashMap> fetchAllApprovalGrpMemWithUserName(@RequestParam Long groupId) throws SQLException
+    {
+    	log.debug("REST request to get ApprovalGroupMembers :", +groupId);
+    	List<ApprovalGroupMembers> appGrpMemList=approvalGroupMembersRepository.findByGroupId(groupId);
+    	List<HashMap> appGrpMemMapList=new ArrayList<HashMap>();
+    	if(appGrpMemList.size()>0)
+    	{
+    	for(ApprovalGroupMembers appGrpMem:appGrpMemList)
+    	{
+    		HashMap appGrpMemMap=new HashMap();
+    		appGrpMemMap.put("id", appGrpMem.getId());
+    		appGrpMemMap.put("groupId", appGrpMem.getGroupId());
+    		if(appGrpMem.getSeq()!=null)
+    		appGrpMemMap.put("seq", appGrpMem.getSeq());
+    		else
+    			appGrpMemMap.put("seq","");
+    		if(appGrpMem.getUserId()!=null)
+    		{
+    		appGrpMemMap.put("userId", appGrpMem.getUserId());
+    		ResultSet result2=null;
+    		
+    		try{ 
+				String loginName="";
+		    	String assigneeName="";
+				HashMap map=userJdbcService.jdbcConnc(appGrpMem.getUserId());
+				log.info("map.get(loginName) :"+map.get("loginName"));
+				if(map!=null && map.get("loginName")!=null)
+					appGrpMemMap.put("loginName",map.get("loginName"));
+				if(map!=null && map.get("assigneeName")!=null)
+					appGrpMemMap.put("userName", map.get("assigneeName"));
+	    	   
+	 
+		   }catch(SQLException se){
+			   log.info("se: "+se);
+	      } catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+			finally{
+				if(result2!=null)
+				result2.close();
+			}
+    		}
+    		else
+    			appGrpMemMap.put("userId", appGrpMem.getUserId());
+    		if(appGrpMem.getStartDate()!=null)
+    		appGrpMemMap.put("startDate", appGrpMem.getStartDate());
+    		else
+    			appGrpMemMap.put("startDate", "");
+    		if(appGrpMem.getEndDate()!=null)
+    		appGrpMemMap.put("endDate",appGrpMem.getEndDate());
+    		else
+    			appGrpMemMap.put("endDate","");
+    		if(appGrpMem.getCreatedBy()!=null)
+    		appGrpMemMap.put("createdBy", appGrpMem.getCreatedBy());
+    		else
+    			appGrpMemMap.put("createdBy", "");
+    		if(appGrpMem.getCreatedDate()!=null)
+    		appGrpMemMap.put("createdDate", appGrpMem.getCreatedDate());
+    		else
+    			appGrpMemMap.put("createdDate", "");
+    		if(appGrpMem.getLastUpdatedBy()!=null)
+    		appGrpMemMap.put("lastUpdatedBy", appGrpMem.getLastUpdatedBy());
+    		else
+    			appGrpMemMap.put("lastUpdatedBy", "");
+    		if(appGrpMem.getLastUpdatedDate()!=null)
+    		appGrpMemMap.put("lastUpdatedDate", appGrpMem.getLastUpdatedDate());
+    		else
+    			appGrpMemMap.put("lastUpdatedDate", "");
+    		if(appGrpMemMap!=null)
+    		appGrpMemMapList.add(appGrpMemMap);
+    	}
+    	}
+		return appGrpMemMapList;
+    }
+    
+    @GetMapping("/getApprovalGroupMembersByUserId")
+    @Timed
+    public List<HashMap> getApprovalGroupMembersByUserId(@RequestParam Long userId)
+    {
+    	List<HashMap> finalList = new ArrayList<>();
+    	List<ApprovalGroupMembers> appGrpMems = approvalGroupMembersRepository.findByUserId(userId);
+    	if(appGrpMems.size()>0)
+    	{
+    		for(ApprovalGroupMembers agm : appGrpMems)
+    		{
+    			HashMap hm = new HashMap();
+    			hm.put("id", agm.getId());
+    			hm.put("groupId", agm.getGroupId());
+    			ApprovalGroups ag = approvalGroupsRepository.findOne(agm.getGroupId());
+    			if(ag != null)
+    			{
+    				hm.put("groupName", ag.getGroupName());
+    			}
+    			hm.put("seq", agm.getSeq());
+    			hm.put("userId", agm.getUserId());
+    			hm.put("startDate", agm.getStartDate());
+    			hm.put("endDate", agm.getEndDate());
+    			finalList.add(hm);
+    		}
+    	}
+    	return finalList;
+    }
+    
+    @PostMapping("/postApprovalGroupMembers")
+    @Timed
+    public void postApprovalGroupMembers(@RequestBody List<ApprovalGroupMembers> agm) throws URISyntaxException {
+    	if(agm.size()>0)
+    	{
+    		for(ApprovalGroupMembers ag : agm)
+    		{
+    			Integer maxSeq = 1; 
+    			Integer maxSeqValue = approvalGroupMembersRepository.fetchMaxSeqByGroupId(ag.getGroupId());
+    			if(maxSeqValue != null)
+    			{
+    				maxSeq = maxSeqValue+1;
+    			}
+    			if(ag.getId() != null)
+    			{
+    				ag.setStartDate(ag.getStartDate().plusDays(1));
+    				if(ag.getEndDate() != null)
+    				{
+    					ag.setEndDate(ag.getEndDate().plusDays(1));	
+    				}
+    				ag.setLastUpdatedBy(ag.getUserId());
+    				ag.setLastUpdatedDate(ZonedDateTime.now());
+    				ApprovalGroupMembers update = approvalGroupMembersRepository.save(ag);
+    			}
+    			else
+    			{
+    				ag.setStartDate(ag.getStartDate().plusDays(1));
+    				if(ag.getEndDate() != null)
+    				{
+    					ag.setEndDate(ag.getEndDate().plusDays(1));	
+    				}
+    				ag.setSeq(maxSeq);
+    				ag.setCreatedBy(ag.getUserId());
+    				ag.setCreatedDate(ZonedDateTime.now());
+    				ag.setLastUpdatedBy(ag.getUserId());
+    				ag.setLastUpdatedDate(ZonedDateTime.now());
+    				ApprovalGroupMembers update = approvalGroupMembersRepository.save(ag);
+    			}
+    		}
+    	}
+    }
+}

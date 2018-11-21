@@ -1,0 +1,197 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.AccountAnalysis;
+import com.nspl.app.repository.AccountAnalysisRepository;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.SourceConnectionDetailsService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SQLContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+
+import javax.inject.Inject;
+
+/**
+ * REST controller for managing AccountAnalysis.
+ */
+@RestController
+@RequestMapping("/api")
+public class AccountAnalysisResource {
+
+    private final Logger log = LoggerFactory.getLogger(AccountAnalysisResource.class);
+
+    private static final String ENTITY_NAME = "accountAnalysis";
+
+    private final AccountAnalysisRepository accountAnalysisRepository;
+    
+	@Autowired
+	Environment env;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+
+    public AccountAnalysisResource(AccountAnalysisRepository accountAnalysisRepository) {
+        this.accountAnalysisRepository = accountAnalysisRepository;
+    }
+
+    /**
+     * POST  /account-analyses : Create a new accountAnalysis.
+     *
+     * @param accountAnalysis the accountAnalysis to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new accountAnalysis, or with status 400 (Bad Request) if the accountAnalysis has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/account-analyses")
+    @Timed
+    public ResponseEntity<AccountAnalysis> createAccountAnalysis(@RequestBody AccountAnalysis accountAnalysis) throws URISyntaxException {
+        log.debug("REST request to save AccountAnalysis : {}", accountAnalysis);
+        if (accountAnalysis.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new accountAnalysis cannot already have an ID")).body(null);
+        }
+        AccountAnalysis result = accountAnalysisRepository.save(accountAnalysis);
+        return ResponseEntity.created(new URI("/api/account-analyses/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /account-analyses : Updates an existing accountAnalysis.
+     *
+     * @param accountAnalysis the accountAnalysis to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated accountAnalysis,
+     * or with status 400 (Bad Request) if the accountAnalysis is not valid,
+     * or with status 500 (Internal Server Error) if the accountAnalysis couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/account-analyses")
+    @Timed
+    public ResponseEntity<AccountAnalysis> updateAccountAnalysis(@RequestBody AccountAnalysis accountAnalysis) throws URISyntaxException {
+        log.debug("REST request to update AccountAnalysis : {}", accountAnalysis);
+        if (accountAnalysis.getId() == null) {
+            return createAccountAnalysis(accountAnalysis);
+        }
+        AccountAnalysis result = accountAnalysisRepository.save(accountAnalysis);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, accountAnalysis.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /account-analyses : get all the accountAnalyses.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of accountAnalyses in body
+     */
+    @GetMapping("/account-analyses")
+    @Timed
+    public ResponseEntity<List<AccountAnalysis>> getAllAccountAnalyses(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of AccountAnalyses");
+        Page<AccountAnalysis> page = accountAnalysisRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/account-analyses");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /account-analyses/:id : get the "id" accountAnalysis.
+     *
+     * @param id the id of the accountAnalysis to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the accountAnalysis, or with status 404 (Not Found)
+     */
+    @GetMapping("/account-analyses/{id}")
+    @Timed
+    public ResponseEntity<AccountAnalysis> getAccountAnalysis(@PathVariable Long id) {
+        log.debug("REST request to get AccountAnalysis : {}", id);
+        AccountAnalysis accountAnalysis = accountAnalysisRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(accountAnalysis));
+    }
+
+    /**
+     * DELETE  /account-analyses/:id : delete the "id" accountAnalysis.
+     *
+     * @param id the id of the accountAnalysis to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/account-analyses/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteAccountAnalysis(@PathVariable Long id) {
+        log.debug("REST request to delete AccountAnalysis : {}", id);
+        accountAnalysisRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    @GetMapping("/reportGeneration")
+    @Timed
+    public void reportGeneration(@RequestParam Long reportId, @RequestBody HashMap filterMap){
+    	
+    	/* Load complete Account Analysis data */
+    	
+    	SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+        JavaSparkContext sContext =  new JavaSparkContext(sConf);
+        SQLContext sqlCont = new SQLContext(sContext);
+        
+        long startTime = System.currentTimeMillis();   //gives the start time of a process
+        long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+        
+       // Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+    	
+    	//String jdbcDriver = props.getProperty("jdbcDriver");  
+       // String schemaName = props.getProperty("schemaName");  
+    	//String dbUrl = props.getProperty("dbUrl")+schemaName;  
+    	
+    	//   String userName = props.getProperty("userName"); 
+    	//   String password = props.getProperty("password"); 
+    	   
+    	String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+       
+        Dataset<Row> reports_data = sqlCont.read().format("jdbc")
+                .option("url", dbUrl)
+                .option("user",userName)
+                .option("password",password)
+                .option("dbtable","t_account_analysis").load();
+        
+       log.info("reports_data.count(): "+reports_data.count());
+       
+       /* Filtering Report Specific Data */
+       
+       Dataset<Row> dt = reports_data.filter("report_id = "+reportId);
+       /* Grouping data based on selected columns */
+       
+       
+    	
+    	/* Apply Filters */
+    	
+    	
+    	
+    }
+}

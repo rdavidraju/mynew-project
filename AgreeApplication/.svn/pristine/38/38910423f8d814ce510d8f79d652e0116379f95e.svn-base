@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:jee="http://www.springframework.org/schema/jee" xmlns:lang="http://www.springframework.org/schema/lang"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xmlns:drools-spring="http://drools.org/schema/drools-spring"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+        http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee.xsd
+        http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang.xsd
+        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd
+        http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc.xsd
+          http://www.springframework.org/schema/data/jpa/spring-jpa http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+        ">
+  
+  <bean id="jbpmEntityManagerFactory" class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+    <property name="persistenceUnitName" value="jbpmTest"/>
+    <property name="persistenceXmlLocation" value="classpath:jbpm/persistence.xml"/>
+    <property name="dataSource" ref="secondaryDataSource"/>
+  </bean>
+  
+   <bean id="process1" factory-method="newClassPathResource" class="org.kie.internal.io.ResourceFactory">
+    <constructor-arg>
+      <value>jbpm/processes/approvalprocess.bpmn</value>
+    </constructor-arg>
+  </bean>
+  
+   <bean id="process2" factory-method="newClassPathResource" class="org.kie.internal.io.ResourceFactory">
+    <constructor-arg>
+      <value>jbpm/processes/groupapprovals.bpmn</value>
+    </constructor-arg>
+  </bean>
+  
+ <bean id="process3" factory-method="newClassPathResource" class="org.kie.internal.io.ResourceFactory">
+    <constructor-arg>
+      <value>jbpm/processes/accountingApprovalprocess.bpmn</value>
+    </constructor-arg>
+  </bean>
+  
+  <bean id="process4" factory-method="newClassPathResource" class="org.kie.internal.io.ResourceFactory">
+    <constructor-arg>
+      <value>jbpm/processes/accountingGroupapprovals.bpmn</value>
+    </constructor-arg>
+  </bean>
+
+ <!-- <bean id="process5" factory-method="newClassPathResource" class="org.kie.internal.io.ResourceFactory">
+    <constructor-arg>
+      <value>jbpm/processes/accountingapprovalprocess.bpmn</value>
+    </constructor-arg>
+  </bean>
+  
+  <bean id="process6" factory-method="newClassPathResource" class="org.kie.internal.io.ResourceFactory">
+    <constructor-arg>
+      <value>jbpm/processes/accountinggroupapprovals.bpmn</value>
+    </constructor-arg>
+  </bean> -->
+  <bean id="runtimeEnvironment" class="org.kie.spring.factorybeans.RuntimeEnvironmentFactoryBean">
+    <property name="type" value="DEFAULT"/>
+    <property name="entityManagerFactory" ref="jbpmEntityManagerFactory"/>
+    <property name="transactionManager" ref="transactionManager"/>
+    <property name="userGroupCallback" ref="userGroupCallback"/>
+    <property name="userInfo" ref="userInfo"/>
+    <property name="taskService" ref="taskService"/>
+    
+    <property name="pessimisticLocking" value="true"/>
+    <property name="assets">
+      <map>
+        <entry key-ref="process1"><util:constant static-field="org.kie.api.io.ResourceType.BPMN2"/></entry>
+        <entry key-ref="process2"><util:constant static-field="org.kie.api.io.ResourceType.BPMN2"/></entry>
+       <entry key-ref="process3"><util:constant static-field="org.kie.api.io.ResourceType.BPMN2"/></entry>
+        <entry key-ref="process4"><util:constant static-field="org.kie.api.io.ResourceType.BPMN2"/></entry>
+       <!--  <entry key-ref="process5"><util:constant static-field="org.kie.api.io.ResourceType.BPMN2"/></entry>
+        <entry key-ref="process6"><util:constant static-field="org.kie.api.io.ResourceType.BPMN2"/></entry> -->
+      </map>
+      
+    </property>
+  </bean>
+
+  <bean id="runtimeManager" class="org.kie.spring.factorybeans.RuntimeManagerFactoryBean" destroy-method="close">
+    <property name="type" value="PER_REQUEST" />
+    <property name="identifier" value="spring-rm"/>
+    <property name="runtimeEnvironment" ref="runtimeEnvironment"/>
+  </bean>
+  
+  <bean id="taskService" class="org.kie.spring.factorybeans.TaskServiceFactoryBean" destroy-method="close">
+    <property name="entityManagerFactory" ref="jbpmEntityManagerFactory"/>
+    <property name="transactionManager" ref="transactionManager"/>
+    <property name="userGroupCallback" ref="userGroupCallback"/>
+    <property name="userInfo" ref="userInfo"/>
+    <property name="listeners">
+      <list>
+        <bean class="org.jbpm.services.task.audit.JPATaskLifeCycleEventListener">
+        <constructor-arg value="true"/>
+        </bean>
+      </list>
+    </property>
+  </bean>
+  
+  <bean id="userGroupCallback" class="com.nspl.app.jbpm.util.CustomUserGroupCallback">
+  </bean>
+  
+    <bean id="userInfo" class="com.nspl.app.jbpm.util.CustomUserInfo">
+  </bean>
+  
+ 
+
+  <bean id="logService" class="org.jbpm.process.audit.JPAAuditLogService">
+    <constructor-arg>
+      <ref bean="jbpmEntityManagerFactory"/>
+    </constructor-arg>
+    <constructor-arg>
+      <value>STANDALONE_LOCAL_SPRING_SHARED_EM</value>
+    </constructor-arg>
+  </bean>
+
+  
+</beans>

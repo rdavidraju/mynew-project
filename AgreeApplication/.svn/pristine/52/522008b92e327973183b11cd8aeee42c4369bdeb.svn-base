@@ -1,0 +1,378 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.ReportDefination;
+import com.nspl.app.domain.ReportParameters;
+import com.nspl.app.domain.ReportType;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.ReportDefinationRepository;
+import com.nspl.app.repository.ReportParametersRepository;
+import com.nspl.app.repository.ReportTypeRepository;
+import com.nspl.app.repository.ReportsRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+
+/**
+ * REST controller for managing ReportDefination.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReportDefinationResource {
+
+    private final Logger log = LoggerFactory.getLogger(ReportDefinationResource.class);
+
+    private static final String ENTITY_NAME = "reportDefination";
+
+    private final ReportDefinationRepository reportDefinationRepository;
+    
+    @Inject
+    ReportsRepository reportsRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    ReportParametersRepository reportParametersRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    ReportTypeRepository reportTypeRepository;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+
+    public ReportDefinationResource(ReportDefinationRepository reportDefinationRepository) {
+        this.reportDefinationRepository = reportDefinationRepository;
+    }
+
+    /**
+     * POST  /report-definations : Create a new reportDefination.
+     *
+     * @param reportDefination the reportDefination to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reportDefination, or with status 400 (Bad Request) if the reportDefination has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/report-definations")
+    @Timed
+    public ResponseEntity<ReportDefination> createReportDefination(@RequestBody ReportDefination reportDefination) throws URISyntaxException {
+        log.debug("REST request to save ReportDefination : {}", reportDefination);
+        if (reportDefination.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reportDefination cannot already have an ID")).body(null);
+        }
+        ReportDefination result = reportDefinationRepository.save(reportDefination);
+        return ResponseEntity.created(new URI("/api/report-definations/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /report-definations : Updates an existing reportDefination.
+     *
+     * @param reportDefination the reportDefination to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reportDefination,
+     * or with status 400 (Bad Request) if the reportDefination is not valid,
+     * or with status 500 (Internal Server Error) if the reportDefination couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/report-definations")
+    @Timed
+    public ResponseEntity<ReportDefination> updateReportDefination(@RequestBody ReportDefination reportDefination) throws URISyntaxException {
+        log.debug("REST request to update ReportDefination : {}", reportDefination);
+        if (reportDefination.getId() == null) {
+            return createReportDefination(reportDefination);
+        }
+        ReportDefination result = reportDefinationRepository.save(reportDefination);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reportDefination.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /report-definations : get all the reportDefinations.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reportDefinations in body
+     */
+    @GetMapping("/report-definations")
+    @Timed
+    public ResponseEntity<List<ReportDefination>> getAllReportDefinations(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ReportDefinations");
+        Page<ReportDefination> page = reportDefinationRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/report-definations");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /report-definations/:id : get the "id" reportDefination.
+     *
+     * @param id the id of the reportDefination to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reportDefination, or with status 404 (Not Found)
+     */
+    @GetMapping("/report-definations/{id}")
+    @Timed
+    public ResponseEntity<ReportDefination> getReportDefination(@PathVariable Long id) {
+        log.debug("REST request to get ReportDefination : {}", id);
+        ReportDefination reportDefination = reportDefinationRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reportDefination));
+    }
+
+    /**
+     * DELETE  /report-definations/:id : delete the "id" reportDefination.
+     *
+     * @param id the id of the reportDefination to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/report-definations/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReportDefination(@PathVariable Long id) {
+        log.debug("REST request to delete ReportDefination : {}", id);
+        reportDefinationRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Swetha
+     * Api to Post Reports Defination
+     * @param reportDefinationMap
+     * @param tenantId
+     */
+    @PostMapping("/reportDefination")
+    @Timed
+    public void reportDefination(@RequestBody HashMap reportDefinationMap, @RequestParam Long tenantId){
+    	
+    	log.info("Rest Request for reportDefination");
+    	
+    	if(reportDefinationMap!=null){
+    	Reports reports=new Reports();
+    	String reportTyypeName="";
+    	if(reportDefinationMap.get("reportTypeId")!=null){
+    		Long repTypeId=Long.parseLong(reportDefinationMap.get("reportTypeId").toString());
+    	reports.setReportTypeId(repTypeId);  
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	if(repType!=null)
+    		reportTyypeName=repType.getType();
+    	}
+    	if(reportDefinationMap.get("reportName")!=null)
+    	reports.setReportName(reportDefinationMap.get("reportName").toString());
+    	if(reportDefinationMap.get("sourceViewId")!=null)
+    	reports.setSourceViewId(Long.parseLong(reportDefinationMap.get("sourceViewId").toString()));
+    	if(reportDefinationMap.get("enableFlag")!=null)
+    	reports.setEnableFlag(Boolean.valueOf(reportDefinationMap.get("enableFlag").toString()));
+    	if(reportDefinationMap.get("startDate")!=null){
+    		String stDate=reportDefinationMap.get("startDate").toString();
+    		LocalDate date = LocalDate.parse(stDate.substring(0,10)).plusDays(1);
+    		reports.setStartDate(date);
+    	}
+    	if(reportDefinationMap.get("endDate")!=null){
+    		String endDate=reportDefinationMap.get("endDate").toString();
+    		LocalDate date = LocalDate.parse(endDate.substring(0,10)).plusDays(1);
+    		reports.setEndDate(date);
+    	}
+    	if(reportDefinationMap.get("reportMode")!=null)
+    		reports.setReportMode(reportDefinationMap.get("reportMode").toString());
+    	if(reportDefinationMap.get("coa")!=null)
+    		reports.setCoa(reportDefinationMap.get("coa").toString());
+    	if(reportDefinationMap.get("allowDrilldown")!=null && !(reportDefinationMap.get("allowDrilldown").toString().isEmpty()))
+    		reports.setAllowDrillDown(Boolean.valueOf(reportDefinationMap.get("allowDrilldown").toString()));
+		if(reportDefinationMap.get("show")!=null)
+			reports.setAccVal(reportDefinationMap.get("show").toString());
+		reports.setCreationDate(ZonedDateTime.now());
+		if(reportDefinationMap.get("createdBy")!=null && !(reportDefinationMap.get("createdBy").toString().isEmpty()))
+		reports.setCreatedBy(Long.parseLong(reportDefinationMap.get("createdBy").toString()));
+		reports.setTenantId(tenantId);
+    	Reports newReports=reportsRepository.save(reports);
+    	Long repId=newReports.getId();
+    	log.info("New Report has been saved with repId: "+repId);
+    	
+    	if(reportDefinationMap.containsKey("columnsDefinition")){
+    	List<ReportDefination> newReportDefinationList=new ArrayList<ReportDefination>();
+    	List<ReportParameters> reportParametersList=new ArrayList<ReportParameters>();
+    	List<HashMap> reportDefinationList=(List<HashMap>) reportDefinationMap.get("columnsDefinition");
+    	for(int i=0;i<reportDefinationList.size();i++){
+    		
+    		HashMap repDef= reportDefinationList.get(i);
+    		ReportDefination newReportDef=new ReportDefination();
+    		ReportParameters rParam=new ReportParameters();
+    		if(repDef.get("userDisplayColName")!=null)
+    		newReportDef.setDisplayName(repDef.get("userDisplayColName").toString());
+    		if(repDef.get("groupBy")!=null)
+    		newReportDef.setGoupBy(Boolean.valueOf(repDef.get("groupBy").toString()));
+    		if(repId!=null)
+    		newReportDef.setReportId(repId);
+    		if(repDef.get("columnType")!=null && !(repDef.get("columnType").toString().isEmpty())){
+    			String colType=repDef.get("columnType").toString();
+    			newReportDef.setRefTypeId(colType);
+				rParam.setRefTypeid(colType);
+    			
+    			if(colType.equalsIgnoreCase("DATA_VIEW")){
+    				if(reportDefinationMap.get("sourceViewId")!=null){
+    					Long srcId=Long.parseLong(reportDefinationMap.get("sourceViewId").toString());
+    				newReportDef.setRefSrcId(srcId);
+    				rParam.setRefSrcId(srcId);
+    				}
+    			}
+    			else if(colType.equalsIgnoreCase("FIN_FUNCTION")){
+    				LookUpCode lookupCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("COLUMN_REF_TYPE", colType, tenantId);
+        			newReportDef.setRefSrcId(lookupCode.getId());
+        			rParam.setRefSrcId(lookupCode.getId());
+    				}
+    		}
+    		if(repDef.get("ColumnId")!=null && repDef.get("columnType").toString().equalsIgnoreCase("DATA_VIEW")){
+    			newReportDef.setRefColId(Long.parseLong(repDef.get("ColumnId").toString()));
+    			DataViewsColumns dvc=dataViewsColumnsRepository.findOne(Long.parseLong(repDef.get("ColumnId").toString()));
+				//DataViewsColumns dvc=dataViewsColumnsRepository.findByDataViewIdAndRefDvColumn(Long.parseLong(reportDefinationMap.get("sourceViewId").toString()), repDef.get("ColumnId").toString());
+				if(dvc!=null && dvc.getColDataType()!=null)
+					newReportDef.setDataType(dvc.getColDataType());
+					rParam.setDataType(dvc.getColDataType());
+			}
+    		if(repDef.get("columnType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+    			String colDpName=repDef.get("columnDisplayName").toString();
+    			LookUpCode lookupCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId(reportTyypeName, colDpName, tenantId);
+    			newReportDef.setRefColId(lookupCode.getId());
+    		}
+    		newReportDef.setCreationDate(ZonedDateTime.now());
+    		if(reportDefinationMap.get("createdBy")!=null)
+    		newReportDef.setCreatedBy(Long.parseLong(reportDefinationMap.get("createdBy").toString()));
+    		ReportDefination reportDef=reportDefinationRepository.save(newReportDef);
+    		log.info("reportDef saved with id: "+reportDef.getId());
+    		
+    		
+    			rParam.setReportId(repId);
+    			if(repDef.get("userDisplayColName")!=null && !(repDef.get("userDisplayColName").toString().isEmpty()))
+    			rParam.setDisplayName(repDef.get("userDisplayColName").toString());
+    			if(repDef.get("parameterType")!=null && !(repDef.get("parameterType").toString().isEmpty())){
+    				String lMeaning=repDef.get("parameterType").toString();
+    				LookUpCode lookupCode3=lookUpCodeRepository.findByLookUpTypeAndMeaningAndTenantId("FORM_CONTROLS", lMeaning, tenantId);
+    				rParam.setSelectionType(lookupCode3.getLookUpCode());
+    			}
+    			if(reportDefinationMap.get("createdBy")!=null && !(reportDefinationMap.get("createdBy").toString().isEmpty()))
+    			rParam.setCreatedBy(Long.parseLong(reportDefinationMap.get("createdBy").toString()));
+    			rParam.setCreationDate(ZonedDateTime.now());
+    			if(repDef.get("ColumnId")!=null && !(repDef.get("ColumnId").toString().isEmpty()))
+    				rParam.setRefColId(Long.parseLong(repDef.get("ColumnId").toString()));
+    			if(rParam.getSelectionType()!=null && !(rParam.getSelectionType().isEmpty())){
+    			ReportParameters repParam=reportParametersRepository.save(rParam);
+    			log.info("repParam saved with id: "+repParam.getId());
+    			}
+    		}
+    			
+    	
+    	}
+    	}
+    }
+    
+    /**
+     * Author: Swetha
+     * Api to retrieve complete Report Definition
+     * @param reportId
+     * @return
+     */
+    @GetMapping("/getReportDefinations")
+    @Timed
+    public HashMap getReportDefinations(@RequestParam Long reportId){
+    	
+    	log.info("Rest Request to getReportDefinations for reportId: "+reportId);
+    	
+    	HashMap map=new HashMap();
+    	Reports reports=reportsRepository.findOne(reportId);
+    	Long tenantId=reports.getTenantId();
+    	map.put("id", reports.getId());
+    	map.put("reportTypeId", reports.getReportTypeId());
+    	Long repTypeId=reports.getReportTypeId();
+    	ReportType repType=new ReportType();
+    	if(repTypeId!=null){
+    		repType=reportTypeRepository.findOne(repTypeId);
+    	map.put("reportType", repType.getType());
+    	}
+    	map.put("reportName", reports.getReportName());
+    	map.put("sourceViewId", reports.getSourceViewId());
+    	map.put("enableFlag", reports.isEnableFlag());
+    	map.put("startDate", reports.getStartDate());
+    	map.put("endDate", reports.getEndDate());
+    	map.put("creationDate", reports.getCreationDate());
+    	map.put("createdBy", reports.getCreatedBy());
+    	map.put("lastUpdatedDate", reports.getLastUpdatedDate());
+    	map.put("lastUpdatedBy",reports.getLastUpdatedBy() );
+    	map.put("reportMode", reports.getReportMode());
+    	map.put("reportViewType", reports.getReportViewType());
+    	map.put("coa", reports.getCoa());
+    	map.put("show", reports.getAccVal());
+    	map.put("allowDrilldown", reports.getAllowDrillDown());
+    	
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	List<HashMap> columnsDefinition =new ArrayList<HashMap>();
+    	for(int i=0;i<repDefList.size();i++){
+    		ReportDefination repDef=repDefList.get(i);
+    		HashMap repDefMap=new HashMap();
+    		repDefMap.put("ColumnId",repDef.getRefColId());
+    		repDefMap.put("userDisplayColName", repDef.getDisplayName());
+    		String colTypeId=repDef.getRefTypeId();
+    		if(colTypeId!=null){
+    			LookUpCode lookupCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("COLUMN_REF_TYPE", colTypeId, tenantId);
+    			if(lookupCode.getMeaning()!=null)
+    		repDefMap.put("columnType", lookupCode.getLookUpCode());
+			if(repDef.getRefColId()!=null && lookupCode.getMeaning().equalsIgnoreCase("Data View")){
+    			//FileTemplateLines ftl=fileTemplateLinesRepository.findOne(repDef.getRefColId());
+				DataViewsColumns dvc=dataViewsColumnsRepository.findOne(repDef.getRefColId());
+    			repDefMap.put("columnDisplayName",dvc.getColumnName());
+    		}
+			else if(repDef.getRefColId()!=null && lookupCode.getMeaning().equalsIgnoreCase("Fin Function")){
+				LookUpCode lookupCode1=lookUpCodeRepository.findOne(repDef.getRefColId());
+    			repDefMap.put("columnDisplayName",lookupCode1.getLookUpCode());
+    		}
+    		}
+    		
+    		repDefMap.put("groupBy", repDef.isGoupBy());
+    		ReportParameters repParam=new ReportParameters();
+    		log.info("repDef.getRefSrcId(): "+repDef.getRefSrcId()+" repDef.getRefColId(): "+repDef.getRefColId()+"repDef.getRefTypeId(): "+repDef.getRefTypeId());
+    		if(repType!=null && repType.getType()!=null && repDef.getRefColId()!=null){
+    		repParam=reportParametersRepository.findByReportIdAndRefTypeidAndRefSrcIdAndRefColId(reportId, repDef.getRefTypeId(), repDef.getRefSrcId(), repDef.getRefColId());
+    		}
+    		else{
+    			repParam=reportParametersRepository.findByReportIdAndRefTypeidAndRefSrcId(reportId, repDef.getRefTypeId(), repDef.getRefSrcId());
+    		}
+    		if(repParam!=null && repParam.getSelectionType()!=null && !(repParam.getSelectionType().isEmpty())){
+    			String lCode=repParam.getSelectionType();
+    			LookUpCode lookupCode4=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("FORM_CONTROLS", lCode, tenantId);
+    		repDefMap.put("parameterType", lookupCode4.getMeaning());
+    		}
+    		log.info("repParam: "+repParam);
+    		columnsDefinition.add(repDefMap);
+    		map.put("columnsDefinition", columnsDefinition);
+    	}
+		return map;
+    	
+    }
+    
+}

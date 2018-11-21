@@ -1,0 +1,62 @@
+package com.nspl.app.repository;
+
+
+
+import java.time.LocalDate;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.SourceConnectionDetails;
+
+/**
+ * Spring Data JPA repository for the SourceConnectionDetails entity.
+ */
+@SuppressWarnings("unused")
+public interface SourceConnectionDetailsRepository extends JpaRepository<SourceConnectionDetails,Long> {
+
+	
+	@Query(value =  "SELECT * FROM t_source_connection_details where connection_type =:connection_type and tenant_id =:tenant_id and   enabled_flag is true",nativeQuery=true)
+	List<SourceConnectionDetails> findByConnectionTypeAndTenantIdAndActivestatus(@Param("connection_type") String connection_type,@Param("tenant_id") Long tenant_id);
+	
+	@Query(value =  "SELECT * FROM t_source_connection_details where tenant_id =:tenantId and enabled_flag is true and connection_type =:conType and ((:startDate <= end_date and :endDate >= start_date) or (end_date is null))",nativeQuery=true)
+	List<SourceConnectionDetails> fetchScrConnctionsByActiveStatusAndConnectionType(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("conType") String conType);
+
+	@Query(value =  "SELECT * FROM t_source_connection_details where tenant_id =:tenantId and enabled_flag is true and connection_type =:conType and (:startDate <= end_date or end_date is null)",nativeQuery=true)
+	List<SourceConnectionDetails> fetchScrConnctionsByActiveStatusAndConnectionTypeWithStartDate(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate,@Param("conType") String conType);
+	
+	List<SourceConnectionDetails> findByTenantId(Long tenantId);
+
+	SourceConnectionDetails findByName(String string);
+	
+	SourceConnectionDetails findByNameAndTenantId(String string, Long tenantId);
+
+
+	@Query(value =  "SELECT distinct(connection_type) FROM t_source_connection_details where tenant_id =:tenant_id",nativeQuery=true)
+	List<String> findByDistinctConnectionTypeAndTenantId(@Param("tenant_id") Long tenant_id);
+
+
+
+	
+
+	Page<SourceConnectionDetails> findByTenantIdOrderByIdDesc(
+			Long tenantId, Pageable pageable);
+	// kiran
+	Page<SourceConnectionDetails> findByTenantId(Long tenantId, Pageable pageable);
+
+
+
+	List<SourceConnectionDetails> findByTenantIdOrderByIdDesc(
+			Long tenantId);
+
+	SourceConnectionDetails findByIdForDisplayAndTenantId(String id,Long tenantId);
+
+/*	//shiva
+	SourceConnectionDetails findByUrlEncryptionKey(String urlEncryptionKey);
+
+*/	
+}

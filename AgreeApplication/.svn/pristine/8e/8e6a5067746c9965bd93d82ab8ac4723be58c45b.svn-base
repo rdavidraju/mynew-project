@@ -1,0 +1,313 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.ReportType;
+import com.nspl.app.repository.ReportTypeRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the ReportTypeResource REST controller.
+ *
+ * @see ReportTypeResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class ReportTypeResourceIntTest {
+
+    private static final String DEFAULT_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_TYPE = "BBBBBBBBBB";
+
+    private static final Boolean DEFAULT_ENABLE_FLAG = false;
+    private static final Boolean UPDATED_ENABLE_FLAG = true;
+
+    private static final ZonedDateTime DEFAULT_START_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_START_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_END_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_END_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long UPDATED_TENANT_ID = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_LASTE_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LASTE_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    @Autowired
+    private ReportTypeRepository reportTypeRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restReportTypeMockMvc;
+
+    private ReportType reportType;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        ReportTypeResource reportTypeResource = new ReportTypeResource(reportTypeRepository);
+        this.restReportTypeMockMvc = MockMvcBuilders.standaloneSetup(reportTypeResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static ReportType createEntity(EntityManager em) {
+        ReportType reportType = new ReportType()
+            .type(DEFAULT_TYPE)
+            .enableFlag(DEFAULT_ENABLE_FLAG)
+            .startDate(DEFAULT_START_DATE)
+            .endDate(DEFAULT_END_DATE)
+            .tenantId(DEFAULT_TENANT_ID)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lasteUpdatedDate(DEFAULT_LASTE_UPDATED_DATE)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY);
+        return reportType;
+    }
+
+    @Before
+    public void initTest() {
+        reportType = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createReportType() throws Exception {
+        int databaseSizeBeforeCreate = reportTypeRepository.findAll().size();
+
+        // Create the ReportType
+        restReportTypeMockMvc.perform(post("/api/report-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(reportType)))
+            .andExpect(status().isCreated());
+
+        // Validate the ReportType in the database
+        List<ReportType> reportTypeList = reportTypeRepository.findAll();
+        assertThat(reportTypeList).hasSize(databaseSizeBeforeCreate + 1);
+        ReportType testReportType = reportTypeList.get(reportTypeList.size() - 1);
+        assertThat(testReportType.getType()).isEqualTo(DEFAULT_TYPE);
+        assertThat(testReportType.isEnableFlag()).isEqualTo(DEFAULT_ENABLE_FLAG);
+        assertThat(testReportType.getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(testReportType.getEndDate()).isEqualTo(DEFAULT_END_DATE);
+        assertThat(testReportType.getTenantId()).isEqualTo(DEFAULT_TENANT_ID);
+        assertThat(testReportType.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testReportType.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testReportType.getLasteUpdatedDate()).isEqualTo(DEFAULT_LASTE_UPDATED_DATE);
+        assertThat(testReportType.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+    }
+
+    @Test
+    @Transactional
+    public void createReportTypeWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = reportTypeRepository.findAll().size();
+
+        // Create the ReportType with an existing ID
+        reportType.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restReportTypeMockMvc.perform(post("/api/report-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(reportType)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<ReportType> reportTypeList = reportTypeRepository.findAll();
+        assertThat(reportTypeList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllReportTypes() throws Exception {
+        // Initialize the database
+        reportTypeRepository.saveAndFlush(reportType);
+
+        // Get all the reportTypeList
+        restReportTypeMockMvc.perform(get("/api/report-types?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(reportType.getId().intValue())))
+            .andExpect(jsonPath("$.[*].type").value(hasItem(DEFAULT_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].enableFlag").value(hasItem(DEFAULT_ENABLE_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].startDate").value(hasItem(DEFAULT_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].endDate").value(hasItem(DEFAULT_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].tenantId").value(hasItem(DEFAULT_TENANT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lasteUpdatedDate").value(hasItem(sameInstant(DEFAULT_LASTE_UPDATED_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())));
+    }
+
+    @Test
+    @Transactional
+    public void getReportType() throws Exception {
+        // Initialize the database
+        reportTypeRepository.saveAndFlush(reportType);
+
+        // Get the reportType
+        restReportTypeMockMvc.perform(get("/api/report-types/{id}", reportType.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(reportType.getId().intValue()))
+            .andExpect(jsonPath("$.type").value(DEFAULT_TYPE.toString()))
+            .andExpect(jsonPath("$.enableFlag").value(DEFAULT_ENABLE_FLAG.booleanValue()))
+            .andExpect(jsonPath("$.startDate").value(DEFAULT_START_DATE.toString()))
+            .andExpect(jsonPath("$.endDate").value(DEFAULT_END_DATE.toString()))
+            .andExpect(jsonPath("$.tenantId").value(DEFAULT_TENANT_ID.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lasteUpdatedDate").value(sameInstant(DEFAULT_LASTE_UPDATED_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingReportType() throws Exception {
+        // Get the reportType
+        restReportTypeMockMvc.perform(get("/api/report-types/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateReportType() throws Exception {
+        // Initialize the database
+        reportTypeRepository.saveAndFlush(reportType);
+        int databaseSizeBeforeUpdate = reportTypeRepository.findAll().size();
+
+        // Update the reportType
+        ReportType updatedReportType = reportTypeRepository.findOne(reportType.getId());
+        updatedReportType
+            .type(UPDATED_TYPE)
+            .enableFlag(UPDATED_ENABLE_FLAG)
+            .startDate(UPDATED_START_DATE)
+            .endDate(UPDATED_END_DATE)
+            .tenantId(UPDATED_TENANT_ID)
+            .creationDate(UPDATED_CREATION_DATE)
+            .createdBy(UPDATED_CREATED_BY)
+            .lasteUpdatedDate(UPDATED_LASTE_UPDATED_DATE)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY);
+
+        restReportTypeMockMvc.perform(put("/api/report-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedReportType)))
+            .andExpect(status().isOk());
+
+        // Validate the ReportType in the database
+        List<ReportType> reportTypeList = reportTypeRepository.findAll();
+        assertThat(reportTypeList).hasSize(databaseSizeBeforeUpdate);
+        ReportType testReportType = reportTypeList.get(reportTypeList.size() - 1);
+        assertThat(testReportType.getType()).isEqualTo(UPDATED_TYPE);
+        assertThat(testReportType.isEnableFlag()).isEqualTo(UPDATED_ENABLE_FLAG);
+        assertThat(testReportType.getStartDate()).isEqualTo(UPDATED_START_DATE);
+        assertThat(testReportType.getEndDate()).isEqualTo(UPDATED_END_DATE);
+        assertThat(testReportType.getTenantId()).isEqualTo(UPDATED_TENANT_ID);
+        assertThat(testReportType.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testReportType.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testReportType.getLasteUpdatedDate()).isEqualTo(UPDATED_LASTE_UPDATED_DATE);
+        assertThat(testReportType.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingReportType() throws Exception {
+        int databaseSizeBeforeUpdate = reportTypeRepository.findAll().size();
+
+        // Create the ReportType
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restReportTypeMockMvc.perform(put("/api/report-types")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(reportType)))
+            .andExpect(status().isCreated());
+
+        // Validate the ReportType in the database
+        List<ReportType> reportTypeList = reportTypeRepository.findAll();
+        assertThat(reportTypeList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteReportType() throws Exception {
+        // Initialize the database
+        reportTypeRepository.saveAndFlush(reportType);
+        int databaseSizeBeforeDelete = reportTypeRepository.findAll().size();
+
+        // Get the reportType
+        restReportTypeMockMvc.perform(delete("/api/report-types/{id}", reportType.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate the database is empty
+        List<ReportType> reportTypeList = reportTypeRepository.findAll();
+        assertThat(reportTypeList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(ReportType.class);
+        ReportType reportType1 = new ReportType();
+        reportType1.setId(1L);
+        ReportType reportType2 = new ReportType();
+        reportType2.setId(reportType1.getId());
+        assertThat(reportType1).isEqualTo(reportType2);
+        reportType2.setId(2L);
+        assertThat(reportType1).isNotEqualTo(reportType2);
+        reportType1.setId(null);
+        assertThat(reportType1).isNotEqualTo(reportType2);
+    }
+}

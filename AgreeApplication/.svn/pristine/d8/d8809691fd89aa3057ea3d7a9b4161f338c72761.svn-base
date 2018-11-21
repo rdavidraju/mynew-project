@@ -1,0 +1,200 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataStaging;
+import com.nspl.app.repository.DataStagingRepository;
+import com.nspl.app.repository.search.DataStagingSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing DataStaging.
+ */
+@RestController
+@RequestMapping("/api")
+public class DataStagingResource {
+
+    private final Logger log = LoggerFactory.getLogger(DataStagingResource.class);
+
+    private static final String ENTITY_NAME = "dataStaging";
+        
+    private final DataStagingRepository dataStagingRepository;
+
+    private final DataStagingSearchRepository dataStagingSearchRepository;
+    
+    @PersistenceContext(unitName="default")
+	private EntityManager em;
+
+    public DataStagingResource(DataStagingRepository dataStagingRepository, DataStagingSearchRepository dataStagingSearchRepository) {
+        this.dataStagingRepository = dataStagingRepository;
+        this.dataStagingSearchRepository = dataStagingSearchRepository;
+    }
+
+    /**
+     * POST  /data-stagings : Create a new dataStaging.
+     *
+     * @param dataStaging the dataStaging to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new dataStaging, or with status 400 (Bad Request) if the dataStaging has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/data-stagings")
+    @Timed
+    public ResponseEntity<DataStaging> createDataStaging(@RequestBody DataStaging dataStaging) throws URISyntaxException {
+        log.debug("REST request to save DataStaging : {}", dataStaging);
+        if (dataStaging.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataStaging cannot already have an ID")).body(null);
+        }
+        DataStaging result = dataStagingRepository.save(dataStaging);
+        dataStagingSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/data-stagings/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /data-stagings : Updates an existing dataStaging.
+     *
+     * @param dataStaging the dataStaging to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataStaging,
+     * or with status 400 (Bad Request) if the dataStaging is not valid,
+     * or with status 500 (Internal Server Error) if the dataStaging couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/data-stagings")
+    @Timed
+    public ResponseEntity<DataStaging> updateDataStaging(@RequestBody DataStaging dataStaging) throws URISyntaxException {
+        log.debug("REST request to update DataStaging : {}", dataStaging);
+        if (dataStaging.getId() == null) {
+            return createDataStaging(dataStaging);
+        }
+        DataStaging result = dataStagingRepository.save(dataStaging);
+        dataStagingSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, dataStaging.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /data-stagings : get all the dataStagings.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of dataStagings in body
+     */
+    @GetMapping("/data-stagings")
+    @Timed
+    public ResponseEntity<List<DataStaging>> getAllDataStagings(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of DataStagings");
+        Page<DataStaging> page = dataStagingRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/data-stagings");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /data-stagings/:id : get the "id" dataStaging.
+     *
+     * @param id the id of the dataStaging to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataStaging, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-stagings/{id}")
+    @Timed
+    public ResponseEntity<DataStaging> getDataStaging(@PathVariable Long id) {
+        log.debug("REST request to get DataStaging : {}", id);
+        DataStaging dataStaging = dataStagingRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataStaging));
+    }
+
+    /**
+     * DELETE  /data-stagings/:id : delete the "id" dataStaging.
+     *
+     * @param id the id of the dataStaging to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-stagings/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataStaging(@PathVariable Long id) {
+        log.debug("REST request to delete DataStaging : {}", id);
+        dataStagingRepository.delete(id);
+        dataStagingSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/data-stagings?query=:query : search for the dataStaging corresponding
+     * to the query.
+     *
+     * @param query the query of the dataStaging search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/data-stagings")
+    @Timed
+    public ResponseEntity<List<DataStaging>> searchDataStagings(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of DataStagings for query {}", query);
+        Page<DataStaging> page = dataStagingSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/data-stagings");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    
+    /**
+     * Author: Swetha
+     * Api to retrieve distinct column values
+     * @param tableName
+     * @param colName
+     * @param tenantId
+     * @param templateId
+     * @return
+     */
+    @GetMapping("/getDistinctColValues")
+    @Timed
+    public List<String> getDistinctColValues(@RequestParam String tableName, @RequestParam String colName,@RequestParam Long tenantId,@RequestParam Long templateId){
+    	
+    	log.info("REST request to getDistinctColValues for TableName: "+tableName +" and colName: "+colName+"tenantId: "+tenantId+" template_id= "+templateId);
+    	List<String> colLst=new ArrayList<String>();
+    	
+    	Query distinctList=em.createQuery("select distinct"+"("+colName+")"+ " FROM "+tableName+" where tenantId="+tenantId+" and templateId= "+templateId);
+    			//" and template_id: "+templateId);
+		log.info("distinctList : "+distinctList);
+    	
+		List list=distinctList.getResultList();
+		log.info("size: "+list.size());
+		
+		for(int i=0;i<list.size();i++){
+			
+			log.info("list.get(i): "+list.get(i));
+			String obj=list.get(i).toString();
+			colLst.add(obj);
+		}
+		
+		return colLst;
+    	
+    }
+
+}

@@ -1,0 +1,29 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.TenantConfigModules;
+
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the TenantConfigModules entity.
+ */
+@SuppressWarnings("unused")
+public interface TenantConfigModulesRepository extends JpaRepository<TenantConfigModules,Long> {
+
+	
+	@Query(value =  "SELECT * FROM t_tenant_config_modules where tenant_id=:tenantId and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and if(end_date is null, sysdate()+1, (DATEDIFF(end_date,CURDATE()) >= 0)))",nativeQuery=true)
+	List<TenantConfigModules> findByTenantIdAndActive(@Param("tenantId")Long tenantId);
+	
+	@Query(value =  "SELECT * FROM t_tenant_config_modules where tenant_id=:tenantId and enabled_flag =1",nativeQuery=true)
+	List<TenantConfigModules> findByTenantIdAndEnable(@Param("tenantId")Long tenantId);
+
+
+	TenantConfigModules findByTenantIdAndModulesAndEnabledFlagTrue(Long tenantId, String modules);
+
+	List<TenantConfigModules> findByTenantIdAndEnabledFlagIsTrue(Long tenantId);
+
+	List<TenantConfigModules> findByTenantId(Long tenId);
+}

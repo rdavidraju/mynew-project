@@ -1,0 +1,39 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.util.HashMap;
+import java.util.List;
+
+import org.json.simple.JSONObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataViews;
+
+/**
+ * Spring Data JPA repository for the DataViews entity.
+ */
+@SuppressWarnings("unused")
+public interface DataViewsRepository extends JpaRepository<DataViews,Long> {
+
+	//List<DataViews> findByTenantId(Long tenantId);
+	
+	@Query(value="select * from  t_data_views where tenant_id= :tenantId and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and if(end_date is null, sysdate()+1, (DATEDIFF(end_date,CURDATE()) >= 0))) order by id desc", nativeQuery=true)
+	List<DataViews> fetchActiveDataViews(@Param(value = "tenantId") Long tenantId);
+
+	List<DataViews> findByTenantIdOrderByIdDesc(Long tenantId);
+	
+	Page<DataViews> findByTenantIdOrderByIdDesc(Long tenantId, Pageable pageable);
+	
+	DataViews findById(Long id);
+	
+	@Query(value="select * from t_data_views where id in (select data_view_id from t_data_views_src_mappings where relation= :relation) and tenant_id= :tenant_id",nativeQuery=true)
+	List<DataViews> fetchDataViewsByRelation(@Param(value = "relation") String relation, @Param(value = "tenant_id") Long tenant_id);
+	
+	@Query(value="select * from t_data_views where id in (select data_view_id from t_data_views_src_mappings where relation is null) and tenant_id= :tenant_id",nativeQuery=true)
+	List<DataViews> fetchSingleTemplateDataViews(@Param(value = "tenant_id") Long tenant_id);
+}

@@ -1,0 +1,147 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.Process;
+
+import com.nspl.app.repository.ProcessRepository;
+import com.nspl.app.repository.search.ProcessSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing Process.
+ */
+@RestController
+@RequestMapping("/api")
+public class ProcessResource {
+
+    private final Logger log = LoggerFactory.getLogger(ProcessResource.class);
+
+    private static final String ENTITY_NAME = "process";
+        
+    private final ProcessRepository processRepository;
+
+    private final ProcessSearchRepository processSearchRepository;
+
+    public ProcessResource(ProcessRepository processRepository, ProcessSearchRepository processSearchRepository) {
+        this.processRepository = processRepository;
+        this.processSearchRepository = processSearchRepository;
+    }
+
+    /**
+     * POST  /processes : Create a new process.
+     *
+     * @param process the process to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new process, or with status 400 (Bad Request) if the process has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/processes")
+    @Timed
+    public ResponseEntity<Process> createProcess(@RequestBody Process process) throws URISyntaxException {
+        log.debug("REST request to save Process : {}", process);
+        if (process.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new process cannot already have an ID")).body(null);
+        }
+        Process result = processRepository.save(process);
+        processSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/processes/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /processes : Updates an existing process.
+     *
+     * @param process the process to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated process,
+     * or with status 400 (Bad Request) if the process is not valid,
+     * or with status 500 (Internal Server Error) if the process couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/processes")
+    @Timed
+    public ResponseEntity<Process> updateProcess(@RequestBody Process process) throws URISyntaxException {
+        log.debug("REST request to update Process : {}", process);
+        if (process.getId() == null) {
+            return createProcess(process);
+        }
+        Process result = processRepository.save(process);
+        processSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, process.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /processes : get all the processes.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of processes in body
+     */
+    @GetMapping("/processes")
+    @Timed
+    public List<Process> getAllProcesses() {
+        log.debug("REST request to get all Processes");
+        List<Process> processes = processRepository.findAll();
+        return processes;
+    }
+
+    /**
+     * GET  /processes/:id : get the "id" process.
+     *
+     * @param id the id of the process to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the process, or with status 404 (Not Found)
+     */
+    @GetMapping("/processes/{id}")
+    @Timed
+    public ResponseEntity<Process> getProcess(@PathVariable Long id) {
+        log.debug("REST request to get Process : {}", id);
+        Process process = processRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(process));
+    }
+
+    /**
+     * DELETE  /processes/:id : delete the "id" process.
+     *
+     * @param id the id of the process to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/processes/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteProcess(@PathVariable Long id) {
+        log.debug("REST request to delete Process : {}", id);
+        processRepository.delete(id);
+        processSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/processes?query=:query : search for the process corresponding
+     * to the query.
+     *
+     * @param query the query of the process search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/processes")
+    @Timed
+    public List<Process> searchProcesses(@RequestParam String query) {
+        log.debug("REST request to search Processes for query {}", query);
+        return StreamSupport
+            .stream(processSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+
+}

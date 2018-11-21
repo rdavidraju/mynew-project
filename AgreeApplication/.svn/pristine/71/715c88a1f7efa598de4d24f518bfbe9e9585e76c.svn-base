@@ -1,0 +1,764 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.JobDetails;
+import com.nspl.app.domain.ProgParametersSets;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.JobDetailsRepository;
+import com.nspl.app.repository.ProgParametersSetsRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.search.SchedulerDetailsSearchRepository;
+import com.nspl.app.service.OozieService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.web.rest.dto.OozieJobDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.apache.oozie.client.OozieClient;
+import org.apache.oozie.client.OozieClientException;
+import org.apache.oozie.client.WorkflowJob;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.servlet.http.HttpServletResponse;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing SchedulerDetails.
+ */
+@RestController
+@RequestMapping("/api")
+public class SchedulerDetailsResource {
+
+    private final Logger log = LoggerFactory.getLogger(SchedulerDetailsResource.class);
+
+    private static final String ENTITY_NAME = "schedulerDetails";
+        
+    private final SchedulerDetailsRepository schedulerDetailsRepository;
+
+    private final SchedulerDetailsSearchRepository schedulerDetailsSearchRepository;
+
+    @Autowired
+	Environment env;
+    
+    @PersistenceContext(unitName="default")
+	private EntityManager em;
+    
+    @Inject
+    JobDetailsRepository jobDetailsRepository;
+    
+    @Inject
+    ApplicationProgramsRepository applicationProgramsRepository;
+    
+    @Inject
+    ProgParametersSetsRepository progParametersSetsRepository;
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+   
+	@Inject
+	OozieService oozieService;
+	
+    
+    public SchedulerDetailsResource(SchedulerDetailsRepository schedulerDetailsRepository, SchedulerDetailsSearchRepository schedulerDetailsSearchRepository) {
+        this.schedulerDetailsRepository = schedulerDetailsRepository;
+        this.schedulerDetailsSearchRepository = schedulerDetailsSearchRepository;
+    }
+
+    /**
+     * POST  /scheduler-details : Create a new schedulerDetails.
+     *
+     * @param schedulerDetails the schedulerDetails to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new schedulerDetails, or with status 400 (Bad Request) if the schedulerDetails has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/scheduler-details")
+    @Timed
+    public ResponseEntity<SchedulerDetails> createSchedulerDetails(@RequestBody SchedulerDetails schedulerDetails) throws URISyntaxException {
+        log.debug("REST request to save SchedulerDetails : {}", schedulerDetails);
+        if (schedulerDetails.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new schedulerDetails cannot already have an ID")).body(null);
+        }
+        SchedulerDetails result = schedulerDetailsRepository.save(schedulerDetails);
+        schedulerDetailsSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/scheduler-details/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /scheduler-details : Updates an existing schedulerDetails.
+     *
+     * @param schedulerDetails the schedulerDetails to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated schedulerDetails,
+     * or with status 400 (Bad Request) if the schedulerDetails is not valid,
+     * or with status 500 (Internal Server Error) if the schedulerDetails couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/scheduler-details")
+    @Timed
+    public ResponseEntity<SchedulerDetails> updateSchedulerDetails(@RequestBody SchedulerDetails schedulerDetails) throws URISyntaxException {
+        log.debug("REST request to update SchedulerDetails : {}", schedulerDetails);
+        if (schedulerDetails.getId() == null) {
+            return createSchedulerDetails(schedulerDetails);
+        }
+        SchedulerDetails result = schedulerDetailsRepository.save(schedulerDetails);
+        schedulerDetailsSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, schedulerDetails.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /scheduler-details : get all the schedulerDetails.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of schedulerDetails in body
+     */
+    @GetMapping("/scheduler-details")
+    @Timed
+    public List<SchedulerDetails> getAllSchedulerDetails() {
+        log.debug("REST request to get all SchedulerDetails");
+        List<SchedulerDetails> schedulerDetails = schedulerDetailsRepository.findAll();
+        return schedulerDetails;
+    }
+
+    /**
+     * GET  /scheduler-details/:id : get the "id" schedulerDetails.
+     *
+     * @param id the id of the schedulerDetails to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the schedulerDetails, or with status 404 (Not Found)
+     */
+    @GetMapping("/scheduler-details/{id}")
+    @Timed
+    public ResponseEntity<SchedulerDetails> getSchedulerDetails(@PathVariable Long id) {
+        log.debug("REST request to get SchedulerDetails : {}", id);
+        SchedulerDetails schedulerDetails = schedulerDetailsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(schedulerDetails));
+    }
+
+    /**
+     * DELETE  /scheduler-details/:id : delete the "id" schedulerDetails.
+     *
+     * @param id the id of the schedulerDetails to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/scheduler-details/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteSchedulerDetails(@PathVariable Long id) {
+        log.debug("REST request to delete SchedulerDetails : {}", id);
+        SchedulerDetails schedulerDetails = schedulerDetailsRepository.findOne(id);
+        schedulerDetails.setDeleteFlag(true);
+       // schedulerDetails.setLastUpdatedBy(lastUpdatedBy);
+        schedulerDetails.setLastUpdatedDate(ZonedDateTime.now());
+       // schedulerDetailsRepository.delete(id);
+       // schedulerDetailsSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/scheduler-details?query=:query : search for the schedulerDetails corresponding
+     * to the query.
+     *
+     * @param query the query of the schedulerDetails search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/scheduler-details")
+    @Timed
+    public List<SchedulerDetails> searchSchedulerDetails(@RequestParam String query) {
+        log.debug("REST request to search SchedulerDetails for query {}", query);
+        return StreamSupport
+            .stream(schedulerDetailsSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+    
+    
+    /**
+     * author ravali
+     * @param page
+     * @param size
+     * @param tenantId
+     * @param response
+     * @return List of schedulers
+     * @throws OozieClientException
+     * @throws SQLException
+     * @throws ClassNotFoundException
+     */
+    @GetMapping("/getAllSchedulersList")
+    @Timed 
+    public List<HashMap> getSchedulersList(@RequestParam(value = "page" , required = false) Integer page,
+			@RequestParam(value = "per_page", required = false) Integer size,@RequestParam Long tenantId,HttpServletResponse response,@RequestParam(value = "jobId", required = false) Long jobId) throws OozieClientException, SQLException, ClassNotFoundException
+			{
+    	log.info("Request Rest to fetch schedulers list");
+    	List<SchedulerDetails> schList = new ArrayList<SchedulerDetails>();
+    	//to get the total count and adding attribute to response header
+    	
+    	List<HashMap> finalSchList=new ArrayList<HashMap>();
+
+    	String oozieUrl=env.getProperty("oozie.OozieClient");
+    	//	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+    	String DB_URL = env.getProperty("oozie.ozieUrl");
+    	String USER = env.getProperty("oozie.ozieUser");
+    	String PASS = env.getProperty("oozie.oziePswd");
+
+    	Connection conn =null;
+
+    	Statement stmt = null;
+    	Statement stmt2=null;
+
+    	//Class.forName("com.mysql.jdbc.Driver");
+    	log.info("env.getProperty(spring.datasource.jdbcdriver) :"+env.getProperty("spring.datasource.jdbcdriver"));
+    	Class.forName(env.getProperty("spring.datasource.jdbcdriver"));
+    	if(DB_URL != null)
+    	{
+    		if(USER != null)
+    		{
+    			if(PASS != null)
+        		{
+
+    		    	conn = DriverManager.getConnection(DB_URL, USER, PASS);
+    		    	if(conn != null)
+    		    	{
+    		    		log.info("Connected database successfully...");
+        		    	stmt = conn.createStatement();
+        		    	stmt2=conn.createStatement();
+        		    	ResultSet result2=null;
+        		    	
+        		    	//to get the total count and adding attribute to response header
+        		    	ResultSet resultCount=stmt2.executeQuery("select count(*) from recon_oozie_jobs_v where tenant_id="+tenantId);
+        		    	while(resultCount.next())
+        		    	{
+        		    		log.info("resultCount.getString(count(*)) :"+resultCount.getString("count(*)"));
+        		    		response.addIntHeader("X-COUNT", Integer.parseInt(resultCount.getString("count(*)")));
+        		    	}
+
+        		    	if(jobId!=null)
+        		    	{
+        		    		List<String> schDetList=schedulerDetailsRepository.fetchOzieJobIdsByJobId(jobId);
+        		    		if(schDetList.size()>0)
+        		    		{
+        		    			log.info("schDetList :"+schDetList);
+        		    			String str="'"+schDetList.toString().replace("[","").replace("]", "").replace(" ","").replace(",","','")+"'";
+        		    			log.info("str :"+str);
+        		    			String schOzieIds=schDetList.toString().replaceAll("\\[","").replaceAll("\\]", "");
+        		    			log.info("schOzieIds :"+schOzieIds);
+
+        		    			result2=stmt.executeQuery("select * from recon_oozie_jobs_v where job_id in ("+str+")");
+        		    		}
+        		    	}
+        		    	else
+        		    	{
+        		    		result2=stmt.executeQuery("select * from recon_oozie_jobs_v where tenant_id="+tenantId+" order by start_time desc Limit "+(page-1) * size+", "+size);
+
+        		    	}
+
+
+
+        		    	ResultSetMetaData rsmd = result2.getMetaData();
+
+        		    	int columnsNumber = rsmd.getColumnCount();
+        		    	List<HashMap> oozieList=new ArrayList<HashMap>();
+
+        		    	while(result2.next())
+        		    	{
+        		    		log.info("result2.getString(parent_id) :"+result2.getString("parent_id"));
+
+        		    		SchedulerDetails sch=schedulerDetailsRepository.findByOozieJobIdAndTenantID(tenantId,result2.getString("parent_id"));
+        		    		if(sch!=null)
+        		    		{
+        		    			if(sch.getOozieJobId()!=null)
+        		    			{
+        		    				HashMap map=new HashMap();
+        		    				if(result2.getString("job_id")!=null)
+        		    					map.put("oozieJobId", result2.getString("job_id"));
+        		    				else
+        		    					map.put("oozieJobId", "");
+        		    				if(result2.getString("start_time")!=null)
+        		    					map.put("startTime", result2.getString("start_time"));
+        		    				else
+        		    					map.put("startTime","");
+        		    				if(result2.getString("child_id")!=null)
+        		    					map.put("childId", result2.getString("child_id"));
+        		    				else
+        		    					map.put("childId", "");
+        		    				if(result2.getString("end_time")!=null)
+        		    					map.put("endTime", result2.getString("end_time"));
+        		    				else
+        		    					map.put("endTime","");
+        		    				if(result2.getString("status")!=null)
+        		    					map.put("oozieStatus", result2.getString("status"));
+        		    				else
+        		    					map.put("oozieStatus","");
+
+
+        		    				map.put("jobId", sch.getJobId());
+        		    				JobDetails jobDetails=jobDetailsRepository.findOne(sch.getJobId());
+        		    				if(jobDetails!=null && jobDetails.getJobName()!=null)
+        		    					map.put("jobName", jobDetails.getJobName());
+        		    				else
+        		    					map.put("jobName", "");
+        		    				if(jobDetails!=null && jobDetails.getJobDescription()!=null)
+        		    					map.put("jobDescription", jobDetails.getJobDescription());
+        		    				else
+        		    					map.put("jobDescription", "");
+        		    				if(sch.getStatus()!=null)
+        		    					map.put("status", sch.getStatus());
+        		    				else
+        		    					map.put("status", "");
+        		    				map.put("localStatDate", sch.getStartDate());
+        		    				map.put("localEndDate", sch.getEndDate());
+
+        		    				if(sch.getFrequency()!=null)
+        		    					map.put("frequencyType", sch.getFrequency());
+        		    				else
+        		    					map.put("frequencyType", "");
+
+        		    				if(sch.getSchedulerName()!=null)
+        		    					map.put("schedulerName", sch.getSchedulerName());
+        		    				else
+        		    					map.put("schedulerName", "");
+
+        		    				if(jobDetails!=null && jobDetails.getProgrammId()!=null)
+        		    				{
+        		    					ApplicationPrograms progName=applicationProgramsRepository.findOne(jobDetails.getProgrammId());
+        		    					if(progName.getPrgmName()!=null)
+        		    						map.put("programName", progName.getPrgmName());
+        		    					//}
+
+
+        		    					List<ProgParametersSets> prog=progParametersSetsRepository.findByProgramId(jobDetails.getProgrammId());
+        		    					String paramList="";
+
+        		    					int k=0;
+
+
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments1()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments1()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments2()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments2()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments3()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments3()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments4()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments4()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments5()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments5()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments6()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments6()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments7()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments7()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments8()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments8()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments9()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments9()+",";
+        		    					}
+        		    					k++;
+        		    					if (k<prog.size()){
+        		    						if(jobDetails.getParameterArguments10()==null)
+        		    							paramList=paramList+" ,";
+        		    						else
+        		    							paramList=	paramList+jobDetails.getParameterArguments10()+",";
+        		    					}
+
+
+        		    					log.info("paramList 1:"+paramList);
+        		    					if(paramList!=null && paramList.length()!=0)
+        		    					{
+        		    						String str=paramList.substring(0, paramList.length() - 1);
+        		    						log.info("paramList 2:"+str);
+        		    						map.put("parametes", str);
+        		    					}
+        		    				}
+        		    				else
+        		    					map.put("programName", "");
+        		    				map.put("parametes", "");
+
+
+        		    				if(map!=null && !map.isEmpty())
+        		    					finalSchList.add(map);
+        		    			}
+        		    		}
+
+        		    	}
+        		    	if(conn!=null)
+        		    		conn.close();
+        		    	if(stmt!=null)
+        		    		stmt.close();
+        		    	if(stmt2!=null)
+        		    		stmt2.close();
+        		    	if(result2!=null)
+        		    		result2.close();
+        		    	if(resultCount!=null)
+        		    		resultCount.close();
+
+    		    	}
+    		    	else
+    		    	{
+    		    		log.info("connection is null");
+    		    	}
+    		    
+        		}
+        		else
+        		{
+        			log.info("PASS is null");
+        		}
+    		}
+    		else
+    		{
+    			log.info("USER is null");
+    		}
+    	}
+    	else
+    	{
+    		log.info("DB_URL is null");
+    	}
+    	
+    	return finalSchList;
+
+			}
+    
+    
+    
+    @SuppressWarnings("unchecked")
+    @PostMapping("/buildOozieJob")
+    @Timed
+    public void BuildOozieJob(@RequestBody OozieJobDTO oozieJobDTO,@RequestParam Long tenantId)
+   
+    {
+
+    	System.out.println("Started");
+    	log.info("Sample Log");
+    	oozieService.BuildOozieJob(oozieJobDTO,tenantId);
+
+    }
+
+    
+    
+    
+    @SuppressWarnings("unchecked")
+    @PostMapping("/initiateOozieJob")
+    @Timed
+    public String InitiateOozieJob(@RequestBody OozieJobDTO oozieJobDTO)
+   
+    {
+
+    	System.out.println("Started");
+    	String jobId=oozieService.InitiateOozieJob(oozieJobDTO);
+    	return jobId;
+
+    }
+    
+    
+    
+   /* @SuppressWarnings("unchecked")
+    @PostMapping("/BuildInitOozieJob")
+    @Timed
+    public String BuildInitOozieJob(@RequestBody OozieJobDTO oozieJobDTO)
+    public void InitiateOozieJob(@RequestParam String jobType,@RequestParam String path,@RequestParam String hdfsPath, 
+     * @RequestParam String startDate, @RequestParam String endDate 
+    			,@RequestParam String frequency,@RequestParam String javaMainClass,@RequestParam String sparkClassName,
+    			@RequestParam String sparkJarName, @RequestParam String shellExec, 
+    			@RequestParam String shellFilePath, @RequestParam String jobName)
+    {
+
+		System.out.println("Started");
+		log.info("Sample Log");
+		WfManager wfManager = new WfManagerImpl();
+		coordinatorxml cxml = new coordinatorxml();
+		//createjobproperties cjp = new createjobproperties();
+		System.out.println(" Job Tracket from YML: "+env.getProperty("oozie.jobTracker"));
+		String JobId = "";
+		
+		
+		try {
+			System.out.println("Hadoop: "+hadoopConfiguration.get("fs.defaultFS"));
+			wfManager.generateWorkFlow(oozieJobDTO.getJobType(),oozieJobDTO.getPath(),hadoopConfiguration, oozieJobDTO.getJavaMainClass(),oozieJobDTO.getSparkClassName()
+					,oozieJobDTO.getSparkJarName(),oozieJobDTO.getShellExec(),oozieJobDTO.getShellFilePath(),env.getProperty("oozie.jobTracker"), env.getProperty("oozie.nameNode"),oozieJobDTO.getJobName()); //removethis after adding jar
+			//wfManager.generateWorkFlow(jobType,path,hadoopConfiguration);//, javaMainClass,sparkClassName,sparkJarName,shellExec,shellFilePath ); removethis after adding jar
+			cxml.createCordinatorXml(oozieJobDTO.getJobType(),oozieJobDTO.getPath(),hadoopConfiguration);
+			//cjp.createjobprop(jobType,path,startDate,endDate,hadoopConfiguration);
+			writeToHdfs(oozieJobDTO.getPath()+"workflow.xml",oozieJobDTO.getHdfsPath()+"/workflow.xml");
+			writeToHdfs(oozieJobDTO.getPath()+"coordinator.xml",oozieJobDTO.getHdfsPath()+"/coordinator.xml");
+			//writeToHdfs(path+"job.properties",hdfsPath+"/job.properties");
+		
+		    BuildOozieJob(oozieJobDTO);
+			log.info("env oozie client :"+env.getProperty("oozie.OozieClient"));
+			JobId = wfManager.initateOozieWithGeneratedWorkflow(env.getProperty("oozie.OozieClient"),hadoopConfiguration.get("fs.defaultFS")+oozieJobDTO.getHdfsPath(),oozieJobDTO.getStartDate(),oozieJobDTO.getEndDate(),env.getProperty("oozie.jobTracker"),
+											env.getProperty("oozie.nameNode"),oozieJobDTO.getFrequency());
+			
+			System.out.println("Job Id: "+JobId);
+		} catch (Exception e) {
+			log.info(CONTEXT, e);
+		}
+		return JobId;
+	
+    }*/
+    
+   
+    
+
+    /*
+     * Rest API "rereunOozieCoordJob" is used to rerun the Coordinator jobs
+     * @param jobId is Coordinator JobId
+     * @param rerunType type date if -date is used , action-num if -action is used
+     * @param scope rerun scope for date or action nums
+     */    
+   /* @SuppressWarnings("unchecked")
+    @GetMapping("/rerunOozieCoordJob")
+    @Timed
+    public void rerunOozieCoordJob(@RequestParam String jobId, @RequestParam String rerunType, @RequestParam String scope)
+    {	  
+        
+    	System.out.println("REST API FOR RE-RUNNING OOZIE JOB");
+    	OozieClient oozieClient = new OozieClient(env.getProperty("oozie.OozieClient"));   //("http://ebiz.nspl.com:11000");
+    	// create a workflow job configuration and set the workflow application path
+    	
+    	Properties conf = oozieClient.createConfiguration();
+     	System.out.println("David1");
+    	try{
+    		System.out.println("David2");
+    		List<CoordinatorAction> test = oozieClient.reRunCoord(jobId, rerunType, scope, false, false);
+
+    		for(CoordinatorAction cAct : test)
+    		{
+    		System.out.println("Job id's "+ cAct.getJobId());
+    		}
+    		System.out.println("David Raju");
+    	}catch(Exception e)
+    	{
+    		e.printStackTrace();
+    		System.out.println(e);
+    	}
+    }*/
+    
+    
+    
+    @SuppressWarnings("unchecked")
+    @GetMapping("/rerunOozieCoordJob")
+    @Timed
+    public void rerunOozieCoordJob(@RequestParam String jobId, @RequestParam String rerunType, @RequestParam String scope) throws IOException
+    {	  
+        
+    	System.out.println("REST API FOR RE-RUNNING OOZIE JOB");
+    	oozieService.rerunOozieCoordJob(jobId, rerunType, scope);
+    	
+    }
+    
+    
+    /*
+     * Rest API "killOozieCoordJob" is used to kill the Coordinator jobs
+     * @param jobId is Coordinator JobId
+     * @param rangeType type date if -date is used , action-num if -action is used
+     * @param scope kill scope for date or action nums
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/killOozieCoordJob")
+    @Timed
+    public void killOozieCoordJob(@RequestParam String jobId, @RequestParam String rangeType, @RequestParam String scope)
+    {	  
+        
+    	System.out.println("REST API FOR Killing OOZIE JOB");
+    	oozieService.killOozieCoordJob(jobId, rangeType, scope);
+    	
+    	
+    
+    	    	
+    }
+
+    /*
+     * Rest API "SuspendOozieCoordJob" is used to kill the Coordinator jobs
+     * @param jobId is Coordinator JobId
+     * @param rangeType type date if -date is used , action-num if -action is used
+     * @param scope kill scope for date or action nums
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/suspendOozieCoordJob")
+    @Timed
+    public void suspendOozieCoordJob(@RequestParam String jobId)
+    {	  
+        
+    	System.out.println("REST API FOR Suspend OOZIE JOB");
+    	
+    	oozieService.suspendOozieCoordJob(jobId);
+     	
+    }
+   
+
+    
+   /*  * Rest API "resumeOozieCoordJob" is used to resume the Coordinator jobs
+     * @param jobId is Coordinator JobId
+     
+    */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/resumeOozieCoordJob")
+    @Timed
+    public void resumeOozieCoordJob(@RequestParam String jobId)
+    {	  
+        
+    	System.out.println("REST API FOR Suspend OOZIE JOB");
+    	oozieService.resumeOozieCoordJob(jobId);
+    	
+    	
+   	
+    }
+   
+    
+    
+  /*  
+     * Rest API "OozieCoordJobInfo" is used to print Information of Coordinator jobs
+     * @param jobId is Coordinator JobId
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/OozieCoordJobInfo")
+    @Timed
+    public void OozieCoordJobInfo(@RequestParam String jobId)
+    {	  
+        
+    	System.out.println("REST API FOR OOZIE JOB Info");
+    	
+    	oozieService.OozieCoordJobInfo(jobId);
+    	
+    	
+    
+    }
+    
+    
+   /** Rest API "OozieWFJobInfo" is used to print Information of Coordinator jobs
+     * @param jobId is Workflow JobId
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/OozieWFJobInfo")
+    @Timed
+    public void OozieWFJobInfo(@RequestParam String jobId)
+    {	  
+        
+    	System.out.println("REST API FOR OOZIE JOB Info");
+    	
+    	oozieService.OozieWFJobInfo(jobId);
+   
+    }
+    
+   /* 
+     * Rest API "OozieJobLog" is used to print Information of Coordinator jobs and WF Log
+     * @param jobId is Workflow JobId or Coordinator ID
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/OozieJobLog")
+    @Timed
+    public String OozieJobLog(@RequestParam String jobId)
+    {	  
+        
+    	System.out.println("REST API FOR OOZIE JOB Log");
+    	String jobInfo=oozieService.OozieJobLog(jobId);
+		return jobInfo;
+		
+    	
+    }
+    
+ 
+    
+   /* 
+     * Rest API "OozieJobDef" is used to print Information of Coordinator jobs
+     * @param jobId is Coordinator JobId
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/OozieJobDef")
+    @Timed
+    public void OozieJobDef(@RequestParam String jobId)
+    {	  
+        
+    	System.out.println("REST API FOR OOZIE JOB Info");
+    	
+    	oozieService.OozieJobDef(jobId);
+    	
+    	
+    }
+
+
+@GetMapping("/oozieKillJob")
+@Timed 
+
+public String kill(@RequestParam String jobId) throws OozieClientException
+{
+	log.info("to kill job :"+jobId);
+	String status=oozieService.KillOzieParentJob(jobId);
+	return status;
+}
+
+}

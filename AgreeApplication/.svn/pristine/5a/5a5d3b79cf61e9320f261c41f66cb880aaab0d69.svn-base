@@ -1,0 +1,37 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.Reconcile;
+
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the Reconcile entity.
+ */
+@SuppressWarnings("unused")
+public interface ReconcileRepository extends JpaRepository<Reconcile,Long> {
+
+	
+/*@Query(value="SELECT processor_name,sum(amount),record_type,currency_code FROM reconcile group by processor_name,record_type,currency_code",
+			nativeQuery=true)
+List<Object[]>  fetchAmountByProcessorNameAndRecordTypeAndCurrency();*/
+	
+	@Query(value="SELECT processor_name,sum(amount) FROM reconcile where (((DATEDIFF(transaction_date, :startDate)) >= 0) and (DATEDIFF(:endDate,transaction_date) >= 0)) group by processor_name",
+			nativeQuery=true)
+List<Object[]>  fetchAmountByProcessorNameAndRecordTypeAndCurrency(@Param("startDate") LocalDate startDate,@Param("endDate") LocalDate endDate);
+
+
+
+@Query(value="SELECT sum(amount) FROM reconcile where transaction_date between :startDate and :endDate",nativeQuery=true)
+	BigDecimal fetchAmountBytransactionDate(@Param("startDate") LocalDate startDate,@Param("endDate") LocalDate endDate);
+			
+@Query(value="SELECT currency_code,sum(amount) FROM reconcile where (((DATEDIFF(transaction_date, :startDate)) >= 0) and (DATEDIFF(:endDate,transaction_date) >= 0)) group by processor_name= :processor_name,currency_code",
+nativeQuery=true)
+List<Object[]>  fetchAmountByCurrency(@Param("startDate") LocalDate startDate,@Param("endDate") LocalDate endDate,@Param("processor_name") String processor_name);
+
+
+}

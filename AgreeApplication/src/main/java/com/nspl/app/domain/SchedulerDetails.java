@@ -1,0 +1,448 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.springframework.data.elasticsearch.annotations.Document;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A SchedulerDetails.
+ */
+@Entity
+@Table(name = "t_scheduler_details")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+@Document(indexName = "tschedulerdetails")
+public class SchedulerDetails implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "job_id")
+    private Long jobId;
+
+    @Column(name = "frequency")
+    private String frequency;
+
+    @Column(name = "start_date")
+    private ZonedDateTime startDate;
+
+    @Column(name = "frequency_value")
+    private Integer frequencyValue;
+
+    @Column(name = "day_of")
+    private String dayOf;
+
+    @Column(name = "time")
+    private String time;
+
+    @Column(name = "end_date")
+    private ZonedDateTime endDate;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "creation_date")
+    private ZonedDateTime creationDate;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
+    
+    @Column(name = "minutes")
+    private Long minutes;
+    
+    @Column(name = "hours")
+    private Long hours;
+    
+    @Column(name = "month")
+    private String month;
+    
+    @Column(name = "week_day")
+    private String weekDay;
+    
+    @Column(name = "date")
+    private LocalDate date;
+    
+    @Column(name = "oozie_job_id")
+    private String oozieJobId;
+    
+    @Column(name = "scheduler_name")
+    private String schedulerName;
+    
+    
+    
+    @Column(name = "status")
+    private String status;
+   
+    
+    @Column(name = "delete_flag")
+    private Boolean deleteFlag;
+    
+    @Column(name = "is_viewed")
+    private Boolean isViewed;
+    
+    
+    @Column(name = "frequency_format")
+    private String frequencyFormat;
+    
+    
+    public Long getHours() {
+        return hours;
+    }
+
+    public SchedulerDetails hours(Long hours) {
+        this.hours = hours;
+        return this;
+    }
+
+    public void setHours(Long hours) {
+        this.hours = hours;
+    }
+    
+    public Long getMinutes() {
+        return minutes;
+    }
+
+    public SchedulerDetails minutes(Long minutes) {
+        this.minutes = minutes;
+        return this;
+    }
+
+    public void setMinutes(Long minutes) {
+        this.minutes = minutes;
+    }
+    public String getMonth() {
+        return month;
+    }
+
+    public SchedulerDetails month(String month) {
+        this.month = month;
+        return this;
+    }
+
+    public void setMonth(String month) {
+        this.month = month;
+    }
+    
+    public String getWeekDay() {
+        return weekDay;
+    }
+
+    public SchedulerDetails weekDay(String weekDay) {
+        this.weekDay = weekDay;
+        return this;
+    }
+
+    public void setWeekDay(String weekDay) {
+        this.weekDay = weekDay;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public SchedulerDetails date(LocalDate date) {
+        this.date = date;
+        return this;
+    }
+
+    public void setDate(LocalDate date) {
+        this.date = date;
+    }
+
+    
+    
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getJobId() {
+        return jobId;
+    }
+
+    public SchedulerDetails jobId(Long jobId) {
+        this.jobId = jobId;
+        return this;
+    }
+
+    public void setJobId(Long jobId) {
+        this.jobId = jobId;
+    }
+
+    public String getFrequency() {
+        return frequency;
+    }
+
+    public SchedulerDetails frequency(String frequency) {
+        this.frequency = frequency;
+        return this;
+    }
+
+    public void setFrequency(String frequency) {
+        this.frequency = frequency;
+    }
+
+    public ZonedDateTime getStartDate() {
+        return startDate;
+    }
+
+    public SchedulerDetails startDate(ZonedDateTime startDate) {
+        this.startDate = startDate;
+        return this;
+    }
+
+    public void setStartDate(ZonedDateTime startDate) {
+        this.startDate = startDate;
+    }
+
+    public Integer getFrequencyValue() {
+        return frequencyValue;
+    }
+
+    public SchedulerDetails frequencyValue(Integer frequencyValue) {
+        this.frequencyValue = frequencyValue;
+        return this;
+    }
+
+    public void setFrequencyValue(Integer frequencyValue) {
+        this.frequencyValue = frequencyValue;
+    }
+
+    public String getDayOf() {
+        return dayOf;
+    }
+
+    public SchedulerDetails dayOf(String dayOf) {
+        this.dayOf = dayOf;
+        return this;
+    }
+
+    public void setDayOf(String dayOf) {
+        this.dayOf = dayOf;
+    }
+
+    public String getTime() {
+        return time;
+    }
+
+    public SchedulerDetails time(String time) {
+        this.time = time;
+        return this;
+    }
+
+    public void setTime(String time) {
+        this.time = time;
+    }
+
+    public ZonedDateTime getEndDate() {
+        return endDate;
+    }
+
+    public SchedulerDetails endDate(ZonedDateTime endDate) {
+        this.endDate = endDate;
+        return this;
+    }
+
+    public void setEndDate(ZonedDateTime endDate) {
+        this.endDate = endDate;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public SchedulerDetails createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public ZonedDateTime getCreationDate() {
+        return creationDate;
+    }
+
+    public SchedulerDetails creationDate(ZonedDateTime creationDate) {
+        this.creationDate = creationDate;
+        return this;
+    }
+
+    public void setCreationDate(ZonedDateTime creationDate) {
+        this.creationDate = creationDate;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public SchedulerDetails lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public SchedulerDetails lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public SchedulerDetails tenantId(Long tenantId) {
+        this.tenantId = tenantId;
+        return this;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
+    }
+    
+    
+    public String getOozieJobId() {
+        return oozieJobId;
+    }
+
+    public SchedulerDetails oozieJobId(String oozieJobId) {
+        this.oozieJobId = oozieJobId;
+        return this;
+    }
+
+    public void setOozieJobId(String oozieJobId) {
+        this.oozieJobId = oozieJobId;
+    }
+    
+    public String getSchedulerName() {
+        return schedulerName;
+    }
+
+    public SchedulerDetails schedulerName(String schedulerName) {
+        this.schedulerName = schedulerName;
+        return this;
+    }
+
+    public void setSchedulerName(String schedulerName) {
+        this.schedulerName = schedulerName;
+    }
+    
+    public String getStatus() {
+        return status;
+    }
+
+    public SchedulerDetails status(String status) {
+        this.status = status;
+        return this;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+    
+    public Boolean isDeleteFlag() {
+        return deleteFlag;
+    }
+
+    public SchedulerDetails deleteFlag(Boolean deleteFlag) {
+        this.deleteFlag = deleteFlag;
+        return this;
+    }
+
+    public void setDeleteFlag(Boolean deleteFlag) {
+        this.deleteFlag = deleteFlag;
+    }
+    
+    
+    public Boolean isIsViewed() {
+        return isViewed;
+    }
+
+    public SchedulerDetails isViewed(Boolean isViewed) {
+        this.isViewed = isViewed;
+        return this;
+    }
+
+    public void setIsViewed(Boolean isViewed) {
+        this.isViewed = isViewed;
+    }
+    
+    
+
+    public String getFrequencyFormat() {
+		return frequencyFormat;
+	}
+
+	public void setFrequencyFormat(String frequencyFormat) {
+		this.frequencyFormat = frequencyFormat;
+	}
+
+	@Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SchedulerDetails schedulerDetails = (SchedulerDetails) o;
+        if (schedulerDetails.id == null || id == null) {
+            return false;
+        }
+        return Objects.equals(id, schedulerDetails.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
+    public String toString() {
+        return "SchedulerDetails{" +
+            "id=" + id +
+            ", jobId='" + jobId + "'" +
+            ", frequency='" + frequency + "'" +
+            ", startDate='" + startDate + "'" +
+            ", frequencyValue='" + frequencyValue + "'" +
+            ", dayOf='" + dayOf + "'" +
+            ", time='" + time + "'" +
+            ", endDate='" + endDate + "'" +
+            ", createdBy='" + createdBy + "'" +
+            ", creationDate='" + creationDate + "'" +
+            ", lastUpdatedBy='" + lastUpdatedBy + "'" +
+            ", lastUpdatedDate='" + lastUpdatedDate + "'" +
+            ", tenantId='" + tenantId + "'" +
+            ", frequencyFormat='" + frequencyFormat + "'" +
+            '}';
+    }
+}

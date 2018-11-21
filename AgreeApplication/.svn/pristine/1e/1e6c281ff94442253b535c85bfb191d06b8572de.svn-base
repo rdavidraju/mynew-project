@@ -1,0 +1,178 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LookUpType;
+import com.nspl.app.repository.LookUpTypeRepository;
+import com.nspl.app.repository.search.LookUpTypeSearchRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing LookUpType.
+ */
+@RestController
+@RequestMapping("/api")
+public class LookUpTypeResource {
+
+    private final Logger log = LoggerFactory.getLogger(LookUpTypeResource.class);
+
+    private static final String ENTITY_NAME = "lookUpType";
+        
+    private final LookUpTypeRepository lookUpTypeRepository;
+
+    private final LookUpTypeSearchRepository lookUpTypeSearchRepository;
+    
+    @Inject
+	UserJdbcService userJdbcService;
+
+    public LookUpTypeResource(LookUpTypeRepository lookUpTypeRepository, LookUpTypeSearchRepository lookUpTypeSearchRepository) {
+        this.lookUpTypeRepository = lookUpTypeRepository;
+        this.lookUpTypeSearchRepository = lookUpTypeSearchRepository;
+    }
+
+    /**
+     * POST  /look-up-types : Create a new lookUpType.
+     *
+     * @param lookUpType the lookUpType to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new lookUpType, or with status 400 (Bad Request) if the lookUpType has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/look-up-types")
+    @Timed
+    public ResponseEntity<LookUpType> createLookUpType(@RequestBody LookUpType lookUpType) throws URISyntaxException {
+        log.debug("REST request to save LookUpType : {}", lookUpType);
+        if (lookUpType.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new lookUpType cannot already have an ID")).body(null);
+        }
+        LookUpType result = lookUpTypeRepository.save(lookUpType);
+        lookUpTypeSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/look-up-types/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /look-up-types : Updates an existing lookUpType.
+     *
+     * @param lookUpType the lookUpType to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated lookUpType,
+     * or with status 400 (Bad Request) if the lookUpType is not valid,
+     * or with status 500 (Internal Server Error) if the lookUpType couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/look-up-types")
+    @Timed
+    public ResponseEntity<LookUpType> updateLookUpType(@RequestBody LookUpType lookUpType) throws URISyntaxException {
+        log.debug("REST request to update LookUpType : {}", lookUpType);
+        if (lookUpType.getId() == null) {
+            return createLookUpType(lookUpType);
+        }
+        LookUpType result = lookUpTypeRepository.save(lookUpType);
+        lookUpTypeSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, lookUpType.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /look-up-types : get all the lookUpTypes.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of lookUpTypes in body
+     */
+/*    @GetMapping("/look-up-types")
+    @Timed
+    public ResponseEntity<List<LookUpType>> getAllLookUpTypes(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of LookUpTypes");
+        Page<LookUpType> page = lookUpTypeRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/look-up-types");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+*/
+    
+    @GetMapping("/look-up-types")
+    @Timed
+    public List<LookUpType> getAllLookUpTypes(HttpServletRequest request) {
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+        log.debug("REST request to get a page of LookUpTypes for tenant: "+tenantId);
+        List<LookUpType> lookUptypeList = lookUpTypeRepository.findByTenantId(tenantId);
+		return lookUptypeList;
+     
+    }
+
+    
+    /**
+     * GET  /look-up-types/:id : get the "id" lookUpType.
+     *
+     * @param id the id of the lookUpType to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the lookUpType, or with status 404 (Not Found)
+     */
+    @GetMapping("/look-up-types/{id}")
+    @Timed
+    public ResponseEntity<LookUpType> getLookUpType(@PathVariable Long id) {
+        log.debug("REST request to get LookUpType : {}", id);
+        LookUpType lookUpType = lookUpTypeRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(lookUpType));
+    }
+
+    /**
+     * DELETE  /look-up-types/:id : delete the "id" lookUpType.
+     *
+     * @param id the id of the lookUpType to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/look-up-types/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteLookUpType(@PathVariable Long id) {
+        log.debug("REST request to delete LookUpType : {}", id);
+        lookUpTypeRepository.delete(id);
+        lookUpTypeSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/look-up-types?query=:query : search for the lookUpType corresponding
+     * to the query.
+     *
+     * @param query the query of the lookUpType search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/look-up-types")
+    @Timed
+    public ResponseEntity<List<LookUpType>> searchLookUpTypes(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of LookUpTypes for query {}", query);
+        Page<LookUpType> page = lookUpTypeSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/look-up-types");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+
+}

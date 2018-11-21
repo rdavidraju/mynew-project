@@ -1,0 +1,243 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+
+import javax.persistence.*;
+
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A Processes.
+ */
+@Entity
+@Table(name = "t_processes")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+public class Processes implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "id_for_display")
+    private String idForDisplay;
+
+    @Column(name = "process_name")
+    private String processName;
+
+    @Column(name = "jhi_desc")
+    private String desc;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
+    @Column(name = "start_date")
+    private ZonedDateTime startDate;
+
+    @Column(name = "end_date")
+    private ZonedDateTime endDate;
+
+    @Column(name = "jhi_enable")
+    private Boolean enable;
+
+    @Column(name = "created_date")
+    private ZonedDateTime createdDate;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getProcessName() {
+        return processName;
+    }
+
+    public Processes processName(String processName) {
+        this.processName = processName;
+        return this;
+    }
+
+    public void setProcessName(String processName) {
+        this.processName = processName;
+    }
+
+    public String getDesc() {
+        return desc;
+    }
+
+    public Processes desc(String desc) {
+        this.desc = desc;
+        return this;
+    }
+
+    public void setDesc(String desc) {
+        this.desc = desc;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public Processes tenantId(Long tenantId) {
+        this.tenantId = tenantId;
+        return this;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public ZonedDateTime getStartDate() {
+        return startDate;
+    }
+
+    public Processes startDate(ZonedDateTime startDate) {
+        this.startDate = startDate;
+        return this;
+    }
+
+    public void setStartDate(ZonedDateTime startDate) {
+        this.startDate = startDate;
+    }
+
+    public ZonedDateTime getEndDate() {
+        return endDate;
+    }
+
+    public Processes endDate(ZonedDateTime endDate) {
+        this.endDate = endDate;
+        return this;
+    }
+
+    public void setEndDate(ZonedDateTime endDate) {
+        this.endDate = endDate;
+    }
+
+    public Boolean isEnable() {
+        return enable;
+    }
+
+    public Processes enable(Boolean enable) {
+        this.enable = enable;
+        return this;
+    }
+
+    public void setEnable(Boolean enable) {
+        this.enable = enable;
+    }
+
+    public ZonedDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    public Processes createdDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+        return this;
+    }
+
+    public void setCreatedDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public Processes createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public Processes lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public Processes lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public String getIdForDisplay() {
+		return idForDisplay;
+	}
+
+	public void setIdForDisplay(String idForDisplay) {
+		this.idForDisplay = idForDisplay;
+	}
+
+	@Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Processes processes = (Processes) o;
+        if (processes.getId() == null || getId() == null) {
+            return false;
+        }
+        return Objects.equals(getId(), processes.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getId());
+    }
+
+    @Override
+    public String toString() {
+        return "Processes{" +
+            "id=" + getId() +
+            ", processName='" + getProcessName() + "'" +
+            ", desc='" + getDesc() + "'" +
+            ", tenantId='" + getTenantId() + "'" +
+            ", startDate='" + getStartDate() + "'" +
+            ", endDate='" + getEndDate() + "'" +
+            ", enable='" + isEnable() + "'" +
+            ", createdDate='" + getCreatedDate() + "'" +
+            ", createdBy='" + getCreatedBy() + "'" +
+            ", lastUpdatedDate='" + getLastUpdatedDate() + "'" +
+            ", lastUpdatedBy='" + getLastUpdatedBy() + "'" +
+            ", idForDisplay='" + getIdForDisplay() + "'" +
+            "}";
+    }
+}

@@ -1,0 +1,1110 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.JobActions;
+import com.nspl.app.domain.Notifications;
+import com.nspl.app.domain.Project;
+import com.nspl.app.domain.ReportRequests;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.repository.BucketDetailsRepository;
+import com.nspl.app.repository.BucketListRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.JobActionsRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.NotificationsRepository;
+import com.nspl.app.repository.ProjectRepository;
+import com.nspl.app.repository.ReportDefinationRepository;
+import com.nspl.app.repository.ReportParametersRepository;
+import com.nspl.app.repository.ReportRequestsRepository;
+import com.nspl.app.repository.ReportsRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.TenantConfigRepository;
+import com.nspl.app.repository.search.ProjectSearchRepository;
+import com.nspl.app.repository.SegmentsRepository;
+import com.nspl.app.service.DataViewsService;
+import com.nspl.app.service.OozieService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReportsService;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.apache.oozie.client.OozieClientException;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.AnalysisException;
+import org.apache.spark.sql.Column;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.RelationalGroupedDataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SQLContext;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.functions;
+import org.joda.time.DateTime;
+import org.json.JSONException;
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.text.ParseException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import scala.collection.mutable.StringBuilder;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing Project.
+ */
+@RestController
+@RequestMapping("/api")
+public class ProjectResource {
+
+    private final Logger log = LoggerFactory.getLogger(ProjectResource.class);
+
+    private static final String ENTITY_NAME = "project";
+        
+    private final ProjectRepository projectRepository;
+
+    private final ProjectSearchRepository projectSearchRepository;
+    
+    
+    @Inject 
+    ReportsRepository reportsRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    ReportParametersRepository reportParametersRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    DataViewsService dataViewsService;
+    
+    @Inject
+    ReportDefinationRepository reportDefinationRepository;
+    
+    @Inject
+    private Environment env;
+    
+    @Inject
+    ReportsService reportsService;
+    
+    @Inject
+    BucketListRepository bucketListRepository;
+    
+    @Inject
+    BucketDetailsRepository bucketDetailsRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    OozieService oozieService;
+    
+    @Inject
+    JobActionsRepository jobActionsRepository;
+    
+    @Inject
+    ReportRequestsRepository reportRequestsRepository;
+    
+    @Inject
+    NotificationsRepository notificationsRepository;
+    
+    @Inject
+    SchedulerDetailsRepository schedulerDetailsRepository;
+    
+    @Inject
+    SegmentsRepository segmentsRepository;
+    
+    @Inject
+    UserJdbcService userJdbcService;
+    
+    @Inject
+    TenantConfigRepository tenantConfigRepository;
+    
+   
+    @PersistenceContext(unitName="default")
+	private EntityManager em;
+    
+    public ProjectResource(ProjectRepository projectRepository, ProjectSearchRepository projectSearchRepository) {
+        this.projectRepository = projectRepository;
+        this.projectSearchRepository = projectSearchRepository;
+    }
+
+    /**
+     * POST  /projects : Create a new project.
+     *
+     * @param project the project to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new project, or with status 400 (Bad Request) if the project has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/projects")
+    @Timed
+    public ResponseEntity<Project> createProject(@RequestBody Project project) throws URISyntaxException {
+        log.debug("REST request to save Project : {}", project);
+        if (project.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new project cannot already have an ID")).body(null);
+        }
+        Project result = projectRepository.save(project);
+        projectSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/projects/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /projects : Updates an existing project.
+     *
+     * @param project the project to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated project,
+     * or with status 400 (Bad Request) if the project is not valid,
+     * or with status 500 (Internal Server Error) if the project couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/projects")
+    @Timed
+    public ResponseEntity<Project> updateProject(@RequestBody Project project) throws URISyntaxException {
+        log.debug("REST request to update Project : {}", project);
+        if (project.getId() == null) {
+            return createProject(project);
+        }
+        Project result = projectRepository.save(project);
+        projectSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, project.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /projects : get all the projects.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of projects in body
+     */
+    @GetMapping("/projects")
+    @Timed
+    public List<Project> getAllProjects() {
+        log.debug("REST request to get all Projects");
+        List<Project> projects = projectRepository.findAll();
+        return projects;
+    }
+
+    /**
+     * GET  /projects/:id : get the "id" project.
+     *
+     * @param id the id of the project to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the project, or with status 404 (Not Found)
+     */
+    @GetMapping("/projects/{id}")
+    @Timed
+    public ResponseEntity<Project> getProject(@PathVariable Long id) {
+        log.debug("REST request to get Project : {}", id);
+        Project project = projectRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(project));
+    }
+
+    /**
+     * DELETE  /projects/:id : delete the "id" project.
+     *
+     * @param id the id of the project to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/projects/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
+        log.debug("REST request to delete Project : {}", id);
+        projectRepository.delete(id);
+        projectSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/projects?query=:query : search for the project corresponding
+     * to the query.
+     *
+     * @param query the query of the project search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/projects")
+    @Timed
+    public List<Project> searchProjects(@RequestParam String query) {
+        log.debug("REST request to search Projects for query {}", query);
+        return StreamSupport
+            .stream(projectSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * POC for Accounting Work Queue Pivot
+     * @param tenanatId
+     * @param reportId
+     * @param filtersMap
+     * @return
+     * @throws AnalysisException
+     * @throws IOException
+     * @throws ParseException
+     */
+    @PostMapping("/AWQPivotingData")
+    @Timed
+    public List<LinkedHashMap> AWQ_poc(@RequestParam Long tenanatId, @RequestBody(required=false) HashMap filtersMap, @RequestParam Long dataViewId, @RequestParam Long ruleGrpId) throws AnalysisException, IOException, ParseException{
+    	
+    	SparkSession spark = reportsService.getSparkSession();
+    	JavaSparkContext sContext = new JavaSparkContext(spark.sparkContext());
+    	SQLContext sqlCont = new SQLContext(sContext);
+    	
+    	
+    	Dataset<Row> reports_data=reportsService.pocAWQ(tenanatId, filtersMap,spark, dataViewId,ruleGrpId);
+    	
+    	log.info("Previewing reports_data b4 Pivoting");
+    	reports_data.show();
+    	
+    	int sz=0;
+        String pivotCol="";
+        String refPivotCol="";
+        List grpColList=new ArrayList<>();
+        
+        RelationalGroupedDataset grpData = null;
+        Dataset<Row> data2 = null;
+        
+        String dbUrl = env.getProperty("spring.datasource.url");
+		String[] parts = dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName = parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+        
+        /*String dbUrl = "jdbc:mysql://192.168.0.44:3306/agree_application_2712";
+		//String[] parts = dbUrl.split("[\\s@&?$+-]+");
+		String host = "192.168.0.44";
+		String schemaName = "agree_application_2712";
+		String userName = "recon_dev";
+		String password = "Welcome321$";
+		//String jdbcDriver = "";
+*/		
+        Dataset<Row> datViewData = sqlCont.read().format("jdbc")
+				.option("url", dbUrl).option("user", userName)
+				.option("password", password).option("dbtable", "t_data_views")
+				.load().where("id=" + dataViewId).select("data_view_name");
+
+		Row dv = datViewData.collectAsList().get(0);
+
+		String dvatViewName = dv.getString(0);
+		dvatViewName = dvatViewName.toLowerCase();
+		
+       /*  Pivot Rows */
+        if(filtersMap.containsKey("groupingCols")){
+        	grpColList=(List) filtersMap.get("groupingCols");
+        log.info("grpColList: "+grpColList);
+        sz=grpColList.size();
+        log.info("sz: "+grpColList);
+        org.apache.spark.sql.Column[] col = new org.apache.spark.sql.Column[sz];
+        int h=0;
+        String refName="";
+        for(h=0;h<sz;h++){
+        	HashMap map=(HashMap) grpColList.get(h);
+        	log.info("map: "+map);
+        	String refTypeId=map.get("refType").toString();
+        	if(refTypeId.equalsIgnoreCase("FIN_FUNCTION")){
+        		refName=map.get("itemName").toString();
+        		
+        	}
+        	else {
+        		refName=map.get("itemName").toString();
+        	}
+        	
+            col[h]= new Column(refName);
+            log.info("col["+h+"]: "+col[h]);
+        }
+        
+        log.info("col: "+col.toString());
+        
+        grpData=reports_data.groupBy(col);
+
+        log.info("grouped data count: "+grpData.count());
+        
+        
+       /*  Pivot Columns */
+        if(filtersMap.containsKey("columnCols")){
+        	
+        	List pivotCols=(List) filtersMap.get("columnCols");
+        	log.info("pivotCols: "+pivotCols);
+        	HashMap pivotColObj=(HashMap) pivotCols.get(0);
+        	pivotCol=pivotColObj.get("itemName").toString();
+        	//refPivotCol=fieldRefMap.get(pivotCol).toString();
+        	refPivotCol=pivotCol;
+        	grpData=grpData.pivot(refPivotCol);
+        }
+        
+        log.info("pivoted data count: "+grpData.count());
+        }
+        
+        String amtCol="";
+       /*  Aggregation */
+        if(filtersMap.containsKey("valueCols")){
+        	List amtColList=(List) filtersMap.get("valueCols");
+        	HashMap amtColMap=(HashMap) amtColList.get(0);
+        	log.info("amtColMap: "+amtColMap);
+        	amtCol=amtColMap.get("itemName").toString();
+        	String refAmtCol="";
+        	String amtColrefTypeId=amtColMap.get("refType").toString();
+        	refAmtCol=amtColMap.get("itemName").toString();
+            data2=grpData.agg(
+                functions.sum(refAmtCol).as("sum"),
+                functions.count("*").as("count")
+            );    
+            log.info("data2 after addng sum cnt: "+data2.count());
+            data2.show();
+        }
+    
+        List<Row> data=data2.collectAsList();
+        String[] columnsList=data2.columns();
+        log.info("data.size(): "+data.size()+" columnsList.length: "+columnsList.length);
+        
+        /* Final Result set */
+        List<LinkedHashMap> maps=new ArrayList<LinkedHashMap>();
+        log.info(">> "+ data.get(0).get(0));
+        
+        for(int j=0;j<data.size();j++){
+        	LinkedHashMap mapCount = new LinkedHashMap();
+        	LinkedHashMap mapAmount = new LinkedHashMap();
+        	String amount = "";
+        	String count = "";
+        	for(int s=0; s<columnsList.length; s++)
+        	{
+        		if(!("sum".equalsIgnoreCase(columnsList[s])) && !("count".equalsIgnoreCase(columnsList[s])))
+        		{
+        			mapCount.put(columnsList[s], data.get(j).get(s));
+        			mapAmount.put(columnsList[s], data.get(j).get(s));
+        		}
+        		else if("sum".equalsIgnoreCase(columnsList[s]))
+        		{
+        			amount = amount + data.get(j).get(s).toString();
+        		}
+        		else if("count".equalsIgnoreCase(columnsList[s]))
+        		{
+        			count = count + data.get(j).get(s).toString();
+        		}
+        	}
+        	mapCount.put("type", "count");
+        	mapCount.put("value", Integer.parseInt(count));
+        	
+        	mapAmount.put("type", "amount");
+        	mapAmount.put("value", Double.parseDouble(amount));
+        	
+        	maps.add(mapCount);
+        	maps.add(mapAmount);
+/*            for(int s=0;s<(columnsList.length);s++){
+            	
+            	if(s+sz==columnsList.length || j+sz==columnsList.length){
+            		break;
+            	}
+            	LinkedHashMap map = new LinkedHashMap();
+            	LinkedHashMap map2 = new LinkedHashMap();
+             	for(int z=0;z<sz;z++){
+             		HashMap grpColMap=(HashMap) grpColList.get(z);
+             		//log.info("grpColMap: "+grpColMap);
+             		
+                	map.put(grpColMap.get("itemName"),data.get(j).get(z));
+                	
+                }
+             	
+             	if(pivotCol!=null && !(pivotCol.isEmpty())){
+             	map.put(pivotCol,columnsList[s+sz]);
+             	}
+             	
+             	if(data.get(j).get(s+sz)!=null)
+             	map.put(amtCol,data.get(j).get(s+sz));
+                maps.add(map);
+            }*/
+        }
+        sContext.close();
+		return maps;
+    }    
+    
+    /**
+     * @param tenantId
+     * @param reportId
+     * @param filtersMap
+     * @return
+     * @throws org.json.simple.parser.ParseException
+     * @throws IOException
+     * @throws OozieClientException
+     * @throws URISyntaxException
+     */
+    
+    @Async
+    @PostMapping("/PivotViewReportAsync")
+    @Timed
+    public LinkedHashMap PivotViewReportAsync(HttpServletRequest request, @RequestParam Long reportId, @RequestBody(required = false) HashMap filtersMap) 
+    		throws org.json.simple.parser.ParseException, IOException, OozieClientException, URISyntaxException{
+    	
+    	log.info("PivotViewReportAsync start time:"+ZonedDateTime.now());
+    	LinkedHashMap map=new LinkedHashMap();
+    	List<LinkedHashMap> reportReturnList=PivotViewReportNew(request, reportId, filtersMap);
+    	map.put("status", "your request has been submitted");
+    	log.info("PivotViewReportAsync end time:"+ZonedDateTime.now());
+		return map;
+    	
+    }
+    
+    
+    /**
+     * Author: swetha
+     * @param tenantId
+     * @param reportId
+     * @param filtersMap
+     * @param pageNumber
+     * @param pageSize
+     * @param response
+     * @return
+     * @throws org.json.simple.parser.ParseException
+     * @throws IOException
+     * @throws OozieClientException
+     * @throws URISyntaxException
+     */
+    
+    @Async
+    @PostMapping("/TabularViewReportGenerationAsync")
+    @Timed
+    public LinkedHashMap reportingPOCAsync(HttpServletRequest request, @RequestParam String reportId, @RequestParam String reqName, @RequestBody(required = false) HashMap filtersMap, 
+    		@RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,HttpServletResponse response) throws org.json.simple.parser.ParseException, IOException, OozieClientException, URISyntaxException
+    	{
+    	log.info("TabularViewReportGenerationAsync start time:"+ZonedDateTime.now());
+    	LinkedHashMap map=new LinkedHashMap();
+    	//JSONObject jsonObj=reportsService.reportingPOC(tenantId, userId, reportId, filtersMap, pageNumber, pageSize, response);
+    	JSONObject jsonObj=reportingPOC(request, reportId, reqName, filtersMap, pageNumber, pageSize, response);
+    	map.put("status", "your request has been submitted");
+    	log.info("TabularViewReportGenerationAsync end time:"+ZonedDateTime.now());
+		return map;
+    	}
+    
+    
+
+    /**
+     * Author: Swetha
+     * @param request
+     * @param reportId
+     * @param filtersMap
+     * @param pageNumber
+     * @param pageSize
+     * @param response
+     * @return
+     * @throws org.json.simple.parser.ParseException
+     * @throws IOException
+     * @throws OozieClientException
+     * @throws URISyntaxException
+     */
+    @PostMapping("/TabularViewReportGeneration")
+    @Timed
+    public JSONObject reportingPOC(HttpServletRequest request, @RequestParam String reportId, @RequestParam String reqName, @RequestBody(required = false) HashMap filtersMap, 
+    		@RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,HttpServletResponse response) throws org.json.simple.parser.ParseException, 
+    		IOException, OozieClientException, URISyntaxException{
+    	log.info("Rest Request to TabularViewReportGeneration for reportId: "+reportId+" reqName: "+reqName);
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+      	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	Long userId=Long.parseLong(map.get("userId").toString());
+    		log.info("TabularViewReportGeneration start time:"+ZonedDateTime.now());
+        	
+    		Reports repData=reportsRepository.findByTenantIdAndIdForDisplay(tenantId, reportId);
+    		LinkedHashMap jobDataMap=reportsService.reportingPOC(tenantId, userId, repData.getId(), reqName, filtersMap, pageNumber, pageSize, response,request);
+        	log.info("TabularViewReportGeneration end time:"+ZonedDateTime.now());
+        	ReportRequests repReq=(ReportRequests) jobDataMap.get("repReq");
+         	JSONObject jsonObj=new JSONObject();
+        	JSONObject output=new JSONObject();
+        	 JSONObject pivotOutput=new JSONObject();
+        	String outputPath="";
+        	String pivotOutputPath="";
+        	String lastOne="";
+        	String val="";
+        	String reportName="";
+        	LinkedHashMap dataMap=new LinkedHashMap();
+        	JSONObject newFileData=new JSONObject();
+        	JSONObject newPivotFileData=new JSONObject();
+        	String outputType="";
+        	if(filtersMap!=null && !(filtersMap.isEmpty())){
+        		outputType=filtersMap.get("outputType").toString();
+        	}
+        	if(jobDataMap!=null && !(jobDataMap.isEmpty())){
+        	val=jobDataMap.get("jobId").toString();
+        	log.info("tenantId: "+tenantId+" val: "+val+" userId: "+userId+" reportId: "+reportId);
+    		 JSONObject taboutput=new JSONObject();
+    		 HashMap requestInfo=new HashMap();
+    		
+    		List<JobActions> jobactList=jobActionsRepository.findByJobId(val);
+    		log.info("jobactList sz: "+jobactList.size());
+    		
+    		 JobActions jobAction=jobActionsRepository.findReportOutputPath(val, tenantId);
+    				log.info("jobAction: "+jobAction);
+    				if(jobAction!=null){
+    				log.info("jobAction: "+jobAction);
+    				String actionName=jobAction.getActionName();
+    				String[] actionNamesArr=actionName.split("is: ");
+    				log.info("actionNamesArr -0: "+actionNamesArr[0]+" actionNamesArr-1: "+actionNamesArr[1]);
+    				outputPath=actionNamesArr[1];
+    				Long schedulerId=jobAction.getSchedulerId();
+    				taboutput=reportsService.testFileReading(outputPath,userId,val,schedulerId,tenantId,repData.getId());
+    				newFileData=(JSONObject) taboutput.clone();
+    				newFileData.put("outputPath", outputPath);
+    				//flag=true;
+    				dataMap.put("output", taboutput);
+    				dataMap.put("outputPath", outputPath);
+    				}
+    				else{
+    					//output=null;
+    				}
+    				JobActions pivotPathData=jobActionsRepository.findReportPivoutOutputPath(val, tenantId);
+    				String pivotPath="";
+    				if(pivotPathData!=null){
+    					log.info("pivotPathData: "+pivotPathData);
+    					String actionName=pivotPathData.getActionName();
+    					String[] actionNamesArr=actionName.split("is: ");
+    					log.info("actionNamesArr -0: "+actionNamesArr[0]+" actionNamesArr-1: "+actionNamesArr[1]);
+    					pivotPath=actionNamesArr[1];
+    					Long schedulerId=pivotPathData.getSchedulerId();
+    					pivotOutput=reportsService.testFileReading(pivotPath,userId,val,schedulerId,tenantId,repData.getId());
+    					newPivotFileData=(JSONObject) pivotOutput.clone();
+    					dataMap.put("pivotOutput", pivotOutput);
+    					dataMap.put("pivotOutputPath", pivotPath);
+    					}
+    					else{
+    						//for Account Analysis Report
+    						dataMap.put("pivotOutputPath", outputPath);
+    					}
+    	
+        	
+			if(dataMap!=null && !(dataMap.isEmpty())){
+				if(dataMap.containsKey("output")){
+			output=(JSONObject) dataMap.get("output");//output
+			if(dataMap.containsKey("outputPath")){
+			log.info("dataMap.get(outputPath: "+dataMap.get("outputPath"));
+			}
+			else{
+				log.info("dataMap doesn't contain outputPath");
+			}
+			outputPath=dataMap.get("outputPath").toString();
+			pivotOutputPath=dataMap.get("pivotOutputPath").toString();
+			lastOne=jobDataMap.get("lastOne").toString();
+			reportName=jobDataMap.get("reportName").toString();
+			log.info("repReq before appending to file object: "+repReq);
+			requestInfo.put("id", repReq.getId());
+			requestInfo.put("request_type", repReq.getRequestType());
+			requestInfo.put("req_name", repReq.getReqName());
+			requestInfo.put("report_id", repReq.getReportId());
+			requestInfo.put("status", repReq.getStatus());
+			requestInfo.put("file_name", repReq.getFileName());
+			requestInfo.put("output_path", repReq.getOutputPath());
+			System.out.println("requestInfo; "+requestInfo);
+			newFileData.put("requestInfo", requestInfo);
+			newPivotFileData.put("requestInfo", requestInfo);
+		}
+			}
+        	}
+			
+        	String status="";
+		if(outputPath.length()>1)
+		{	
+		log.info("outputPath :"+outputPath);
+		String[] bits = outputPath.split("/");
+		lastOne = bits[bits.length-1];
+		String[] pivotFileNameArr=pivotOutputPath.split("/");
+		String pivotFileName=pivotFileNameArr[pivotFileNameArr.length-1];
+		log.info("file name :"+lastOne);
+		status=oozieService.getStatusOfOozieJobId(val);
+		log.info("status after processess is completed :");
+		repReq.setStatus(status);
+		repReq.setGeneratedTime(ZonedDateTime.now());
+		repReq.setOutputPath(outputPath);
+		repReq.setPivotPath(pivotOutputPath);
+		repReq.setFileName(lastOne);
+		repReq.setLastUpdatedDate(ZonedDateTime.now());
+		repReq=reportRequestsRepository.save(repReq);
+		log.info(" final repReq :"+repReq);
+		
+		
+		/* Logic to check if file has requestInfo: If not ovverride */
+		/*if(output.containsKey("requestInfo")){
+		}
+		else{
+			log.info("output doesnt' contain requestInfo key");
+				 Write requestInfo to file 
+				String cmpltFilePath=reportsService.FileReWriteHDFS(reportId,newFileData, "TABLE",lastOne,outputPath);
+			} */
+		/*if(pivotOutput.containsKey("requestInfo")){
+		}
+		else{
+			log.info("pivotOutput doesnt' contain requestInfo key");
+				 Write requestInfo to file 
+				String cmpltFilePath=reportsService.FileReWriteHDFS(reportId,newPivotFileData, "PIVOT",pivotFileName,pivotOutputPath);
+			}*/
+		
+		Notifications notification=new Notifications();
+		notification.setModule("REPORTING");
+		
+		notification.setMessage("Requested "+reportName+" has been generated report");
+		notification.setUserId(userId);
+		notification.setIsViewed(false);
+		notification.setActionType("REQUEST,REPORT");
+		log.info("reportId: "+reportId+" repReq.getId(): "+repReq.getIdForDisplay());
+		String repIdReqId=repReq.getIdForDisplay().toString().concat(","+reportId.toString());
+		notification.setActionValue(repIdReqId);
+		notification.setTenantId(tenantId);
+		notification.setCreatedBy(userId);
+		notification.setCreationDate(ZonedDateTime.now());
+		notification.setLastUpdatedBy(userId);
+		notification.setLastUpdatedDate(ZonedDateTime.now());
+		notification=notificationsRepository.save(notification);
+		log.info("notification :"+notification);
+		int totDataCnt=0;
+		if(output.containsKey("X-COUNT")){
+			log.info("output contains X-COUNT key");
+		totDataCnt=Integer.parseInt(output.get("X-COUNT").toString());
+		}
+		else{
+			log.info("output doesn't contains X-COUNT key");
+		}
+		log.info("totDataCnt: "+totDataCnt);
+		response.addIntHeader("X-COUNT", totDataCnt);
+		
+		if(output.containsKey("data")){
+			log.info("output contains key data");
+		}
+		else{
+			log.info("output doesn't contains key data");
+		}
+		List<LinkedHashMap> maps=(List<LinkedHashMap>) output.get("data");
+		List<LinkedHashMap> subMaps=new ArrayList<LinkedHashMap>();
+		if(maps.size()>0){
+			if(maps.size()>=25){
+			subMaps=maps.subList(0, 25);
+			}
+			else if(maps.size()<=25)
+				subMaps=maps.subList(0, (maps.size()));
+		}
+		log.info("submaps final count: "+subMaps.size());
+		
+		
+		output.put("data", subMaps);
+		JSONObject requestInfo=(JSONObject) output.get("requestInfo");
+		log.info("requestInfo from output: "+requestInfo);
+		output.put("requestInfo", repReq);
+		
+		String path=dataMap.get("outputPath").toString();//outputPath
+		log.info("path: "+path);
+		
+		output.put("outputPath", path);
+		}
+		
+		else{
+			log.info("In output path doesnt exists case and Updating Request status");
+			status=oozieService.getStatusOfOozieJobId(val);
+			log.info("status: "+status);
+			repReq.setStatus(status);
+			repReq.setLastUpdatedDate(ZonedDateTime.now());
+			repReq=reportRequestsRepository.save(repReq);
+			log.info(" final repReq :"+repReq);
+			
+		}
+		log.info("**end of tabular API** "+ZonedDateTime.now());
+		
+		log.info("outputType: "+outputType);
+		if(outputType.equalsIgnoreCase("TABLE")){
+			return output;
+		}
+		else 
+			return newPivotFileData;
+			
+    }
+    
+    /**
+     * Author: Swetha
+     * Api to present report output pagewise by reading hdfs file
+     * @param reportPath
+     * @param pageNumber
+     * @param pageSize
+     * @param response
+     * @return
+     * @throws IOException
+     * @throws URISyntaxException
+     * @throws org.json.simple.parser.ParseException
+     */
+    @GetMapping("/getReportOutputByPage")
+    public JSONObject getReportOutputByPage(@RequestParam String reportPath, @RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,HttpServletResponse response) throws IOException, URISyntaxException, org.json.simple.parser.ParseException{
+    	
+    	log.info("Rest Request to getReportOutputByPage with parameters: ");
+    	log.info("reportPath: "+reportPath);
+    	log.info("pageNumber: "+pageNumber+" & pageSize: "+pageSize);
+    	
+    	JSONObject finalOutput=new JSONObject();
+    	List<JSONObject> limitedOutputList=new ArrayList<JSONObject>();
+    	
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(reportPath);
+    	int totDataCnt=Integer.parseInt(cmpltOutput.get("X-COUNT").toString());
+		log.info("totDataCnt: "+totDataCnt);
+		response.addIntHeader("X-COUNT", totDataCnt);
+    	
+		//LinkedHashMap outputMap=cmpltOutput.get("")
+		
+		List<JSONObject> outputList=(List<JSONObject>) cmpltOutput.get("data");
+		//log.info("outputList: "+outputList);
+		List<JSONObject> HeaderList=(List<JSONObject>) cmpltOutput.get("columns");
+		log.info("HeaderList: "+HeaderList);
+		
+		JSONObject hMap=HeaderList.get(0);
+		log.info("hMap: "+hMap);
+		
+		int limit = 0;
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = totDataCnt;
+		}
+			limit = ((pageNumber+1) * pageSize + 1)-1;
+		int startIndex=pageNumber*pageSize; 
+		
+		if(limit>totDataCnt){
+			limit=totDataCnt;
+		}
+		
+		log.info("startIndex: "+startIndex+" limit: "+limit);
+		
+		for(int j=startIndex;j<limit;j++){
+			
+			JSONObject map=outputList.get(j);
+			limitedOutputList.add(map);
+			
+		}
+		
+		log.info("limitedOutputList: "+limitedOutputList);
+		finalOutput.put("data", limitedOutputList);
+		finalOutput.put("columns", HeaderList);
+		finalOutput.put("X-COUNT", totDataCnt);
+		return finalOutput;
+    }
+    
+    
+    
+    /**
+     * Author: Ravali,
+     * Author: Swetha [Integrated Global & Column level search]
+     * @param requestId
+     * @param outputType
+     * @param pageNumber
+     * @param pageSize
+     * @param sortColumn
+     * @param sortOrder
+     * @param searchString
+     * @param searchColumn
+     * @param response
+     * @param request
+     * @return
+     * @throws IOException
+     * @throws URISyntaxException
+     * @throws org.json.simple.parser.ParseException
+     * @throws JSONException
+     * @throws ParseException
+     */
+    @PostMapping("/getReportOutputByRequestId")
+    public JSONObject getReportOutputByRequestId(@RequestParam String requestId,@RequestParam String outputType, @RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,@RequestParam(required=false) String sortColumn
+    		,@RequestParam(required=false) String sortOrder,@RequestParam(required=false) String searchString, @RequestBody(required=false) List<HashMap> searchObject,
+    		HttpServletResponse response, HttpServletRequest request) throws IOException, URISyntaxException, org.json.simple.parser.ParseException, JSONException, ParseException{
+
+    	log.info("Rest Request to getReportOutputByPage with parameters requestId: "+requestId+"sortColumn :"+sortColumn+" sortOrder:"+sortOrder+" searchString :"+searchString+" outputType :"+outputType);
+    	log.info("requestId: "+requestId);
+    	HashMap map1=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map1.get("tenantId").toString());
+    	ReportRequests reqData=reportRequestsRepository.findByTenantIdAndIdForDisplay(tenantId, requestId);
+    	ReportRequests req=reportRequestsRepository.findOne(reqData.getId());
+    	System.out.println("req: "+req);
+    	String outputPath="";
+    	if(outputType.equalsIgnoreCase("table"))
+    		outputPath=req.getOutputPath();
+    	else if(outputType.equalsIgnoreCase("pivot"))
+    		outputPath=req.getPivotPath();
+    	log.info("outputPath: "+outputPath);
+    	log.info("pageNumber: "+pageNumber+" & pageSize: "+pageSize);
+
+    	JSONObject finalOutput=new JSONObject();
+    	List<JSONObject> limitedOutputList=new ArrayList<JSONObject>();
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(outputPath);
+    	int totDataCnt=0;
+    	if(cmpltOutput.get("X-COUNT")!=null)
+    	{
+    		totDataCnt=Integer.parseInt(cmpltOutput.get("X-COUNT").toString());
+    		log.info("totDataCnt: "+totDataCnt);
+    	}
+    	
+    	// **************** START *********************
+    	List<JSONObject> outputList=new ArrayList<JSONObject>();
+		outputList=(List<JSONObject>) cmpltOutput.get("data");
+		List<JSONObject> HeaderList=new ArrayList<JSONObject>();
+		HeaderList=(List<JSONObject>) cmpltOutput.get("columns");
+		List<String> headList=new ArrayList<String>();
+		String sortColDataType=null;
+    	for(JSONObject eachCol:HeaderList) {
+    		headList.add(eachCol.get("field").toString());
+    		if(eachCol.get("field").toString().equals(sortColumn)) {
+    			sortColDataType=eachCol.get("dataType").toString();
+    		}
+    	}
+    	
+    	if(searchString!=null&&searchString.length()>0) {
+    		log.info("********************: In side global search");
+    		outputList=reportsService.jsonArrayListGlobalSearch(outputList, headList, searchString);
+    	}
+    	if(searchObject!=null && !(searchObject.isEmpty())) {
+    		log.info("********************: In side column level search");
+    		outputList=reportsService.jsonArrayListKeyLevelSearch(outputList, searchObject);
+    	}
+    	if(sortColumn!=null)
+    	{
+    		log.info("********************: In side sort");
+    		outputList=reportsService.sortJsonArrayList(outputList, sortColumn, sortOrder, sortColDataType);
+    	}
+    	
+    	totDataCnt=outputList.size();
+    	response.addIntHeader("X-COUNT", totDataCnt);
+    	int limit = 0;
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = totDataCnt;
+		}
+		limit = ((pageNumber+1) * pageSize + 1)-1;
+		int startIndex=pageNumber*pageSize; 
+
+		if(limit>totDataCnt){
+			limit=totDataCnt;
+		}
+		log.info("startIndex: "+startIndex+" limit: "+limit);
+		
+		limitedOutputList=outputList.subList(startIndex, limit);
+		finalOutput.put("data", limitedOutputList);
+		finalOutput.put("columns", HeaderList);
+		finalOutput.put("X-COUNT", totDataCnt);
+		// ***************** END ******************
+    	return finalOutput;
+    }
+   
+    
+    /**
+     * Author: Swetha
+     * @param tenantId
+     * @param reportId
+     * @param filtersMap
+     * @return
+     * @throws org.json.simple.parser.ParseException
+     * @throws IOException
+     * @throws OozieClientException
+     * @throws URISyntaxException
+     */
+    @PostMapping("/PivotViewReport")
+    @Timed
+    public List<LinkedHashMap> PivotViewReportNew(HttpServletRequest request, @RequestParam Long reportId, @RequestBody(required = false) HashMap filtersMap) 
+    		throws org.json.simple.parser.ParseException, IOException, OozieClientException, URISyntaxException{
+    	HashMap map0=userJdbcService.getuserInfoFromToken(request);
+      	Long tenantId=Long.parseLong(map0.get("tenantId").toString());
+    	Long userId=9L;
+    	log.info("Rest Request to reportingPOC with reportId: "+reportId+" @"+DateTime.now());
+    	log.info("filtersMap: "+filtersMap);
+    	JSONObject obj = new JSONObject();
+    	obj.putAll(filtersMap);
+    	log.info("obj: "+obj);
+    	
+    	List<LinkedHashMap> maps=new ArrayList<LinkedHashMap>();
+    	Reports report=reportsRepository.findOne(reportId);
+		String reportName=report.getReportName();
+		
+		ReportRequests repReq=new ReportRequests();
+		ReportRequests repReqUpd=new ReportRequests();
+		String requestName=report.getReportName()+ZonedDateTime.now();
+		repReq.setReqName(requestName);
+		repReq.setReportId(reportId);
+		repReq.setTenantId(tenantId);
+		repReq.setStatus("RUNNING");
+			String filMap=obj.toJSONString();
+			log.info("filMap: "+filMap);
+		repReq.setFilterMap(filMap);
+		repReq.setSubmittedTime(ZonedDateTime.now());
+		
+		repReq.setCreatedBy(userId);
+		repReq.setLastUpdatedBy(userId);
+		repReq.setCreatedDate(ZonedDateTime.now());
+		repReq.setLastUpdatedDate(ZonedDateTime.now());
+		repReq.setRequestType("Run");
+		repReq=reportRequestsRepository.save(repReq);
+    	log.info("repReq :"+repReq);
+    	
+    	String cmpltFilePath=reportsService.FileWriteHDFS(reportId, obj,"params",tenantId);
+    	log.info("done writing file to hdfs");
+    	
+    	HashMap parameterSet = new HashMap();
+		parameterSet.put("param1", reportId);
+		parameterSet.put("param2", cmpltFilePath);
+		parameterSet.put("param5", "Pivot");
+		
+
+		log.info("Api call to Intiate Job for Data Transformation process: "+parameterSet);
+		ResponseEntity jobStatus=oozieService.jobIntiateForAcctAndRec(tenantId, userId, "Reporting_Dev", parameterSet,null,request);
+		log.info("jobStatus: "+jobStatus);
+		HashMap map=(HashMap) jobStatus.getBody();
+		log.info("map: "+map);
+		String val=map.get("status").toString();
+		log.info("val: "+val);
+		JSONObject pivotOutput=new JSONObject();
+		LinkedHashMap dataMap=new LinkedHashMap();
+		
+		String status="";
+    	String lastOne="";
+		String pivotOutputPath="";
+		
+		if(val.equalsIgnoreCase("Failed to intiate job")){
+			log.info("Reporting Program Failed");
+			repReq.setStatus("FAILED");
+			repReq.setLastUpdatedDate(ZonedDateTime.now());
+			repReq=reportRequestsRepository.save(repReq);
+			log.info("updating repReq if it is failed :"+repReq);
+		}
+		else{
+			log.info("Job has been initiated succesfully");
+			status=oozieService.getStatusOfOozieJobId(val);
+			log.info("status: "+status);
+			repReq.setJobId(val);
+			repReq.setLastUpdatedDate(ZonedDateTime.now());
+			repReq=reportRequestsRepository.save(repReq);
+			log.info("updating request with jobId: "+repReq);
+			for(int i=0;;i++){
+				
+				status=oozieService.getStatusOfOozieJobId(val);
+				
+				if(!(status.equalsIgnoreCase("RUNNING"))){
+					log.info("status: "+status);
+					
+				break;
+				//log.info("outputPath at i: "+i+" is: "+outputPath);
+					}
+				else{
+					//log.info("dataMap not retrieved");
+				}
+			}
+			log.info("request to get success job status");
+			
+			JobActions pivotPathData=jobActionsRepository.findReportPivoutOutputPath(val, tenantId);
+			System.out.println("pivotPathData: "+pivotPathData);
+			String pivotPath="";
+			if(pivotPathData!=null){
+				log.info("pivotPathData: "+pivotPathData);
+				String actionName=pivotPathData.getActionName();
+				String[] actionNamesArr=actionName.split("is: ");
+				log.info("actionNamesArr -0: "+actionNamesArr[0]+" actionNamesArr-1: "+actionNamesArr[1]);
+				pivotPath=actionNamesArr[1];
+				Long schedulerId=pivotPathData.getSchedulerId();
+				pivotOutput=reportsService.testFileReading(pivotPath,userId,val,schedulerId,tenantId,reportId);
+				JSONObject newPivotFileData = (JSONObject) pivotOutput.clone();
+				dataMap.put("pivotOutput", pivotOutput);
+				dataMap.put("pivotOutputPath", pivotPath);
+				}
+			
+			if(pivotPath!=null && !(pivotPath.isEmpty()) && pivotPath.length()>1){
+				String[] bits = pivotPath.split("/");
+				lastOne = bits[bits.length-1];
+				String[] pivotFileNameArr=pivotOutputPath.split("/");
+				String pivotFileName=pivotFileNameArr[pivotFileNameArr.length-1];
+				log.info("file name :"+lastOne);
+				status=oozieService.getStatusOfOozieJobId(val);
+				log.info("status after processess is completed :");
+				repReq.setStatus(status);
+				repReq.setGeneratedTime(ZonedDateTime.now());
+				repReq.setOutputPath("");
+				repReq.setPivotPath(pivotPath);
+				repReq.setFileName(lastOne);
+				repReq.setLastUpdatedDate(ZonedDateTime.now());
+				repReqUpd=reportRequestsRepository.save(repReq);
+				log.info(" final repReq :"+repReqUpd);
+				
+				Notifications notification=new Notifications();
+				notification.setModule("REPORTING");
+				
+				notification.setMessage("Requested "+reportName+" has been generated report");
+				notification.setUserId(userId);
+				notification.setIsViewed(false);
+				notification.setActionType("SCHEDULER");
+				SchedulerDetails sch=schedulerDetailsRepository.findByOozieJobId(val);
+				notification.setActionValue(sch.getId().toString());
+				notification.setTenantId(tenantId);
+				notification.setCreatedBy(userId);
+				notification.setCreationDate(ZonedDateTime.now());
+				notification.setLastUpdatedBy(userId);
+				notification.setLastUpdatedDate(ZonedDateTime.now());
+				notification=notificationsRepository.save(notification);
+				log.info("notification :"+notification);
+				
+				if(pivotOutput.containsKey("data")){
+					log.info("output contains key data");
+				}
+				else{
+					log.info("output doesn't contains key data");
+				}
+				maps=(List<LinkedHashMap>) pivotOutput.get("data");
+				JSONObject requestInfo=(JSONObject) pivotOutput.get("requestInfo");
+				log.info("requestInfo from output: "+requestInfo);
+				pivotOutput.put("requestInfo", repReq);
+				pivotOutput.put("outputPath", pivotPath);
+			}
+			else{
+				log.info("In output path doesnt exists case and Updating Request status");
+				status=oozieService.getStatusOfOozieJobId(val);
+				log.info("status: "+status);
+				repReqUpd.setStatus(status);
+				repReqUpd.setLastUpdatedDate(ZonedDateTime.now());
+				reportRequestsRepository.save(repReqUpd);
+				log.info(" final repReqUpd :"+repReqUpd);
+			}
+		
+			log.info("**end of pivot API** "+ZonedDateTime.now());	
+		}
+		return maps;
+		
+    }
+
+}
+    

@@ -1,0 +1,148 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.SourceFileInbHistory;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import scala.math.BigInt;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the SourceFileInbHistory entity.
+ */
+@SuppressWarnings("unused")
+public interface SourceFileInbHistoryRepository extends JpaRepository<SourceFileInbHistory,Long> {
+
+	List<SourceFileInbHistory> findByProfileId(Long sourceProfileId);
+
+	
+	@Query(value =  "select distinct(batch_id) from t_source_file_inb_history where profile_id in(:profile_id)",nativeQuery=true)
+	List<Object> findDistinctBatchIdsByProfileIdIn(@Param("profile_id")List<Long> sourceProfileId);
+
+
+	List<SourceFileInbHistory> findByBatchId(Long batchId);
+
+
+	@Query(value =  "select * from t_source_file_inb_history where profile_id =:profile_id and src_prf_file_asmt_id =:sPFA and tenant_id =:tenantId and file_received_date between :startDate and :endDate",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdAndSrcPrfFileAsmtIdAndTenantIdAndFileReceivedDateBetween(
+			@Param("profile_id") Long profileId,@Param("sPFA") Long sPFA,@Param("tenantId") Long tenantId,@Param("startDate") ZonedDateTime startDate,
+			@Param("endDate") ZonedDateTime endDate);
+	
+	@Query(value =  "select * from t_source_file_inb_history where profile_id =:profile_id and src_prf_file_asmt_id =:sPFA and tenant_id =:tenantId and file_transformed_date between :startDate and :endDate",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdAndSrcPrfFileAsmtIdAndTenantIdAndfileTransformedDateBetween(
+			@Param("profile_id") Long profileId,@Param("sPFA") Long sPFA,@Param("tenantId") Long tenantId,@Param("startDate") ZonedDateTime startDate,
+			@Param("endDate") ZonedDateTime endDate);
+
+	
+	@Query(value =  "select * from t_source_file_inb_history where profile_id in (:profile_id) and tenant_id =:tenantId and file_received_date like :date",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdsAndFileReceivedDate(
+			@Param("profile_id") List<Long> profileIds,@Param("tenantId") Long tenantId,@Param("date") String date);
+	
+	@Query(value =  "select * from t_source_file_inb_history where profile_id in (:profile_id) and tenant_id =:tenantId and file_received_date like :date and status='Loaded'",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdsAndFileReceivedDateAndStatusLoaded(
+			@Param("profile_id") List<Long> profileIds,@Param("tenantId") Long tenantId,@Param("date") String date);
+
+
+	Page<SourceFileInbHistory> findByBatchId(Long batchId,Pageable generatePageRequest2);
+
+
+	@Query(value =  "SELECT count(file_received_date),count(file_transformed_date),case when round(count(file_transformed_date)/count(file_received_date) *100,2) is null "
+			+ "then 0 else round(count(file_transformed_date)/count(file_received_date) *100,2) end as transformedPer,"
+			+ "round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) as ntTrasnfpomedPer FROM "+
+			"t_source_file_inb_history where profile_id in (:sp) and file_received_date like :fDate",nativeQuery=true)
+
+	List<Object[]> fetchTransfomedCount(@Param("sp") List<BigInteger> sp,@Param("fDate") String fDate);
+	
+	@Query(value =  "SELECT count(file_received_date),count(file_transformed_date),case when round(count(file_transformed_date)/count(file_received_date) *100,2) is null then 0 else round(count(file_transformed_date)/count(file_received_date) *100,2) end as transformedPer,"
+			+ "round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) as ntTrasnfpomedPer,DATE(file_received_date) as date,"
+			+ "case when (count(file_received_date)-count(file_transformed_date)) is null then 0 else  (count(file_received_date)-count(file_transformed_date)) end as transFailedct FROM t_source_file_inb_history where profile_id in (:sp) and (Date(file_received_date)>=:fDate and Date(file_received_date)<=:tDate) GROUP BY DATE(file_received_date)",nativeQuery=true)
+	List<Object[]> fetchTransfomedCountBetweenGivenDate(@Param("sp") List<BigInteger> sp,@Param("fDate") String fDate,@Param("tDate") String tDate);
+	
+	
+	
+	@Query(value =  "SELECT count(file_received_date),count(file_transformed_date),case when round(count(file_transformed_date)/count(file_received_date) *100,2) is null then 0 else round(count(file_transformed_date)/count(file_received_date) *100,2) end as transformedPer,"
+			+ "case when round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) is null then 0 else round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) end as ntTrasnfpomedPer,"
+			+ "case when (count(file_received_date)-count(file_transformed_date)) is null then 0 else  (count(file_received_date)-count(file_transformed_date)) end as transFailedct FROM t_source_file_inb_history where profile_id in (:sp) and (Date(file_received_date)=:fDate)",nativeQuery=true)
+	List<Object[]> fetchTransfomedCountBetweenForADate(@Param("sp") List<BigInteger> sp,@Param("fDate") String fDate);
+
+	
+
+	@Query(value =  "SELECT Date(file_received_date) as date, count(id) FROM t_source_file_inb_history where "
+			+ "file_received_date between :fDate and :tDate and profile_id =:spId group by Date(file_received_date)"
+            ,nativeQuery=true)
+	List<Object[]> fetchAgingForTransformedSummary(@Param("spId") Long spId,@Param("fDate") String fDate,@Param("tDate") String tDate);
+
+	@Query(value =  "select count(*) from t_source_file_inb_history where batch_id =:batchId And status='Loaded'",nativeQuery=true)
+	Long fetchByBatchIdAndLoadedStatus(@Param("batchId") Long batchId);
+
+	@Query(value =  "select distinct(batch_id) from t_source_file_inb_history where src_prf_file_asmt_id =:srcPrfFileAsmtId",nativeQuery=true)
+	List<Object> findDistinctBatchIdsBySrcPrfFileAsmtId(@Param("srcPrfFileAsmtId")Long srcPrfFileAsmtId);
+
+
+	@Query(value =  "SELECT count(file_received_date),count(file_transformed_date),case when round(count(file_transformed_date)/count(file_received_date) *100,2) is null then 0 else round(count(file_transformed_date)/count(file_received_date) *100,2) end as transformedPer,"
+			+ "case when round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) is null then 0 else round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) end as ntTrasnfpomedPer,"
+			+ "case when (count(file_received_date)-count(file_transformed_date)) is null then 0 else  (count(file_received_date)-count(file_transformed_date)) end as transFailedct FROM t_source_file_inb_history where profile_id in (:sp) and Date(file_received_date)>=:fDate and Date(file_received_date)<=:tDate",nativeQuery=true)
+	List<Object[]> fetchTransfomedCountBetweenGivenDateForWeek(@Param("sp") List<BigInteger> sp,@Param("fDate") String fDate,@Param("tDate") String tDate);
+	
+	
+	@Query(value =  "SELECT * FROM t_source_file_inb_history where profile_id in (:sp) and  Date(file_received_date)>=:fDate and  Date(file_received_date)<=:tDate",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdInAndFileReceivedDateBetween(@Param("sp") List<BigInteger> sp,@Param("fDate") String fDate,@Param("tDate") String tDate);
+	
+	
+	@Query(value =  "SELECT * FROM t_source_file_inb_history where profile_id=:sp and  Date(file_received_date)>=:fDate and  Date(file_received_date)<=:tDate",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdAndFileReceivedDateBetween(@Param("sp") BigInteger sp,@Param("fDate") String fDate,@Param("tDate") String tDate);
+	
+	
+	
+	@Query(value =  "SELECT * FROM t_source_file_inb_history where profile_id= :sp and src_prf_file_asmt_id =:srcPrfFileAsmtId and Date(file_received_date)>=:fDate and  Date(file_received_date)<=:tDate",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdAndAssignmentIdFileReceivedDateBetween(@Param("sp") BigInteger sp,@Param("srcPrfFileAsmtId") Long srcPrfFileAsmtId,@Param("fDate") String fDate,@Param("tDate") String tDate);
+	
+	
+	@Query(value =  "SELECT * FROM t_source_file_inb_history where profile_id in (:sp) and  Date(file_received_date)=:fDate",nativeQuery=true)
+	List<SourceFileInbHistory> findByProfileIdInAndFileReceivedDate(@Param("sp") List<BigInteger> sp,@Param("fDate") String fDate);
+	
+	
+	
+	
+	@Query(value =  "SELECT count(file_received_date),count(file_transformed_date),case when round(count(file_transformed_date)/count(file_received_date) *100,2) is null then 0 else round(count(file_transformed_date)/count(file_received_date) *100,2) end as transformedPer,"
+			+ "case when round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) is null then 0 else round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) end as ntTrasnfpomedPer,"
+			+ "case when (count(file_received_date)-count(file_transformed_date)) is null then 0 else  (count(file_received_date)-count(file_transformed_date)) end as transFailedct FROM t_source_file_inb_history where profile_id=:sp and Date(file_received_date)>=:fDate and Date(file_received_date)<=:tDate",nativeQuery=true)
+	List<Object[]> fetchTransfomedCountBetweenGivenDateForProfile(@Param("sp") BigInteger sp,@Param("fDate") String fDate,@Param("tDate") String tDate);
+	
+	
+	
+
+	@Query(value =  "SELECT count(file_received_date),count(file_transformed_date),case when round(count(file_transformed_date)/count(file_received_date) *100,2) is null then 0 else round(count(file_transformed_date)/count(file_received_date) *100,2) end as transformedPer,"
+			+ "case when round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) is null then 0 else round((count(file_received_date)-count(file_transformed_date))/count(file_received_date) *100,2) end as ntTrasnfpomedPer,"
+			+ "case when (count(file_received_date)-count(file_transformed_date)) is null then 0 else  (count(file_received_date)-count(file_transformed_date)) end as transFailedct FROM t_source_file_inb_history where profile_id=:sp and src_prf_file_asmt_id=:assignId and Date(file_received_date)>=:fDate and Date(file_received_date)<=:tDate",nativeQuery=true)
+	List<Object[]> fetchTransfomedCountForProfileAndTemplate(@Param("sp") Long sp,@Param("fDate") String fDate,@Param("tDate") String tDate,@Param("assignId") Long assignId);
+	
+	// kiran
+		@Query(value =  "select distinct(batch_id) from t_source_file_inb_history where profile_id in(:profile_id)",nativeQuery=true)
+		List<Long> fetchDistinctBatchIdsByProfileIdIn(@Param("profile_id")List<Long> sourceProfileId);
+		
+		@Query(value =  "select distinct(batch_id) from t_source_file_inb_history where src_prf_file_asmt_id =:srcPrfFileAsmtId",nativeQuery=true)
+		List<Long> fetchDistinctBatchIdsBySrcPrfFileAsmtId(@Param("srcPrfFileAsmtId")Long srcPrfFileAsmtId);
+
+//		@Query(value =  "select distinct(batch_id) from t_source_file_inb_history where profile_id in(select id from t_source_profiles where tenant_id =:tenantId and created_by =:userId)",nativeQuery=true)
+//		List<Long> fetchDistinctBatchIdsUsingTenantAndUserIds(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+		
+		@Query(value =  "select distinct(batch_id) from t_source_file_inb_history where profile_id in(select id from t_source_profiles where tenant_id =:tenantId)",nativeQuery=true)
+		List<Long> fetchDistinctBatchIdsUsingTenant(@Param("tenantId") Long tenantId);
+
+		@Query(value =  "select distinct(src_prf_file_asmt_id) from t_source_file_inb_history where profile_id=:profileId",nativeQuery=true)
+		List<BigInteger> findDistinctSrcPrfAsmtIdByProfileId(@Param("profileId")
+				Long profileId);
+		
+		
+	
+		
+	
+}

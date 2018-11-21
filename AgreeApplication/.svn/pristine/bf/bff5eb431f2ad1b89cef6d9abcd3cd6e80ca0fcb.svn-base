@@ -1,0 +1,347 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.ReconciliationResult;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.ManualRecDTO;
+import com.nspl.app.web.rest.dto.ViewIdRowIdDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing ReconciliationResult.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReconciliationResultResource {
+
+    private final Logger log = LoggerFactory.getLogger(ReconciliationResultResource.class);
+
+    private static final String ENTITY_NAME = "reconciliationResult";
+        
+    private final ReconciliationResultService reconciliationResultService;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    ReconciliationResultRepository reconciliationResultRepository;
+    
+    @Inject
+    DataMasterRepository dataMasterRepository;
+    
+    @Inject
+    RuleGroupRepository ruleGroupRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    DataViewsResource dataViewsResource;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+    
+
+    public ReconciliationResultResource(ReconciliationResultService reconciliationResultService) {
+        this.reconciliationResultService = reconciliationResultService;
+    }
+
+    /**
+     * POST  /reconciliation-results : Create a new reconciliationResult.
+     *
+     * @param reconciliationResult the reconciliationResult to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reconciliationResult, or with status 400 (Bad Request) if the reconciliationResult has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/reconciliation-results")
+    @Timed
+    public ResponseEntity<ReconciliationResult> createReconciliationResult(@RequestBody ReconciliationResult reconciliationResult) throws URISyntaxException {
+        log.debug("REST request to save ReconciliationResult : {}", reconciliationResult);
+        if (reconciliationResult.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reconciliationResult cannot already have an ID")).body(null);
+        }
+        ReconciliationResult result = reconciliationResultService.save(reconciliationResult);
+        return ResponseEntity.created(new URI("/api/reconciliation-results/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /reconciliation-results : Updates an existing reconciliationResult.
+     *
+     * @param reconciliationResult the reconciliationResult to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reconciliationResult,
+     * or with status 400 (Bad Request) if the reconciliationResult is not valid,
+     * or with status 500 (Internal Server Error) if the reconciliationResult couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/reconciliation-results")
+    @Timed
+    public ResponseEntity<ReconciliationResult> updateReconciliationResult(@RequestBody ReconciliationResult reconciliationResult) throws URISyntaxException {
+        log.debug("REST request to update ReconciliationResult : {}", reconciliationResult);
+        if (reconciliationResult.getId() == null) {
+            return createReconciliationResult(reconciliationResult);
+        }
+        ReconciliationResult result = reconciliationResultService.save(reconciliationResult);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reconciliationResult.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /reconciliation-results : get all the reconciliationResults.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reconciliationResults in body
+     */
+    @GetMapping("/reconciliation-results")
+    @Timed
+    public ResponseEntity<List<ReconciliationResult>> getAllReconciliationResults(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ReconciliationResults");
+        Page<ReconciliationResult> page = reconciliationResultService.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/reconciliation-results");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /reconciliation-results/:id : get the "id" reconciliationResult.
+     *
+     * @param id the id of the reconciliationResult to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reconciliationResult, or with status 404 (Not Found)
+     */
+    @GetMapping("/reconciliation-results/{id}")
+    @Timed
+    public ResponseEntity<ReconciliationResult> getReconciliationResult(@PathVariable Long id) {
+        log.debug("REST request to get ReconciliationResult : {}", id);
+        ReconciliationResult reconciliationResult = reconciliationResultService.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reconciliationResult));
+    }
+
+    /**
+     * DELETE  /reconciliation-results/:id : delete the "id" reconciliationResult.
+     *
+     * @param id the id of the reconciliationResult to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/reconciliation-results/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReconciliationResult(@PathVariable Long id) {
+        log.debug("REST request to delete ReconciliationResult : {}", id);
+        reconciliationResultService.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/reconciliation-results?query=:query : search for the reconciliationResult corresponding
+     * to the query.
+     *
+     * @param query the query of the reconciliationResult search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/reconciliation-results")
+    @Timed
+    public ResponseEntity<List<ReconciliationResult>> searchReconciliationResults(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of ReconciliationResults for query {}", query);
+        Page<ReconciliationResult> page = reconciliationResultService.search(query, pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/reconciliation-results");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+       
+    /*
+     * Author: Shiva
+     * @param manualReconciledData, tenantId, userId
+     * Description: Posting Manual Reconciliation Data
+     * @return void
+     */
+    @PostMapping("/postManualReconciliationData")
+    @Timed
+    public ErrorReport postManualReconciliationData(@RequestBody ManualRecDTO manualRecDTO, @RequestParam Long tenantId, @RequestParam Long userId){
+    	log.info("Rest request to posting manual reconciled data");
+    	ErrorReport errorReport = new ErrorReport();
+    	if(manualRecDTO != null)
+    	{
+        	//getting maximum recon reference id
+        	Long maxReconRef = reconciliationResultRepository.fetchMaxReconReference(tenantId);
+        	if(maxReconRef == null)
+        	{
+        		maxReconRef = 0L;
+        	}
+        	log.info("Max ReconReference Id: "+maxReconRef);
+        	Long reconReferenceId = maxReconRef+1;
+        	log.info("Max ReconReference Id: "+maxReconRef+", Max+1 ReferenceId: "+reconReferenceId);
+        	List<ReconciliationResult> allRecords = new ArrayList<ReconciliationResult>();
+        	List<ViewIdRowIdDTO> source = manualRecDTO.getSource();
+        	List<ViewIdRowIdDTO> target = manualRecDTO.getTarget();
+    		try{
+            	// Posting manual reconciliation source data
+            	if(source.size()>0)
+            	{
+
+            		for(ViewIdRowIdDTO dr : source)
+            		{
+            			DataViews dataView = dataViewsRepository.findOne(dr.getViewId());
+            			if(dataView != null)
+            			{
+            				ReconciliationResult recon = new ReconciliationResult();
+            				recon.setOriginalRowId(dr.getRowId());
+            				recon.setOriginalViewId(dr.getViewId());
+            				recon.setOriginalView(dataView.getDataViewName());
+            				recon.setTargetRowId(null);
+            				recon.setTargetViewId(null);
+            				recon.setTargetView(null);
+            				recon.setReconReference(reconReferenceId.toString());
+                			recon.setReconciliationRuleName(null);
+                			recon.setReconciliationRuleId(null);
+                			recon.setReconJobReference(null);
+                			recon.setReconciledDate(ZonedDateTime.now());
+                			recon.setTenantId(tenantId);
+                			recon.setReconciliationUserId(userId);
+                			recon.setReconciliationRuleGroupId(dr.getGroupId());
+                			/*ReconciliationResult rs = reconciliationResultRepository.findByOriginalRowIdAndOriginalViewIdAndTenantId(dr.getRowId(), dr.getViewId(), tenantId);
+                			if(rs == null)
+                			{*/
+                    		allRecords.add(recon);
+                			/*}*/
+            			}
+            		}
+            	}
+            	log.info("Source: " + allRecords.size());
+            	// Posting manual reconciliation target data
+            	if(target.size()>0)
+            	{
+            		for(ViewIdRowIdDTO dr : target)
+            		{
+            			DataViews dataView = dataViewsRepository.findOne(dr.getViewId());
+            			if(dataView != null)
+            			{
+            				ReconciliationResult recon = new ReconciliationResult();
+            				recon.setOriginalRowId(null);
+            				recon.setOriginalViewId(null);
+            				recon.setOriginalView(null);
+            				recon.setTargetRowId(dr.getRowId());
+            				recon.setTargetViewId(dr.getViewId());
+            				recon.setTargetView(dataView.getDataViewName());
+            				recon.setReconReference(reconReferenceId.toString());
+                			recon.setReconciliationRuleName(null);
+                			recon.setReconciliationRuleId(null);
+                			recon.setReconJobReference(null);
+                			recon.setReconciledDate(ZonedDateTime.now());
+                			recon.setTenantId(tenantId);
+                			recon.setReconciliationUserId(userId);
+                			recon.setReconciliationRuleGroupId(dr.getGroupId());
+                			/*ReconciliationResult rs = reconciliationResultRepository.findByTargetRowIdAndTargetViewIdAndTenantId(dr.getRowId(), dr.getViewId(), tenantId);
+                			if(rs == null)
+                			{*/
+                				allRecords.add(recon);
+                			/*}*/
+            			}
+            		}
+            	}
+            	log.info("Total: "+ allRecords.size());
+            	reconciliationResultRepository.save(allRecords);	// Posting all records
+            	errorReport.setTaskName("Posting Manual Reconciliation Data");
+            	errorReport.setTaskStatus("Success");
+            	errorReport.setDetails(allRecords.size()+" records posted");
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Faild due to :"+ e);
+            	errorReport.setTaskName("Posting Manual Reconciliation Data");
+            	errorReport.setTaskStatus("Failed");
+            	errorReport.setDetails("Failed while posting");
+    		}
+    	}
+		return errorReport;
+    }
+    
+    
+    /**
+     * Author: Shiva
+     * @param reconcileRefIds, tenantId
+     * Description: Processing Manual Unreconciliation Data
+     * @return void
+     */
+    @PostMapping("/processManualUnReconciliationData")
+    @Timed
+    public ErrorReport processManualUnReconciliationData(@RequestBody List<String> reconcileRefIds, @RequestParam Long tenantId) throws URISyntaxException {
+    	log.info("Rest api for posting manual unreconciliation data");
+    	ErrorReport errorReport = new ErrorReport();
+    	if(reconcileRefIds.size()>0)
+    	{
+    		try{
+        		List<BigInteger> ids = reconciliationResultRepository.fetchIdsByReconReferenceIds(reconcileRefIds, tenantId);	//Getting original ids based on reconciliation reference ids
+        		if(ids.size()>0)
+        		{
+        			for(int i=0; i<ids.size(); i++)
+        			{
+        				reconciliationResultRepository.delete(ids.get(i).longValue());
+        			}
+        		}
+        		errorReport.setTaskName("Processing Unreconciliation Data");
+        		errorReport.setTaskStatus("Success");
+        		errorReport.setDetails(ids.size()+" Records Unreconciled Successfully!");
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Exception "+e);
+        		errorReport.setTaskName("Processing Unreconciliation Data");
+        		errorReport.setTaskStatus("Failed");
+        		errorReport.setDetails("Failed while deleting records");
+    		}
+    	}
+		return errorReport;
+    }
+}

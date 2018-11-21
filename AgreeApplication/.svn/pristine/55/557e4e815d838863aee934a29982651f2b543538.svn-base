@@ -1,0 +1,246 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ChartOfAccount;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.MappingSetValues;
+import com.nspl.app.domain.Segments;
+import com.nspl.app.repository.ChartOfAccountRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.MappingSetValuesRepository;
+import com.nspl.app.repository.SegmentsRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing Segments.
+ */
+@RestController
+@RequestMapping("/api")
+public class SegmentsResource {
+
+    private final Logger log = LoggerFactory.getLogger(SegmentsResource.class);
+
+    private static final String ENTITY_NAME = "segments";
+
+    private final SegmentsRepository segmentsRepository;
+    
+    @Inject
+    ChartOfAccountRepository chartOfAccountRepository;
+    
+    @Inject
+    MappingSetValuesRepository mappingSetValuesRepository;
+    
+    @Inject
+	UserJdbcService userJdbcService;
+
+	@Inject
+	DataViewsRepository dataViewsRepository;
+
+    public SegmentsResource(SegmentsRepository segmentsRepository) {
+        this.segmentsRepository = segmentsRepository;
+    }
+
+    /**
+     * POST  /segments : Create a new segments.
+     *
+     * @param segments the segments to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new segments, or with status 400 (Bad Request) if the segments has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/segments")
+    @Timed
+    public ResponseEntity<Segments> createSegments(@RequestBody Segments segments) throws URISyntaxException {
+        log.debug("REST request to save Segments : {}", segments);
+        if (segments.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new segments cannot already have an ID")).body(null);
+        }
+        Segments result = segmentsRepository.save(segments);
+        return ResponseEntity.created(new URI("/api/segments/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /segments : Updates an existing segments.
+     *
+     * @param segments the segments to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated segments,
+     * or with status 400 (Bad Request) if the segments is not valid,
+     * or with status 500 (Internal Server Error) if the segments couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/segments")
+    @Timed
+    public ResponseEntity<Segments> updateSegments(HttpServletRequest request,@RequestBody Segments segments) throws URISyntaxException {
+    	
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long userId=Long.parseLong(map.get("userId").toString());
+        log.debug("REST request to update Segments of user: "+userId+"-> "+ segments);
+        if (segments.getId() == null) {
+            return createSegments(segments);
+        }
+        segments.setLastUpdatedBy(userId);
+        segments.setLastUpdatedDate(ZonedDateTime.now());
+        Segments result = segmentsRepository.save(segments);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, segments.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /segments : get all the segments.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of segments in body
+     */
+    @GetMapping("/segments")
+    @Timed
+    public ResponseEntity<List<Segments>> getAllSegments(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of Segments");
+        Page<Segments> page = segmentsRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/segments");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /segments/:id : get the "id" segments.
+     *
+     * @param id the id of the segments to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the segments, or with status 404 (Not Found)
+     */
+    @GetMapping("/segments/{id}")
+    @Timed
+    public ResponseEntity<Segments> getSegments(@PathVariable Long id) {
+        log.debug("REST request to get Segments : {}", id);
+        Segments segments = segmentsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(segments));
+    }
+
+    /**
+     * DELETE  /segments/:id : delete the "id" segments.
+     *
+     * @param id the id of the segments to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/segments/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteSegments(@PathVariable Long id) {
+        log.debug("REST request to delete Segments : {}", id);
+        segmentsRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Rk  
+     * input: viewId
+     * input: qualifier
+     * output: Segment info by view id and qualifier
+     */
+    @GetMapping("/getSegmentByCoaIdAndQualifier")
+    @Timed
+    public Segments getSegmentByCoaIdAndQualifier(HttpServletRequest request,@RequestParam String viewId,@RequestParam String qualifier)
+    {
+    	log.info("Rest api for fetching segment name by view id :"+viewId+" and qualifier: "+ qualifier);
+    	HashMap finalMap = new HashMap();
+    	List<HashMap> segmentsList = new ArrayList<HashMap>();
+    	HashMap map = userJdbcService.getuserInfoFromToken(request);
+		Long tenantId = Long.parseLong(map.get("tenantId").toString());
+    	DataViews dv=dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+    	Segments segInfo=segmentsRepository.fetchSegByQualifier(dv.getId(),qualifier);
+    	return segInfo;
+    }
+    
+    /**
+     * Author: Shiva  
+     * input: coaId
+     * output: list of segment names and segment lengths
+     */
+    @GetMapping("/getSegmentsByCoaId")
+    @Timed
+    public HashMap getSegmentsByCoaId(@RequestParam Long coaId)
+    {
+    	log.info("Rest api for fetching segment names and segment length based on coa id: "+ coaId);
+  
+    	HashMap finalMap = new HashMap();
+    	List<HashMap> segmentsList = new ArrayList<HashMap>();
+    	ChartOfAccount coa = chartOfAccountRepository.findOne(coaId);
+    	if(coa != null)
+    	{
+    		finalMap.put("coaName", coa.getName());
+    		finalMap.put("coaId", coa.getId());
+        	List<Segments> segments = segmentsRepository.findByCoaIdOrderBySequenceAsc(coaId);
+        	String segPlaceHolder = "";
+        	String segMask = "";
+        	if(segments.size()>0)
+        	{
+        		for(Segments segment : segments)
+        		{
+        			HashMap hm = new HashMap();
+        			hm.put("segmentName", segment.getSegmentName());
+        			hm.put("segmentLength", segment.getSegmentLength());
+        			hm.put("valueId", segment.getValueId());
+        			segmentsList.add(hm);
+        			
+        			if(segment.getSegmentLength() != null && segment.getSegmentLength()>0)
+        			{
+        				int segLength = segment.getSegmentLength();
+        				for(int i=0; i<segLength; i++)
+        				{
+        					segPlaceHolder = segPlaceHolder + "X";
+        					segMask = segMask + "9";
+        				}
+        				segPlaceHolder = segPlaceHolder+"-";
+        				segMask = segMask + "-";
+        			}
+
+            		List<MappingSetValues> mappingSetValues=mappingSetValuesRepository.findByMappingSetId(segment.getValueId());
+            		hm.put("valueSet", mappingSetValues);
+        		}
+        		
+        		segPlaceHolder = segPlaceHolder.substring(0, segPlaceHolder.length()-1);
+        		segMask = segMask.substring(0, segMask.length()-1);
+        		log.info("segPlaceHolder: "+ segPlaceHolder);
+        		log.info("segMask: "+segMask);
+        		
+        	}
+        	finalMap.put("nofOfSegments", segments.size());
+        	finalMap.put("segmentPlaceholder", segPlaceHolder);
+        	finalMap.put("segmentMask", segMask);
+        	finalMap.put("segments", segmentsList);
+    	}
+    	return finalMap;
+    }
+}

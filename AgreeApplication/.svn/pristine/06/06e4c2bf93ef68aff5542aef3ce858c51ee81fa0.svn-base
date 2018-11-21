@@ -1,0 +1,57 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.Notifications;
+
+import org.joda.time.LocalDate;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigInteger;
+import java.time.ZonedDateTime;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the Notifications entity.
+ */
+@SuppressWarnings("unused")
+public interface NotificationsRepository extends JpaRepository<Notifications,Long> {
+
+	List<Notifications> findByTenantIdAndUserIdOrderByIdDesc(Long tenantId, Long userId);
+	
+	List<Notifications> findByTenantIdAndUserIdAndIsViewed(Long tenantId, Long userId, Boolean isViewed);
+
+	
+	@Query(value =  "SELECT * FROM t_notifications where tenant_id =:tenantId and user_id =:userId and module not in ('APPROVALS','REPORTING') and creation_date Like :date order by id desc",nativeQuery=true)
+	List<Notifications> findByTenantIdAndUserIdAndCreationDate(@Param("tenantId") Long tenantId, @Param("userId") Long userId, @Param("date") String date);
+
+	
+	@Query(value =  "SELECT * FROM t_notifications where tenant_id =:tenantId and user_id = :userId and module not in ('APPROVALS','REPORTING') and creation_date between :stdate and :endTime order by id desc",nativeQuery=true)
+	List<Notifications> findByTenantIdAndUserIdAndCreationDateBetween(@Param("tenantId") Long tenantId, @Param("userId") Long userId, @Param("stdate") String stdate,@Param("endTime") String endTime);
+
+	List<Notifications> findByTenantIdAndUserIdAndModule(Long tenantId,
+			Long userId, String module);
+	
+	@Query(value =  "SELECT * FROM t_notifications where tenant_id =:tenantId and user_id = :userId and module =:module and creation_date Like :date order by id desc",nativeQuery=true)
+	List<Notifications> findByTenantIdAndUserIdAndModuleAndCreationDate(
+			@Param("tenantId") Long tenantId, @Param("userId") Long userId,@Param("module") String module, @Param("date") String date);
+
+	
+	@Query(value =  "SELECT * FROM t_notifications where tenant_id =:tenantId and user_id = :userId and module =:module and creation_date between :stdate and :endTime order by id desc",nativeQuery=true)
+	List<Notifications> findByTenantIdAndUserIdAndModuleAndCreationDateBetween(
+			@Param("tenantId") Long tenantId, @Param("userId") Long userId,@Param("module") String module, @Param("stdate") String stdate,@Param("endTime") String endTime);
+	
+	
+	@Query(value =  "SELECT distinct(module) FROM t_notifications where tenant_id =:tenantId and user_id = :userId and module not in ('APPROVALS','REPORTING') ",nativeQuery=true)
+	List<String> findDinstinctModuleByTenantIdAndUserId(@Param("tenantId") Long tenantId, @Param("userId") Long userId);
+	
+	
+	@Query(value =  "SELECT distinct(module) FROM t_notifications where tenant_id =:tenantId and user_id = :userId and creation_date between :stdate and :endTime",nativeQuery=true)
+	List<String> findDinstinctModuleByTenantIdAndUserIdAndCreationDateBetween(@Param("tenantId") Long tenantId, @Param("userId") Long userId, @Param("stdate") String stdate,@Param("endTime") String endTime);
+
+
+	/** Author: Bhagath **/
+	@Query(value =  "SELECT * FROM t_notifications where tenant_id =:tenantId and user_id = :userId and module =:module and Date(creation_date) between :fromDate and :toDate order by creation_date desc",nativeQuery=true)
+	List<Notifications> findByTenantIdAndUserIdAndModuleAndCreationDateBetweenOrderByCreationDate(
+			@Param("tenantId") Long tenantId, @Param("userId") Long userId,@Param("module") String module, @Param("fromDate") String fromDate,@Param("toDate") String toDate);
+	
+}

@@ -1,0 +1,779 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.SourceConnectionDetails;
+import com.nspl.app.domain.SourceProfileFileAssignments;
+import com.nspl.app.domain.SourceProfiles;
+import com.nspl.app.repository.SourceConnectionDetailsRepository;
+import com.nspl.app.repository.SourceProfileFileAssignmentsRepository;
+import com.nspl.app.repository.SourceProfilesRepository;
+import com.nspl.app.repository.search.SourceProfileFileAssignmentsSearchRepository;
+import com.nspl.app.repository.search.SourceProfilesSearchRepository;
+import com.nspl.app.service.ElasticSearchColumnNamesService;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.SourceProfileDTO;
+import com.nspl.app.web.rest.dto.SrcProfileAndSrcProfileAssignDTO;
+import com.nspl.app.web.rest.dto.SrcProfileConnectionDetailsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing SourceProfiles.
+ */
+@RestController
+@RequestMapping("/api")
+public class SourceProfilesResource {
+
+	private final Logger log = LoggerFactory
+			.getLogger(SourceProfilesResource.class);
+
+	private static final String ENTITY_NAME = "sourceProfiles";
+
+	private final SourceProfilesRepository sourceProfilesRepository;
+
+	private final SourceProfilesSearchRepository sourceProfilesSearchRepository;
+
+	private final SourceConnectionDetailsRepository sourceConnectionDetailsRepository;
+	
+	private final SourceProfileFileAssignmentsSearchRepository sourceProfileFileAssignmentsSearchRepository;
+	
+	@Inject
+	SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository;
+	
+	@Inject
+	ElasticSearchColumnNamesService elasticSearchColumnNamesService;
+	
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+
+	public SourceProfilesResource(
+			SourceProfilesRepository sourceProfilesRepository,
+			SourceProfilesSearchRepository sourceProfilesSearchRepository,
+			SourceConnectionDetailsRepository sourceConnectionDetailsRepository,
+			SourceProfileFileAssignmentsRepository sourceProfileFileAssignmentsRepository,
+			SourceProfileFileAssignmentsSearchRepository sourceProfileFileAssignmentsSearchRepository) {
+		this.sourceProfilesRepository = sourceProfilesRepository;
+		this.sourceProfilesSearchRepository = sourceProfilesSearchRepository;
+		this.sourceConnectionDetailsRepository = sourceConnectionDetailsRepository;
+		this.sourceProfileFileAssignmentsSearchRepository = sourceProfileFileAssignmentsSearchRepository;
+		
+	}
+
+	/**
+	 * POST /source-profiles : Create a new sourceProfiles.
+	 *
+	 * @param sourceProfiles
+	 *            the sourceProfiles to create
+	 * @return the ResponseEntity with status 201 (Created) and with body the
+	 *         new sourceProfiles, or with status 400 (Bad Request) if the
+	 *         sourceProfiles has already an ID
+	 * @throws URISyntaxException
+	 *             if the Location URI syntax is incorrect
+	 */
+	@PostMapping("/source-profiles/userId}")
+	@Timed
+	public ResponseEntity<SourceProfiles> createSourceProfiles(
+			@RequestBody SourceProfiles sourceProfiles,@RequestParam Long userId)
+			throws URISyntaxException {
+		log.debug("REST request to save SourceProfiles : {}", sourceProfiles);
+		if (sourceProfiles.getId() != null) {
+			return ResponseEntity
+					.badRequest()
+					.headers(
+							HeaderUtil
+									.createFailureAlert(ENTITY_NAME,
+											"idexists",
+											"A new sourceProfiles cannot already have an ID"))
+					.body(null);
+		}
+		sourceProfiles.setCreatedBy(userId);
+		sourceProfiles.setLastUpdatedBy(userId);
+		sourceProfiles.setCreatedDate(ZonedDateTime.now());
+		sourceProfiles.setLastUpdatedDate(ZonedDateTime.now());
+		SourceProfiles result = sourceProfilesRepository.save(sourceProfiles);
+		sourceProfilesSearchRepository.save(result);
+		return ResponseEntity
+				.created(new URI("/api/source-profiles/" + result.getId()))
+				.headers(
+						HeaderUtil.createEntityCreationAlert(ENTITY_NAME,
+								result.getId().toString())).body(result);
+	}
+
+	/**
+	 * PUT /source-profiles : Updates an existing sourceProfiles.
+	 *
+	 * @param sourceProfiles
+	 *            the sourceProfiles to update
+	 * @return the ResponseEntity with status 200 (OK) and with body the updated
+	 *         sourceProfiles, or with status 400 (Bad Request) if the
+	 *         sourceProfiles is not valid, or with status 500 (Internal Server
+	 *         Error) if the sourceProfiles couldnt be updated
+	 * @throws URISyntaxException
+	 *             if the Location URI syntax is incorrect
+	 */
+	@PutMapping("/source-profiles/{userId}")
+	@Timed
+	public ResponseEntity<SourceProfiles> updateSourceProfiles(
+			@RequestBody SourceProfiles sourceProfiles,@RequestParam Long userId)
+			throws URISyntaxException {
+		log.debug("REST request to update SourceProfiles : {}", sourceProfiles);
+		if (sourceProfiles.getId() == null) {
+			return createSourceProfiles(sourceProfiles,userId);
+		}
+		sourceProfiles.setCreatedBy(userId);
+		sourceProfiles.setLastUpdatedBy(userId);
+		sourceProfiles.setLastUpdatedDate(ZonedDateTime.now());
+		SourceProfiles result = sourceProfilesRepository.save(sourceProfiles);
+		sourceProfilesSearchRepository.save(result);
+		return ResponseEntity
+				.ok()
+				.headers(
+						HeaderUtil.createEntityUpdateAlert(ENTITY_NAME,
+								sourceProfiles.getId().toString()))
+				.body(result);
+	}
+
+	/**
+	 * GET /source-profiles : get all the sourceProfiles.
+	 *
+	 * @param pageable
+	 *            the pagination information
+	 * @return the ResponseEntity with status 200 (OK) and the list of
+	 *         sourceProfiles in body
+	 */
+	@GetMapping("/sourceProfilesByTenantId/{tenantId}")
+	@Timed
+	public ResponseEntity<List<SourceProfiles>> getAllSourceProfiles(
+			@ApiParam Pageable pageable,@RequestParam Long tenantId) {
+		log.debug("REST request to get a page of SourceProfiles");
+		Page<SourceProfiles> page = sourceProfilesRepository.findByTenantIdOrderByIdDesc(tenantId,pageable);
+		HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(
+				page, "/api/sourceProfilesByTenantId");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+	
+
+	/**
+	 * GET /source-profiles/:id : get the "id" sourceProfiles.
+	 *
+	 * @param id
+	 *            the id of the sourceProfiles to retrieve
+	 * @return the ResponseEntity with status 200 (OK) and with body the
+	 *         sourceProfiles, or with status 404 (Not Found)
+	 */
+	@GetMapping("/source-profiles/{id}")
+	@Timed
+	public ResponseEntity<SourceProfiles> getSourceProfiles(
+			@PathVariable Long id) {
+		log.debug("REST request to get SourceProfiles : {}", id);
+		SourceProfiles sourceProfiles = sourceProfilesRepository.findOne(id);
+		return ResponseUtil.wrapOrNotFound(Optional.ofNullable(sourceProfiles));
+	}
+
+	/**
+	 * DELETE /source-profiles/:id : delete the "id" sourceProfiles.
+	 *
+	 * @param id
+	 *            the id of the sourceProfiles to delete
+	 * @return the ResponseEntity with status 200 (OK)
+	 */
+	@DeleteMapping("/source-profiles/{id}")
+	@Timed
+	public ResponseEntity<Void> deleteSourceProfiles(@PathVariable Long id) {
+		log.debug("REST request to delete SourceProfiles : {}", id);
+		sourceProfilesRepository.delete(id);
+		sourceProfilesSearchRepository.delete(id);
+		return ResponseEntity
+				.ok()
+				.headers(
+						HeaderUtil.createEntityDeletionAlert(ENTITY_NAME,
+								id.toString())).build();
+	}
+
+	/**
+	 * SEARCH /_search/source-profiles?query=:query : search for the
+	 * sourceProfiles corresponding to the query.
+	 *
+	 * @param query
+	 *            the query of the sourceProfiles search
+	 * @param pageable
+	 *            the pagination information
+	 * @return the result of the search
+	 */
+	@GetMapping("/_search/source-profiles")
+	@Timed
+	public ResponseEntity<List<SourceProfiles>> searchSourceProfiles(@RequestParam Long tenantId,@RequestParam(value="filterValue",required=false) String filterValue,
+			@RequestParam(value = "page" , required = false) Integer offset, @RequestParam(value = "per_page", required = false) Integer limit) {
+		log.info("Rest api for fetching source profiles data with elasticsearch for the tenant_id : "+ tenantId);
+    	String query = "";
+    	query = query + " tenantId: \""+tenantId+"\" ";		// Filtering with tenant id	
+
+	   	     if(filterValue != null)
+	   	     {
+	   	        query = query + " AND \""+filterValue+"\"";
+	   	     } 
+	   	  log.info("query"+query);
+		  log.info("offset:"+offset+"limit"+limit);
+		  if(limit == null && offset == null)
+		  {
+			  offset = 0;
+			  Integer lmt = sourceProfilesSearchRepository.findByTenantId(tenantId).size();
+			  limit = lmt;
+			  if(limit == 0)
+				  limit=1;
+		  }	
+		  
+		Page<SourceProfiles> page = sourceProfilesSearchRepository.search(queryStringQuery(query), PaginationUtil.generatePageRequest(offset, limit));
+		HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page,"/api/_search/source-profiles");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	@GetMapping("/sourceProfilesNames/{tenantId}")
+	@Timed
+	public LinkedHashMap getDistinctSourceProfileNames(
+			@PathVariable Long tenantId) {
+		log.debug("REST request to fect distinct source profile names by tenantiId :"
+				+ tenantId);
+		List<SourceProfiles> sourceProfileList = sourceProfilesRepository
+				.findByTenantId(tenantId);
+		// List<LinkedHashMap> linkedMapList=new ArrayList<LinkedHashMap>();
+		LinkedHashMap lhp = new LinkedHashMap();
+		if (sourceProfileList.size() > 0 && sourceProfileList != null) {
+			for (int i = 0; i < sourceProfileList.size(); i++) {
+
+				SourceProfiles sourceProfile = sourceProfileList.get(i);
+				log.info("sourceProfile :" + sourceProfile);
+
+				if (sourceProfile.getSourceProfileName() != null
+						&& !sourceProfile.getSourceProfileName().isEmpty())
+					lhp.put(sourceProfile.getSourceProfileName(),
+							sourceProfile.getId());
+				// linkedMapList.add(lhp);
+				log.info("lhp :" + lhp);
+				log.info("linkedMapList1 :" + lhp);
+
+			}
+		}
+		log.info("linkedMapList2 :" + lhp);
+		return lhp;
+	}
+
+	/**
+	 * Author : Shobha
+	 */
+/*	@GetMapping("/fetchSourceProfiles/{tenantId}")
+	@Timed
+	public List<SourceProfiles> getAllSourceProfiles(@PathVariable Long tenantId) {
+
+		List<SourceProfiles> listOfSourceProfiles = new ArrayList<SourceProfiles>();
+		listOfSourceProfiles = sourceProfilesRepository.findByTenantIdOrderAndActiveStatus(tenantId);
+		log.info("size of source profiles" + listOfSourceProfiles.size());
+		return listOfSourceProfiles;
+	}*/
+	
+	@PostMapping("/fetchSourceProfiles")
+	@Timed
+	public List<SourceProfiles> getAllSourceProfiles(@RequestBody SourceProfiles sourceProfiles) {	//source profiles
+		log.info("Rest api for fetching active source profile based on active status");
+		List<SourceProfiles> listOfSourceProfiles = new ArrayList<SourceProfiles>();
+/*		if(sourceProfiles.getStartDate() != null)
+		{
+			if(sourceProfiles.getEndDate() != null)
+			{
+				listOfSourceProfiles = sourceProfilesRepository.fetchSourceProfileByActiveStatusWithStartDate(sourceProfiles.getTenantId(), sourceProfiles.getStartDate(), sourceProfiles.getEndDate());		
+			}
+			else
+			{
+				listOfSourceProfiles = sourceProfilesRepository.fetchSourceProfileByActiveStatus(sourceProfiles.getTenantId(), sourceProfiles.getStartDate());
+			}
+		}
+*/		
+		listOfSourceProfiles = sourceProfilesRepository.fetchActiveSourceProfileByTenantId(sourceProfiles.getTenantId());
+		return listOfSourceProfiles;
+	}
+
+	/**
+	 * Author:Ravali
+	 * get connectionDetailsOfSourceProfilesByTenantId
+	 *
+	 * @param tenantId
+	 * @return SrcProfileConnectionDetailsDTO
+	 */
+	@GetMapping("/connectionDetails")
+	@Timed
+	public List<SrcProfileConnectionDetailsDTO> concDetialsOfSrcPRofile(
+			@RequestParam Long tenantId, @RequestParam(required=false) Long Id) {
+		log.info("Rest Request to get connection details of source profile By tenantId :"
+				+ tenantId+" and profileId: "+Id);
+		List<SourceProfiles> srcProfList=new ArrayList<SourceProfiles>();
+		if(Id!=null){
+		srcProfList = sourceProfilesRepository
+				.findByTenantIdAndId(tenantId,Id);
+		}
+	else{
+		srcProfList = sourceProfilesRepository
+				.findByTenantIdOrderByIdDesc(tenantId);
+	}
+		log.info("srcProfList :" + srcProfList);
+		List<SrcProfileConnectionDetailsDTO> srcProfileConnectionDetailsDTOList = new ArrayList<SrcProfileConnectionDetailsDTO>();
+		// List<SourceConnectionDetails> srcConcDetailsList=new
+		// ArrayList<SourceConnectionDetails>();
+		for (SourceProfiles srcProf : srcProfList) {
+			SrcProfileConnectionDetailsDTO SrcProfConcDto = new SrcProfileConnectionDetailsDTO();
+			SrcProfConcDto.setId(srcProf.getId());
+			if (srcProf.getSourceProfileName() != null
+					&& !srcProf.getSourceProfileName().isEmpty())
+				SrcProfConcDto.setSourceProfileName(srcProf
+						.getSourceProfileName());
+			if (srcProf.getDescription() != null
+					&& !srcProf.getDescription().isEmpty())
+				SrcProfConcDto.setProfileDescription(srcProf.getDescription());
+			if (srcProf.getStartDate() != null)
+				SrcProfConcDto.setStartDate(srcProf.getStartDate());
+			if (srcProf.getEndDate() != null)
+				SrcProfConcDto.setEndDate(srcProf.getEndDate());
+			if(srcProf.getEndDate()!=null && srcProf.getEndDate().isBefore(LocalDate.now()))
+				SrcProfConcDto.setEndDated(true);
+			if (srcProf.isEnabledFlag() != null)
+				SrcProfConcDto.setEnabledFlag(srcProf.isEnabledFlag());
+			if (srcProf.getConnectionId() != null)
+				SrcProfConcDto.setConnectionId(srcProf.getConnectionId());
+			if(srcProf.getCreatedBy() != null)
+				SrcProfConcDto.setCreatedBy(srcProf.getCreatedBy());
+			if(srcProf.getCreatedDate() != null)
+				SrcProfConcDto.setCreatedDate(srcProf.getCreatedDate());
+			if (srcProf.getConnectionId() != null) {
+				SourceConnectionDetails srcConcDetails = sourceConnectionDetailsRepository
+						.findOne(srcProf.getConnectionId());
+				log.info("srcConcDetails :" + srcConcDetails);
+				//ConnectionDetails concDTO = new ConnectionDetails();
+				if (srcConcDetails != null) {
+					if (srcConcDetails.getName() != null
+							&& !srcConcDetails.getName().isEmpty())
+						SrcProfConcDto.setName(srcConcDetails.getName());
+					else
+						SrcProfConcDto.setName("");
+					if (srcConcDetails.getDescription() != null
+							&& !srcConcDetails.getDescription().isEmpty())
+						SrcProfConcDto.setConnectionDescription(srcConcDetails
+								.getDescription());
+					else
+						SrcProfConcDto.setConnectionDescription("");
+					if (srcConcDetails.getProtocol() != null)
+						SrcProfConcDto.setProtocol(srcConcDetails.getProtocol());
+					else
+						SrcProfConcDto.setProtocol("");
+					if (srcConcDetails.getClientKey() != null
+							&& !srcConcDetails.getClientKey().isEmpty())
+						SrcProfConcDto.setClientKey(srcConcDetails.getClientKey());
+					else
+						SrcProfConcDto.setClientKey("");
+					if (srcConcDetails.getClientSecret() != null
+							&& !srcConcDetails.getClientSecret().isEmpty())
+						SrcProfConcDto.setClientSecret(srcConcDetails
+								.getClientSecret());
+					else
+						SrcProfConcDto.setClientSecret("");
+					if (srcConcDetails.getAuthEndpointUrl() != null
+							&& !srcConcDetails.getAuthEndpointUrl().isEmpty())
+						SrcProfConcDto.setAuthEndPointUrl(srcConcDetails
+								.getAuthEndpointUrl());
+					else
+						SrcProfConcDto.setAuthEndPointUrl("");
+					if (srcConcDetails.getTokenEndpointUrl() != null
+							&& !srcConcDetails.getTokenEndpointUrl().isEmpty())
+						SrcProfConcDto.setTokenEndPointUrl(srcConcDetails
+								.getTokenEndpointUrl());
+					else
+						SrcProfConcDto.setTokenEndPointUrl("");
+					if (srcConcDetails.getCallBackUrl() != null
+							&& !srcConcDetails.getCallBackUrl().isEmpty())
+						SrcProfConcDto.setCallBackUrl(srcConcDetails.getCallBackUrl());
+					else
+						SrcProfConcDto.setCallBackUrl("");
+					if (srcConcDetails.getHost() != null
+							&& !srcConcDetails.getHost().isEmpty())
+						SrcProfConcDto.setHost(srcConcDetails.getHost());
+					else
+						SrcProfConcDto.setHost("");
+					if (srcConcDetails.getPassword() != null
+							&& !srcConcDetails.getPassword().isEmpty())
+						SrcProfConcDto.setJhiPassword(srcConcDetails.getPassword());
+					else
+						SrcProfConcDto.setJhiPassword("");
+					if (srcConcDetails.getConnectionType() != null
+							&& !srcConcDetails.getConnectionType().isEmpty())
+						SrcProfConcDto.setConnectionType(srcConcDetails
+								.getConnectionType());
+					else
+						SrcProfConcDto.setConnectionType("");
+					if (srcConcDetails.getAccessToken() != null
+							&& !srcConcDetails.getAccessToken().isEmpty())
+						SrcProfConcDto.setAccessToken(srcConcDetails.getAccessToken());
+					else
+						SrcProfConcDto.setAccessToken("");
+					if (srcConcDetails.getPort() != null
+							&& !srcConcDetails.getPort().isEmpty())
+						SrcProfConcDto.setPort(srcConcDetails.getPort());
+					else
+						SrcProfConcDto.setPort("");
+					if (srcConcDetails.getUserName() != null
+							&& !srcConcDetails.getUserName().isEmpty())
+						SrcProfConcDto.setUserName(srcConcDetails.getUserName());
+					else
+						SrcProfConcDto.setUserName("");
+				}
+			}
+			if (SrcProfConcDto != null)
+				srcProfileConnectionDetailsDTOList.add(SrcProfConcDto);
+		}
+		log.info("srcConcDetailsList :" + srcProfileConnectionDetailsDTOList);
+		return srcProfileConnectionDetailsDTOList;
+
+	}
+	
+	/**
+	 * Author:Ravali
+	 * get connectionDetailsOfSourceProfilesByTenantId
+	 *
+	 * @param tenantId
+	 * @return SrcProfileConnectionDetailsDTO
+	 */	
+	
+	@PostMapping("/sourceProfilesAndProfileAssignments")
+	@Timed
+	public List<ErrorReport> sourceProfilesAndProfileAssignments(@RequestBody SrcProfileAndSrcProfileAssignDTO SrcProfileAndSrcProfileAssignDTO,@RequestParam Long userId)
+	{
+		log.info("Rest Request to save source profiles and List of Source profile assignments :"+SrcProfileAndSrcProfileAssignDTO);
+		List<ErrorReport> finalErrorReport=new ArrayList<ErrorReport>();
+		if(SrcProfileAndSrcProfileAssignDTO.getSourceProfiles()!=null)
+		{
+			SourceProfiles sourceProfiles=SrcProfileAndSrcProfileAssignDTO.getSourceProfiles();
+			sourceProfiles.setCreatedBy(userId);
+			sourceProfiles.setLastUpdatedBy(userId);
+			sourceProfiles.createdDate(ZonedDateTime.now());
+			sourceProfiles.setLastUpdatedDate(ZonedDateTime.now());
+			
+			sourceProfiles.setStartDate(sourceProfiles.getStartDate().plusDays(1));
+			if(sourceProfiles.getEndDate()!=null)
+			sourceProfiles.setEndDate(sourceProfiles.getEndDate());
+			log.info("sourceProfiles :"+sourceProfiles);
+			SourceProfiles srcProf = sourceProfilesRepository.save(sourceProfiles);
+			sourceProfilesSearchRepository.save(srcProf);
+			log.info("sourceProfiles :"+sourceProfiles);
+			log.info("sourceProfiles.getId :"+srcProf.getId());
+			ErrorReport srcProfileErrorReport=new ErrorReport();
+			srcProfileErrorReport.setTaskName("Source Profile Save");
+			if(srcProf.getId()!=null)
+			{
+				sourceProfiles.setEnabledFlag(sourceProfiles.isEnabledFlag());
+				srcProfileErrorReport.setDetails(srcProf.getId()+"");
+				srcProfileErrorReport.setTaskStatus("Success");
+				finalErrorReport.add(srcProfileErrorReport);
+				if(SrcProfileAndSrcProfileAssignDTO.getSourceProfileFileAssignments()!=null)
+				{
+					
+					List<BigInteger> fileTempIds=sourceProfileFileAssignmentsRepository.fetchTempIdsBySrcProfile(srcProf.getId());
+					 log.info("templateIds before:"+fileTempIds);
+					List<SourceProfileFileAssignments> srcProfileAssignList=SrcProfileAndSrcProfileAssignDTO.getSourceProfileFileAssignments();
+					List<SourceProfileFileAssignments> srcProfileAssignFinalList=new ArrayList<SourceProfileFileAssignments>();
+					for(SourceProfileFileAssignments srcProfileAssign:srcProfileAssignList)
+					{
+						
+						
+						for(SourceProfileFileAssignments srcProfile:srcProfileAssignList)
+						{
+						if(srcProfileAssign.getId()!=null && srcProfileAssign.getId()!=0)
+						{
+							if(fileTempIds.size()>0)
+							{
+								 for(int id=0;id<fileTempIds.size();id++)
+								 {
+									 log.info("fileTempIds.get(id) :"+fileTempIds.get(id));
+									 log.info("srcProfileAssign.getTemplateId() :"+srcProfile.getTemplateId());
+									 if(fileTempIds.get(id).longValue()==srcProfile.getTemplateId())
+									 {
+										 log.info("same");
+										 fileTempIds.remove(fileTempIds.get(id));
+									 }
+								 }
+							}
+						}
+						}
+						//else
+						//{
+						log.info("fileTempIds after :"+fileTempIds);
+							
+							 for(int j=0;j<fileTempIds.size();j++)
+							 {
+								 log.info("fileTempIds.get(j).longValue() :"+fileTempIds.get(j).longValue());
+								 log.info("srcProf.getId() :"+srcProf.getId());
+								 SourceProfileFileAssignments spfa=sourceProfileFileAssignmentsRepository.findBySourceProfileIdAndTemplateId(srcProf.getId(),fileTempIds.get(j).longValue());
+								// RuleGroupDetails ruleGroup=ruleGroupDetailsRepository.findByRuleGroupIdAndRuleId(ruleGrpId.getId(),ruleIdsList.get(j).longValue());
+								 log.info("spfaId :"+spfa);
+								 log.info("");
+								 if(spfa!=null)
+									 sourceProfileFileAssignmentsRepository.delete(spfa);
+							 }
+						srcProfileAssign.setSourceProfileId(srcProf.getId());
+						srcProfileAssign.setCreatedBy(userId);
+						srcProfileAssign.setLastUpdatedBy(userId);
+						srcProfileAssign.setCreatedDate(ZonedDateTime.now());
+						srcProfileAssign.setLastUpdatedDate(ZonedDateTime.now());
+						srcProfileAssign.setEnabledFlag(true);
+						if(srcProfileAssign.getTemplateId() != null && srcProfileAssign.getSourceProfileId() !=null )
+						{
+							SourceProfileFileAssignments srcProfileFileAssign=sourceProfileFileAssignmentsRepository.save(srcProfileAssign);
+							sourceProfileFileAssignmentsSearchRepository.save(srcProfileFileAssign);
+							srcProfileAssignFinalList.add(srcProfileFileAssign);
+						}
+						else
+						{
+							log.info("either template id or src prof id are null");
+						}
+						
+					
+					}
+					ErrorReport srcProfileAssignErrorReport=new ErrorReport();
+					srcProfileAssignErrorReport.setTaskName("Source Profile File Assignment Save");
+					if(srcProfileAssignList.size()==srcProfileAssignFinalList.size())
+					{
+						srcProfileAssignErrorReport.setTaskStatus("Success");
+						finalErrorReport.add(srcProfileAssignErrorReport);
+					}
+					else
+					{
+						srcProfileAssignErrorReport.setTaskStatus("Failure");
+						finalErrorReport.add(srcProfileAssignErrorReport);
+					}
+				}
+			}
+			else
+			{
+				srcProfileErrorReport.setTaskStatus("Failure");
+				finalErrorReport.add(srcProfileErrorReport);
+			}
+		}
+		else
+		{
+			log.info("source profiles doesnt exist");
+		}
+		return finalErrorReport;
+
+	}
+	
+	
+	
+	/**
+	 * Author:Ravali
+	 * get Records between start and end date
+	 *
+	 * @param tenantId
+	 * @return List of Records
+	 */	
+	@GetMapping("/fetchActiveRecords")
+	@Timed
+	public List getActiveRecords(@RequestParam String startDate,@RequestParam(value="endDate",required=false) String endDate,@RequestParam String tableName, @RequestParam Long tenantId)
+	{
+		log.info("Rest Request to get distinct source details");
+		log.info("startDate :"+startDate);
+		log.info("endDate :"+endDate);
+		log.info("columnName :"+tableName);LocalDate lStDt=LocalDate.parse(startDate.substring(0, 10));
+		List entity;
+		LocalDate lEdSt;
+		if(endDate!=null)
+		{
+			lEdSt=LocalDate.parse(endDate.substring(0, 10));
+		
+			entity=em.createQuery(" FROM "+tableName+" where tenantId="+tenantId ).getResultList();
+		}else{
+			entity=em.createQuery(" FROM "+tableName+" where tenantId="+tenantId ).getResultList();
+		}
+		return entity;
+}
+	
+
+	
+	/**
+	 * Author:Ravali
+	 * get unassigned source profiles 
+	 * @return List of Records
+	 */	
+	@GetMapping("/UnAssignedSourceProfileList")
+	@Timed
+	public List<SourceProfiles> getUnassignedFileTemplates(@RequestBody FileTemplates fileTemplates)
+	{
+		log.info("Rest Request to fetch unassigned list : "+fileTemplates.getTenantId() +fileTemplates.getStartDate() +fileTemplates.getEndDate());
+		LocalDate lEdSt;
+		LocalDate lStDt=fileTemplates.getStartDate();
+		List<SourceProfiles> activeUnassignedList=new ArrayList<SourceProfiles>();
+		if(fileTemplates.getEndDate()!=null)
+		{
+			lEdSt=fileTemplates.getEndDate();
+			log.info("lStDt "+lStDt);
+			log.info("lEdSt "+lEdSt);
+			activeUnassignedList=sourceProfilesRepository.findByConnectionIdIsNullAndActive(fileTemplates.getTenantId());
+		}
+		else
+			activeUnassignedList=sourceProfilesRepository.findByConnectionIdIsNull(fileTemplates.getTenantId());
+		return activeUnassignedList;
+
+	}
+	
+	
+	/**
+	 * Author:Ravali,Shiva
+	 * get unassigned source profiles 
+	 * @param tenantId
+	 * @return List of Records
+	 */	
+	@PostMapping("/UnAssignedSourceProfiles")
+	@Timed
+	public List<SourceProfiles> getUnassignedFileTemps(@RequestBody SourceProfileDTO sourceProfileDTO)
+	{
+		log.info("Rest Request to fetch Un-Assigned Source Profiles");
+		List<SourceProfiles> activeUnassignedList=new ArrayList<SourceProfiles>();
+		if(sourceProfileDTO.getConnectionId()!=0)
+			activeUnassignedList=sourceProfilesRepository.findByConnection(sourceProfileDTO.getTenantId(),sourceProfileDTO.getConnectionId());
+		else
+			activeUnassignedList=sourceProfilesRepository.findByConnectionIdIsNull(sourceProfileDTO.getTenantId());
+
+		/*if(sourceProfileDTO.getConnectionId() != 0)
+		{
+			log.info("Connection Id passing "+ sourceProfileDTO.getConnectionId());
+			if(sourceProfileDTO.getStartDate() != null)
+			{
+				String startDateString = sourceProfileDTO.getStartDate();
+				Instant strtDtInstance = Instant.parse(startDateString);
+		       	LocalDate startDate = LocalDateTime.ofInstant(strtDtInstance, ZoneId.of(ZoneOffset.UTC.getId())).toLocalDate();
+		       	log.info("Start Date: "+startDate);
+				if(sourceProfileDTO.getEndDate() != null)
+				{
+					String endDateString = sourceProfileDTO.getEndDate();
+			        Instant endDtInstance = Instant.parse(endDateString);
+			        LocalDate endDate = LocalDateTime.ofInstant(endDtInstance, ZoneId.of(ZoneOffset.UTC.getId())).toLocalDate(); 
+					log.info("End Date: "+endDate);
+			        activeUnassignedList = sourceProfilesRepository.fetchByConnectionIdsAndStartDateAndEndDate(sourceProfileDTO.getTenantId(),sourceProfileDTO.getConnectionId(), startDate, endDate);	
+				}
+				else
+				{
+					activeUnassignedList = sourceProfilesRepository.fetchByConnectionIdsAndStartDate(sourceProfileDTO.getTenantId(),sourceProfileDTO.getConnectionId(), startDate);
+				}
+			}
+		}
+		else
+		{
+			log.info("Connection Id is null");
+			if(sourceProfileDTO.getStartDate() != null)
+			{
+				String startDateString = sourceProfileDTO.getStartDate();
+				Instant strtDtInstance = Instant.parse(startDateString);
+		       	LocalDate startDate = LocalDateTime.ofInstant(strtDtInstance, ZoneId.of(ZoneOffset.UTC.getId())).toLocalDate();
+		       	log.info("Start Date: "+startDate);
+				if(sourceProfileDTO.getEndDate() != null)
+				{
+					String endDateString = sourceProfileDTO.getEndDate();
+			        Instant endDtInstance = Instant.parse(endDateString);
+			        LocalDate endDate = LocalDateTime.ofInstant(endDtInstance, ZoneId.of(ZoneOffset.UTC.getId())).toLocalDate();
+					log.info("End Date: "+endDate);
+			        activeUnassignedList=sourceProfilesRepository.fetchByConnectionIdIdIsNullAndStartDateAndEndDate(sourceProfileDTO.getTenantId(),startDate, endDate);	
+				}
+				else
+				{
+					activeUnassignedList=sourceProfilesRepository.fetchByConnectionIdINullAndStartDate(sourceProfileDTO.getTenantId(), startDate);
+				}
+			}
+		}*/
+		log.info("No of records fetched: "+ activeUnassignedList.size());
+		return activeUnassignedList;
+	}
+	@GetMapping("/sourceProfileswithDetailInfo")
+	@Timed
+	public List<SourceProfileDTO> getAllSourceProfilesWithConDetails(@RequestParam Long tenantId ,@RequestParam (required=false) String status) {
+		log.debug("REST request to getAllSourceProfilesWithConDetails"+status);
+		List<SourceProfiles> sourceProfilesList =new ArrayList<SourceProfiles>();
+		if(status.equalsIgnoreCase("null")||status==null )
+		{
+			sourceProfilesList = sourceProfilesRepository.findByTenantIdOrderByCreatedDateDesc(tenantId);
+		}
+		else
+		{
+			if(status.equalsIgnoreCase("true"))
+			sourceProfilesList = sourceProfilesRepository.findByTenantIdAndEnabledFlagOrderByCreatedDateDesc(tenantId,true);
+			else if(status.equalsIgnoreCase("false"))
+			sourceProfilesList = sourceProfilesRepository.findByTenantIdAndEnabledFlagOrderByCreatedDateDesc(tenantId,false);
+		}
+		
+		List<SourceProfileDTO> sourceProfilesListDTO = new ArrayList<SourceProfileDTO>();
+		for(SourceProfiles sp : sourceProfilesList)
+		{
+			SourceProfileDTO spDTO = new SourceProfileDTO();
+			if(sp.getId() != null)
+			spDTO.setId(sp.getId());
+			if(sp.getSourceProfileName() != null)
+			spDTO.setSourceProfileName(sp.getSourceProfileName());
+			if(sp.getConnectionId() != null)
+			spDTO.setConnectionId(sp.getConnectionId());
+			SourceConnectionDetails scd = new SourceConnectionDetails();
+			if(sp.getConnectionId() != null)
+			{
+				scd = sourceConnectionDetailsRepository.findOne(sp.getConnectionId());
+				if(scd != null)
+				{
+					spDTO.setConnectionName(scd.getName());
+					spDTO.setConnectionType(scd.getConnectionType());
+				}
+				
+			}
+			if(sp.getDescription() != null)
+			spDTO.setDescription(sp.getDescription());
+			if(sp.isEnabledFlag() != null)
+			spDTO.setEnabledFlag(sp.isEnabledFlag());
+			if(sp.getEndDate() != null)
+			spDTO.setEndDate(sp.getEndDate());
+			if(sp.getStartDate() != null)
+			spDTO.setStartDate(sp.getStartDate());
+			if(sp.getTenantId() != null)
+			spDTO.setTenantId(sp.getTenantId());
+			sourceProfilesListDTO.add(spDTO);
+		}
+		return sourceProfilesListDTO;
+	}
+
+}

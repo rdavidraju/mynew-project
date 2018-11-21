@@ -1,0 +1,446 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.BatchHeader;
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataStaging;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.SourceFileInbHistory;
+import com.nspl.app.repository.BatchHeaderRepository;
+import com.nspl.app.repository.DataStagingRepository;
+import com.nspl.app.repository.SourceFileInbHistoryRepository;
+import com.nspl.app.repository.search.DataStagingSearchRepository;
+import com.nspl.app.service.FindDelimiterAndFileExtensionService;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.persistence.EntityManager;
+import javax.inject.Inject;
+import javax.persistence.Entity;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+import javax.servlet.http.HttpServletResponse;
+import javax.transaction.Transactional;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+import com.nspl.app.web.rest.util.PaginationUtil;
+/**
+ * REST controller for managing DataStaging.
+ */
+
+
+@RestController
+@RequestMapping("/api")
+public class DataStagingResource {
+	
+	
+
+    private final Logger log = LoggerFactory.getLogger(DataStagingResource.class);
+
+    private static final String ENTITY_NAME = "dataStaging";
+        
+    private final DataStagingRepository dataStagingRepository;
+
+    private final DataStagingSearchRepository dataStagingSearchRepository;
+    
+    private final SourceFileInbHistoryRepository sourceFileInbHistoryRepository;
+    
+    @Inject
+    FindDelimiterAndFileExtensionService findDelimiterAndFileExtensionService;
+    
+    private final BatchHeaderRepository batchHeaderRepository;
+    
+    @PersistenceContext(unitName="default")
+	private EntityManager em;
+
+    public DataStagingResource(DataStagingRepository dataStagingRepository, DataStagingSearchRepository dataStagingSearchRepository,SourceFileInbHistoryRepository sourceFileInbHistoryRepository,BatchHeaderRepository batchHeaderRepository) {
+        this.dataStagingRepository = dataStagingRepository;
+        this.dataStagingSearchRepository = dataStagingSearchRepository;
+        this.sourceFileInbHistoryRepository =sourceFileInbHistoryRepository;
+    	this.batchHeaderRepository=batchHeaderRepository;
+    }
+
+    /**
+     * POST  /data-stagings : Create a new dataStaging.
+     *
+     * @param dataStaging the dataStaging to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new dataStaging, or with status 400 (Bad Request) if the dataStaging has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/data-stagings")
+    @Timed
+    public ResponseEntity<DataStaging> createDataStaging(@RequestBody DataStaging dataStaging) throws URISyntaxException {
+        log.debug("REST request to save DataStaging : {}", dataStaging);
+        if (dataStaging.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataStaging cannot already have an ID")).body(null);
+        }
+        DataStaging result = dataStagingRepository.save(dataStaging);
+        dataStagingSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/data-stagings/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /data-stagings : Updates an existing dataStaging.
+     *
+     * @param dataStaging the dataStaging to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataStaging,
+     * or with status 400 (Bad Request) if the dataStaging is not valid,
+     * or with status 500 (Internal Server Error) if the dataStaging couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/data-stagings")
+    @Timed
+    public ResponseEntity<DataStaging> updateDataStaging(@RequestBody DataStaging dataStaging) throws URISyntaxException {
+        log.debug("REST request to update DataStaging : {}", dataStaging);
+        if (dataStaging.getId() == null) {
+            return createDataStaging(dataStaging);
+        }
+        DataStaging result = dataStagingRepository.save(dataStaging);
+        dataStagingSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, dataStaging.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /data-stagings : get all the dataStagings.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of dataStagings in body
+     */
+    @GetMapping("/data-stagings")
+    @Timed
+    public ResponseEntity<List<DataStaging>> getAllDataStagings(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of DataStagings");
+        Page<DataStaging> page = dataStagingRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/data-stagings");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /data-stagings/:id : get the "id" dataStaging.
+     *
+     * @param id the id of the dataStaging to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataStaging, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-stagings/{id}")
+    @Timed
+    public ResponseEntity<DataStaging> getDataStaging(@PathVariable Long id) {
+        log.debug("REST request to get DataStaging : {}", id);
+        DataStaging dataStaging = dataStagingRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataStaging));
+    }
+
+    /**
+     * DELETE  /data-stagings/:id : delete the "id" dataStaging.
+     *
+     * @param id the id of the dataStaging to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-stagings/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataStaging(@PathVariable Long id) {
+        log.debug("REST request to delete DataStaging : {}", id);
+        dataStagingRepository.delete(id);
+        dataStagingSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/data-stagings?query=:query : search for the dataStaging corresponding
+     * to the query.
+     *
+     * @param query the query of the dataStaging search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/data-stagings")
+    @Timed
+    public ResponseEntity<List<DataStaging>> searchDataStagings(@RequestParam Long tenantId, @RequestParam(value="filterValue",required=false) String filterValue, @ApiParam Pageable pageable) {
+    	String query = "";
+    	query = query + " tenantId: \""+tenantId+"\" ";		// Filtering with tenant id	
+	   	if(filterValue != null)
+	   	{
+	   		query = query + " AND \""+filterValue+"\"";
+	   	}
+        Page<DataStaging> page = dataStagingSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/data-stagings");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    
+    /**
+     * Author: Swetha
+     * Api to retrieve distinct column values
+     * @param tableName
+     * @param colName
+     * @param tenantId
+     * @param templateId
+     * @return
+     */
+    @GetMapping("/getDistinctColValues")
+    @Timed
+    public List<String> getDistinctColValues(@RequestParam String tableName, @RequestParam String colName,@RequestParam Long tenantId,@RequestParam Long templateId){
+    	
+    	log.info("REST request to getDistinctColValues for TableName: "+tableName +" and colName: "+colName+"tenantId: "+tenantId+" template_id= "+templateId);
+    	List<String> colLst=new ArrayList<String>();
+    	
+    	Query distinctList=em.createQuery("select distinct"+"("+colName+")"+ " FROM "+tableName+" where tenantId="+tenantId+" and templateId= "+templateId);
+    			//" and template_id: "+templateId);
+		log.info("distinctList : "+distinctList);
+    	
+		List list=distinctList.getResultList();
+		log.info("size: "+list.size());
+		
+		for(int i=0;i<list.size();i++){
+			
+			log.info("list.get(i): "+list.get(i));
+			String obj=list.get(i).toString();
+			colLst.add(obj);
+		}
+		
+		return colLst;
+    	
+    }
+    /**
+     * Author Kiran
+     * @param srcFileInbId
+     * @return
+     */
+   /* @Transactional
+    @GetMapping("/moveLinesFromStagingToMaster")
+    @Timed
+   */
+    
+    /**
+     * Author : Shobha
+     * @param offset
+     * @param limit
+     * @param response
+     * @param sourceProfileId
+     * @param templateId
+     * @param srcFileHistInbId
+     * @return
+     * @throws URISyntaxException
+     */
+    @GetMapping("/dataStagingLinesBySrcFileInb")
+    @Timed
+    public ResponseEntity<List<DataStaging>>  fetchDataStagingLinesBySrcFileInb(
+    		@RequestParam(value = "page" , required = false) Integer offset,
+    		@RequestParam (value="recordStatus") String recordStatus,
+    		@RequestParam(value = "per_page", required = false) Integer limit,HttpServletResponse response,
+    		@RequestParam Long sourceProfileId, @RequestParam Long templateId,@RequestParam ( required=false)Long intermediateId,  @RequestParam Long srcFileHistInbId) throws URISyntaxException {
+    	log.debug("Rest request to fetch DataStaging lines by srcInb with:"+srcFileHistInbId);	
+    	List<DataStaging> dataStagingLines = new ArrayList<DataStaging>();
+    	PaginationUtil paginationUtil=new PaginationUtil();
+    	int maxlmt=paginationUtil.MAX_LIMIT;
+		int minlmt=paginationUtil.MIN_OFFSET;
+		Page<DataStaging> page = null;
+		HttpHeaders headers = null;
+    	if(limit==null || limit<minlmt){
+    		if(intermediateId == null)
+    		{
+    			dataStagingLines = dataStagingRepository.findBySrcFileInbIdAndRecordStatus(srcFileHistInbId,recordStatus);
+    		}
+    		else
+    		{
+    			dataStagingLines = dataStagingRepository.findBySrcFileInbIdAndIntermediateIdAndRecordStatus(srcFileHistInbId,intermediateId,recordStatus);
+    		}
+    		
+    		//log.info("dataStagingLines:"+dataStagingLines.size());
+			limit = dataStagingLines.size();
+		}
+		if(limit == 0 )
+    	{
+    		limit = paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+    	{
+    		offset = paginationUtil.DEFAULT_OFFSET;
+    	}
+    	log.info("limit=>"+limit+"offset=>"+offset);
+    	if(limit>maxlmt)
+		{
+			log.info("input limit exceeds maxlimit");
+			if(recordStatus == null || recordStatus.isEmpty() || recordStatus.equals("") || recordStatus.equalsIgnoreCase("All"))
+			{
+				if(intermediateId == null)
+				{
+					page =  dataStagingRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequest2(offset, limit));
+				}
+				else
+				{
+					page =  dataStagingRepository.findBySrcFileInbIdAndIntermediateId(srcFileHistInbId,intermediateId,PaginationUtil.generatePageRequest2(offset, limit));
+				}
+				 headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/dataStagingLinesBySrcFileInb",offset, limit);
+			}
+			else
+			{
+				if(intermediateId == null)
+				{
+					 page =  dataStagingRepository.findBySrcFileInbIdAndRecordStatus(srcFileHistInbId,recordStatus,PaginationUtil.generatePageRequest2(offset, limit));
+				}
+				else
+				{
+					 page =  dataStagingRepository.findBySrcFileInbIdAndIntermediateIdAndRecordStatus(srcFileHistInbId,intermediateId,recordStatus,PaginationUtil.generatePageRequest2(offset, limit));
+				}
+				
+				 headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/dataStagingLinesBySrcFileInb",offset, limit);
+			}
+		}
+		else{
+			log.info("input limit is within maxlimit"+offset+"limit"+limit+"recordStatus"+recordStatus);
+			if(recordStatus == null || recordStatus.isEmpty() || recordStatus.equals("") || recordStatus.equalsIgnoreCase("All"))
+			{
+				if(intermediateId == null)
+				{
+					page =  dataStagingRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequest2(offset, limit));
+				}
+				else
+				{
+					page =  dataStagingRepository.findBySrcFileInbIdAndIntermediateId(srcFileHistInbId,intermediateId,PaginationUtil.generatePageRequest2(offset, limit));
+				}
+				 
+				 headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/dataStagingLinesBySrcFileInb",offset, limit);
+			}
+			else
+			{
+				if(intermediateId == null)
+				{
+					page = dataStagingRepository.findBySrcFileInbIdAndRecordStatus(srcFileHistInbId,recordStatus,PaginationUtil.generatePageRequest(offset, limit));
+				}
+				else
+				{
+					page = dataStagingRepository.findBySrcFileInbIdAndIntermediateIdAndRecordStatus(srcFileHistInbId,intermediateId,recordStatus,PaginationUtil.generatePageRequest(offset, limit));
+				}
+				
+				headers = PaginationUtil.generatePaginationHttpHeaderss(page, "/api/dataStagingLinesBySrcFileInb", offset, limit);
+			}
+			int count = 0;
+			if(recordStatus == null || recordStatus.isEmpty() || recordStatus.equals("") || recordStatus.equalsIgnoreCase("All"))
+			{
+				if(intermediateId == null)
+				{
+					count = dataStagingRepository.findBySrcFileInbId(srcFileHistInbId).size();
+				}
+				else
+				{
+					count = dataStagingRepository.findBySrcFileInbIdAndIntermediateId(srcFileHistInbId,intermediateId).size();
+				}
+				
+			}
+			else
+			{
+				if(intermediateId == null)
+				{
+					count = dataStagingRepository.findBySrcFileInbIdAndRecordStatus(srcFileHistInbId,recordStatus).size();
+				}
+				else
+				{
+					count = dataStagingRepository.findBySrcFileInbIdAndIntermediateIdAndRecordStatus(srcFileHistInbId,intermediateId,recordStatus).size();
+				}
+				
+			}
+			
+			response.addIntHeader("X-COUNT",count);
+		}
+    	log.info("content of staging is:"+page.getContent());
+    	return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+    /**
+     * Author : Shobha
+     * @param dataStagings
+     * @return
+     * @throws URISyntaxException
+     */
+    @PutMapping("/updateDataStagingRecords")
+    @Timed
+    public ErrorReport updateDataStagingrecords(@RequestBody List<DataStaging> dataStagings) throws URISyntaxException {
+    	log.info("updateDataStagingRecords with "+dataStagings.size());
+    	ErrorReport errorReportToUpdateRecords = new ErrorReport();
+    	List<DataStaging> dss = dataStagingRepository.save(dataStagings);
+    	dataStagingSearchRepository.save(dss);
+    	String taskName = "";
+    	taskName = "Update DataStaging Lines";
+    	errorReportToUpdateRecords.setTaskStatus("success");
+    	//move to staging
+    	int count = -1;
+    	count = dataStagingRepository.findBySrcFileInbIdAndRecordStatus(dataStagings.get(0).getSrcFileInbId(),"Fail").size();
+    	log.info("count"+count);
+    	if(count == 0)
+    	{
+    		findDelimiterAndFileExtensionService.moveLinesFromStagingToMaster(dataStagings.get(0).getSrcFileInbId());
+    		//deleteStagingRecords(dataStagings.get(0).getSrcFileInbId());
+    		
+			
+    		taskName = taskName + " and Transformation is ";
+    		log.info("taskName"+taskName);
+    		errorReportToUpdateRecords.setTaskName(taskName);
+    	}
+    	return errorReportToUpdateRecords;
+    }
+    /**
+     * Author : shobha
+     * @param srcFileInbHistId
+     */
+    @DeleteMapping("/deleteStagingRecords/{srcFileInbHistId}")
+    @Timed
+    public void deleteStagingRecords(@PathVariable Long srcFileInbHistId) {
+        log.debug("REST request to delete staging records by srcFileInbHistId ", srcFileInbHistId);
+        List<DataStaging> stagingRecordsToDelete = new ArrayList<DataStaging>();
+        stagingRecordsToDelete = dataStagingRepository.findBySrcFileInbId(srcFileInbHistId);
+        if(stagingRecordsToDelete.size()>0)
+        dataStagingRepository.deleteInBatch(stagingRecordsToDelete);
+        dataStagingSearchRepository.delete(stagingRecordsToDelete);
+    }
+    @GetMapping("/moveFromStagingToMasterTable")
+    @Timed
+    public ErrorReport moveFromStagingToMasterTable(@RequestParam Long srcFileInbHistId) throws URISyntaxException {
+    	ErrorReport reportToMoveFromStagingToMaster = new ErrorReport();
+    findDelimiterAndFileExtensionService.moveLinesFromStagingToMaster(srcFileInbHistId);
+    SourceFileInbHistory srcFIleInbHist = new SourceFileInbHistory();
+	srcFIleInbHist = sourceFileInbHistoryRepository.findOne(srcFileInbHistId);
+	srcFIleInbHist.setStatus("Loaded");
+	sourceFileInbHistoryRepository.save(srcFIleInbHist);
+	
+	Long batchId=srcFIleInbHist.getBatchId();
+	log.info("Batch Id: "+batchId);
+	
+	Long filesCount=sourceFileInbHistoryRepository.fetchByBatchIdAndLoadedStatus(batchId);
+	if(filesCount!=0l)
+	{
+		BatchHeader batch=batchHeaderRepository.findById(batchId);
+		batch.setTransformationStatus(filesCount +" file(s) - TRANSFORMED");
+		batch.setTransformedDatetime(ZonedDateTime.now());
+		batchHeaderRepository.save(batch);
+	}
+    	return reportToMoveFromStagingToMaster;
+    }
+}

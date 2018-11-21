@@ -1,0 +1,330 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.MappingSet;
+import com.nspl.app.domain.MappingSetValues;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.MappingSetRepository;
+import com.nspl.app.repository.MappingSetValuesRepository;
+import com.nspl.app.web.rest.dto.MappingSetAndValuesDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+
+/**
+ * REST controller for managing MappingSet.
+ */
+@RestController
+@RequestMapping("/api")
+public class MappingSetResource {
+
+    private final Logger log = LoggerFactory.getLogger(MappingSetResource.class);
+
+    private static final String ENTITY_NAME = "mappingSet";
+        
+    private final MappingSetRepository mappingSetRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+
+    @Inject
+    MappingSetValuesRepository mappingSetValuesRepository;
+    
+    public MappingSetResource(MappingSetRepository mappingSetRepository) {
+        this.mappingSetRepository = mappingSetRepository;
+    }
+
+    /**
+     * POST  /mapping-sets : Create a new mappingSet.
+     *
+     * @param mappingSet the mappingSet to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new mappingSet, or with status 400 (Bad Request) if the mappingSet has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/mapping-sets")
+    @Timed
+    public ResponseEntity<MappingSet> createMappingSet(@RequestBody MappingSet mappingSet) throws URISyntaxException {
+        log.debug("REST request to save MappingSet : {}", mappingSet);
+        if (mappingSet.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new mappingSet cannot already have an ID")).body(null);
+        }
+        MappingSet result = mappingSetRepository.save(mappingSet);
+        return ResponseEntity.created(new URI("/api/mapping-sets/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /mapping-sets : Updates an existing mappingSet.
+     *
+     * @param mappingSet the mappingSet to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated mappingSet,
+     * or with status 400 (Bad Request) if the mappingSet is not valid,
+     * or with status 500 (Internal Server Error) if the mappingSet couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/mapping-sets")
+    @Timed
+    public ResponseEntity<MappingSet> updateMappingSet(@RequestBody MappingSet mappingSet) throws URISyntaxException {
+        log.debug("REST request to update MappingSet : {}", mappingSet);
+        if (mappingSet.getId() == null) {
+        	
+            return createMappingSet(mappingSet);
+        }
+        MappingSet result = mappingSetRepository.save(mappingSet);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, mappingSet.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /mapping-sets : get all the mappingSets.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of mappingSets in body
+     */
+    @GetMapping("/mapping-sets")
+    @Timed
+    public List<MappingSet> getAllMappingSets() {
+        log.debug("REST request to get all MappingSets");
+        List<MappingSet> mappingSets = mappingSetRepository.findAll();
+        return mappingSets;
+    }
+
+    /**
+     * GET  /mapping-sets/:id : get the "id" mappingSet.
+     *
+     * @param id the id of the mappingSet to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the mappingSet, or with status 404 (Not Found)
+     */
+    @GetMapping("/mapping-sets/{id}")
+    @Timed
+    public ResponseEntity<MappingSet> getMappingSet(@PathVariable Long id) {
+        log.debug("REST request to get MappingSet : {}", id);
+        MappingSet mappingSet = mappingSetRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(mappingSet));
+    }
+
+    /**
+     * DELETE  /mapping-sets/:id : delete the "id" mappingSet.
+     *
+     * @param id the id of the mappingSet to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/mapping-sets/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteMappingSet(@PathVariable Long id) {
+        log.debug("REST request to delete MappingSet : {}", id);
+        mappingSetRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    /**
+     * GET  /mapping-sets : get all the mappingSets by tenantid
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of mappingSets in body
+     */
+    @GetMapping("/mappingSetsByTenantId/{tenantId}")
+    @Timed
+    public List<MappingSet> getMappingSetsByTenantId(@PathVariable Long tenantId) {
+        log.debug("REST request to get all MappingSets by tenant id");
+        List<MappingSet> mappingSets = mappingSetRepository.findByTenantId(tenantId);
+        return mappingSets;
+    }
+    
+    /**
+     * Author: Shiva
+     * Description:Posting mapping set and mapping set values
+     * @param MappingSetAndValuesDTO
+     */
+    @PostMapping("/postingMappingSetAndValues")
+    @Timed
+    public ResponseEntity<HashMap> postingMappingSetAndValues(@RequestParam(value = "tenantId", required=true) Long tenantId, @RequestParam(value = "userId", required=true) Long userId, @RequestBody MappingSetAndValuesDTO mappingSetDTO) 
+    {
+    	log.info("Rest api for posting mapping set and mapping set values for the tenant: "+tenantId +", user id: "+userId);
+    	HashMap finalMap = new HashMap();
+    	try{
+        	List<MappingSetValues> mpSetValues = mappingSetDTO.getMappingSetValues();
+        	// Creating Mapping Set Record
+        	MappingSet newMappinSet = new MappingSet();
+        	newMappinSet.setTenantId(tenantId);
+        	if(mappingSetDTO.getName() != null)
+        		newMappinSet.setName(mappingSetDTO.getName());
+        	if(mappingSetDTO.getDescription() != null)
+        		newMappinSet.setDescription(mappingSetDTO.getDescription());
+        	if(mappingSetDTO.getLookUppurpose() != null)
+        		newMappinSet.setPurpose(mappingSetDTO.getLookUppurpose());
+        	newMappinSet.setCreatedBy(userId);
+        	newMappinSet.setLastUpdatedBy(userId);
+        	newMappinSet.setCreatedDate(ZonedDateTime.now());
+        	newMappinSet.setLastUpdatedDate(ZonedDateTime.now());
+        	if(mappingSetDTO.getStartDate() != null)
+        		newMappinSet.setStartDate(mappingSetDTO.getStartDate().plusDays(1));
+        	if(mappingSetDTO.getEndDate() != null)
+        		newMappinSet.setEndDate(mappingSetDTO.getEndDate().plusDays(1));
+        	if(mappingSetDTO.getEnabledFlag() != null)
+        		newMappinSet.setEnabledFlag(mappingSetDTO.getEnabledFlag());
+        	MappingSet createMpSet = mappingSetRepository.save(newMappinSet);
+        	// Creating Mapping Set Values
+        	if(mpSetValues.size()>0)
+        	{
+        		if(createMpSet != null)
+        		{
+        			for(MappingSetValues mpValue : mpSetValues)
+        			{
+        				MappingSetValues newMpValue = new MappingSetValues();
+        				newMpValue.setMappingSetId(createMpSet.getId());
+        				if(mpValue.getSourceValue() != null)
+        					newMpValue.setSourceValue(mpValue.getSourceValue());
+        				if(mpValue.getTargetValue() != null)
+        					newMpValue.setTargetValue(mpValue.getTargetValue());
+        				newMpValue.setCreatedBy(userId);
+        				newMpValue.setLastUpdatedBy(userId);
+        				newMpValue.setCreatedDate(ZonedDateTime.now());
+        				newMpValue.setLastUpdatedDate(ZonedDateTime.now());
+        				if(mpValue.getStatus() != null)
+        					newMpValue.setStatus(mpValue.getStatus());
+        				if(mpValue.getStartDate() != null)
+        					newMpValue.setStartDate(mpValue.getStartDate().plusDays(1));
+        				if(mpValue.getEndDate() != null)
+        					newMpValue.setEndDate(mpValue.getEndDate().plusDays(1));
+        				mappingSetValuesRepository.save(newMpValue);
+        			}
+        		}
+        	}
+        	finalMap.put("id", createMpSet.getId());
+        	finalMap.put("name", createMpSet.getName());
+        	return new ResponseEntity(finalMap, HttpStatus.OK);
+    	}
+    	catch(Exception e)
+    	{
+    		return new ResponseEntity(finalMap, HttpStatus.INTERNAL_SERVER_ERROR);
+    	}
+    }
+    
+    
+    /**
+     * Author: Shiva
+     * Description:Create or Updating Mapping Set Header Level Information
+     * @param MappingSet, tenantId, userId
+     */
+    @PutMapping("/createOrUpdateMappingSet")
+    @Timed
+    public ResponseEntity<MappingSet> createOrUpdateMappingSet(@RequestParam(value = "tenantId", required=true) Long tenantId, @RequestParam(value = "userId", required=true) Long userId, @RequestBody MappingSet mappingSet) throws URISyntaxException {
+        log.debug("REST request to update MappingSet : {}", mappingSet);
+        if (mappingSet.getId() == null) { // Creating new Record
+        	mappingSet.setTenantId(tenantId);
+        	mappingSet.setCreatedBy(userId);
+        	mappingSet.setLastUpdatedBy(userId);
+        	mappingSet.setCreatedDate(ZonedDateTime.now());
+        	mappingSet.setLastUpdatedDate(ZonedDateTime.now());
+        	mappingSet.setStartDate(mappingSet.getStartDate().plusDays(1));
+        	mappingSet.setEndDate(mappingSet.getEndDate().plusDays(1));
+            return createMappingSet(mappingSet);
+        }
+        else
+        {	// Updating Existing Record
+        	mappingSet.setTenantId(tenantId);
+        	mappingSet.setLastUpdatedBy(userId);
+        	mappingSet.setLastUpdatedDate(ZonedDateTime.now());
+        	mappingSet.setStartDate(mappingSet.getStartDate().plusDays(1));
+        	mappingSet.setEndDate(mappingSet.getEndDate().plusDays(1));
+            MappingSet result = mappingSetRepository.save(mappingSet);
+            return ResponseEntity.ok()
+                .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, mappingSet.getId().toString()))
+                .body(result);
+        }
+    }
+    
+    /**
+     * Author: Shiva
+     * Description: Fetching Mapping sets by tenant id order by id desc
+     * @Param: tenantId
+     * returns : List of Mapping sets
+     */
+    @GetMapping("/getMappingSetsByTenantId")
+    @Timed
+    public List<MappingSet> getMappingSetByTenantId(@RequestParam(value = "tenantId", required=true) Long tenantId) {
+        log.debug("REST request to get all MappingSets for the tenant: "+ tenantId);
+        /*List<MappingSet> mappingSets = mappingSetRepository.findAll();*/
+        List<MappingSet> mappingSets = mappingSetRepository.findByTenantIdOrderByIdDesc(tenantId);
+        return mappingSets;
+    }
+    
+    
+    /**
+     * Author: Shiva
+     * Description: Fetching Mapping Set And Mapping Set Values Based n MappinSetId
+     * @Param: tenantId
+     * returns : List of Mapping sets
+     */
+    @GetMapping("/fetchMappingSetAndValuesById")
+    @Timed
+    public MappingSetAndValuesDTO fetchMappingSetAndValuesById(@RequestParam(value = "id", required=true) Long id) {
+    	log.info("Rest API for fetching mapping set and mapping set values based on mapping set id: "+id);
+    	MappingSetAndValuesDTO finalMap = new MappingSetAndValuesDTO();
+    	MappingSet mpSet = mappingSetRepository.findOne(id);
+    	if(mpSet != null)
+    	{				
+    		// Fetching Mapping Set(Header Columns)
+    		List<HashMap> lookUps = new ArrayList<HashMap>();
+    		finalMap.setId(mpSet.getId());
+    		finalMap.setTenantId(mpSet.getTenantId());
+    		finalMap.setName(mpSet.getName());
+    		finalMap.setDescription(mpSet.getDescription());
+    		finalMap.setLastUpdatedBy(mpSet.getLastUpdatedBy());
+    		finalMap.setCreatedBy(mpSet.getCreatedBy());
+    		finalMap.setCreatedDate(mpSet.getCreatedDate());
+    		finalMap.setLastUpdatedDate(mpSet.getLastUpdatedDate());
+    		finalMap.setStartDate(mpSet.getStartDate());
+    		finalMap.setEndDate(mpSet.getEndDate());
+    		finalMap.setEnabledFlag(mpSet.getEnabledFlag());
+    		//finalMap.setPurpose(mpSet.getPurpose());
+    		String[] purpose = mpSet.getPurpose().split("\\,");
+    		log.info("Purpose Length: "+ purpose.length);
+    		if(purpose.length>0)
+    		{
+        		for(int i=0; i<purpose.length; i++)
+        		{
+        			HashMap hm = new HashMap();
+        			String lookUpMeaning = lookUpCodeRepository.fetchLookUpMeaningByLookUpCodeAndLookUpTypeAndTenantId(mpSet.getTenantId(), purpose[i], "MAPPING_TYPES");
+        			if(lookUpMeaning != null)
+        			{
+        				hm.put("lookupCode", purpose[i]);
+        				hm.put("lookupMeaning", lookUpMeaning);
+        			}
+        			lookUps.add(hm);
+        		}
+    		}
+    		finalMap.setPurpose(lookUps);
+    		/*List<MappingSetValues> mpValues = mappingSetValuesRepository.fetchActiveMappingSetValuesByMappingId(mpSet.getId());*/	// Fetching mapping set values
+    		List<MappingSetValues> mpValues = mappingSetValuesRepository.findByMappingSetId(mpSet.getId());
+    		log.info("Mapping Rule Values Active Records Sizes: "+ mpValues.size());
+    		finalMap.setMappingSetValues(mpValues);
+    	}
+    	return finalMap;
+    }
+}

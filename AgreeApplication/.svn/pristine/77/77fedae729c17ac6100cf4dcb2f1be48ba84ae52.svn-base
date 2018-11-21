@@ -1,0 +1,147 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.RuleUsages;
+
+import com.nspl.app.repository.RuleUsagesRepository;
+import com.nspl.app.repository.search.RuleUsagesSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing RuleUsages.
+ */
+@RestController
+@RequestMapping("/api")
+public class RuleUsagesResource {
+
+    private final Logger log = LoggerFactory.getLogger(RuleUsagesResource.class);
+
+    private static final String ENTITY_NAME = "ruleUsages";
+        
+    private final RuleUsagesRepository ruleUsagesRepository;
+
+    private final RuleUsagesSearchRepository ruleUsagesSearchRepository;
+
+    public RuleUsagesResource(RuleUsagesRepository ruleUsagesRepository, RuleUsagesSearchRepository ruleUsagesSearchRepository) {
+        this.ruleUsagesRepository = ruleUsagesRepository;
+        this.ruleUsagesSearchRepository = ruleUsagesSearchRepository;
+    }
+
+    /**
+     * POST  /rule-usages : Create a new ruleUsages.
+     *
+     * @param ruleUsages the ruleUsages to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new ruleUsages, or with status 400 (Bad Request) if the ruleUsages has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/rule-usages")
+    @Timed
+    public ResponseEntity<RuleUsages> createRuleUsages(@RequestBody RuleUsages ruleUsages) throws URISyntaxException {
+        log.debug("REST request to save RuleUsages : {}", ruleUsages);
+        if (ruleUsages.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new ruleUsages cannot already have an ID")).body(null);
+        }
+        RuleUsages result = ruleUsagesRepository.save(ruleUsages);
+        ruleUsagesSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/rule-usages/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /rule-usages : Updates an existing ruleUsages.
+     *
+     * @param ruleUsages the ruleUsages to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated ruleUsages,
+     * or with status 400 (Bad Request) if the ruleUsages is not valid,
+     * or with status 500 (Internal Server Error) if the ruleUsages couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/rule-usages")
+    @Timed
+    public ResponseEntity<RuleUsages> updateRuleUsages(@RequestBody RuleUsages ruleUsages) throws URISyntaxException {
+        log.debug("REST request to update RuleUsages : {}", ruleUsages);
+        if (ruleUsages.getId() == null) {
+            return createRuleUsages(ruleUsages);
+        }
+        RuleUsages result = ruleUsagesRepository.save(ruleUsages);
+        ruleUsagesSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, ruleUsages.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /rule-usages : get all the ruleUsages.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of ruleUsages in body
+     */
+    @GetMapping("/rule-usages")
+    @Timed
+    public List<RuleUsages> getAllRuleUsages() {
+        log.debug("REST request to get all RuleUsages");
+        List<RuleUsages> ruleUsages = ruleUsagesRepository.findAll();
+        return ruleUsages;
+    }
+
+    /**
+     * GET  /rule-usages/:id : get the "id" ruleUsages.
+     *
+     * @param id the id of the ruleUsages to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the ruleUsages, or with status 404 (Not Found)
+     */
+    @GetMapping("/rule-usages/{id}")
+    @Timed
+    public ResponseEntity<RuleUsages> getRuleUsages(@PathVariable Long id) {
+        log.debug("REST request to get RuleUsages : {}", id);
+        RuleUsages ruleUsages = ruleUsagesRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(ruleUsages));
+    }
+
+    /**
+     * DELETE  /rule-usages/:id : delete the "id" ruleUsages.
+     *
+     * @param id the id of the ruleUsages to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/rule-usages/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteRuleUsages(@PathVariable Long id) {
+        log.debug("REST request to delete RuleUsages : {}", id);
+        ruleUsagesRepository.delete(id);
+        ruleUsagesSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/rule-usages?query=:query : search for the ruleUsages corresponding
+     * to the query.
+     *
+     * @param query the query of the ruleUsages search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/rule-usages")
+    @Timed
+    public List<RuleUsages> searchRuleUsages(@RequestParam String query) {
+        log.debug("REST request to search RuleUsages for query {}", query);
+        return StreamSupport
+            .stream(ruleUsagesSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+
+}

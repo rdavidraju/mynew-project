@@ -1,0 +1,3506 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.xssf.usermodel.XSSFCell;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.AccountedSummary;
+import com.nspl.app.domain.AccountingData;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.repository.AccountedSummaryRepository;
+import com.nspl.app.repository.AccountingDataRepository;
+import com.nspl.app.repository.AccountingLineTypesRepository;
+import com.nspl.app.repository.AcctRuleConditionsRepository;
+import com.nspl.app.repository.AppModuleSummaryRepository;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.TenantConfigModulesRepository;
+import com.nspl.app.repository.search.AccountingDataSearchRepository;
+import com.nspl.app.service.AccountingDataService;
+import com.nspl.app.service.FileExportService;
+import com.nspl.app.service.FileService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.AWQDetailInfoDTO;
+import com.nspl.app.web.rest.dto.AWQGroupByParamsDTO;
+import com.nspl.app.web.rest.dto.AWQGroupingDTO;
+import com.nspl.app.web.rest.dto.AWQStatusCountsAmountsDTO;
+import com.nspl.app.web.rest.dto.AWQStatusesDTO;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.ErrorReporting;
+import com.nspl.app.web.rest.dto.ManualAccDTO;
+import com.nspl.app.web.rest.dto.ManualAccountingDTO;
+import com.nspl.app.web.rest.dto.ManualUnAccAutoAccDTO;
+import com.nspl.app.web.rest.dto.ManualUnRecByColumnDTO;
+import com.nspl.app.web.rest.dto.RWQDataFetchDTO;
+import com.nspl.app.web.rest.dto.ReconQueryParamsDTO;
+import com.nspl.app.web.rest.dto.RowIdCreditDebitDTO;
+import com.nspl.app.web.rest.dto.RowIdCreditsDebitsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing AccountingData.
+ */
+@RestController
+@RequestMapping("/api")
+public class AccountingDataResource {
+	
+	
+
+	private final Logger log = LoggerFactory
+			.getLogger(AccountingDataResource.class);
+
+	private static final String ENTITY_NAME = "accountingData";
+
+	private final AccountingDataRepository accountingDataRepository;
+
+	private final AccountingDataSearchRepository accountingDataSearchRepository;
+
+	@Inject
+	AccountingDataService accountingDataService;
+
+	@Inject
+	DataMasterRepository dataMasterRepository;
+
+	@Inject
+	ReconciliationResultService reconciliationResultService;
+
+	@Inject
+	RuleGroupDetailsRepository ruleGroupDetailsRepository;
+
+	@Inject
+	LookUpCodeRepository lookUpCodeRepository;
+
+	@Inject
+	RulesRepository rulesRepository;
+
+	@Inject
+	RuleGroupRepository ruleGroupRepository;
+
+	@Inject
+	RuleGroupResource ruleGroupResource;
+
+	@Inject
+	AcctRuleConditionsRepository acctRuleConditionsRepository;
+
+	@Inject
+	AccountingLineTypesRepository accountingLineTypesRepository;
+
+	@Inject
+	DataViewsColumnsRepository dataViewsColumnsRepository;
+
+	@Inject
+	DataViewsRepository dataViewsRepository;
+
+	@Inject
+	AccountedSummaryRepository accountedSummaryRepository;
+
+	@Inject
+	FileTemplateLinesRepository fileTemplateLinesRepository;
+
+	@Inject
+	PropertiesUtilService propertiesUtilService;
+	
+	@Inject
+	AppModuleSummaryRepository appModuleSummaryRepository;
+
+	@Inject
+	FileService fileService;
+	
+	@Inject
+	UserJdbcService userJdbcService;
+	
+	@Inject
+	TenantConfigModulesRepository tenantConfigModulesRepository;
+
+    @Inject
+    FileExportService fileExportService;
+
+	@PersistenceContext(unitName = "default")
+	private EntityManager em;
+
+	public AccountingDataResource(
+			AccountingDataRepository accountingDataRepository,
+			AccountingDataSearchRepository accountingDataSearchRepository) {
+		this.accountingDataRepository = accountingDataRepository;
+		this.accountingDataSearchRepository = accountingDataSearchRepository;
+	}
+
+	/**
+	 * POST /accounting-data : Create a new accountingData.
+	 *
+	 * @param accountingData
+	 *            the accountingData to create
+	 * @return the ResponseEntity with status 201 (Created) and with body the
+	 *         new accountingData, or with status 400 (Bad Request) if the
+	 *         accountingData has already an ID
+	 * @throws URISyntaxException
+	 *             if the Location URI syntax is incorrect
+	 */
+	@PostMapping("/accounting-data")
+	@Timed
+	public ResponseEntity<AccountingData> createAccountingData(
+			@RequestBody AccountingData accountingData)
+			throws URISyntaxException {
+		log.debug("REST request to save AccountingData : {}", accountingData);
+		if (accountingData.getId() != null) {
+			return ResponseEntity
+					.badRequest()
+					.headers(
+							HeaderUtil
+									.createFailureAlert(ENTITY_NAME,
+											"idexists",
+											"A new accountingData cannot already have an ID"))
+					.body(null);
+		}
+		AccountingData result = accountingDataRepository.save(accountingData);
+		accountingDataSearchRepository.save(result);
+		return ResponseEntity
+				.created(new URI("/api/accounting-data/" + result.getId()))
+				.headers(
+						HeaderUtil.createEntityCreationAlert(ENTITY_NAME,
+								result.getId().toString())).body(result);
+	}
+
+	/**
+	 * PUT /accounting-data : Updates an existing accountingData.
+	 *
+	 * @param accountingData
+	 *            the accountingData to update
+	 * @return the ResponseEntity with status 200 (OK) and with body the updated
+	 *         accountingData, or with status 400 (Bad Request) if the
+	 *         accountingData is not valid, or with status 500 (Internal Server
+	 *         Error) if the accountingData couldnt be updated
+	 * @throws URISyntaxException
+	 *             if the Location URI syntax is incorrect
+	 */
+	@PutMapping("/accounting-data")
+	@Timed
+	public ResponseEntity<AccountingData> updateAccountingData(
+			@RequestBody AccountingData accountingData)
+			throws URISyntaxException {
+		log.debug("REST request to update AccountingData : {}", accountingData);
+		if (accountingData.getId() == null) {
+			return createAccountingData(accountingData);
+		}
+		AccountingData result = accountingDataRepository.save(accountingData);
+		accountingDataSearchRepository.save(result);
+		return ResponseEntity
+				.ok()
+				.headers(
+						HeaderUtil.createEntityUpdateAlert(ENTITY_NAME,
+								accountingData.getId().toString()))
+				.body(result);
+	} 
+
+	/**
+	 * GET /accounting-data : get all the accountingData.
+	 *
+	 * @param pageable
+	 *            the pagination information
+	 * @return the ResponseEntity with status 200 (OK) and the list of
+	 *         accountingData in body
+	 */
+	@GetMapping("/accounting-data")
+	@Timed
+	public ResponseEntity<List<AccountingData>> getAllAccountingData(
+			@ApiParam Pageable pageable) {
+		log.debug("REST request to get a page of AccountingData");
+		Page<AccountingData> page = accountingDataRepository.findAll(pageable);
+		HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(
+				page, "/api/accounting-data");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	/**
+	 * GET /accounting-data/:id : get the "id" accountingData.
+	 *
+	 * @param id
+	 *            the id of the accountingData to retrieve
+	 * @return the ResponseEntity with status 200 (OK) and with body the
+	 *         accountingData, or with status 404 (Not Found)
+	 */
+	@GetMapping("/accounting-data/{id}")
+	@Timed
+	public ResponseEntity<AccountingData> getAccountingData(
+			@PathVariable Long id) {
+		log.debug("REST request to get AccountingData : {}", id);
+		AccountingData accountingData = accountingDataRepository.findOne(id);
+		return ResponseUtil.wrapOrNotFound(Optional.ofNullable(accountingData));
+	}
+
+	/**
+	 * DELETE /accounting-data/:id : delete the "id" accountingData.
+	 *
+	 * @param id
+	 *            the id of the accountingData to delete
+	 * @return the ResponseEntity with status 200 (OK)
+	 */
+	@DeleteMapping("/accounting-data/{id}")
+	@Timed
+	public ResponseEntity<Void> deleteAccountingData(@PathVariable Long id) {
+		log.debug("REST request to delete AccountingData : {}", id);
+		accountingDataRepository.delete(id);
+		accountingDataSearchRepository.delete(id);
+		return ResponseEntity
+				.ok()
+				.headers(
+						HeaderUtil.createEntityDeletionAlert(ENTITY_NAME,
+								id.toString())).build();
+	}
+
+	/**
+	 * SEARCH /_search/accounting-data?query=:query : search for the
+	 * accountingData corresponding to the query.
+	 *
+	 * @param query
+	 *            the query of the accountingData search
+	 * @param pageable
+	 *            the pagination information
+	 * @return the result of the search
+	 */
+	@GetMapping("/_search/accounting-data")
+	@Timed
+	public ResponseEntity<List<AccountingData>> searchAccountingData(
+			@RequestParam String query, @ApiParam Pageable pageable) {
+		log.debug(
+				"REST request to search for a page of AccountingData for query {}",
+				query);
+		Page<AccountingData> page = accountingDataSearchRepository.search(
+				queryStringQuery(query), pageable);
+		HttpHeaders headers = PaginationUtil
+				.generateSearchPaginationHttpHeaders(query, page,
+						"/api/_search/accounting-data");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	/**
+	 * Author: Shiva Description: Api to fetch columns Aligns
+	 * 
+	 * @param viewName
+	 * @return
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 */
+	@GetMapping("/getAccountingColumnAlignmentInfo")
+	@Timed
+	public HashMap getAccountingColumnAlignmentInfo(HttpServletRequest request,@RequestParam String groupId,
+			@RequestParam String viewId, @RequestParam String status) throws ClassNotFoundException,
+			SQLException {
+		log.info("Rest api to fetching Recon view columns alignments details for the view id: "+ viewId + ", group id: " + groupId );
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+    	Long ruleGroupId = rg.getId();
+    	
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, viewId);
+    	Long dataViewId = dvs.getId();
+		HashMap finalMap = new HashMap();
+		finalMap.put("viewId", viewId);
+		List<HashMap> cols = accountingDataService.getAccColsAlignInfo(dataViewId,ruleGroupId, tenantId,status);
+		finalMap.put("columns", cols);
+		return finalMap;
+	}
+	
+	@GetMapping("/getColumnAllignForAccountedSummary")
+	@Timed
+	public HashMap getColumnInfoForAccountedSummary(/*
+			@RequestParam Long tenantId, @RequestParam Long groupId,
+			@RequestParam Long viewId,*/ @RequestParam String status) throws ClassNotFoundException,
+			SQLException {
+/*		log.info("Rest api to fetching Recon view columns alignments details for the view id: "
+				+ viewId + ", group id: " + groupId + ", tenantId: " + tenantId);
+		HashMap finalMap = new HashMap();
+		finalMap.put("viewId", viewId);*/
+		HashMap finalMap = new HashMap();
+		List<HashMap> cols = accountingDataService.getColAlignInforAccSummary(status);
+		finalMap.put("columns", cols);
+		return finalMap;
+	}
+
+	// Accounting Work Queue New Form API's
+	/**
+	 * Author: Shiva Purpose: Fetching AWQ Header Parameters List Params:
+	 * tenantId, groupId Result: HashMap with AWQ header parameters list Date:
+	 * 11-12-2017
+	 */
+	@GetMapping("/getAccHeaderParamsList")
+	@Timed
+	public HashMap getReconHeaderParamsList(HttpServletRequest request, @RequestParam String groupId) {
+		log.info("Rest API for fetching AWQ Header Parameters List rule group id: " + groupId);
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		HashMap finalMap = new HashMap();
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(groupId, tenantId);
+    	Long ruleGroupId = rg.getId();
+		
+		RuleGroup ruleGrp = ruleGroupRepository.findOne(ruleGroupId);
+		if (ruleGrp != null) {
+			finalMap.put("tenantId", tenantId);
+			finalMap.put("ruleGroupId", groupId);
+			finalMap.put("ruleGroupName", ruleGrp.getName());
+			// Fetching Batch Names
+			List<String> batchNames = new ArrayList<String>();
+			batchNames = accountingDataRepository.fetchDistinctBatches(tenantId, ruleGroupId);
+			finalMap.put("batchNames", batchNames);
+			// Fetching data views
+			List<HashMap> dataViews = new ArrayList<HashMap>();
+			HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(ruleGroupId, tenantId);
+			List<BigInteger> viewIds = distinctViewIdMap.get("sourceViewIds");
+			if (viewIds.size() > 0) {
+				for (BigInteger id : viewIds) {
+					HashMap mp = new HashMap();
+					DataViews dv = dataViewsRepository.findOne(id.longValue());
+					if (dv != null) {
+						mp.put("id", dv.getIdForDisplay());
+						mp.put("viewName", dv.getDataViewDispName());
+					}
+					dataViews.add(mp);
+				}
+			} else {
+				log.info("No View Ids found for the tenant id: " + tenantId + ", rule group id: " + groupId);
+			}
+			finalMap.put("dataViews", dataViews);
+		}
+		return finalMap;
+	}
+
+	//API After NVV discussion on form changes
+/*	@PostMapping("/getDistinctStatusSummaryInfo")
+	@Timed
+	public HashMap getDistinctStatusSummaryInfo(@RequestBody AWQStatusCountsAmountsDTO params) throws ClassNotFoundException, SQLException, org.json.simple.parser.ParseException
+	{
+		log.info("Rest api for fetching counts and amounts for distinct status for the view id: "+params.getViewId()+", group id: "+ params.getRuleGroupId());
+		HashMap finalMap = new HashMap();
+		ErrorReporting errorReport = new ErrorReporting();
+		List<HashMap> summaryList = new ArrayList<HashMap>();
+		List<String> reasons = new ArrayList<String>();
+		//Fetching distinct status from accounted summary table
+		List<String> distStatus = new ArrayList<String>();
+		distStatus = accountedSummaryRepository.fetchDistinctStatusByGroupIdNViewId(params.getRuleGroupId(), params.getViewId());
+		distStatus.remove("UNACCOUNTED");
+		Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String currencyFormat = props.getProperty("currencyFormat");
+		List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+		log.info("Distinct statuses: "+ distStatus);
+		DataViews dv = dataViewsRepository.findOne(params.getViewId());
+		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(params.getViewId()), "AMOUNT");
+		String sCurrencyCode = reconciliationResultService.getTransDateQualifier(BigInteger.valueOf(params.getViewId()), "CURRENCYCODE");
+		List<BigInteger> totalIds = new ArrayList<BigInteger>();
+		if(amountQualifier.length()>0 && sCurrencyCode.length()>0)
+		{
+			HashMap sTotalIdsMap = reconciliationResultService.getTotalByPeriodFactor(params.getViewId(), params.getPeriodFactor(), params.getRangeFrom(), params.getRangeTo());
+			totalIds = (List<BigInteger>) sTotalIdsMap.get("totalIds");
+			if(totalIds.size()>0)
+			{
+				if(distStatus.size()>0)
+				{
+					for(String status : distStatus)
+					{
+						HashMap statusMp = new HashMap();
+						statusMp.put("status", status);
+						List<BigInteger> statusIds = new ArrayList<BigInteger>();
+						statusIds = accountedSummaryRepository.fetchAccountingIdsByStatusNGroupIdNViewId(params.getRuleGroupId(), params.getViewId(), status);
+						if(statusIds.size()>0)
+						{
+					  		String sRecCurrencySymbol = "";
+					  		List<String> sRecCurrencies = reconciliationResultService.getDistColumnValues(statusIds,sCurrencyCode,dv.getDataViewName());
+					  		if(sRecCurrencies.size()==1)
+					  		{
+					  			sRecCurrencySymbol = sRecCurrencySymbol + reconciliationResultService.getCurrencySymbol(sRecCurrencies.get(0));
+					  		}
+					  		else if(sRecCurrencies.size()>1)
+					  		{
+					  			sRecCurrencySymbol = sRecCurrencySymbol+"*";
+					  		}
+
+							HashMap countNAmount = reconciliationResultService.getCountNAmountForDVId(BigInteger.valueOf(params.getViewId()), params.getTenantId(), amountQualifier,statusIds);
+							statusMp.put("amount", sRecCurrencySymbol+" "+reconciliationResultService.getAmountInFormat(countNAmount.get("totalAmount").toString(),currencyFormat));
+							statusMp.put("count", countNAmount.get("totalCount"));
+						}
+						accountingIds.addAll(statusIds);
+						summaryList.add(statusMp);
+					}
+				}
+				else
+				{
+					log.info("No distinct statuses found for the group id: "+ params.getRuleGroupId()+", view id: "+params.getViewId());
+				}
+				List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+				for(BigInteger id : totalIds)
+				{
+					if(!accountingIds.contains(id))
+					{
+						unAccIds.add(id);
+					}
+				}
+				if(unAccIds.size()>0)
+				{
+					HashMap unAccMap = new HashMap();
+					unAccMap.put("status", "UNACCOUNTED");
+					
+			  		String sRecCurrencySymbol = "";
+			  		List<String> sRecCurrencies = reconciliationResultService.getDistColumnValues(unAccIds,sCurrencyCode,dv.getDataViewName());
+			  		if(sRecCurrencies.size()==1)
+			  		{
+			  			sRecCurrencySymbol = sRecCurrencySymbol + reconciliationResultService.getCurrencySymbol(sRecCurrencies.get(0));
+			  		}
+			  		else if(sRecCurrencies.size()>1)
+			  		{
+			  			sRecCurrencySymbol = sRecCurrencySymbol+"*";
+			  		}
+
+					HashMap countNAmount = reconciliationResultService.getCountNAmountForDVId(BigInteger.valueOf(params.getViewId()), params.getTenantId(), amountQualifier,unAccIds);
+					unAccMap.put("amount", sRecCurrencySymbol+" "+reconciliationResultService.getAmountInFormat(countNAmount.get("totalAmount").toString(),currencyFormat));
+					unAccMap.put("count", countNAmount.get("totalCount"));
+					summaryList.add(unAccMap);
+				}
+			}
+			else
+			{
+				log.info("There are no records found in given range");
+			}
+		}
+		else 
+		{
+			log.info("No amount or currency code qualifier found for the view id: "+ params.getViewId());
+		}
+		errorReport.setStatus("");
+		errorReport.setReasons(reasons);
+		finalMap.put("summary", summaryList);
+		finalMap.put("info", errorReport);
+		return finalMap;
+	}
+*/	
+	// AWQ New Form API's Modified API
+	/**
+	 * Author: Shiva Purpose: Fetching Accounting data counts and amounts for
+	 * group by field
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * **/
+	@GetMapping("/getAccountingGroupByAnalytics")
+	@Timed
+	public HashMap getAccountingGroupByAnalytics(HttpServletRequest request,@RequestParam Long groupId,@RequestParam String rangeFrom,	@RequestParam String rangeTo,	@RequestParam String groupBy,
+			@RequestParam(value = "sourceViewId", required = false) Long sourceViewId,	@RequestParam(value = "columnId", required = false) Long columnId)
+			throws ClassNotFoundException, SQLException {
+		log.info("Rest api for getting accounting group by summary data for the group id: "	+ groupId	+ ", view id: "	+ sourceViewId);
+		HashMap finalMap = new HashMap();
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		Long userId =Long.parseLong(map.get("userId").toString());
+		List<HashMap> groupedList = new ArrayList<HashMap>();
+		RuleGroup rg = ruleGroupRepository.findOne(groupId);
+		finalMap.put("ruleGroupId", rg.getId());
+		finalMap.put("ruleGroupName", rg.getName());
+		finalMap.put("groupBy", groupBy);
+		if ("process".equalsIgnoreCase(groupBy)) {
+			log.info("Fetching acounting data counts and amounts for the grouped by PROCESS for the group id: "	+ groupId);
+			HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(groupId, tenantId);
+			List<BigInteger> viewIds = distinctViewIdMap.get("sourceViewIds");
+			log.info("Source ViewIds: " + viewIds);
+			if (viewIds.size() > 0) {
+				for (BigInteger viewId : viewIds) {
+					DataViews dv = dataViewsRepository.findOne(viewId.longValue());
+					if (dv != null) {
+						String transDateQualifier = reconciliationResultService.getViewColumnQualifier(viewId, "TRANSDATE");
+						String amountQualifier = reconciliationResultService.getViewColumnQualifier(viewId, "AMOUNT");
+						log.info("View Id: " + viewId+ ", Trans Date Qualifier: "+ transDateQualifier + ", Amount Qualifier: "+ amountQualifier);
+						if (transDateQualifier.length() > 0 && amountQualifier.length() > 0) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccOriginalIdsStatusWise(tenantId,groupId, viewId, rangeFrom,rangeTo, transDateQualifier);
+							if (accUnAccIds.size() > 0) {
+								HashMap viewMp = accountingDataService.getAllGroupedListAnalytics(accUnAccIds, tenantId, viewId,amountQualifier);
+								viewMp.put("name", dv.getDataViewDispName());
+								viewMp.put("id", viewId);
+								groupedList.add(viewMp);
+							}
+						} else {
+							log.info("There is no trans date or amount qualifier found for the view id: "+ viewId);
+						}
+					}
+				}
+				finalMap.put("groupedList", groupedList);
+			} else {
+				log.info("There are no source view ids for the group id: "+ groupId);
+			}
+			log.info("Final Map Size: " + groupedList.size());
+		} else {
+			String transDateQualifier = reconciliationResultService.getViewColumnQualifier(new BigInteger(sourceViewId.toString()),"TRANSDATE");
+			String amountQualifier = reconciliationResultService.getViewColumnQualifier(new BigInteger(sourceViewId.toString()), "AMOUNT");
+			log.info("Amount Qualifier: " + amountQualifier	+ ", Trans Date Qualifier: " + transDateQualifier);
+			if (transDateQualifier.length() > 0 && amountQualifier.length() > 0) {
+				if ("columnName".equalsIgnoreCase(groupBy)) {
+					log.info("Fetching accounting counts and amounts grouped by column name without fileted group by for the view id: "	+ sourceViewId);
+					HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(columnId);
+					if (columnMap.get("columnName").toString().length() > 0	&& columnMap.get("dataType") != null) {
+						List<String> distColValues = reconciliationResultService.getDistinctColValues(sourceViewId, rangeFrom,rangeTo, columnId,"fileDate");
+						if (distColValues.size() > 0) {
+							for (String colValue : distColValues) {
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(sourceViewId, rangeFrom,rangeTo,columnMap.get("columnName").toString(), colValue.trim(),columnMap.get("dataType").toString(),"fileDate");
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds,tenantId,groupId,new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo);
+								if (accUnAccIds.size() > 0) {
+									HashMap colMp = accountingDataService.getGroupedListAnalytics(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									if (colMp.size() > 0) {
+										colMp.put("name", colValue);
+										groupedList.add(colMp);
+									}
+								}
+							}
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				} else if ("rules".equalsIgnoreCase(groupBy)) {
+					log.info("Fetching accounting counts and amounts groupBy rules without filtered group for the view id: "+ sourceViewId);
+					List<BigInteger> ruleIds = accountingDataRepository.fetchRuleIdsByGroupIdAndTenantId(tenantId, groupId);
+					log.info("RuleIds: " + ruleIds);
+					if (ruleIds.size() > 0) {
+						for (BigInteger ruleId : ruleIds) {
+							List<BigInteger> ruleIdSingle = new ArrayList<BigInteger>();
+							ruleIdSingle.add(ruleId);
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByRules(tenantId,groupId, new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo, ruleIdSingle);
+							if (accUnAccIds.get("totalIds").size() > 0) {
+								HashMap ruleMap = accountingDataService.getRulesGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+								if (ruleMap.size() > 0) {
+									Rules rule = rulesRepository.findOne(ruleId.longValue());
+									if (rule != null) {
+										ruleMap.put("name", rule.getRuleCode());
+										ruleMap.put("id", ruleId);
+									}
+									if (ruleId == BigInteger.valueOf(0)) {
+										ruleMap.put("name", "Manual");
+										ruleMap.put("id", ruleId);
+									}
+									groupedList.add(ruleMap);
+								}
+							}
+						}
+						// Others
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfo(groupId,BigInteger.valueOf(sourceViewId),rangeFrom, rangeTo, transDateQualifier);
+						if (accUnAccIds.get("totalIds").size() > 0) {
+							HashMap othersMap = accountingDataService.getAllGroupedListAnalytics(accUnAccIds,tenantId, new BigInteger(sourceViewId.toString()),amountQualifier);
+							othersMap.put("name", "Others");
+							groupedList.add(othersMap);
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				} else if ("batch".equalsIgnoreCase(groupBy)) {
+					List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(),rangeFrom, rangeTo, transDateQualifier);
+					if (totalIds.size() > 0) {
+						List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+						if (batches.size() > 0) {
+							List<String> manualBatches = new ArrayList<String>();
+							for (String batch : batches) {
+								if (batch.contains("MANUAL")) {
+									manualBatches.add(batch);
+								} else {
+									List<String> batchList = new ArrayList<String>();
+									batchList.add(batch.trim());
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalBatches(totalIds,tenantId,groupId,new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo,batchList);
+									HashMap batchMap = accountingDataService.getGroupedListAnalytics(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									if (batchMap.size() > 0) {
+										batchMap.put("name", batch);
+										groupedList.add(batchMap);
+									}
+								}
+							}
+							if (manualBatches.size() > 0) {
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByManualBatches(totalIds,tenantId,groupId,new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo,manualBatches);
+								HashMap batchMap = accountingDataService.getGroupedListAnalytics(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+								if (batchMap.size() > 0) {
+									batchMap.put("name", "Manual");
+									groupedList.add(batchMap);
+								}
+							}
+							// Others
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfo(groupId,BigInteger.valueOf(sourceViewId),rangeFrom, rangeTo,transDateQualifier);
+							if (accUnAccIds.get("totalIds").size() > 0) {
+								HashMap othersMap = accountingDataService.getAllGroupedListAnalytics(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+								othersMap.put("name", "Others");
+								groupedList.add(othersMap);
+							}
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				}
+			} else {
+				log.info("There is no amount qualifier or trans date qualifier found for the view id: "+ sourceViewId);
+			}
+		}
+		return finalMap;
+	}
+
+	/**
+	 * Author: Shiva Purpose: Fetching Accounting data counts and amounts for
+	 * group by field 
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * @throws ParseException
+	 * **/
+/*	@PostMapping("/getAccountingFilterGroupBySummary")
+	@Timed
+	public HashMap getAccountingFilterGroupBySummary(
+			HttpServletRequest request, 
+			@RequestParam Long groupId,
+			@RequestParam String rangeFrom,
+			@RequestParam String rangeTo,
+			@RequestParam String groupBy,
+			@RequestParam(value = "sourceViewId", required = false) Long sourceViewId,
+			@RequestParam(value = "columnId", required = false) Long columnId,
+			@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+			@RequestBody AWQGroupByParamsDTO params)
+			throws ClassNotFoundException, SQLException, ParseException {
+		log.info("Rest api for fetching accounting data counts and amounts filtered group by for the group id: "+ groupId+ ", view id: "+ sourceViewId);
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		HashMap finalMap = new HashMap();
+		List<HashMap> groupedList = new ArrayList<HashMap>();
+		RuleGroup rg = ruleGroupRepository.findOne(groupId);
+		finalMap.put("ruleGroupId", rg.getId());
+		finalMap.put("ruleGroupName", rg.getName());
+		finalMap.put("groupBy", groupBy);
+		if ("process".equalsIgnoreCase(groupBy)) {
+			String transDateQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(params.getViewId()), "TRANSDATE");
+			String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(params.getViewId()), "AMOUNT");
+			log.info("ViewId: " + params.getViewId()+ ", Trans date Qualifier: " + transDateQualifier+ ", Amount Qualifier: " + amountQualifier);
+			if (transDateQualifier.length() > 0 && amountQualifier.length() > 0) {
+				if ("days".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting data group by prceoss and filter group days for the view id: "+ params.getViewId());
+					List<String> transDates = reconciliationResultService.getDistinctTransDates(params.getViewId(),rangeFrom, rangeTo, transDateQualifier);
+					// log.info("Distinct Trans Dates: "+ transDates);
+					if (transDates.size() > 0) {
+						for (String transDate : transDates) {
+							DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+							Date date = df.parse(transDate);
+							df = new SimpleDateFormat("dd-MMM-yy");
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsWithTransDate(tenantId,groupId, BigInteger.valueOf(params.getViewId()), rangeFrom,rangeTo, transDateQualifier,transDate.trim());
+							if (accUnAccIds.size() > 0) {
+								HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(params.getViewId().toString()),amountQualifier);
+								dateMp.put("name", df.format(date));
+								groupedList.add(dateMp);
+							}
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting data group by prceoss and filter group by column name for the view id: "+ params.getViewId());
+					HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(params.getColumnId());
+					if (columnMap.get("columnName").toString().length() > 0	&& columnMap.get("dataType") != null) {
+						log.info("column name: "+ columnMap.get("columnName").toString()+ ", column data type: "+ columnMap.get("dataType"));
+						List<String> distColValues = reconciliationResultService.getDistinctColValues(params.getViewId(),rangeFrom, rangeTo,params.getColumnId(),"fileDate");
+						// log.info("Distinct column values sizes: "+distColValues.size());
+						if (distColValues.size() > 0) {
+							for (String colValue : distColValues) {
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(params.getViewId(), rangeFrom,rangeTo,columnMap.get("columnName").toString(), colValue.trim(),columnMap.get("dataType").toString(),"fileDate");
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds,tenantId,groupId,new BigInteger(params.getViewId().toString()),rangeFrom, rangeTo);
+								if (accUnAccIds.size() > 0) {
+									HashMap colMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(params.getViewId().toString()),amountQualifier);
+									colMp.put("name", colValue);
+									groupedList.add(colMp);
+								}
+							}
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				} else if ("rules".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting data group by prceoss and filter group by rules for the view id: "+ params.getViewId());
+					List<BigInteger> ruleIds = accountingDataRepository.fetchRuleIdsByGroupIdAndTenantId(tenantId, groupId);
+					log.info("RuleIds: " + ruleIds);
+					if (ruleIds.size() > 0) {
+						for (BigInteger ruleId : ruleIds) {
+							log.info("Rule Id: " + ruleId);
+							List<BigInteger> ruleIdSingle = new ArrayList<BigInteger>();
+							ruleIdSingle.add(ruleId);
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByRules(tenantId,groupId, BigInteger.valueOf(params.getViewId()), rangeFrom,	rangeTo, ruleIdSingle);
+							if (accUnAccIds.size() > 0) {
+								HashMap ruleMap = accountingDataService.getGroupedList(accUnAccIds, tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+								if (ruleMap.size() > 0) {
+									Rules rule = rulesRepository.findOne(ruleId.longValue());
+									if (rule != null) {
+										ruleMap.put("name", rule.getRuleCode());
+										ruleMap.put("id", ruleId);
+									} else if (ruleId == BigInteger.valueOf(0)) {
+										ruleMap.put("name", "Manual");
+										ruleMap.put("id", ruleId);
+									}
+									groupedList.add(ruleMap);
+								}
+							}
+						}
+						//Others Batch
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getUnAccOthersMap(params.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+						HashMap unRecMap = accountingDataService.getUnAccGroupedList(accUnAccIds, tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+						if(unRecMap.size()>0)
+						{
+							unRecMap.put("name", "Others");
+							groupedList.add(unRecMap);
+						}
+					}
+					else
+					{
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getUnAccMap(params.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+						HashMap unRecMap = accountingDataService.getUnAccGroupedList(accUnAccIds, tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+						if(unRecMap.size()>0)
+						{
+							unRecMap.put("name", "Others");
+							groupedList.add(unRecMap);
+						}
+						//finalList = reconciliationResultService.getReconData(recUnrecIds, params.getStatus(), tenantId, dataViewId, limit, pageSize, headerColumns, groupId, amtQualifier,params.getSearchWord(),columnsString,exportFile,colNameNType,params.getSortOrderBy());
+					}
+					finalMap.put("groupedList", groupedList);
+				} else if ("batch".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting data group by prceoss and filter group by batches for the view id: "+ params.getViewId());
+					List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+					List<String> manualBatches = new ArrayList<String>();
+					log.info("Batches size: " + batches.size());
+					if (batches.size() > 0) {
+						for (String batch : batches) {
+							List<String> jobReferences = new ArrayList<String>();
+							jobReferences.add(batch);
+							if (batch.contains("MANUAL")) {
+								manualBatches.add(batch);
+							} else {
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsForBatch(tenantId,groupId, BigInteger.valueOf(params.getViewId()),rangeFrom, rangeTo,jobReferences,transDateQualifier);
+								if (accUnAccIds.size() > 0) {
+									HashMap batchMap = accountingDataService.getGroupedList(accUnAccIds,tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+									if (batchMap.size() > 0) {
+										batchMap.put("name", batch);
+										groupedList.add(batchMap);
+									}
+								}
+							}
+						}
+						if (manualBatches.size() > 0) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsForManualBatchs(tenantId,groupId, BigInteger.valueOf(params.getViewId()), rangeFrom,rangeTo, transDateQualifier,manualBatches);
+							if (accUnAccIds.size() > 0) {
+								HashMap batchMap = accountingDataService.getGroupedList(accUnAccIds, tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+								if (batchMap.size() > 0) {
+									batchMap.put("name", "Manual");
+									groupedList.add(batchMap);
+								}
+							}
+						}
+						//Others Batch
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getUnAccOthersMap(params.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+						HashMap unRecMap = accountingDataService.getUnAccGroupedList(accUnAccIds, tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+						if(unRecMap.size()>0)
+						{
+							unRecMap.put("name", "Others");
+							groupedList.add(unRecMap);
+						}
+					}
+					else
+					{
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getUnAccMap(params.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+						HashMap unRecMap = accountingDataService.getUnAccGroupedList(accUnAccIds, tenantId,BigInteger.valueOf(params.getViewId()),amountQualifier);
+						if(unRecMap.size()>0)
+						{
+							unRecMap.put("name", "Others");
+							groupedList.add(unRecMap);
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				}
+			} else {
+				log.info("There is no trans date or amount qualifier fournd for the view id: "+ params.getViewId());
+			}
+		} else {
+			String transDateQualifier = reconciliationResultService.getTransDateQualifier(new BigInteger(sourceViewId.toString()),"TRANSDATE");
+			String amountQualifier = reconciliationResultService.getTransDateQualifier(new BigInteger(sourceViewId.toString()), "AMOUNT");
+			if ("columnName".equalsIgnoreCase(groupBy)) {
+				HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(params.getColumnId());
+				if ("days".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting counts and amounts groupBy columnName and filtered group by days for the view id: "+ sourceViewId);
+					if (transDateQualifier.length() > 0) {
+						List<String> transDates = reconciliationResultService.getDistinctDaysWithFilteredGroupByColumnValue(sourceViewId, rangeFrom, rangeTo,transDateQualifier,params.getColumnId(),params.getColumnValue());
+						if (transDates.size() > 0) {
+							for (String transDate : transDates) {
+								DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+								Date date = df.parse(transDate);
+								df = new SimpleDateFormat("dd-MMM-yy");
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByColumnAndTransDate(sourceViewId,rangeFrom,rangeTo,columnMap.get("columnName").toString(), params.getColumnValue(),columnMap.get("dataType").toString(),transDateQualifier, transDate);
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds,tenantId,groupId,new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo);
+								if (accUnAccIds.size() > 0) {
+									HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									dateMp.put("name", df.format(date));
+									groupedList.add(dateMp);
+								}
+							}
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				}
+			} else if ("rules".equalsIgnoreCase(groupBy)) {
+				List<String> transDates = reconciliationResultService.getDistinctTransDates(sourceViewId, rangeFrom,rangeTo, transDateQualifier);
+				log.info("Distinct Dates: " + transDates.size());
+				// log.info("Grouping by rules... " + params.getRuleId());
+				if ("days".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Filter group by days...");
+					if (transDates.size() > 0) {
+						if (params.getRuleId() != null) {
+							log.info("Fetching filter group by days with respect to rules...");
+							List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+							ruleIds.add(BigInteger.valueOf(params.getRuleId()));
+							for (String transDate : transDates) {
+								DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+								Date date = df.parse(transDate);
+								df = new SimpleDateFormat("dd-MMM-yy");
+								List<String> dates = new ArrayList<String>();
+								dates.add(transDate.trim());
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(sourceViewId, rangeFrom,rangeTo, transDateQualifier,dates);
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIds, rangeFrom, rangeTo,sourceViewId, tenantId,groupId, transDateQualifier,"", ruleIds);
+								if (accUnAccIds.size() > 0) {
+									HashMap dateMp = accountingDataService.getGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									if (dateMp.size() > 0) {
+										dateMp.put("name", df.format(date));
+										groupedList.add(dateMp);
+									}
+								}
+							}
+						} else if (params.getOthersRuleName() != null) {
+							log.info("Fetching filter group by days with respect to Others...");
+							for (String transDate : transDates) {
+								DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+								Date date = df.parse(transDate);
+								df = new SimpleDateFormat("dd-MMM-yy");
+								List<String> dates = new ArrayList<String>();
+								dates.add(transDate.trim());
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithDayWise(groupId,	BigInteger.valueOf(sourceViewId),rangeFrom, rangeTo,transDateQualifier, dates);
+								if (accUnAccIds.size() > 0) {
+									HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									dateMp.put("name", df.format(date));
+									groupedList.add(dateMp);
+								}
+							}
+						}
+						finalMap.put("groupedList", groupedList);
+					}
+				} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Filter group by column name...");
+					HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(params.getColumnId());
+					if (columnMap.get("columnName").toString().length() > 0	&& columnMap.get("dataType") != null) {
+						List<String> distColValues = reconciliationResultService.getDistinctColValues(sourceViewId, rangeFrom,rangeTo, params.getColumnId(),"fileDate");
+						log.info("Distinct Column values: " + distColValues);
+						if (distColValues.size() > 0) {
+							if (params.getRuleId() != null) {
+								log.info("Fetching filter group by column name with respect to rules...");
+								List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+								ruleIds.add(BigInteger.valueOf(params.getRuleId()));
+								for (String colValue : distColValues) {
+									List<String> colValues = new ArrayList<String>();
+									colValues.add(colValue.trim());
+									List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(params.getColumnId(),sourceViewId, rangeFrom,rangeTo, colValues,"fileDate");
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIds, rangeFrom,rangeTo, sourceViewId,tenantId, groupId,columnMap.get("columnName").toString(), "",ruleIds);
+									if (accUnAccIds.size() > 0) {
+										HashMap colMp = accountingDataService.getGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+										if (colMp.size() > 0) {
+											colMp.put("name", colValue);
+											groupedList.add(colMp);
+										}
+									}
+								}
+							} else if (params.getOthersRuleName() != null) {
+								log.info("Fetching filter group by column name with respect to Others...");
+								for (String colValue : distColValues) {
+									List<String> colValues = new ArrayList<String>();
+									colValues.add(colValue.trim());
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithColumnWise(groupId, sourceViewId,rangeFrom, rangeTo,colValues,params.getColumnId());
+									if (accUnAccIds.size() > 0) {
+										HashMap colMp = accountingDataService.getGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+										if (colMp.size() > 0) {
+											colMp.put("name", colValue);
+											groupedList.add(colMp);
+										}
+									}
+								}
+							}
+							finalMap.put("groupedList", groupedList);
+						}
+					}
+				}
+			} else if ("batch".equalsIgnoreCase(groupBy)) {
+				log.info("Group by batch...");
+				List<String> batchList = new ArrayList<String>();
+				batchList.add(params.getBatchName());
+				if ("days".equalsIgnoreCase(filterGroupBy)) {
+					List<String> transDates = reconciliationResultService.getDistinctTransDates(sourceViewId, rangeFrom,rangeTo, transDateQualifier);
+					log.info("Distinct trans dates size: " + transDates.size());
+					if (transDates.size() > 0) {
+						log.info("Filter group by days...");
+						List<String> manualBatches = new ArrayList<String>();
+						List<String> distinctBatches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+						if (distinctBatches.size() > 0) {
+							for (String batch : distinctBatches) {
+								if (batch.contains("MANUAL")) {
+									manualBatches.add(batch);
+								}
+							}
+						}
+						if ("Manual".equalsIgnoreCase(params.getBatchName())) {
+							log.info("Fetching filter group by days for Manual.....");
+							for (String transDate : transDates) {
+								DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+								Date date = df.parse(transDate);
+								df = new SimpleDateFormat("dd-MMM-yy");
+								List<String> dates = new ArrayList<String>();
+								dates.add(transDate.trim());
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(sourceViewId, rangeFrom,rangeTo, transDateQualifier,dates);
+								if (totalIds.size() > 0
+										&& manualBatches.size() > 0) {
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccIdsForManualBatches(totalIds,tenantId,groupId,new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo,manualBatches);
+									HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									if (dateMp.size() > 0) {
+										dateMp.put("name", df.format(date));
+										groupedList.add(dateMp);
+									}
+								}
+							}
+						} else if ("Others".equalsIgnoreCase(params.getBatchName())) {
+							log.info("Fetching filter group by others for Others .....");
+							for (String transDate : transDates) {
+								DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+								Date date = df.parse(transDate);
+								df = new SimpleDateFormat("dd-MMM-yy");
+								List<String> dates = new ArrayList<String>();
+								dates.add(transDate.trim());
+								Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithDayWise(groupId,BigInteger.valueOf(sourceViewId),rangeFrom, rangeTo,transDateQualifier, dates);
+								if (accUnAccIds.size() > 0 && accUnAccIds.get("totalIds").size() > 0) {
+									HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									if (dateMp.size() > 0) {
+										dateMp.put("name", df.format(date));
+										groupedList.add(dateMp);
+									}
+								}
+							}
+						} else {
+							log.info("Fetching filter group by original Batches .....");
+							for (String transDate : transDates) {
+								DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+								Date date = df.parse(transDate);
+								df = new SimpleDateFormat("dd-MMM-yy");
+								List<String> dates = new ArrayList<String>();
+								dates.add(transDate.trim());
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(sourceViewId, rangeFrom,rangeTo, transDateQualifier,dates);
+								if (totalIds.size() > 0) {
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccIdsForOriginalBatches(totalIds,	tenantId,groupId,BigInteger.valueOf(sourceViewId),rangeFrom, rangeTo,batchList);
+									HashMap dateMp = accountingDataService.getGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									if (dateMp.size() > 0) {
+										dateMp.put("name", df.format(date));
+										groupedList.add(dateMp);
+									}
+								}
+							}
+						}
+						finalMap.put("groupedList", groupedList);
+					}
+				} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Filter group by column name...");
+					HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(params.getColumnId());
+					if (columnMap.get("columnName").toString().length() > 0	&& columnMap.get("dataType") != null) {
+						List<String> distColValues = reconciliationResultService.getDistinctColValues(sourceViewId, rangeFrom,rangeTo, params.getColumnId(),"fileDate");
+						if (distColValues.size() > 0) {
+							if ("Manual".equalsIgnoreCase(params.getBatchName())) {
+								List<String> manualBatches = new ArrayList<String>();
+								List<String> distinctBatches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+								if (distinctBatches.size() > 0) {
+									for (String batch : distinctBatches) {
+										if (batch.contains("MANUAL")) {
+											manualBatches.add(batch);
+										}
+									}
+								}
+								log.info("Fetching filter group by column name for Manual.....");
+								for (String colValue : distColValues) {
+									List<String> colValues = new ArrayList<String>();
+									colValues.add(colValue);
+									List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(params.getColumnId(),sourceViewId, rangeFrom,rangeTo, colValues,"fileDate");
+									if (totalIds.size() > 0 && manualBatches.size() > 0) {
+										Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByManualBatches(totalIds,tenantId,groupId,new BigInteger(sourceViewId.toString()),rangeFrom, rangeTo,manualBatches);
+										HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+										if (dateMp.size() > 0) {
+											dateMp.put("name", colValue.trim());
+											groupedList.add(dateMp);
+										}
+									}
+								}
+							} else if ("Others".equalsIgnoreCase(params.getBatchName())) {
+								log.info("Fetching filter group by column name for Others .....");
+								for (String colValue : distColValues) {
+									List<String> colValues = new ArrayList<String>();
+									colValues.add(colValue);
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithColumnWise(groupId, sourceViewId,rangeFrom, rangeTo,colValues,params.getColumnId());
+									HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds,tenantId,new BigInteger(sourceViewId.toString()),amountQualifier);
+									dateMp.put("name", colValue.trim());
+									groupedList.add(dateMp);
+								}
+							} else {
+								log.info("Fetching filter group by column name for original Batches .....");
+								for (String colValue : distColValues) {
+									List<String> colValues = new ArrayList<String>();
+									colValues.add(colValue);
+									List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(params.getColumnId(),sourceViewId, rangeFrom,rangeTo, colValues,"fileDate");
+									if (totalIds.size() > 0) {
+										Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalBatches(totalIds,tenantId,groupId,BigInteger.valueOf(sourceViewId),rangeFrom, rangeTo,batchList);
+										HashMap dateMp = accountingDataService.getGroupedList(accUnAccIds,tenantId,	new BigInteger(sourceViewId.toString()),amountQualifier);
+										if (dateMp.size() > 0) {
+											dateMp.put("name", colValue.trim());
+											groupedList.add(dateMp);
+										}
+									}
+								}
+							}
+						}
+					}
+					finalMap.put("groupedList", groupedList);
+				}
+			}
+		}
+		return finalMap;
+	}
+*/
+	/**
+	 * Author: Shiva Purpose: Fetching Grouped by accounting data
+	 * 
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * @throws ParseException
+	 * **/
+/*	@PostMapping("/getGroupedByAccountingData")
+	@Timed
+	public List<LinkedHashMap> getGroupedByAccountingData(
+			@RequestBody AWQGroupedByParamsDTO params)
+			throws ClassNotFoundException, SQLException, ParseException {
+		log.info("Rest api for fetching grouped by accounting data for tenant id: "
+				+ params.getTenantId()
+				+ ", group id: "
+				+ params.getGroupId()
+				+ ", view id: " + params.getDataViewId());
+		List<LinkedHashMap> accDataWithStatus = new ArrayList<LinkedHashMap>();
+		HashMap colNameNType = reconciliationResultService
+				.getColNameNType(params.getSortByColumnId());
+		Long limit = limit = (params.getPageNumber() * params.getPageSize() + 1) - 1;
+		log.info("Limit Starting Values : " + limit);
+		log.info("Page Number : " + params.getPageNumber());
+		Long tenantId = params.getTenantId();
+		Long groupId = params.getGroupId();
+		Long viewId = params.getDataViewId();
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		String exportFile = params.getExportFile();
+		String searchWord = params.getSearchWord();
+		Long pageSize = params.getPageSize();
+		String transDateQualifier = reconciliationResultService
+				.getViewColumnQualifier(BigInteger.valueOf(viewId), "TRANSDATE");
+		String columnsString = reconciliationResultService
+				.getColumnNamesAsString(viewId);
+		HashMap headerColumns = accountingDataService
+				.getViewColumnHeadersMapInSequence(viewId,
+						params.getTenantId(), params.getGroupId(),
+						params.getGroupedParamsList());
+		log.info("ViewId: " + viewId + ", TransDate Qualifier: "
+				+ transDateQualifier);
+		if (transDateQualifier.length() > 0 && headerColumns.size() > 0) {
+			if ("process".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Fetching Accounting data group by proces for view id: "
+						+ viewId);
+				Map<String, List<BigInteger>> accUnAccIds = accountingDataService
+						.getAccOriginalIdsStatusWise(tenantId, groupId,
+								BigInteger.valueOf(viewId), rangeFrom, rangeTo,
+								transDateQualifier);
+				accDataWithStatus = accountingDataService.getAccDataWithStatus(
+						accUnAccIds, params.getStatus(), tenantId, viewId,
+						groupId, limit, pageSize, headerColumns, exportFile,
+						columnsString, params.getSearchWord(), colNameNType);
+			} else if ("columnName".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Fetching accounting data grouped by column name for the view id: "
+						+ params.getDataViewId());
+				HashMap columnMap = accountingDataService
+						.getDataViewColumnNameByColumnId(params.getColumnId());
+				if (columnMap.get("columnName").toString().length() > 0
+						&& columnMap.get("dataType") != null) {
+					List<BigInteger> totalIdsWithColumnValue = reconciliationResultService
+							.getOriginalIdsByTransDate(params.getDataViewId(),
+									rangeFrom, rangeTo,
+									columnMap.get("columnName").toString(),
+									params.getColumnValue().trim(), columnMap
+											.get("dataType").toString());
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService
+							.getAccountingIdsByOriginalIds(
+									totalIdsWithColumnValue, tenantId, groupId,
+									new BigInteger(params.getDataViewId()
+											.toString()), rangeFrom, rangeTo);
+					log.info("Total Ids with column values: "
+							+ totalIdsWithColumnValue.size());
+					accDataWithStatus = accountingDataService
+							.getAccDataWithStatus(accUnAccIds,
+									params.getStatus(), tenantId, viewId,
+									groupId, limit, pageSize, headerColumns,
+									exportFile, columnsString,
+									params.getSearchWord(), colNameNType);
+				}
+			} else if ("rules".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Fetching group by rules data...");
+				
+				 * Map<String, List<BigInteger>> accUnAccIds =
+				 * accountingDataService
+				 * .getAccountingIdsGroupByRules(tenantId,groupId,new
+				 * BigInteger(
+				 * params.getDataViewId().toString()),rangeFrom,rangeTo
+				 * ,jobReference,ruleIds); if(accUnAccIds.size()>0) {
+				 * accDataWithStatus =
+				 * accountingDataService.getAccDataWithStatus(accUnAccIds,
+				 * params.getStatus(), tenantId, params.getDataViewId(),
+				 * groupId, limit, pageSize, headerColumns,exportFile,
+				 * columnsString, params.getSearchWord()); }
+				 
+			} else if ("batch".equalsIgnoreCase(params.getGroupBy())) {
+
+			}
+		} else {
+			log.info("There is no trans date qualifier or headerColumns found for the view id: "
+					+ viewId);
+			log.info("TransDate Qualifer length: "
+					+ transDateQualifier.length() + ", HeaderColumns Size: "
+					+ headerColumns.size());
+		}
+		return accDataWithStatus;
+	}*/
+
+/*	@PostMapping("/getFilterGroupByAccountingData")
+	@Timed
+	public List<LinkedHashMap> getFilterGroupByAccountingData(@RequestParam Long pageNumber,	@RequestParam Long pageSize,	@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+															  @RequestParam(value = "exportFile", required = false) String exportFile, @RequestBody ReconQueryParamsDTO params) throws SQLException,ClassNotFoundException, ParseException {
+		log.info("--------------------------------------------------Started------------------------------------------------------------");
+		log.info("Rest api for fetching filtered grouped by accounting data for tenant id: "+ params.getTenantId()+ ", group id: "+ params.getGroupId() + ", view id: " + params.getDataViewId());
+		List<LinkedHashMap> accDataWithStatus = new ArrayList<LinkedHashMap>();
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+		Long limit =  (pageNumber * pageSize + 1) - 1;
+		log.info("Page Limit: " + limit + ", Page Number : " + pageNumber);
+		RWQDataFetchDTO keyValues = params.getKeyValues();
+		HashMap info = new HashMap();
+		Long tenantId = params.getTenantId();
+		Long groupId = params.getGroupId();
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		HashMap colNameNType = reconciliationResultService.getColNameNType(params.getSortByColumnId());
+		log.info("columnName: " + colNameNType.get("columnName")+ ", data type: " + colNameNType.get("dataType"));
+		AWQGroupByParamsDTO groupByParams = params.getGroupByParams();
+		ManualUnRecByColumnDTO columnValues = params.getKeyValues().getColumnValues();
+		if ("process".equalsIgnoreCase(params.getGroupBy())) {
+			log.info("Fetching accounting data group by process...");
+			String transDateQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(groupByParams.getViewId()),"TRANSDATE");	// un use
+			HashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(groupByParams.getViewId(), tenantId, groupId,params.getGroupedParamsList());	//un use
+			List<BigInteger> totalIdsWithView = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(), rangeFrom,rangeTo, transDateQualifier);
+			log.info("TotalIdsSize: " + totalIdsWithView.size());
+			String columnsString = reconciliationResultService.getColumnNamesAsString(groupByParams.getViewId());
+			log.info("TransDate: "+ transDateQualifier);
+			if (transDateQualifier.length() > 0 && headerColumns.size() > 0 ) {	//un used
+				if("days".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting data group by process and filter group by days for teh view id: "+ params.getDataViewId());
+					List<BigInteger> totalIds = new ArrayList<BigInteger>();
+					if (keyValues.getDays().size() > 0) {
+						totalIds = reconciliationResultService.getOriginalIdsByTransDates(groupByParams.getViewId(), rangeFrom,rangeTo, transDateQualifier,keyValues.getDays());
+					} else {
+						totalIds.addAll(totalIdsWithView);
+					}
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds, tenantId,groupId, BigInteger.valueOf(groupByParams.getViewId()), rangeFrom, rangeTo);
+					if(accUnAccIds.size()>0)
+					{
+						accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId, limit,pageSize, headerColumns, exportFile,columnsString, params.getSearchWord(),colNameNType,params.getSortOrderBy());
+					}
+				} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+					HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(groupByParams.getColumnId());
+					List<BigInteger> totalIds = new ArrayList<BigInteger>();
+					if (columnValues.getColumnValues().size() > 0) {
+						totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),groupByParams.getViewId(), rangeFrom,rangeTo, columnValues.getColumnValues(),"fileDate");
+					} else {
+						totalIds.addAll(totalIdsWithView);
+					}
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds, tenantId,groupId, new BigInteger(groupByParams.getViewId().toString()),rangeFrom, rangeTo);
+					if(accUnAccIds.size()>0)
+					{
+						accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId, limit,pageSize, headerColumns, exportFile,columnsString, params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+					}
+					
+				} else if ("rules".equalsIgnoreCase(filterGroupBy)) {
+					List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+					List<Long> ruleIdsLong = keyValues.getRuleIds();
+					List<BigInteger> totalIds = new ArrayList<BigInteger>();
+					totalIds.addAll(totalIdsWithView);
+					List<BigInteger> ruleIdsList = accountingDataRepository.fetchRuleIdsByGroupIdAndTenantId(tenantId, groupId);
+					if(ruleIdsList.size() == 0)
+					{
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getUnAccMap(groupByParams.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+						if(accUnAccIds.size()>0)
+						{
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					}
+					else
+					{
+						if (ruleIdsLong.size() > 0) {
+							for (Long id : ruleIdsLong) {
+								ruleIds.add(new BigInteger(id.toString()));
+							}
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByRules(tenantId,groupId, new BigInteger(groupByParams.getViewId().toString()),rangeFrom, rangeTo, ruleIds);
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						} else {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds,tenantId, groupId, new BigInteger(groupByParams.getViewId().toString()),rangeFrom, rangeTo);
+							if(accUnAccIds.size()>0)
+							{
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(), colNameNType,params.getSortOrderBy());	
+							}
+						}
+					}
+				} else if ("batch".equalsIgnoreCase(filterGroupBy)) {
+					log.info("keyValues.getBatchNames(): "+ keyValues.getBatchNames());
+					List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+					if(batches.size() == 0)
+					{
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getUnAccMap(groupByParams.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+						if(accUnAccIds.size()>0)
+						{
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					}
+					else
+					{
+						if (keyValues.getBatchNames().size() > 0) {
+							Map<String, List<BigInteger>> accUnAccIds = new HashMap<String, List<BigInteger>>();
+							if (!keyValues.getBatchNames().contains("Manual")) {
+								if(keyValues.getBatchNames().contains("Others"))
+								{
+									accUnAccIds = accountingDataService.getUnAccOthersMap(groupByParams.getViewId(), tenantId, groupId, rangeFrom, rangeTo, "");
+								}
+								else{
+									accUnAccIds = accountingDataService.getAccountingIdsForBatch(tenantId,groupId, BigInteger.valueOf(groupByParams.getViewId()),rangeFrom, rangeTo, keyValues.getBatchNames(),transDateQualifier);
+								}
+							} else if (keyValues.getBatchNames().contains("Manual")) {
+								List<String> jobReferences = new ArrayList<String>();
+								jobReferences = accountedSummaryRepository.fetchManualJobReferences(groupId,groupByParams.getViewId());
+								log.info("Manual Batch Names: " + jobReferences);
+								jobReferences.addAll(keyValues.getBatchNames());
+								log.info("Input manual Batches: " + jobReferences);
+								accUnAccIds = accountingDataService.getAccountingIdsForManualBatchs(tenantId,groupId, BigInteger.valueOf(groupByParams.getViewId()),rangeFrom, rangeTo,transDateQualifier, jobReferences);
+							}
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						} else {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByBatches(totalIdsWithView,tenantId, groupId, new BigInteger(groupByParams.getViewId().toString()),rangeFrom, rangeTo, keyValues.getBatchNames());
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,groupByParams.getViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						}
+					}
+				}
+			} else {
+				log.info("There is no trans date qualifier or header columns found for the view id: "+ groupByParams.getViewId());
+			}
+		} else if ("columnName".equalsIgnoreCase(params.getGroupBy())) {
+			String transDateQualifier = reconciliationResultService.getTransDateQualifier(new BigInteger(params.getDataViewId().toString()), "TRANSDATE");
+			String columnsString = reconciliationResultService.getColumnNamesAsString(params.getDataViewId());
+			HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(groupByParams.getColumnId());
+			HashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(params.getDataViewId(),params.getTenantId(), params.getGroupId(),params.getGroupedParamsList());
+			if (columnMap.get("columnName").toString().length() > 0 && columnMap.get("dataType") != null) {
+				List<BigInteger> totalIdsWithColumnValue = reconciliationResultService.getOriginalIdsByTransDate(params.getDataViewId(),rangeFrom, rangeTo, columnMap.get("columnName").toString(), groupByParams.getColumnValue().trim(), columnMap.get("dataType").toString(),"fileDate");
+				log.info("Total Ids with column values: "+ totalIdsWithColumnValue.size());
+				if ("days".equalsIgnoreCase(filterGroupBy)) {
+					log.info("Fetching accounting data grouped by column name with filtered group by daysfor the view id: "+ params.getDataViewId());
+					List<BigInteger> totalIds = new ArrayList<BigInteger>();
+					if (keyValues.getDays().size() > 0) {
+						totalIds = reconciliationResultService.getOriginalIdsByTransDatesAndColValue(params.getDataViewId(), rangeFrom, rangeTo,columnMap.get("columnName").toString(),groupByParams.getColumnValue(),columnMap.get("dataType").toString(),transDateQualifier, keyValues.getDays());
+					} else {
+						totalIds.addAll(totalIdsWithColumnValue);
+					}
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalIds(totalIds, tenantId,groupId, new BigInteger(params.getDataViewId().toString()),rangeFrom, rangeTo);
+					if (accUnAccIds.size() > 0) {
+						accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId, limit,pageSize, headerColumns, exportFile,columnsString, params.getSearchWord(),colNameNType,params.getSortOrderBy());
+					}
+				}
+			}
+		} else if ("rules".equalsIgnoreCase(params.getGroupBy())) {
+			String transDateQualifier = reconciliationResultService.getTransDateQualifier(new BigInteger(params.getDataViewId().toString()), "TRANSDATE");
+			List<BigInteger> totalIdsWithView = reconciliationResultService.getViewOriginalIds(params.getDataViewId(), rangeFrom,rangeTo, transDateQualifier);
+			String columnsString = reconciliationResultService.getColumnNamesAsString(params.getDataViewId());
+			HashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(params.getDataViewId(),params.getTenantId(), params.getGroupId(),params.getGroupedParamsList());
+			if ("days".equalsIgnoreCase(filterGroupBy)) {
+				List<BigInteger> totalIds = new ArrayList<BigInteger>();
+				if (keyValues.getDays().size() > 0) {
+					if (groupByParams.getRuleId() != null) {
+						List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+						ruleIds.add(BigInteger.valueOf(groupByParams.getRuleId()));
+						List<BigInteger> totalIdsWithDays = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(), rangeFrom,rangeTo, transDateQualifier,keyValues.getDays());
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIdsWithDays, rangeFrom, rangeTo,params.getDataViewId(), tenantId,groupId, transDateQualifier, "",ruleIds);
+						if (accUnAccIds.size() > 0) {
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					} else if (groupByParams.getOthersRuleName() != null && "Others".equalsIgnoreCase(groupByParams.getOthersRuleName())) {
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithDayWise(groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo, transDateQualifier,keyValues.getDays());
+						if (accUnAccIds.size() > 0) {
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					}
+				} else {
+					totalIds.addAll(totalIdsWithView);
+					if (groupByParams.getRuleId() != null) {
+						List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+						ruleIds.add(BigInteger.valueOf(groupByParams.getRuleId()));
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIds,rangeFrom, rangeTo,params.getDataViewId(), tenantId,groupId, transDateQualifier, "",ruleIds);
+						if (accUnAccIds.size() > 0) {
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					} else if (groupByParams.getOthersRuleName() != null && "Others".equalsIgnoreCase(groupByParams.getOthersRuleName())) {
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfo(groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo, transDateQualifier);
+						if (accUnAccIds.size() > 0) {
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					}
+				}
+			} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+				List<BigInteger> totalIds = new ArrayList<BigInteger>();
+				HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(columnValues.getColumnId());
+				if (columnMap.get("columnName").toString().length() > 0 && columnMap.get("dataType") != null) {
+					if (columnValues.getColumnValues().size() > 0) {
+						if (groupByParams.getRuleId() != null) {
+							List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+							ruleIds.add(BigInteger.valueOf(groupByParams.getRuleId()));
+							List<BigInteger> totalIdsWitColumns = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(), rangeFrom,rangeTo,columnValues.getColumnValues(),"fileDate");
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIdsWitColumns, rangeFrom,rangeTo, params.getDataViewId(),tenantId, groupId,columnMap.get("columnName").toString(), "", ruleIds);
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						} else if (groupByParams.getOthersRuleName() != null) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithColumnWise(groupId,params.getDataViewId(), rangeFrom,rangeTo,columnValues.getColumnValues(),columnValues.getColumnId());
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						}
+					} else {
+						totalIds.addAll(totalIdsWithView);
+						if (groupByParams.getRuleId() != null) {
+							List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+							ruleIds.add(BigInteger.valueOf(groupByParams.getRuleId()));
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIds, rangeFrom, rangeTo,params.getDataViewId(), tenantId,groupId, transDateQualifier, "",ruleIds);
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						} else if (groupByParams.getOthersRuleName() != null) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfo(groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo,transDateQualifier);
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						}
+					}
+				}
+			}
+		} else if ("batch".equalsIgnoreCase(params.getGroupBy())) {
+			String columnsString = reconciliationResultService.getColumnNamesAsString(params.getDataViewId());
+			HashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(params.getDataViewId(),params.getTenantId(), params.getGroupId(),params.getGroupedParamsList());
+			String transDateQualifier = reconciliationResultService.getTransDateQualifier(new BigInteger(params.getDataViewId().toString()), "TRANSDATE");
+			List<BigInteger> totalIdsWithView = reconciliationResultService.getViewOriginalIds(params.getDataViewId(), rangeFrom,rangeTo, transDateQualifier);
+			List<String> batchList = new ArrayList<String>();
+			batchList.add(groupByParams.getBatchName());
+			if ("days".equalsIgnoreCase(filterGroupBy)) {
+				if (keyValues.getDays().size() > 0) {
+					if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+						List<String> manualBatches = new ArrayList<String>();
+						List<String> distinctBatches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+						if (distinctBatches.size() > 0) {
+							for (String batch : distinctBatches) {
+								if (batch.contains("MANUAL")) {
+									manualBatches.add(batch);
+								}
+							}
+						}
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(), rangeFrom,rangeTo, transDateQualifier,keyValues.getDays());
+						if (totalIds.size() > 0 && manualBatches.size() > 0) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccIdsForManualBatches(totalIds,tenantId, groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo, manualBatches);
+							if(accUnAccIds.size()>0)
+							{
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+							}
+						}
+					} else if ("Others".equalsIgnoreCase(groupByParams.getBatchName())) {
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithDayWise(groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo, transDateQualifier,keyValues.getDays());
+						if (accUnAccIds.size() > 0) {
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					} else {
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(), rangeFrom,rangeTo, transDateQualifier,keyValues.getDays());
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccIdsForOriginalBatches(totalIds,tenantId, groupId,BigInteger.valueOf(params.getDataViewId()), rangeFrom,rangeTo, batchList);
+						if(accUnAccIds.size()>0)
+						{
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId, limit,pageSize, headerColumns, exportFile,columnsString, params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+						}
+					}
+				} else {
+					List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),rangeFrom, rangeTo, transDateQualifier);
+					if (totalIds.size() > 0) {
+						if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+							List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+							if (batches.size() > 0) {
+								List<String> manualBatches = new ArrayList<String>();
+								for (String batch : batches) {
+									if (batch.contains("MANUAL")) {
+										manualBatches.add(batch);
+									}
+								}
+								if (manualBatches.size() > 0) {
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByManualBatches(totalIds, tenantId,groupId,BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo,manualBatches);
+									if(accUnAccIds.size()>0)
+									{
+										accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(),tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+									}
+								}
+							}
+						} else if ("Others".equalsIgnoreCase(groupByParams.getBatchName())) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfo(groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo,transDateQualifier);
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						} else {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalBatches(totalIds, tenantId, groupId,BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo, batchList);
+							if(accUnAccIds.size()>0)
+							{
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+							}
+						}
+					}
+				}
+			} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+				if (columnValues.getColumnValues().size() > 0) {
+					if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+						List<String> manualBatches = new ArrayList<String>();
+						List<String> distinctBatches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+						if (distinctBatches.size() > 0) {
+							for (String batch : distinctBatches) {
+								if (batch.contains("MANUAL")) {
+									manualBatches.add(batch);
+								}
+							}
+						}
+						List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(), rangeFrom,rangeTo, columnValues.getColumnValues(),"fileDate");
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByManualBatches(totalIds,tenantId, groupId,BigInteger.valueOf(params.getDataViewId()), rangeFrom,rangeTo, manualBatches);
+						accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId, limit,pageSize, headerColumns, exportFile,columnsString, params.getSearchWord(),colNameNType,params.getSortOrderBy());
+					} else if ("Others".equalsIgnoreCase(groupByParams.getBatchName())) {
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfoWithColumnWise(groupId,params.getDataViewId(), rangeFrom,rangeTo,columnValues.getColumnValues(),columnValues.getColumnId());
+						if (accUnAccIds.size() > 0) {
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+						}
+					} else {
+						List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(), rangeFrom,rangeTo, columnValues.getColumnValues(),"fileDate");
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalBatches(totalIds,tenantId, groupId,BigInteger.valueOf(params.getDataViewId()), rangeFrom,rangeTo, batchList);
+						if(accUnAccIds.size()>0)
+						{
+							accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId, limit,pageSize, headerColumns, exportFile,columnsString, params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+						}
+					}
+				} else {
+					List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),rangeFrom, rangeTo, transDateQualifier);
+					if (totalIds.size() > 0) {
+						if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+							List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId, groupId);
+							if (batches.size() > 0) {
+								List<String> manualBatches = new ArrayList<String>();
+								for (String batch : batches) {
+									if (batch.contains("MANUAL")) {
+										manualBatches.add(batch);
+									}
+								}
+								if (manualBatches.size() > 0) {
+									Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByManualBatches(totalIds, tenantId,groupId,BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo,manualBatches);
+									if(accUnAccIds.size()>0)
+									{
+										accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(),tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+									}
+								}
+							}
+						} else if ("Others".equalsIgnoreCase(groupByParams.getBatchName())) {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getOthersInfo(groupId, BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo,transDateQualifier);
+							if (accUnAccIds.size() > 0) {
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(),groupId, limit, pageSize,headerColumns, exportFile,columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());
+							}
+						} else {
+							Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByOriginalBatches(totalIds, tenantId, groupId,BigInteger.valueOf(params.getDataViewId()),rangeFrom, rangeTo, batchList);
+							if(accUnAccIds.size()>0)
+							{
+								accDataWithStatus = accountingDataService.getAccDataWithStatus(accUnAccIds,params.getStatus(), tenantId,params.getDataViewId(), groupId,limit, pageSize, headerColumns,exportFile, columnsString,params.getSearchWord(),colNameNType,params.getSortOrderBy());	
+							}
+						}
+					}
+				}
+			}
+		}
+		return accDataWithStatus;
+	}
+*/
+	// AWQ New Forms API's
+	/**
+	 * Author: Shiva Purpose: Fetching AWQ Counts and Amounts based on groupBy
+	 * fields Params: tenantId, groupId, rangeFrom, rangeTo, groupBy,
+	 * sourceDataView, keyObjects Result: HashMap with AWQ counts and amounts
+	 * with respecto groupby fields
+	 * 
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * @throws ParseException
+	 **/
+/*	@PostMapping("/getAccCountAndAmounts")
+	@Timed
+	public HashMap getAccCountAndAmounts(
+			@RequestParam Long tenantId,
+			@RequestParam Long groupId,
+			@RequestParam(value = "rangeFrom", required = true) String rangeFrom,
+			@RequestParam(value = "rangeTo", required = true) String rangeTo,
+			@RequestParam(value = "groupBy", required = true) String groupBy,
+			@RequestParam(value = "sourceViewId", required = false) Long sourceViewId,
+			@RequestParam(value = "columnId", required = false) Long columnId,
+			@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+			@RequestBody AWQGroupByParamsDTO params)
+			throws ClassNotFoundException, SQLException, ParseException {
+		log.info("Rest api for getting accounting count and amounts for tenant id: "
+				+ tenantId
+				+ ", rule group id: "
+				+ groupId
+				+ ", groupBy: "
+				+ groupBy);
+		HashMap finalMap = new HashMap();
+		RuleGroup rg = ruleGroupRepository.findOne(groupId);
+		if (rg != null) {
+			List<HashMap> groupedList = new ArrayList<HashMap>();
+			finalMap.put("ruleGroupId", rg.getId());
+			finalMap.put("ruleGroupName", rg.getName());
+			finalMap.put("groupBy", groupBy);
+			if ("process".equalsIgnoreCase(groupBy)) {
+				log.info("Fetching accounting counts and amounts groupBy process...");
+				String transDateQualifier = reconciliationResultService
+						.getTransDateQualifier(
+								new BigInteger(sourceViewId.toString()),
+								"TRANSDATE");
+				if (filterGroupBy != null) {
+					String amountQualifier = reconciliationResultService
+							.getQualifier(new BigInteger(params.getViewId()
+									.toString()));
+					if (amountQualifier.length() > 0) {
+						if ("batch".equalsIgnoreCase(filterGroupBy)) {
+							String transDateColumn = reconciliationResultService
+									.getTransDateQualifier(new BigInteger(
+											params.getViewId().toString()),
+											"TRANSDATE");
+							if (transDateColumn.length() > 0) {
+								List<String> batches = accountingDataRepository
+										.fetchDistinctBatches(tenantId, groupId);
+								groupedList = accountingDataService
+										.fetchBatchesStatisticsWithOthers(
+												batches,
+												new BigInteger(params
+														.getViewId().toString()),
+												rangeFrom, rangeTo,
+												transDateQualifier, tenantId,
+												groupId, amountQualifier);
+								finalMap.put("groupedList", groupedList);
+							}
+						}
+					}
+				}
+			}
+		}
+		return finalMap;
+	}*/
+
+	/**
+	 * Author: Shiva Description: API for fetching reconciliation data based on
+	 * group id and groupBy values params: tenantId, groupId, dataViewId,
+	 * sourceOrTarget, status, rangeFrom, rangeTo, pageNumber, pageSize,
+	 * keyValuesDTO
+	 * 
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 * @throws ParseException
+	 */
+	@PostMapping("/getAccountingGroupByData")
+	@Timed
+	public List<LinkedHashMap> getAccountingGroupByData(
+			@RequestParam(value = "pageNumber", required = false) Long pageNumber,
+			@RequestParam(value = "pageSize", required = false) Long pageSize,
+			@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+			@RequestParam(value = "exportFile", required = false) String exportFile,
+			@RequestBody ReconQueryParamsDTO params) throws SQLException,
+			ClassNotFoundException, ParseException {
+		log.info("Rest api for fetching accounting data for the group id: "
+				+ params.getTenantId() + ", and tenant id: "
+				+ params.getGroupId());
+		List<LinkedHashMap> finalList = new ArrayList<LinkedHashMap>();
+		// Setting pagination parameters
+		Long limit = 0L;
+
+		HashMap info = new HashMap();
+		Long tenantId = params.getTenantId();
+		Long groupId = params.getGroupId();
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		RWQDataFetchDTO keyValues = params.getKeyValues();
+		AWQGroupByParamsDTO groupByParams = params.getGroupByParams();
+		ManualUnRecByColumnDTO columnValues = params.getKeyValues()
+				.getColumnValues();
+		List<LinkedHashMap> accDataWithStatus = new ArrayList<LinkedHashMap>();
+		String transDateQualifier = reconciliationResultService
+				.getTransDateQualifier(new BigInteger(params.getDataViewId()
+						.toString()), "TRANSDATE");
+		String columnsString = reconciliationResultService
+				.getColumnNamesAsString(params.getDataViewId());
+		// columnsString = columnsString.substring(0, columnsString.length()-1);
+		log.info("After removing Last Char: " + columnsString);
+		if (transDateQualifier.length() > 0) {
+			List<BigInteger> allOriginalIds = reconciliationResultService
+					.getViewOriginalIds(params.getDataViewId(), rangeFrom,
+							rangeTo, transDateQualifier);
+			if ("process".equalsIgnoreCase(params.getGroupBy())) {
+				HashMap headerColumns = accountingDataService
+						.getViewColumnHeadersMapInSequence(
+								groupByParams.getViewId(),
+								params.getTenantId(), params.getGroupId(),
+								params.getGroupedParamsList());
+				List<BigInteger> totalIdsWithView = reconciliationResultService
+						.getViewOriginalIds(groupByParams.getViewId(),
+								rangeFrom, rangeTo, transDateQualifier);
+				if (filterGroupBy != null) {
+					if ("batch".equalsIgnoreCase(filterGroupBy)) {
+						Map<String, List<BigInteger>> accUnAccIds = accountingDataService
+								.getAccountingIdsByBatches(totalIdsWithView,
+										tenantId, groupId, new BigInteger(
+												groupByParams.getViewId()
+														.toString()),
+										rangeFrom, rangeTo, keyValues
+												.getBatchNames());
+						if (accUnAccIds.size() > 0) {
+							// accDataWithStatus =
+							// accountingDataService.getAccDataWithStatus(accUnAccIds,
+							// params.getStatus(), tenantId,
+							// groupByParams.getViewId(), groupId, limit,
+							// pageSize, headerColumns,exportFile,
+							// columnsString, params.getSearchWord());
+						}
+					}
+
+				}
+				return accDataWithStatus;
+			} else
+				return accDataWithStatus;
+		} else {
+			log.info("There is no trans date qualifier found for the view id: "
+					+ params.getDataViewId());
+			return accDataWithStatus;
+		}
+	}
+
+	/*
+	 * Author: Shiva
+	 * 
+	 * @param ManualAccountingData, tenantId Description: Posting Manual
+	 * Accounting Data
+	 * 
+	 * @return ErrorReport
+	 */
+	@PostMapping("/postManualAccData")
+	@Timed
+	public ErrorReport postManualAccData(
+			@RequestBody ManualAccountingDTO manualAccDTO,HttpServletRequest request) throws ClassNotFoundException, SQLException {
+		log.info("Rest api for posting manual accounted data ");
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		Long userId =Long.parseLong(map.get("userId").toString());
+		ErrorReport errorReport = new ErrorReport();
+		
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(manualAccDTO.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, manualAccDTO.getViewId());
+    	Long viewId = dvs.getId();
+
+		String timeStamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.US).format(new Date());
+		timeStamp=timeStamp.replaceAll(" ", "_");
+		String jobReference = "MANUAL_" + timeStamp;
+		log.info("Manual Job Reference: "+jobReference);
+		List<AccountedSummary> accSummary = new ArrayList<AccountedSummary>();
+		
+		/*if (rowIds.size() > 0) {*/
+
+/*			if(manualAccDTO.getConversionDate() != null && manualAccDTO.getFxRateId() != null)
+			{	
+				HashMap mulCurPost =  accountingDataService.manualAccForMultiCurrency(viewId, groupId, userId, jobReference, tenantId, rowIds);
+			} 
+			else
+			{*/
+				HashMap singleCurPost = accountingDataService.manualAccForSingleCurrency(viewId, groupId, userId, jobReference, tenantId, manualAccDTO);
+			/*}*/
+			
+			try{
+				// Updating count and amounts in app_module_summary table 
+				String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+				HashMap updateCountAmountsAcc = accountingDataService.updateAppModuleSummaryInfoACC(groupId, viewId, amountQualifier, userId);
+			}
+			catch(Exception e)
+			{
+				log.info("Exception while updating count and amounts in app module summary table... "+e);
+			}
+			
+			/* Logic to check if tenant has configured for Approvals */
+/*	      	TenantConfigModules tenantConfigModulesList = tenantConfigModulesRepository.findByTenantIdAndModulesAndEnabledFlagTrue(tenantId, "RECON_APPROVALS");
+	      	if(tenantConfigModulesList!=null){
+	      	 Logic to initiate approvals program after manual reconciliation 
+	      	String prgmName="Recon Approvals";
+	      	HashMap parameterSet=new HashMap();
+	      	
+	      	Fetching ApprRuleGrp from reconRuleGrp 
+	      	RuleGroup ruleGrpData=ruleGroupRepository.findOne(recRuleGrpId);
+	      	if(ruleGrpData!=null && ruleGrpData.getApprRuleGrpId()!=null)
+	      		apprRuleGrp=ruleGrpData.getApprRuleGrpId();
+	      	parameterSet.put("param1",apprRuleGrp );
+	      	parameterSet.put("param3",jobReference );
+	      	oozieService.jobIntiateForAcctAndRec(tenantId,userId,prgmName,parameterSet,null);
+	      	} 
+	      	else{
+	      		log.info("Tenant has not configured for Approvals");
+	      	} */
+	/*	}
+		else
+		{
+			log.info("No rows found selected for manual accounting");
+		}*/
+		return errorReport;
+	}
+
+	/**
+	 * Author: Shiva
+	 * @param orginalRowIds, tenantId Description: Processing Manual Un-Accounting Data
+	 * @return ErrorReport
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 */
+	@PostMapping("/manualUnAccData")
+	@Timed
+	public ErrorReporting manualUnAccData(
+			@RequestParam(value = "type", required = true) String type,
+			@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+			@RequestBody ReconQueryParamsDTO params,
+			@RequestParam(value = "userId", required = true) Long userId
+			) throws URISyntaxException,
+			SQLException, ClassNotFoundException {
+		log.info("Rest api for processing manual un accounting data");
+		ErrorReporting errorReport = new ErrorReporting();
+		List<String> reasons = new ArrayList<String>();
+		List<Long> originalRowIds = params.getOriginalRowIds();
+		Long tenantId = params.getTenantId();
+		Long groupId = params.getGroupId();
+		
+		if ("recordwise".equalsIgnoreCase(type)) {
+			log.info("Manual Un-Accounting with Recordwise...");
+			if (originalRowIds.size() > 0) {
+				List<BigInteger> rowIds = new ArrayList<BigInteger>();
+				for (Long id : originalRowIds) {
+					rowIds.add(BigInteger.valueOf(id));
+				}
+				// Fetching rule ids
+				log.info(">> RowIds: "+ rowIds+", groupID: "+ groupId+", viewID: "+params.getDataViewId());
+				List<BigInteger> ruleIds = accountedSummaryRepository.fetchDistinctRuleIdsByRowIds(rowIds, groupId, params.getDataViewId());
+				log.info("rule ids: "+ ruleIds);
+				if(ruleIds.size()>0)
+				{
+					for(BigInteger ruleId : ruleIds)
+					{
+						List<AccountedSummary> accntedSummary = accountedSummaryRepository.fetchRecordsByRowIdsAndGroupIdAndViewIdNRuleId(rowIds,params.getGroupId(), params.getDataViewId(), ruleId.longValue());
+						if (accntedSummary.size() > 0) // Deleting accounted summary records
+						{
+							accountedSummaryRepository.delete(accntedSummary);
+							log.info(accntedSummary.size()+ " records deleted from accounting summary table");
+						}
+						List<AccountingData> accntingIds = accountingDataRepository.fetchRecordsByOriginalRowIdsAndTenantidAndViewIdAndGroupIdNRuleId(originalRowIds, tenantId,params.getDataViewId(), params.getGroupId(), ruleId.longValue());
+						if (accntingIds.size() > 0) // Deleting accounting data records
+						{
+							accountingDataRepository.delete(accntingIds);
+							log.info(accntingIds.size()	+ " records deleted from accounting data table");
+						}
+	 			 		// updating counts in t_app_module_summary table
+	 			 		accountingDataService.postAppModuleSummaryTableForAcc(groupId, params.getDataViewId(), ruleId.longValue(), userId, Long.valueOf(accntedSummary.size()), "ACCOUNTING", "ACCOUNTED");
+					}
+				}
+			}
+		} else if("batchwise".equalsIgnoreCase(type)){
+			String rangeFrom = params.getRangeFrom();
+			String rangeTo = params.getRangeTo();
+			RWQDataFetchDTO keyValues = params.getKeyValues();
+			AWQGroupByParamsDTO groupByParams = params.getGroupByParams();
+			ManualUnRecByColumnDTO columnValues = params.getKeyValues().getColumnValues();
+			String transDateColumn = reconciliationResultService.getTransDateQualifier(new BigInteger(params.getDataViewId().toString()), "TRANSDATE");
+			List<BigInteger> allOriginalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),params.getRangeFrom(), params.getRangeTo(),	transDateColumn);
+			if ("rules".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting group by rules...");
+				if (transDateColumn.length() > 0) {
+					if (filterGroupBy != null) {
+						if ("days".equalsIgnoreCase(filterGroupBy)) {
+							log.info("Manual filter group by days Un-Accounting...");
+							List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(), rangeFrom,rangeTo, transDateColumn,keyValues.getDays());
+							log.info("total ids size: "+ totalIds.size());
+							accountingDataService.manulUnAccForRules(totalIds,tenantId, params.getDataViewId(), groupId,groupByParams.getRuleId(), userId);
+						} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+							log.info("Manual filter group by column name Un-Accounting...");
+							List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(), rangeFrom,rangeTo,columnValues.getColumnValues(),"fileDate");
+							log.info("total ids size: "+totalIds.size());
+							accountingDataService.manulUnAccForRules(totalIds,tenantId, params.getDataViewId(), groupId,groupByParams.getRuleId(),userId);
+						}
+					} else if (filterGroupBy == null) {
+						log.info("Manual filter group by null Un-Accounting...");
+						List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),rangeFrom, rangeTo, transDateColumn);
+						log.info("Total Ids Size: "+ totalIds.size());
+						accountingDataService.manulUnAccForRules(totalIds,tenantId, params.getDataViewId(), groupId,groupByParams.getRuleId(),userId);
+					}
+				}
+			} else if ("batch".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting with batch...");
+				List<String> batchList = new ArrayList<String>();
+				batchList.add(groupByParams.getBatchName());
+				if (transDateColumn.length() > 0) {
+					if (filterGroupBy != null) {
+						if ("days".equalsIgnoreCase(filterGroupBy)) {
+							if (batchList.contains("Manual")) {
+								if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+									List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId,groupId);
+									if (batches.size() > 0) {
+										List<String> manualBatches = new ArrayList<String>();
+										for (String batch : batches) {
+											if (batch.contains("MANUAL")) {
+												manualBatches.add(batch);
+											}
+										}
+										if (manualBatches.size() > 0) {
+											List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(),rangeFrom, rangeTo,transDateColumn,keyValues.getDays());
+											accountingDataService.manualUnAccForBatches(totalIds,tenantId,params.getDataViewId(),groupId,manualBatches, userId);
+										}
+									}
+								}
+							} else {
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(),rangeFrom, rangeTo,transDateColumn,keyValues.getDays());
+								accountingDataService.manualUnAccForBatches(totalIds, tenantId,	params.getDataViewId(), groupId,batchList,userId);
+							}
+						} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+							if (batchList.contains("Manual")) {
+								if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+									List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId,groupId);
+									if (batches.size() > 0) {
+										List<String> manualBatches = new ArrayList<String>();
+										for (String batch : batches) {
+											if (batch.contains("MANUAL")) {
+												manualBatches.add(batch);
+											}
+										}
+										if (manualBatches.size() > 0) {
+											List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(),rangeFrom,rangeTo,columnValues.getColumnValues(),"fileDate");
+											accountingDataService.manualUnAccForBatches(totalIds,tenantId,params.getDataViewId(),groupId,manualBatches,userId);
+										}
+									}
+								}
+							} else {
+								List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(),rangeFrom, rangeTo,columnValues.getColumnValues(),"fileDate");
+								accountingDataService.manualUnAccForBatches(totalIds, tenantId,params.getDataViewId(), groupId,	batchList,userId);
+							}
+						}
+					} else if (filterGroupBy == null) {
+						List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),rangeFrom, rangeTo, transDateColumn);
+						accountingDataService.manualUnAccForBatches(totalIds,tenantId, params.getDataViewId(), groupId,batchList,userId);
+					}
+				}
+			} else if ("days".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting group by days...");
+				if (transDateColumn.length() > 0) {
+					if (filterGroupBy != null) {
+						HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(columnValues.getColumnId());
+						log.info("Column Map: "+ columnMap);
+						if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+							log.info("Manual Un-Accounting filter group by column name...");
+							List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByColumnValuesNTransDate(params.getDataViewId(), rangeFrom,rangeTo, columnMap.get("columnName").toString(), columnValues.getColumnValues(),columnMap.get("dataType").toString(),transDateColumn, groupByParams.getDay());
+							log.info("Total Ids Size: "+ totalIds.size());
+							accountingDataService.manualUnAccForTotal(totalIds,	tenantId, params.getDataViewId(), groupId, userId);
+						}
+					} else if (filterGroupBy == null) {
+						log.info("Manual Un-Accounting filter group by null...");
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(params.getDataViewId(), rangeFrom,rangeTo, transDateColumn,groupByParams.getDay(), "DATE","fileDate");
+						log.info("Total Ids Size: "+ totalIds.size());
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+					}
+				}
+			} else if ("columnName".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting Group by column name...");
+				HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(groupByParams.getColumnId());
+				log.info("Column map : "+columnMap);
+				if (columnMap.get("columnName").toString().length() > 0	&& columnMap.get("dataType") != null) {
+					if (filterGroupBy != null) {
+						if ("days".equalsIgnoreCase(filterGroupBy)) {
+							log.info("Manual Un-Accounting filter group by days...");
+							List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDatesAndColValue(params.getDataViewId(), rangeFrom,rangeTo, columnMap.get("columnName").toString(), groupByParams.getColumnValue(),columnMap.get("dataType").toString(),transDateColumn, keyValues.getDays());
+							log.info("Total Ids: "+ totalIds.size());
+							accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+						}
+					} else if (filterGroupBy == null) {
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(groupByParams.getColumnId(), rangeFrom, rangeTo,columnMap.get("columnName").toString(),groupByParams.getColumnValue().trim(),columnMap.get("dataType").toString(),"fileDate");
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+					}
+				}
+			} else if ("process".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting group by process...");
+				if (filterGroupBy != null) {
+					if ("rules".equalsIgnoreCase(filterGroupBy)) {
+						log.info("Manual Un-Accounting filter group by rules...");
+						List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+						List<Long> ruleIdsLong = keyValues.getRuleIds();
+						if (ruleIdsLong.size() > 0) {
+							for (Long id : ruleIdsLong) {
+								ruleIds.add(new BigInteger(id.toString()));
+							}
+						}
+						log.info("Rule Ids: "+ ruleIds);
+						List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(),rangeFrom, rangeTo, transDateColumn);
+						log.info("Total Ids: "+ totalIds.size());
+					} else if ("batch".equalsIgnoreCase(filterGroupBy)) {
+						log.info("Manual Un-Accounting filter group by batch...");
+						if (transDateColumn.length() > 0) {
+							List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(),rangeFrom, rangeTo, transDateColumn);
+							log.info("Total Ids Size: "+ totalIds.size());
+							accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+						}
+					} else if ("days".equalsIgnoreCase(filterGroupBy)) {
+						log.info("Manual Un-Accounting filter group by days...");
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(groupByParams.getViewId(), rangeFrom,rangeTo, transDateColumn,keyValues.getDays());
+						log.info("Total Ids Size: "+ totalIds.size());
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+					} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+						log.info("Manual Un-Accounting filter group by column name...");
+						HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(groupByParams.getColumnId());
+						log.info("Column Map: "+ columnMap);
+						List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),groupByParams.getViewId(), rangeFrom,rangeTo, columnValues.getColumnValues(),"fileDate");
+						log.info("Total Ids Size: "+ totalIds.size());
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+					}
+				} else if (filterGroupBy == null) {
+					log.info("Manual Un-Accounting filter group by null...");
+					List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(),rangeFrom, rangeTo, transDateColumn);
+					log.info("Total Ids Size: "+ totalIds.size());
+					accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, userId);
+				}
+			}
+		}
+		return errorReport;
+	}
+
+	/**
+	 * Author: Shiva params: Accounting data fetching parameters Description:
+	 * Exporting accounting data into Excel File
+	 * 
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 * @throws IOException
+	 * @throws ParseException
+	 **/
+	@PostMapping("/exportAccDataToExcelFile")
+	@Timed
+	public void exportAccDataToExcelFile(HttpServletRequest request,
+			@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+			@RequestBody ReconQueryParamsDTO params)
+			throws ClassNotFoundException, SQLException, IOException,
+			ParseException {
+		log.info("Rest api for Exporting reconciliation data into excel file");
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		Long userId =Long.parseLong(map.get("userId").toString());
+		params.setTenantId(tenantId);
+		HashMap finalMap = new HashMap();
+		List<LinkedHashMap> accData = new ArrayList<LinkedHashMap>();
+		// Fetching accounting Data
+		if (filterGroupBy == null) {
+			filterGroupBy = null;
+		}
+		String groupName = "";
+		RuleGroup rg = ruleGroupRepository.findOne(params.getGroupId());
+		if (rg != null) {
+			groupName = groupName + rg.getName();
+		}
+		String timeStamp = new SimpleDateFormat("yyyy-MM-dd_HH:mm:ss").format(new Date());
+		String fileName = "AccountingData" + groupName + "_" + timeStamp + ".xlsx";
+		accData = getAccountingGroupByData(0L, 25L, filterGroupBy, "YES",params);
+		log.info("Source Size: " + accData.size());
+		// Writing source and target data into excel work book
+		Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String xlsxFileAddress = props.getProperty("localTempLocation") + "/"+ fileName;
+		log.info("File Path>>> : " + xlsxFileAddress);
+
+		XSSFWorkbook workBook = new XSSFWorkbook(); // Creating Excel WorkBook
+		XSSFSheet source = workBook.createSheet("AccountingData"); //Creating Sheet for
+																	// Source
+
+		CellStyle style = workBook.createCellStyle();
+		Font font = workBook.createFont();
+		font.setFontHeightInPoints((short) 10);
+		font.setBoldweight(Font.BOLDWEIGHT_BOLD);
+		style.setFont(font);
+
+		try {
+			if (accData.size() > 0) // Writing source data into excel
+			{
+				log.info("Writing accounting data into excel file...");
+				LinkedHashMap headerRowData = accData.get(0);
+				if (headerRowData != null) {
+					LinkedHashMap headerRow = (LinkedHashMap) headerRowData
+							.get("data");
+					if (headerRow != null) {
+						XSSFRow headingRow = source.createRow(0);
+						int headerCell = 0;
+						for (Object key : headerRow.keySet()) {
+							XSSFCell cell = headingRow.createCell(headerCell);
+							cell.setCellValue(key.toString());
+							cell.setCellStyle(style);
+							cell.setAsActiveCell();
+							headerCell++;
+						}
+					}
+				}
+				/*					*/
+				int rowNumber = 1;
+
+				for (LinkedHashMap sourceRec : accData) {
+					LinkedHashMap dataMap = (LinkedHashMap) sourceRec
+							.get("data");
+					XSSFRow currentRow = source.createRow(rowNumber);
+					int cellIndex = 0;
+					if (dataMap != null) {
+						for (Object key : dataMap.keySet()) {
+							if (dataMap.get(key.toString()) != null) {
+								XSSFCell cell = currentRow
+										.createCell(cellIndex);
+								cell.setCellValue(dataMap.get(key.toString())
+										.toString());
+								cell.setCellStyle(style);
+							}
+							cellIndex++;
+						}
+					}
+					List<LinkedHashMap> childMap = (List<LinkedHashMap>) sourceRec
+							.get("children");
+					if (childMap != null && childMap.size() > 0) {
+						rowNumber = rowNumber + 1;
+						for (LinkedHashMap childMp : childMap) {
+							LinkedHashMap childMpInside = (LinkedHashMap) childMp
+									.get("data");
+							if (childMpInside != null) {
+								XSSFRow childRow = source.createRow(rowNumber);
+								if (childMpInside != null) {
+									int childCellIndex = 0;
+									for (Object key : childMpInside.keySet()) {
+										if (childMpInside.get(key.toString()) != null) {
+											childRow.createCell(childCellIndex)
+													.setCellValue(
+															childMpInside
+																	.get(key.toString())
+																	.toString());
+										}
+										childCellIndex++;
+									}
+									rowNumber = rowNumber + 1;
+								}
+							}
+						}
+					}
+				}
+			}
+			FileOutputStream fileOutputStream = new FileOutputStream(
+					xlsxFileAddress);
+			workBook.write(fileOutputStream);
+			fileOutputStream.close();
+			System.out.println("Done.........");
+		} catch (Exception e) {
+			log.info("Exception: " + e);
+		}
+
+		File file = new File(props.getProperty("localTempLocation") + "/"
+				+ fileName);
+		InputStream inputStream = new FileInputStream(file);
+		fileService.fileUpload(inputStream, fileName);
+		finalMap.put("excelFilePath", props.getProperty("sftpFileTargetFolder")+ fileName);
+	}
+
+	@PostMapping("/getHeaderColumnsInSequence")
+	@Timed
+	public LinkedHashMap getColumnsSequence(@RequestParam Long viewId,@RequestParam Long tenantId, @RequestParam Long groupId, @RequestBody List<String> groupedByParams) {
+	LinkedHashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(viewId, tenantId, groupId,groupedByParams);
+		log.info("Header Columns: " + headerColumns);
+		return headerColumns;
+	}
+	
+	@GetMapping("/testAppModuleSummary")
+	@Timed
+	public void testAppModuleSummary() throws SQLException
+	{
+		HashMap ruleViewMap = accountingDataService.getRuleViewMap(35L, "local-1519360083863");
+		accountingDataService.postAccountingCountsInAppModuleSummary(35L, "local-1519360083863", ruleViewMap, 9L);
+	}
+
+	/**
+	 * Author: Jagan, Shiva
+	 * @param orginalRowIds, tenantId Description: Processing Manual Un-Accounting Data
+	 * @return ErrorReport
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 */
+	@PostMapping("/manualUnAccDataAutoAcc")
+	@Timed
+	public ErrorReporting manualUnAccDataAutoAccounting(@RequestBody ManualUnAccAutoAccDTO params, HttpServletRequest request) throws SQLException, ClassNotFoundException{
+		log.info("Rest api for processing manual un accounting data and auto accounting");
+		/*Long tenantId = params.getTenantId();*/
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+    	Long userId = Long.parseLong(map.get("userId").toString());
+		ErrorReporting errorReport = new ErrorReporting();
+		
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getViewId());
+    	Long viewId = dvs.getId();
+		String type = params.getType();
+		
+    	params.setTenantId(tenantId);
+    	params.setUserId(userId);
+		/*Long userId = params.getUserId();*/
+		if("recordWise".equalsIgnoreCase(type))
+		{
+			log.info("Mnaual un accounting for record wise...");
+			List<Long> originalRowIds = params.getOriginalRowIds();
+			if(originalRowIds.size()>0)
+			{
+				if("undo".equalsIgnoreCase(params.getAccountingType()))
+				{
+					List<BigInteger> originalIds = new ArrayList<BigInteger>();
+					for(Long id : originalRowIds)
+					{
+						originalIds.add(BigInteger.valueOf(id));
+					}
+					accountingDataService.manualUnAccForTotal(originalIds,tenantId, viewId, groupId, userId);
+				}
+				else if("reverse".equalsIgnoreCase(params.getAccountingType()))
+				{
+					String jobRef = ""; 
+					SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+					java.util.Date date = new java.util.Date();
+					jobRef = "MANUAL_"+dateFormat.format(date)+"RE";
+					jobRef=jobRef.replaceAll(" ", "_");
+					accountingDataService.createReveseEntries(originalRowIds,tenantId,userId,jobRef);					
+				}
+			}
+		}
+		else if("batchWise".equalsIgnoreCase(type))
+		{
+			log.info("Manual un accounting for batch wise start...");
+			DataViews dv = dataViewsRepository.findById(viewId);
+			if(dv != null)
+			{
+				String status = params.getStatus();
+				String rangeFrom = params.getRangeFrom();
+				String rangeTo = params.getRangeTo();
+				// Global Search
+				String globalSearch = " AND 1=1 ";
+				if(params.getSearchWord() != null && params.getSearchWord().length()>0)
+				{
+					globalSearch = accountingDataService.getColumnNamesAsString(viewId, params.getSearchWord());
+				}
+				String dateQualifier = "";
+				// Building where condition for filtering grouping summary
+				String whereString = "";
+				List<HashMap> filters = params.getFilters();
+				if(filters.size()>0)
+				{
+					for(HashMap filter : filters)	// Looping filter column names and values
+					{
+						String columnName = filter.get("key").toString();
+						List<String> values = (List<String>) filter.get("values");
+						String dataType = "";
+						dataType = filter.get("dataType").toString();
+						String innerWhereString = "";
+						if(values.size()>0)
+						{
+							if("job_refernce".equalsIgnoreCase(columnName))
+							{
+								for(int i=0; i<values.size(); i++)	// job reference
+								{
+									if(i == values.size()-1)
+									{
+										innerWhereString = innerWhereString +  " LIKE '%"+values.get(i)+"%' ";
+									}
+									else
+									{
+										innerWhereString = innerWhereString + " LIKE '%"+values.get(i) +"%', ";
+									}
+								}
+							}
+							else
+							{
+								for(int i=0; i<values.size(); i++)	// looing column values
+								{
+									if(i == values.size()-1)
+									{
+										innerWhereString = innerWhereString +  "'"+values.get(i)+"'";
+									}
+									else
+									{
+										innerWhereString = innerWhereString + "'"+values.get(i) +"', ";
+									}
+								}
+							}
+
+							if("DATE".equalsIgnoreCase(dataType))
+							{
+								whereString = whereString + " AND Date(`"+columnName +"`) IN("+innerWhereString+")";
+							}
+							else
+							{
+								whereString = whereString + " AND `"+columnName +"` IN("+innerWhereString+")";
+							}
+						}
+					}
+				}
+				List<String> activityYorN = new ArrayList<String>();
+				activityYorN = accountingDataService.getActityOrNonActityBased(tenantId, groupId, viewId);
+				log.info("Filter Query: "+ whereString);
+				// Building where condition for column search
+				List<HashMap> columnSearchMps = params.getColumnSearch();
+				String columnSearchQuery = " AND 1=1 ";
+				if(columnSearchMps.size()>0)
+				{
+					for(HashMap columnSearchMp : columnSearchMps)
+					{
+						String columnName = columnSearchMp.get("columnName").toString();
+						String searchWord = columnSearchMp.get("searchWord").toString();
+						columnSearchQuery = columnSearchQuery + " AND `" + columnName +"` LIKE '%"+searchWord+"%'";
+					}
+				}
+				if("fileDate".equalsIgnoreCase(params.getPeriodFactor()))
+				{
+					dateQualifier = "fileDate";
+				}
+				else if("dateQualifier".equalsIgnoreCase(params.getPeriodFactor()))
+				{
+					dateQualifier = accountingDataService.getQualifierViewColName(viewId, "TRANSDATE");
+				}
+
+				String srcOrTrgt = accountingDataService.identifySourceOrTarget(viewId, groupId, tenantId);
+				
+				List<BigInteger> totalIds = new ArrayList<BigInteger>();
+				if(activityYorN.contains("Y"))
+				{
+					totalIds = accountingDataService.getActivityTotalIdsForBatchWise(status, dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, tenantId, groupId, viewId, whereString, globalSearch,columnSearchQuery, params.getSortByColumnName(), params.getSortOrderBy(), srcOrTrgt);
+				}
+				else
+				{
+					totalIds = accountingDataService.getNonActivityTotalIdsForBatchWise(status, dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, tenantId, groupId, viewId, whereString, globalSearch,columnSearchQuery, params.getSortByColumnName(), params.getSortOrderBy());
+				}
+				log.info("Total Ids Size: "+ totalIds.size());
+				// Manual un accounting and auto accounting
+				if(totalIds.size()>0)
+				{
+					if("undo".equalsIgnoreCase(params.getAccountingType()))
+					{
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, viewId, groupId, userId);
+					}
+					else if("reverse".equalsIgnoreCase(params.getAccountingType()))
+					{
+						SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+						java.util.Date date = new java.util.Date();
+						String jobRef = "MANUAL_"+dateFormat.format(date)+"RE";
+						jobRef=jobRef.replaceAll(" ", "_");
+						List<Long> totalIdsLong = new ArrayList<Long>();
+						for(BigInteger id: totalIds)
+						{
+							totalIdsLong.add(id.longValue());
+						}
+						accountingDataService.createReveseEntries(totalIdsLong,tenantId,userId,jobRef);
+					}
+				}
+				log.info("Manual un accounting for batch wise end...");
+			}
+			else
+			{
+				log.info("Data view doesn't exist for view id: "+ viewId);
+			}
+		}		
+
+		// Updating count and amounts in app_module_summary table 
+		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+		HashMap updateCountAmountsAcc = accountingDataService.updateAppModuleSummaryInfoACC(groupId, viewId, amountQualifier, userId);
+
+/*		List<String> statuses = accountingDataService.getDistinctStatuses(viewId, groupId);
+		log.info("Distinct Statuses: "+statuses);
+		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+		if(statuses.size()>0 && amountQualifier.length()>0)
+		{
+			for(String status : statuses)
+			{
+				HashMap updateCountAmountsAcc = accountingDataService.updateAppModuleSummaryInfoACC(amountQualifier, groupId, viewId, status,userId);
+			}
+		}*/
+		return errorReport;
+	}	
+	
+	/**
+	 * Author: Jagan
+	 * @param orginalRowIds, tenantId Description: Processing Manual Un-Accounting Data
+	 * @return ErrorReportroupId, userId);
+	 * @throws SQLException
+	 * @throws ClassNotFoundException
+	 */
+	@PostMapping("/manualUnAccDataAutoAccJagan")
+	@Timed
+	public ErrorReporting manualUnAccDataAutoAcc(
+			@RequestParam(value = "type", required = true) String type,
+			@RequestParam(value = "filterGroupBy", required = false) String filterGroupBy,
+			@RequestBody ReconQueryParamsDTO params) throws URISyntaxException,
+			SQLException, ClassNotFoundException {
+		log.info("Rest api for processing manual un accounting data");
+		ErrorReporting errorReport = new ErrorReporting();
+		List<String> reasons = new ArrayList<String>();
+		List<Long> originalRowIds = params.getOriginalRowIds();
+		Long tenantId = params.getTenantId();
+		Long groupId = params.getGroupId();
+		Long userId= params.getUserId();
+
+		if ("recordwise".equalsIgnoreCase(type)) {
+			log.info("Manual Un-Accounting with Recordwise...");
+			if (originalRowIds.size() > 0) {
+				String jobRef = ""; 
+				SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+				java.util.Date date = new java.util.Date();
+				jobRef = "MANUAL_"+dateFormat.format(date)+"RE";
+				jobRef=jobRef.replaceAll(" ", "_");
+				accountingDataService.createReveseEntries(originalRowIds,tenantId,userId,jobRef);
+			}
+		} else if ("batchwise".equalsIgnoreCase(type)) {
+			String rangeFrom = params.getRangeFrom();
+			String rangeTo = params.getRangeTo();
+			RWQDataFetchDTO keyValues = params.getKeyValues();
+			AWQGroupByParamsDTO groupByParams = params.getGroupByParams();
+			ManualUnRecByColumnDTO columnValues = params.getKeyValues().getColumnValues();
+			String transDateColumn = reconciliationResultService.getTransDateQualifier(new BigInteger(params.getDataViewId().toString()), "TRANSDATE");
+			List<BigInteger> allOriginalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),params.getRangeFrom(), params.getRangeTo(),transDateColumn);
+			if ("rules".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting with rules...");
+				/*List<Long> ruleIds = new ArrayList<Long>();
+				ruleIds.add(groupByParams.getRuleId());*/
+				if (transDateColumn.length() > 0) {
+					if (filterGroupBy != null) {
+						if ("days".equalsIgnoreCase(filterGroupBy)) {
+							List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(), rangeFrom,rangeTo, transDateColumn,keyValues.getDays());
+							accountingDataService.manulUnAccForRules(totalIds,tenantId, params.getDataViewId(), groupId,groupByParams.getRuleId(), params.getUserId());
+						} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+							List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(), rangeFrom,rangeTo,columnValues.getColumnValues(), "fileDate");
+							accountingDataService.manulUnAccForRules(totalIds,tenantId, params.getDataViewId(), groupId,groupByParams.getRuleId(), params.getUserId());
+						}
+					} else if (filterGroupBy == null) {
+						List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),rangeFrom, rangeTo, transDateColumn);
+						accountingDataService.manulUnAccForRules(totalIds,tenantId, params.getDataViewId(), groupId,groupByParams.getRuleId(), params.getUserId());
+					}
+				}
+			} else if ("batch".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting with batch...");
+				List<String> batchList = new ArrayList<String>();
+				batchList.add(groupByParams.getBatchName());
+				if (transDateColumn.length() > 0) {
+					if (filterGroupBy != null) {
+						if ("days".equalsIgnoreCase(filterGroupBy)) {
+							if (batchList.contains("Manual")) {
+								if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+									List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId,groupId);
+									if (batches.size() > 0) {
+										List<String> manualBatches = new ArrayList<String>();
+										for (String batch : batches) {
+											if (batch.contains("MANUAL")) {
+												manualBatches.add(batch);
+											}
+										}
+										if (manualBatches.size() > 0) {
+											List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(),rangeFrom, rangeTo,transDateColumn,keyValues.getDays());
+											accountingDataService.manualUnAccForBatches(totalIds,tenantId,params.getDataViewId(),groupId,manualBatches, params.getUserId());
+										}
+									}
+								}
+							} 
+							else 
+							{ 
+								List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(params.getDataViewId(),rangeFrom, rangeTo,transDateColumn,keyValues.getDays());
+								accountingDataService.manualUnAccForBatches(totalIds, tenantId,params.getDataViewId(), groupId,batchList, params.getUserId());
+							}
+						} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+							if (batchList.contains("Manual")) {
+								if ("Manual".equalsIgnoreCase(groupByParams.getBatchName())) {
+									List<String> batches = accountingDataRepository.fetchDistinctBatches(tenantId,groupId);
+									if (batches.size() > 0) {
+										List<String> manualBatches = new ArrayList<String>();
+										for (String batch : batches) {
+											if (batch.contains("MANUAL")) {
+												manualBatches.add(batch);
+											}
+										}
+										if (manualBatches.size() > 0) {
+											List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),
+															params.getDataViewId(),
+															rangeFrom,
+															rangeTo,
+															columnValues.getColumnValues(), "fileDate");
+											accountingDataService.manualUnAccForBatches(totalIds,tenantId,params.getDataViewId(),groupId,manualBatches, params.getUserId());
+										}
+									}
+								}
+							} else {
+								List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),params.getDataViewId(),rangeFrom, rangeTo,columnValues.getColumnValues(), "fileDate");
+								accountingDataService.manualUnAccForBatches(totalIds, tenantId,params.getDataViewId(), groupId,batchList, params.getUserId());
+							}
+						}
+					} else if (filterGroupBy == null) {
+						List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(params.getDataViewId(),rangeFrom, rangeTo, transDateColumn);
+						accountingDataService.manualUnAccForBatches(totalIds,tenantId, params.getDataViewId(), groupId,batchList, params.getUserId());
+					}
+				}
+			} else if ("days".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting with days...");
+				if (transDateColumn.length() > 0) {
+					if (filterGroupBy != null) {
+						HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(columnValues.getColumnId());
+						if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+							List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByColumnValuesNTransDate(params.getDataViewId(), rangeFrom,rangeTo, columnMap.get("columnName").toString(), columnValues.getColumnValues(),columnMap.get("dataType").toString(),transDateColumn, groupByParams.getDay());
+							accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+						}
+					} else if (filterGroupBy == null) {
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(params.getDataViewId(), rangeFrom,rangeTo, transDateColumn,groupByParams.getDay(), "DATE", "fileDate");
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+					}
+				}
+			} else if ("columnName".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting with column name...");
+				HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(groupByParams.getColumnId());
+				if (columnMap.get("columnName").toString().length() > 0	&& columnMap.get("dataType") != null) {
+					if (filterGroupBy != null) {
+						if ("days".equalsIgnoreCase(filterGroupBy)) {
+							List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDatesAndColValue(params.getDataViewId(), rangeFrom,rangeTo, columnMap.get("columnName").toString(), groupByParams.getColumnValue(),columnMap.get("dataType").toString(),transDateColumn, keyValues.getDays());
+							accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+						}
+					} else if (filterGroupBy == null) {
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(groupByParams.getColumnId(), rangeFrom, rangeTo,columnMap.get("columnName").toString(),groupByParams.getColumnValue().trim(),columnMap.get("dataType").toString(), "fileDate");
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+					}
+				}
+			} else if ("process".equalsIgnoreCase(params.getGroupBy())) {
+				log.info("Manual Un-Accounting with process...");
+				if (filterGroupBy != null) {
+					if ("rules".equalsIgnoreCase(filterGroupBy)) {
+						List<BigInteger> ruleIds = new ArrayList<BigInteger>();
+						List<Long> ruleIdsLong = keyValues.getRuleIds();
+						if (ruleIdsLong.size() > 0) {
+							for (Long id : ruleIdsLong) {
+								ruleIds.add(new BigInteger(id.toString()));
+							}
+						}
+						List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(),rangeFrom, rangeTo, transDateColumn);
+					} else if ("batch".equalsIgnoreCase(filterGroupBy)) {
+						if (transDateColumn.length() > 0) {
+							List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(),rangeFrom, rangeTo, transDateColumn);
+							accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+						}
+					} else if ("days".equalsIgnoreCase(filterGroupBy)) {
+						List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDates(groupByParams.getViewId(), rangeFrom,rangeTo, transDateColumn,keyValues.getDays());
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+					} else if ("columnName".equalsIgnoreCase(filterGroupBy)) {
+						HashMap columnMap = accountingDataService.getDataViewColumnNameByColumnId(groupByParams.getColumnId());
+						List<BigInteger> totalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnValues.getColumnId(),groupByParams.getViewId(), rangeFrom,rangeTo, columnValues.getColumnValues(), "fileDate");
+						accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+					}
+				} else if (filterGroupBy == null) {
+					List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(groupByParams.getViewId(),rangeFrom, rangeTo, transDateColumn);
+					accountingDataService.manualUnAccForTotal(totalIds,tenantId, params.getDataViewId(), groupId, params.getUserId());
+				}
+			}
+		}
+		return errorReport;
+	}
+	
+	/**
+	 * Author: Shiva
+	 * **/
+	@PostMapping("/getAWQStatusesCountsNAmounts")
+	@Timed
+	public HashMap getAWQStatusesCountsNAmounts(@RequestBody AWQStatusesDTO params, HttpServletRequest request)
+	{
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	params.setTenantId(tenantId);
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getViewId());
+    	Long viewId = dvs.getId();
+		/*Long tenantId = params.getTenantId();*/
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		String periodFactor = params.getPeriodFactor();
+		log.info("Rest api for fetching distinct statuses counts and amounts for activity and non activity based accounting for the rule group: "+groupId+", view id: "+viewId);	
+		HashMap finalMap = new HashMap();
+		List<HashMap> summary = new ArrayList<HashMap>();
+		String status = "";
+		List<String> reasons = new ArrayList<String>();
+		List<String> activityYorN = new ArrayList<String>();
+		String amountQualifier = accountingDataService.getQualifierViewColName(viewId, "AMOUNT");
+		String transDateQualifier = accountingDataService.getQualifierViewColName(viewId, "TRANSDATE");
+		String dateQualifier = "";
+		if("fileDate".equalsIgnoreCase(periodFactor))
+		{
+			dateQualifier = "fileDate";
+		}
+		else if("dateQualifier".equalsIgnoreCase(periodFactor))
+		{
+			dateQualifier  = transDateQualifier;
+		}
+		log.info("Amount qualifier: "+ amountQualifier+", Date Qualifier: "+ dateQualifier+", view id: "+ viewId);
+		try {
+			activityYorN = accountingDataService.getActityOrNonActityBased(tenantId, groupId, viewId);
+			log.info("View Id: "+ viewId + ", activity or non activity list: "+activityYorN);
+			if(dateQualifier.length()>0 && amountQualifier.length()>0)
+			{
+				if(activityYorN.contains("Y"))
+				{
+					List<HashMap> activityMps = new ArrayList<HashMap>();
+					String srcOrTrgt = accountingDataService.identifySourceOrTarget(viewId, groupId, tenantId);
+					activityMps = accountingDataService.getActivitySummary(viewId, groupId, amountQualifier, dateQualifier, rangeFrom, rangeTo, srcOrTrgt);
+					summary.addAll(activityMps);
+					log.info("Activity Based Status Summary info: "+ activityMps);
+				}
+				else
+				{
+					List<HashMap> nonActivityMps = new ArrayList<HashMap>();
+					nonActivityMps = accountingDataService.getNonActivitySummary(viewId, groupId, amountQualifier, dateQualifier, rangeFrom, rangeTo);
+					summary.addAll(nonActivityMps);
+					log.info("Non Activity Based Status Summary info: "+ nonActivityMps);
+				}
+			}
+			else
+			{
+				log.info("No amount or date qualifier found for the view id: "+ viewId);
+			}
+
+		} catch (SQLException e) {
+			status = "Failed";
+		}
+		finalMap.put("summary", summary);
+		HashMap info = new HashMap();
+		info.put("status", status);
+		info.put("reasons", reasons);
+		finalMap.put("summary", summary);
+		finalMap.put("info", info);
+		return finalMap;
+	}
+
+	/**
+	 * Author: Shiva
+	 * @throws SQLException 
+	 * **/
+	@PostMapping("/getAWQGroupingSummaryInfo")
+	@Timed
+	public List<HashMap> getAWQGroupingSummaryInfo(@RequestBody AWQGroupingDTO params,HttpServletRequest request) throws SQLException
+	{
+		List<HashMap> finalMapList = new ArrayList<HashMap>();
+		/*Long tenantId = params.getTenantId();*/
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getViewId());
+    	Long viewId = dvs.getId();
+		String status = params.getStatus();
+		String periodFactor = params.getPeriodFactor();
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		params.setTenantId(tenantId);
+		List<String> filterList = new ArrayList<String>();
+		log.info("Rest api for fetching all grouping by summary info for the status "+status);
+		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+		DataViews dv = dataViewsRepository.findById(viewId);
+		// Building where string
+		String whereStringQuery = "";
+		List<HashMap> filters = params.getFilters();
+		if(filters.size()>0)
+		{
+			for(HashMap filter : filters)	// Looping filter column names and values
+			{
+				String columnName = filter.get("key").toString();
+				List<String> values = (List<String>) filter.get("values");
+				String dataType = filter.get("dataType").toString();
+				String innerWhereString = "";
+				if(values.size()>0)
+				{
+					for(int i=0; i<values.size(); i++)	// looing column values
+					{
+						if(i == values.size()-1)
+						{
+							innerWhereString = innerWhereString +  "'"+values.get(i)+"'";
+						}
+						else
+						{
+							innerWhereString = innerWhereString + "'"+values.get(i) +"', ";
+						}
+					}
+					if("DATE".equalsIgnoreCase(dataType))
+					{
+						whereStringQuery = whereStringQuery + " AND Date(`"+columnName +"`) IN("+innerWhereString+")";
+					}
+					else
+					{
+						whereStringQuery = whereStringQuery + " AND `"+columnName +"` IN("+innerWhereString+")";
+					}
+				}
+			}
+		}
+		log.info("Filter Query: "+ whereStringQuery);
+		final String whereString = whereStringQuery;
+		
+		// Getting dateQualifier or fileDate
+		String dateGroupByValue = "";
+		if("fileDate".equalsIgnoreCase(periodFactor))
+		{
+			dateGroupByValue = "fileDate";
+		}
+		else if("dateQualifier".equalsIgnoreCase(periodFactor))
+		{
+			dateGroupByValue = accountingDataService.getQualifierViewColName(viewId, "TRANSDATE");
+		}
+		log.info("Date Qualifier: "+dateGroupByValue);
+		final String dateGroupBy = dateGroupByValue;
+		
+		List<String> inputFilterList = new ArrayList<String>();
+		if(filters.size()>0)
+		{
+			for(HashMap filter : filters)
+			{
+				String columnName = filter.get("key").toString();
+				inputFilterList.add(columnName);
+			}
+		}
+		log.info("Filtering columns: "+ inputFilterList);
+		
+		final List<String> activityYorN = accountingDataService.getActityOrNonActityBased(tenantId, groupId, viewId);
+		
+		log.info("ViewID: "+viewId+", ActivityORNonActivityBased: "+activityYorN);
+		String srcOrTrgt = accountingDataService.identifySourceOrTarget(viewId, groupId, tenantId);
+		if(!status.toLowerCase().contains("un accounted"))
+		{
+			// By Sub Process
+			if(!inputFilterList.contains("rule_code"))
+			{
+				log.info("Group by Rule Code");
+				Thread rulesThread = new Thread()
+				{
+					public void run()
+					{
+						List<HashMap> rulesSummary = new ArrayList<HashMap>();
+						if(activityYorN.contains("Y"))
+						{
+							try {
+								rulesSummary = accountingDataService.getGroupByActivitySummaryInfo(status, "rule_code", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING", srcOrTrgt);
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						else
+						{
+							try {
+								rulesSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, "rule_code", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING");
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						log.info("Grouping Rules for the view id "+ viewId+" is: "+rulesSummary.size());
+						if(rulesSummary.size()>0)
+						{
+							HashMap rulesMap = new HashMap();
+							rulesMap.put("filterName", "rule_code");
+							rulesMap.put("filterDisplyName", "Sub Process");
+							rulesMap.put("summary", rulesSummary);
+							finalMapList.add(rulesMap);
+						}
+					}
+				};
+				rulesThread.start();
+
+			}
+			
+			// By Batch
+			if(!inputFilterList.contains("job_reference"))
+			{
+				log.info("Group by Job Reference");
+				Thread batchThread = new Thread()
+				{
+					public void run()
+					{
+						List<HashMap> batchSummary = new ArrayList<HashMap>();
+						if(activityYorN.contains("Y"))
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByActivitySummaryInfo(status, "job_reference", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING", srcOrTrgt);
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						else
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, "job_reference", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING");
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+							log.info("Grouping batches for the view id "+ viewId+" is: "+batchSummary.size());
+						if(batchSummary.size()>0)
+						{
+							HashMap rulesMap = new HashMap();
+							rulesMap.put("filterName", "job_reference");
+							rulesMap.put("filterDisplyName", "Batch");
+							rulesMap.put("summary", batchSummary);
+							finalMapList.add(rulesMap);
+						}
+					}
+				};
+				batchThread.start();
+			}		
+			
+			// By final status
+			if(!inputFilterList.contains("final_status"))
+			{
+				log.info("Group by Final Status");
+				Thread finalStatusThread = new Thread()
+				{
+					public void run()
+					{
+						List<HashMap> batchSummary = new ArrayList<HashMap>();
+						if(activityYorN.contains("Y"))
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByActivitySummaryInfo(status, "final_status", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING", srcOrTrgt);
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						else
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, "final_status", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING");
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+							log.info("Grouping Final Status for the view id "+ viewId+" is: "+batchSummary.size());
+						if(batchSummary.size()>0)
+						{
+							HashMap rulesMap = new HashMap();
+							rulesMap.put("filterName", "final_status");
+							rulesMap.put("filterDisplyName", "Approval Status");
+							rulesMap.put("summary", batchSummary);
+							finalMapList.add(rulesMap);
+						}
+					}
+				};
+				finalStatusThread.start();
+			}
+			
+			// By Final Action Date
+			if(!inputFilterList.contains("final_action_date"))
+			{
+				log.info("Group by Final Action Date");
+				Thread finalActinThread = new Thread()
+				{
+					public void run()
+					{
+						List<HashMap> batchSummary = new ArrayList<HashMap>();
+						if(activityYorN.contains("Y"))
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByActivitySummaryInfo(status, "final_action_date", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "DATE", srcOrTrgt);
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						else
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, "final_action_date", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "DATE");
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						log.info("Grouping Approval Action Date for the view id "+ viewId+" is: "+batchSummary.size());
+						if(batchSummary.size()>0)
+						{
+							List<HashMap> dateFormatSummary = new ArrayList<HashMap>();
+							dateFormatSummary = accountingDataService.getDatesSummaryWithFormat(batchSummary);
+							HashMap apprDtMap = new HashMap();
+							apprDtMap.put("filterName", "final_action_date");
+							apprDtMap.put("filterDisplyName", "Approved Date");
+							apprDtMap.put("summary", dateFormatSummary);
+							finalMapList.add(apprDtMap);
+						}
+					}
+				};
+				finalActinThread.start();
+			}
+			
+			// By Approval Rule Id
+			if(!inputFilterList.contains("approval_rule_code"))
+			{
+				log.info("Group by Approval Rule Code");
+				Thread apprvRuleCodeThread = new Thread()
+				{
+					public void run()
+					{
+						List<HashMap> batchSummary = new ArrayList<HashMap>();
+						if(activityYorN.contains("Y"))
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByActivitySummaryInfo(status, "approval_rule_code", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING", srcOrTrgt);
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+						else
+						{
+							try {
+								batchSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, "approval_rule_code", dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", "STRING");
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
+							log.info("Grouping Approval Rule Id for the view id "+ viewId+" is: "+batchSummary.size());
+						if(batchSummary.size()>0)
+						{
+							HashMap rulesMap = new HashMap();
+							rulesMap.put("filterName", "approval_rule_id");
+							rulesMap.put("filterDisplyName", "Approval Rule");
+							rulesMap.put("summary", batchSummary);
+							finalMapList.add(rulesMap);
+						}
+					}
+				};
+				apprvRuleCodeThread.start();
+			}
+		}
+
+		// Fetching group by true columns		
+		List<HashMap> trueCols = accountingDataService.getGroupByColsTrueMap(viewId);
+		log.info("True Cols Map: "+trueCols);
+		if(trueCols.size()>0)
+		{
+			for(HashMap colMap : trueCols)
+			{
+				Thread truColThread = new Thread()
+				{
+					public void run()
+					{
+						if(!inputFilterList.contains(colMap.get("colName").toString()))
+						{
+							List<HashMap> columnSummary = new ArrayList<HashMap>();
+							if("DATE".equalsIgnoreCase(colMap.get("dataType").toString()))
+							{
+								if(activityYorN.contains("Y"))
+								{
+									try {
+										columnSummary = accountingDataService.getGroupByActivitySummaryInfo(status, colMap.get("colName").toString(), dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "desc", colMap.get("dataType").toString(), srcOrTrgt);
+									} catch (SQLException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+								}
+								else
+								{
+									try {
+										columnSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, colMap.get("colName").toString(), dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "desc", colMap.get("dataType").toString());
+									} catch (SQLException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+								}
+								
+								log.info("Grouping "+colMap.get("colDisplayName").toString()+" for the view id "+ viewId+" is: "+columnSummary.size());
+								if(columnSummary.size()>0)
+								{
+									List<HashMap> dateFormatSummary = new ArrayList<HashMap>();
+									dateFormatSummary = accountingDataService.getDatesSummaryWithFormat(columnSummary);
+									HashMap rulesMap = new HashMap();
+									rulesMap.put("filterName", colMap.get("colName").toString());
+									rulesMap.put("filterDisplyName", colMap.get("colDisplayName").toString());
+									rulesMap.put("summary", dateFormatSummary);
+									finalMapList.add(rulesMap);
+								}
+							}
+							else
+							{
+								if(activityYorN.contains("Y"))
+								{
+									try {
+										columnSummary = accountingDataService.getGroupByActivitySummaryInfo(status, colMap.get("colName").toString(), dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", colMap.get("dataType").toString(), srcOrTrgt);
+									} catch (SQLException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}	
+								}
+								else
+								{
+									try {
+										columnSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, colMap.get("colName").toString(), dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "asc", colMap.get("dataType").toString());
+									} catch (SQLException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+								}
+								
+								log.info("Grouping "+colMap.get("colDisplayName").toString()+" for the view id "+ viewId+" is: "+columnSummary.size());
+								if(columnSummary.size()>0)
+								{
+									HashMap rulesMap = new HashMap();
+									rulesMap.put("filterName", colMap.get("colName").toString());
+									rulesMap.put("filterDisplyName", colMap.get("colDisplayName").toString());
+									rulesMap.put("summary", columnSummary);
+									finalMapList.add(rulesMap);
+								}
+							}
+						}
+					}
+
+				};
+				truColThread.start();
+			}
+		}
+		
+		// Fetching group by period
+		if(!inputFilterList.contains("fileDate"))
+		{
+			List<HashMap> columnSummary = new ArrayList<HashMap>();
+			if(activityYorN.contains("Y"))
+			{
+				columnSummary = accountingDataService.getGroupByActivitySummaryInfo(status, dateGroupBy, dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "desc", "DATE", srcOrTrgt);	
+			}
+			else
+			{
+				columnSummary = accountingDataService.getGroupByNonActivitySummaryInfo(status, dateGroupBy, dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, tenantId, groupId, viewId,whereString,amountQualifier, "desc", "DATE");
+			}
+			
+			log.info("Grouping "+dateGroupBy+" for the view id "+ viewId+" is: "+columnSummary.size());
+			if(columnSummary.size()>0)
+			{
+				List<HashMap> dateFormatSummary = new ArrayList<HashMap>();
+				dateFormatSummary = accountingDataService.getDatesSummaryWithFormat(columnSummary);
+				HashMap rulesMap = new HashMap();
+				rulesMap.put("filterName", dateGroupBy);
+				rulesMap.put("filterDisplyName", "Period");
+				rulesMap.put("summary", dateFormatSummary);
+				finalMapList.add(rulesMap);
+			}
+		}
+		return finalMapList;
+	}
+	
+	
+	/**
+	 * Author: Shiva
+	 * @throws SQLException 
+	 * **/
+	@PostMapping("/getAccountedSummaryInfo")
+	@Timed
+	public List<HashMap> getAccountedSummaryInfo(@RequestBody AWQGroupingDTO params,HttpServletRequest request) throws SQLException
+	{
+		List<HashMap> finalMapList = new ArrayList<HashMap>();
+		/*Long tenantId = params.getTenantId();*/
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getViewId());
+    	Long viewId = dvs.getId();
+		String status = params.getStatus();
+		String periodFactor = params.getPeriodFactor();
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		List<String> filterList = new ArrayList<String>();
+		log.info("Rest api for fetching all grouping by summary info for the status "+status);
+		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(viewId), "AMOUNT");
+		DataViews dv = dataViewsRepository.findById(viewId);
+		// Building where string
+		String whereString = "";
+		List<HashMap> filters = params.getFilters();
+		if(filters.size()>0)
+		{
+			for(HashMap filter : filters)	// Looping filter column names and values
+			{
+				String columnName = filter.get("key").toString();
+				List<String> values = (List<String>) filter.get("values");
+				String dataType = filter.get("dataType").toString();
+				String innerWhereString = "";
+				if(values.size()>0)
+				{
+					for(int i=0; i<values.size(); i++)	// looing column values
+					{
+						if(i == values.size()-1)
+						{
+							innerWhereString = innerWhereString +  "'"+values.get(i)+"'";
+						}
+						else
+						{
+							innerWhereString = innerWhereString + "'"+values.get(i) +"', ";
+						}
+					}
+					if("DATE".equalsIgnoreCase(dataType))
+					{
+						whereString = whereString + " AND Date(`"+columnName +"`) IN("+innerWhereString+")";
+					}
+					else
+					{
+						whereString = whereString + " AND `"+columnName +"` IN("+innerWhereString+")";
+					}
+				}
+			}
+		}
+		
+		log.info("Filter Query: "+ whereString);
+		String srcOrTrgt = accountingDataService.identifySourceOrTarget(viewId, groupId, tenantId);
+		// Getting dateQualifier or fileDate
+		String dateGroupBy = "";
+		if("fileDate".equalsIgnoreCase(periodFactor))
+		{
+			dateGroupBy = "fileDate";
+		}
+		else if("dateQualifier".equalsIgnoreCase(periodFactor))
+		{
+			dateGroupBy = accountingDataService.getQualifierViewColName(viewId, "TRANSDATE");
+		}
+		log.info("Date Qualifier: "+dateGroupBy);
+		
+		List<String> activityYorN = new ArrayList<String>();
+		activityYorN = accountingDataService.getActityOrNonActityBased(tenantId, groupId, viewId);
+		log.info("ViewID: "+ viewId+", Activity Or Non Activity: "+activityYorN);
+		if(activityYorN.contains("Y"))
+		{
+			log.info("Fetching Activity Based Accounted Summary Information...");
+			finalMapList = accountingDataService.accountedSummaryForActivity(dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, groupId, viewId, whereString, status, srcOrTrgt);
+		}
+		else
+		{
+			log.info("Fetching Non Activity Based Accounted Summary Information...");
+			finalMapList = accountingDataService.accountedSummaryForNonActivity(dv.getDataViewName().toLowerCase(), dateGroupBy, rangeFrom, rangeTo, groupId, viewId, whereString, status);
+		}	
+		log.info("Fetching Summary Info API completed");
+		return finalMapList;
+	}
+	
+	/**
+	 * Author: Shiva 
+	 * @throws SQLException 
+	 * @throws ClassNotFoundException **/
+	@PostMapping("/getAccountingDetailInfo")
+	@Timed
+	public List<HashMap> getAccountingDetailInfo(@RequestBody AWQDetailInfoDTO params, HttpServletRequest request,@RequestParam(value = "approvalStatus", required=false) String approvalStatus) throws SQLException, ClassNotFoundException{
+		log.info("Rest API for fetching Accounting  Detail infomation");
+		String status = params.getStatus();
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		String rangeFrom = params.getRangeFrom();
+		String rangeTo = params.getRangeTo();
+		String apprStatusQuery = "";
+    	RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(params.getGroupId(), tenantId);
+    	Long groupId = rg.getId();
+    	HashMap segSeparator = ruleGroupResource.getCoaNameAndId(params.getGroupId(), request);
+    	String segmentSeparator = "";
+    	if(segSeparator.size()>0 && segSeparator.get("segmentSeparator") != null)
+    	{
+    		segmentSeparator = segSeparator.get("segmentSeparator").toString();
+    	}
+    	log.info("SegmentSeparator:>> "+segmentSeparator);
+    	DataViews dvs = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, params.getViewId());
+    	Long viewId = dvs.getId();
+		if(approvalStatus != null)
+		{
+			apprStatusQuery = " and de.final_status = '"+approvalStatus+"' ";
+		}
+		/*Long tenantId = params.getTenantId();*/
+		params.setTenantId(tenantId);
+		List<HashMap> finalList = new ArrayList<HashMap>();
+		Long pageNumber = params.getPageNumber();
+		Long pageSize = params.getPageSize();
+		HashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(viewId, tenantId, groupId, new ArrayList<String>());
+		log.info("Header Columns: "+headerColumns);
+		// Global Search
+		String globalSearch = " AND 1=1 ";
+		if(params.getSearchWord() != null && params.getSearchWord().length()>0)
+		{
+			globalSearch = accountingDataService.getColumnNamesAsString(viewId, params.getSearchWord());
+		}
+		
+		String dateQualifier = "";
+		
+		// Building where condition for filtering grouping summary
+		String whereString = "";
+		List<HashMap> filters = params.getFilters();
+		if(filters.size()>0)
+		{
+			for(HashMap filter : filters)	// Looping filter column names and values
+			{
+				String columnName = filter.get("key").toString();
+				List<String> values = (List<String>) filter.get("values");
+				String dataType = "";
+				dataType = filter.get("dataType").toString();
+				String innerWhereString = "";
+				if(values.size()>0)
+				{
+					if("job_refernce".equalsIgnoreCase(columnName))
+					{
+						for(int i=0; i<values.size(); i++)	// looing column values
+						{
+							if(i == values.size()-1)
+							{
+								innerWhereString = innerWhereString +  " LIKE '%"+values.get(i)+"%' ";
+							}
+							else
+							{
+								innerWhereString = innerWhereString + " LIKE '%"+values.get(i) +"%', ";
+							}
+						}
+					}
+					else
+					{
+						for(int i=0; i<values.size(); i++)	// looing column values
+						{
+							if(i == values.size()-1)
+							{
+								innerWhereString = innerWhereString +  "'"+values.get(i)+"'";
+							}
+							else
+							{
+								innerWhereString = innerWhereString + "'"+values.get(i) +"', ";
+							}
+						}
+					}
+
+					if("DATE".equalsIgnoreCase(dataType))
+					{
+						whereString = whereString + " AND Date(`"+columnName +"`) IN("+innerWhereString+")";
+					}
+					else
+					{
+						whereString = whereString + " AND `"+columnName +"` IN("+innerWhereString+")";
+					}
+					
+				}
+			}
+		}
+		
+		List<String> activityYorN = new ArrayList<String>();
+		activityYorN = accountingDataService.getActityOrNonActityBased(tenantId, groupId, viewId);
+		
+		log.info("Filter Query: "+ whereString);
+		
+		// Building where condition for column search
+		List<HashMap> columnSearchMps = params.getColumnSearch();
+		String columnSearchQuery = " AND 1=1 ";
+		if(columnSearchMps.size()>0)
+		{
+			for(HashMap columnSearchMp : columnSearchMps)
+			{
+				String columnName = columnSearchMp.get("columnName").toString();
+				String searchWord = columnSearchMp.get("searchWord").toString();
+				columnSearchQuery = columnSearchQuery + " AND `" + columnName +"` LIKE '%"+searchWord+"%'";
+			}
+		}
+		
+		if("fileDate".equalsIgnoreCase(params.getPeriodFactor()))
+		{
+			dateQualifier = "fileDate";
+		}
+		else if("dateQualifier".equalsIgnoreCase(params.getPeriodFactor()))
+		{
+			dateQualifier = accountingDataService.getQualifierViewColName(viewId, "TRANSDATE");
+		}
+		
+		Long limit =  (pageNumber * pageSize + 1) - 1;
+		log.info("Page Limit: " + limit + ", Page Number : " + pageNumber);
+		DataViews dv = dataViewsRepository.findById(viewId);
+		List<BigInteger> paginationIds = new ArrayList<BigInteger>();
+		Long totalCount = 0L;
+		
+		String srcOrTrgt = accountingDataService.identifySourceOrTarget(viewId, groupId, tenantId);
+		
+		try {
+			if(activityYorN.contains("Y"))
+			{
+				paginationIds = accountingDataService.getPaginationIdsForActivity(status, dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, tenantId, groupId, viewId, whereString, limit, pageSize, globalSearch,columnSearchQuery, params.getSortByColumnName(), params.getSortOrderBy(), apprStatusQuery, srcOrTrgt);
+				totalCount = accountingDataService.getTotalCountForActivity(status, dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, tenantId, groupId, viewId, whereString, limit, pageSize, globalSearch, columnSearchQuery, params.getSortByColumnName(), params.getSortOrderBy(), apprStatusQuery, srcOrTrgt);				
+			}
+			else
+			{
+				paginationIds = accountingDataService.getPaginationIdsForNonActivity(status, dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, tenantId, groupId, viewId, whereString, limit, pageSize, globalSearch,columnSearchQuery, params.getSortByColumnName(), params.getSortOrderBy(), apprStatusQuery);
+				totalCount = accountingDataService.getTotalCountForNonActivity(status, dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, tenantId, groupId, viewId, whereString, limit, pageSize, globalSearch, columnSearchQuery, params.getSortByColumnName(), params.getSortOrderBy(), apprStatusQuery);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		log.info("Pagination Ids Size: "+paginationIds.size());
+		String idsString = paginationIds.toString();
+		idsString = idsString.replace("[", "");
+		idsString = idsString.replace("]", "");
+		String idsWhereString = "";
+		
+		if(paginationIds.size()>0)
+		{
+			idsWhereString = " AND det.scrIds in ("+idsString+")";
+			try {
+				if(activityYorN.contains("Y"))
+				{
+					finalList = accountingDataService.getAccountingDetailInfo(dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, viewId, groupId, status, idsWhereString, headerColumns, "Y", apprStatusQuery,srcOrTrgt, segmentSeparator);
+				}
+				else
+				{
+					finalList = accountingDataService.getAccountingDetailInfo(dv.getDataViewName().toLowerCase(), dateQualifier, rangeFrom, rangeTo, viewId, groupId, status, idsWhereString, headerColumns, "N", apprStatusQuery,srcOrTrgt, segmentSeparator);					
+				}
+				HashMap infoObj = new HashMap();
+				HashMap info = new HashMap();
+				info.put("totalCount", totalCount);
+				infoObj.put("info", info);
+				//info.put("totalCount", totalCount);
+				finalList.add(infoObj);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		log.info("Complted API Execution");
+		return finalList;
+	}
+	
+	@GetMapping("/accountingAppModuleSummary")
+	@Timed
+	public HashMap accountingAppModuleSummary() throws ClassNotFoundException, SQLException
+	{
+		log.info("Service for updating count and amounts");
+		HashMap finalMap = new HashMap();
+		String amountQualifier = reconciliationResultService.getViewColumnQualifier(BigInteger.valueOf(176L), "AMOUNT");
+		log.info("Amount Qualifier for the view id 176 is: "+ amountQualifier);
+		HashMap updateCountAmountsAcc = accountingDataService.updateAppModuleSummaryInfoACC(105L, 176L, amountQualifier, 6L);
+		return finalMap;
+	}
+	
+	/* AUTHOR: Bhagath */
+	@GetMapping("/getAcctSummaryByRuleGroup")
+    @Timed
+    public List<HashMap> getAcctSummaryByRuleGroup(HttpServletRequest request) throws ClassNotFoundException, SQLException
+    {
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+    	log.info("Rest API for fetching acct count and amounts for source and target views by accounting rule group for the tenant id: "+tenantId);
+    	List<HashMap> finalList = new ArrayList<HashMap>();
+    	HashMap resultMap = new HashMap();
+    	resultMap = accountingDataService.getAcctSummaryByRuleGroup(tenantId);
+    	if(resultMap.size()>0)
+    	{
+    		Iterator it = resultMap.entrySet().iterator();
+    		while (it.hasNext()) {
+    			HashMap group = new HashMap();
+    			Map.Entry pair = (Map.Entry)it.next();
+    			Long groupId = Long.parseLong(pair.getKey().toString());
+    			HashMap groupInfo = (HashMap) pair.getValue();
+    			group.put("groupId", groupInfo.get("groupId"));
+    			group.put("groupName", groupInfo.get("groupName"));
+    			group.put("isActivityBased", groupInfo.get("isActivityBased"));
+    			List<HashMap> summary = new ArrayList<HashMap>();
+    			HashMap views = (HashMap) groupInfo.get("views");
+    			Iterator viewsItr = views.entrySet().iterator();
+    			while(viewsItr.hasNext())
+    			{
+    				Map.Entry viewPair = (Map.Entry)viewsItr.next();
+    				HashMap viewInfo = (HashMap) viewPair.getValue();
+    				summary.add(viewInfo);
+    			}
+    			group.put("summary", summary);
+    			finalList.add(group);
+    		}
+    	}
+    	return finalList;
+    }
+	
+    @PostMapping("/getAccountingTransactions")
+    @Timed
+    public List<LinkedHashMap> getAccountingTransactions(HttpServletRequest request,HttpServletResponse response,
+    		@RequestParam(value = "ruleGroupName", required=true) String ruleGroupName, 
+    		@RequestParam(value = "viewName", required=true) String viewName,
+    		@RequestParam(value = "status", required=true) String status, 
+    		@RequestParam(value = "pageNumber", required=false) Long pageNumber,
+    		@RequestParam(value = "pageSize", required=false) Long pageSize,
+    		@RequestParam(value = "fileExport", required=false) String fileExport,
+    		@RequestParam(value = "fileType", required=false) String fileType,
+    		@RequestBody HashMap<String, List<String>> filterColumns) throws IOException, SQLException{
+    	
+    	List<LinkedHashMap> finalList = new ArrayList<LinkedHashMap>();
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+    	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+    	Long userId = Long.parseLong(map.get("userId").toString());
+    	log.info("Rest API for fetching accounting data for outbound api for the tenant id: "+tenantId);
+    	// Identifying group id and view id
+    	HashMap inputsInfo = accountingDataService.getGroupIdAndViewId(ruleGroupName, viewName);
+		log.info("Inputs Info: "+inputsInfo);
+		
+    	String paginationCondition = "";
+    	if(pageNumber != null && pageSize != null)
+    	{
+			Long limit = 0L;
+			limit = (pageNumber * pageSize + 1)-1;
+			paginationCondition = "limit "+limit+", "+pageSize;
+    	}
+		
+    	if(inputsInfo.size()>0)
+    	{
+    		Long groupId = Long.parseLong(inputsInfo.get("groupId").toString());
+    		Long viewId = Long.parseLong(inputsInfo.get("viewId").toString());
+    		String dataViewName = inputsInfo.get("viewName").toString();
+    		log.info("Group Id: "+ groupId+", View Id: "+ viewId);
+    		HashMap headerColumns = accountingDataService.getViewColumnHeadersMapInSequence(viewId, tenantId, groupId, new ArrayList<String>());
+    		List<String> activityYorN = new ArrayList<String>();
+    		activityYorN = accountingDataService.getActityOrNonActityBased(tenantId, groupId, viewId);
+    		log.info("Activity based or non activity based accounting: "+ activityYorN);
+    		String srcOrTrgt = accountingDataService.identifySourceOrTarget(viewId, groupId, tenantId);
+    		log.info(viewName+ " is "+srcOrTrgt+" data view");
+    		String whereString = "";
+    		if(activityYorN.contains("Y"))
+    		{
+    			log.info("Fetching Activity based accounting data...");
+    			finalList = accountingDataService.getAccountingTransactionsData(srcOrTrgt, viewId, "Y", viewName, groupId, status, whereString, paginationCondition);
+    		}
+    		else
+    		{
+    			log.info("Fetching Non Activity based accounting...");
+    			finalList = accountingDataService.getAccountingTransactionsData(srcOrTrgt, viewId, "N", viewName, groupId, status, whereString, paginationCondition);
+    		}
+    		// Exporting data into the files
+	    	if(fileExport != null && fileExport.length()>0 && fileType != null && fileType.length()>0)
+	    	{
+	    		List<String> columnNames = reconciliationResultService.getColumnsAsList(headerColumns);
+		    	log.info("Exporting data into the file . . .");
+	        	if(fileType.equalsIgnoreCase("csv"))
+	        	{
+	        		log.info("Exporting data into CSV File...");
+	        		response.setContentType ("application/csv");
+	        		response.setHeader ("Content-Disposition", "attachment; filename=\"Accounting.csv\"");
+	        		fileExportService.jsonToCSV(finalList,columnNames,response.getWriter());
+	        	}
+	        	if(fileType.equalsIgnoreCase("pdf"))
+	        	{
+	        		log.info("Exporting data into PDF File...");
+	        		response.setContentType ("application/pdf");
+	        		response.setHeader ("Content-Disposition", "attachment; filename=\"Accounting.pdf\"");
+	        		fileExportService.jsonToCSV(finalList, columnNames,response.getWriter());
+	        	}
+	        	else if(fileType.equalsIgnoreCase("excel"))
+	        	{
+	        		response.setContentType("application/vnd.ms-excel");
+	        		response.setHeader("Content-Disposition","attachment; filename=\"Accounting.xlsx\"");
+	        		fileExportService.jsonToCSV(finalList, columnNames,response.getWriter());
+	        	}
+	        	return null;
+	    	}
+	    	else
+	    	{
+	    		return finalList;
+	    	}
+    	}
+    	else
+    	{
+    		log.info("No input parameters found for the group name: "+ruleGroupName+", view name: "+ viewName);
+    		return finalList;
+    	}
+    }
+}

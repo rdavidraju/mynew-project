@@ -1,0 +1,335 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.LinkedDataViews;
+import com.nspl.app.repository.LinkedDataViewsRepository;
+import com.nspl.app.repository.search.LinkedDataViewsSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the LinkedDataViewsResource REST controller.
+ *
+ * @see LinkedDataViewsResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class LinkedDataViewsResourceIntTest {
+
+    private static final Long DEFAULT_DATA_VIEW_ID = 1L;
+    private static final Long UPDATED_DATA_VIEW_ID = 2L;
+
+    private static final String DEFAULT_LINKED_DATA_VIEW = "AAAAAAAAAA";
+    private static final String UPDATED_LINKED_DATA_VIEW = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_LINKED_DATA_VIEW_ID = 1L;
+    private static final Long UPDATED_LINKED_DATA_VIEW_ID = 2L;
+
+    private static final String DEFAULT_FILTER_OR_JOIN_CONDITION = "AAAAAAAAAA";
+    private static final String UPDATED_FILTER_OR_JOIN_CONDITION = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private LinkedDataViewsRepository linkedDataViewsRepository;
+
+    @Autowired
+    private LinkedDataViewsSearchRepository linkedDataViewsSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restLinkedDataViewsMockMvc;
+
+    private LinkedDataViews linkedDataViews;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        LinkedDataViewsResource linkedDataViewsResource = new LinkedDataViewsResource(linkedDataViewsRepository, linkedDataViewsSearchRepository);
+        this.restLinkedDataViewsMockMvc = MockMvcBuilders.standaloneSetup(linkedDataViewsResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static LinkedDataViews createEntity(EntityManager em) {
+        LinkedDataViews linkedDataViews = new LinkedDataViews()
+            .dataViewId(DEFAULT_DATA_VIEW_ID)
+            .linkedDataView(DEFAULT_LINKED_DATA_VIEW)
+            .linkedDataViewId(DEFAULT_LINKED_DATA_VIEW_ID)
+            .filterOrJoinCondition(DEFAULT_FILTER_OR_JOIN_CONDITION)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return linkedDataViews;
+    }
+
+    @Before
+    public void initTest() {
+        linkedDataViewsSearchRepository.deleteAll();
+        linkedDataViews = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createLinkedDataViews() throws Exception {
+        int databaseSizeBeforeCreate = linkedDataViewsRepository.findAll().size();
+
+        // Create the LinkedDataViews
+        restLinkedDataViewsMockMvc.perform(post("/api/linked-data-views")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(linkedDataViews)))
+            .andExpect(status().isCreated());
+
+        // Validate the LinkedDataViews in the database
+        List<LinkedDataViews> linkedDataViewsList = linkedDataViewsRepository.findAll();
+        assertThat(linkedDataViewsList).hasSize(databaseSizeBeforeCreate + 1);
+        LinkedDataViews testLinkedDataViews = linkedDataViewsList.get(linkedDataViewsList.size() - 1);
+        assertThat(testLinkedDataViews.getDataViewId()).isEqualTo(DEFAULT_DATA_VIEW_ID);
+        assertThat(testLinkedDataViews.getLinkedDataView()).isEqualTo(DEFAULT_LINKED_DATA_VIEW);
+        assertThat(testLinkedDataViews.getLinkedDataViewId()).isEqualTo(DEFAULT_LINKED_DATA_VIEW_ID);
+        assertThat(testLinkedDataViews.getFilterOrJoinCondition()).isEqualTo(DEFAULT_FILTER_OR_JOIN_CONDITION);
+        assertThat(testLinkedDataViews.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testLinkedDataViews.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testLinkedDataViews.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testLinkedDataViews.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+
+        // Validate the LinkedDataViews in Elasticsearch
+        LinkedDataViews linkedDataViewsEs = linkedDataViewsSearchRepository.findOne(testLinkedDataViews.getId());
+        assertThat(linkedDataViewsEs).isEqualToComparingFieldByField(testLinkedDataViews);
+    }
+
+    @Test
+    @Transactional
+    public void createLinkedDataViewsWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = linkedDataViewsRepository.findAll().size();
+
+        // Create the LinkedDataViews with an existing ID
+        linkedDataViews.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restLinkedDataViewsMockMvc.perform(post("/api/linked-data-views")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(linkedDataViews)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<LinkedDataViews> linkedDataViewsList = linkedDataViewsRepository.findAll();
+        assertThat(linkedDataViewsList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllLinkedDataViews() throws Exception {
+        // Initialize the database
+        linkedDataViewsRepository.saveAndFlush(linkedDataViews);
+
+        // Get all the linkedDataViewsList
+        restLinkedDataViewsMockMvc.perform(get("/api/linked-data-views?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(linkedDataViews.getId().intValue())))
+            .andExpect(jsonPath("$.[*].dataViewId").value(hasItem(DEFAULT_DATA_VIEW_ID.intValue())))
+            .andExpect(jsonPath("$.[*].linkedDataView").value(hasItem(DEFAULT_LINKED_DATA_VIEW.toString())))
+            .andExpect(jsonPath("$.[*].linkedDataViewId").value(hasItem(DEFAULT_LINKED_DATA_VIEW_ID.intValue())))
+            .andExpect(jsonPath("$.[*].filterOrJoinCondition").value(hasItem(DEFAULT_FILTER_OR_JOIN_CONDITION.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getLinkedDataViews() throws Exception {
+        // Initialize the database
+        linkedDataViewsRepository.saveAndFlush(linkedDataViews);
+
+        // Get the linkedDataViews
+        restLinkedDataViewsMockMvc.perform(get("/api/linked-data-views/{id}", linkedDataViews.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(linkedDataViews.getId().intValue()))
+            .andExpect(jsonPath("$.dataViewId").value(DEFAULT_DATA_VIEW_ID.intValue()))
+            .andExpect(jsonPath("$.linkedDataView").value(DEFAULT_LINKED_DATA_VIEW.toString()))
+            .andExpect(jsonPath("$.linkedDataViewId").value(DEFAULT_LINKED_DATA_VIEW_ID.intValue()))
+            .andExpect(jsonPath("$.filterOrJoinCondition").value(DEFAULT_FILTER_OR_JOIN_CONDITION.toString()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingLinkedDataViews() throws Exception {
+        // Get the linkedDataViews
+        restLinkedDataViewsMockMvc.perform(get("/api/linked-data-views/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateLinkedDataViews() throws Exception {
+        // Initialize the database
+        linkedDataViewsRepository.saveAndFlush(linkedDataViews);
+        linkedDataViewsSearchRepository.save(linkedDataViews);
+        int databaseSizeBeforeUpdate = linkedDataViewsRepository.findAll().size();
+
+        // Update the linkedDataViews
+        LinkedDataViews updatedLinkedDataViews = linkedDataViewsRepository.findOne(linkedDataViews.getId());
+        updatedLinkedDataViews
+            .dataViewId(UPDATED_DATA_VIEW_ID)
+            .linkedDataView(UPDATED_LINKED_DATA_VIEW)
+            .linkedDataViewId(UPDATED_LINKED_DATA_VIEW_ID)
+            .filterOrJoinCondition(UPDATED_FILTER_OR_JOIN_CONDITION)
+            .createdBy(UPDATED_CREATED_BY)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restLinkedDataViewsMockMvc.perform(put("/api/linked-data-views")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedLinkedDataViews)))
+            .andExpect(status().isOk());
+
+        // Validate the LinkedDataViews in the database
+        List<LinkedDataViews> linkedDataViewsList = linkedDataViewsRepository.findAll();
+        assertThat(linkedDataViewsList).hasSize(databaseSizeBeforeUpdate);
+        LinkedDataViews testLinkedDataViews = linkedDataViewsList.get(linkedDataViewsList.size() - 1);
+        assertThat(testLinkedDataViews.getDataViewId()).isEqualTo(UPDATED_DATA_VIEW_ID);
+        assertThat(testLinkedDataViews.getLinkedDataView()).isEqualTo(UPDATED_LINKED_DATA_VIEW);
+        assertThat(testLinkedDataViews.getLinkedDataViewId()).isEqualTo(UPDATED_LINKED_DATA_VIEW_ID);
+        assertThat(testLinkedDataViews.getFilterOrJoinCondition()).isEqualTo(UPDATED_FILTER_OR_JOIN_CONDITION);
+        assertThat(testLinkedDataViews.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testLinkedDataViews.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testLinkedDataViews.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testLinkedDataViews.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+
+        // Validate the LinkedDataViews in Elasticsearch
+        LinkedDataViews linkedDataViewsEs = linkedDataViewsSearchRepository.findOne(testLinkedDataViews.getId());
+        assertThat(linkedDataViewsEs).isEqualToComparingFieldByField(testLinkedDataViews);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingLinkedDataViews() throws Exception {
+        int databaseSizeBeforeUpdate = linkedDataViewsRepository.findAll().size();
+
+        // Create the LinkedDataViews
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restLinkedDataViewsMockMvc.perform(put("/api/linked-data-views")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(linkedDataViews)))
+            .andExpect(status().isCreated());
+
+        // Validate the LinkedDataViews in the database
+        List<LinkedDataViews> linkedDataViewsList = linkedDataViewsRepository.findAll();
+        assertThat(linkedDataViewsList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteLinkedDataViews() throws Exception {
+        // Initialize the database
+        linkedDataViewsRepository.saveAndFlush(linkedDataViews);
+        linkedDataViewsSearchRepository.save(linkedDataViews);
+        int databaseSizeBeforeDelete = linkedDataViewsRepository.findAll().size();
+
+        // Get the linkedDataViews
+        restLinkedDataViewsMockMvc.perform(delete("/api/linked-data-views/{id}", linkedDataViews.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean linkedDataViewsExistsInEs = linkedDataViewsSearchRepository.exists(linkedDataViews.getId());
+        assertThat(linkedDataViewsExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<LinkedDataViews> linkedDataViewsList = linkedDataViewsRepository.findAll();
+        assertThat(linkedDataViewsList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchLinkedDataViews() throws Exception {
+        // Initialize the database
+        linkedDataViewsRepository.saveAndFlush(linkedDataViews);
+        linkedDataViewsSearchRepository.save(linkedDataViews);
+
+        // Search the linkedDataViews
+        restLinkedDataViewsMockMvc.perform(get("/api/_search/linked-data-views?query=id:" + linkedDataViews.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(linkedDataViews.getId().intValue())))
+            .andExpect(jsonPath("$.[*].dataViewId").value(hasItem(DEFAULT_DATA_VIEW_ID.intValue())))
+            .andExpect(jsonPath("$.[*].linkedDataView").value(hasItem(DEFAULT_LINKED_DATA_VIEW.toString())))
+            .andExpect(jsonPath("$.[*].linkedDataViewId").value(hasItem(DEFAULT_LINKED_DATA_VIEW_ID.intValue())))
+            .andExpect(jsonPath("$.[*].filterOrJoinCondition").value(hasItem(DEFAULT_FILTER_OR_JOIN_CONDITION.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(LinkedDataViews.class);
+    }
+}

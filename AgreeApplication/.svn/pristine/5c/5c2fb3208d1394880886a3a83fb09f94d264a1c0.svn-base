@@ -1,0 +1,371 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LineCriteria;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.TemplAttributeMapping;
+import com.nspl.app.domain.TemplateDetails;
+import com.nspl.app.repository.LineCriteriaRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.TemplAttributeMappingRepository;
+import com.nspl.app.repository.TemplateDetailsRepository;
+import com.nspl.app.web.rest.dto.LineCriteriaDTO;
+import com.nspl.app.web.rest.dto.TemplAttributeMappingDTO;
+import com.nspl.app.web.rest.dto.TemplateDetailsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing TemplateDetails.
+ */
+@RestController
+@RequestMapping("/api")
+public class TemplateDetailsResource {
+
+    private final Logger log = LoggerFactory.getLogger(TemplateDetailsResource.class);
+
+    private static final String ENTITY_NAME = "templateDetails";
+        
+    private final TemplateDetailsRepository templateDetailsRepository;
+    
+    @Inject
+    private TemplAttributeMappingRepository templAttributeMappingRepository;
+    
+    @Inject
+    private LineCriteriaRepository lineCriteriaRepository;
+    
+    @Inject
+    private LookUpCodeRepository lookUpCodeRepository;
+
+    public TemplateDetailsResource(TemplateDetailsRepository templateDetailsRepository) {
+        this.templateDetailsRepository = templateDetailsRepository;
+    }
+
+    /**
+     * POST  /template-details : Create a new templateDetails.
+     *
+     * @param templateDetails the templateDetails to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new templateDetails, or with status 400 (Bad Request) if the templateDetails has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/template-details")
+    @Timed
+    public ResponseEntity<TemplateDetails> createTemplateDetails(@RequestBody TemplateDetails templateDetails) throws URISyntaxException {
+        log.debug("REST request to save TemplateDetails : {}", templateDetails);
+        if (templateDetails.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new templateDetails cannot already have an ID")).body(null);
+        }
+        TemplateDetails result = templateDetailsRepository.save(templateDetails);
+        return ResponseEntity.created(new URI("/api/template-details/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /template-details : Updates an existing templateDetails.
+     *
+     * @param templateDetails the templateDetails to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated templateDetails,
+     * or with status 400 (Bad Request) if the templateDetails is not valid,
+     * or with status 500 (Internal Server Error) if the templateDetails couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/template-details")
+    @Timed
+    public ResponseEntity<TemplateDetails> updateTemplateDetails(@RequestBody TemplateDetails templateDetails) throws URISyntaxException {
+        log.debug("REST request to update TemplateDetails : {}", templateDetails);
+        if (templateDetails.getId() == null) {
+            return createTemplateDetails(templateDetails);
+        }
+        TemplateDetails result = templateDetailsRepository.save(templateDetails);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, templateDetails.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /template-details : get all the templateDetails.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of templateDetails in body
+     */
+    @GetMapping("/template-details")
+    @Timed
+    public ResponseEntity<List<TemplateDetails>> getAllTemplateDetails(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of TemplateDetails");
+        Page<TemplateDetails> page = templateDetailsRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/template-details");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /template-details/:id : get the "id" templateDetails.
+     *
+     * @param id the id of the templateDetails to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the templateDetails, or with status 404 (Not Found)
+     */
+    @GetMapping("/template-details/{id}")
+    @Timed
+    public ResponseEntity<TemplateDetails> getTemplateDetails(@PathVariable Long id) {
+        log.debug("REST request to get TemplateDetails : {}", id);
+        TemplateDetails templateDetails = templateDetailsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(templateDetails));
+    }
+
+    /**
+     * DELETE  /template-details/:id : delete the "id" templateDetails.
+     *
+     * @param id the id of the templateDetails to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/template-details/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteTemplateDetails(@PathVariable Long id) {
+        log.debug("REST request to delete TemplateDetails : {}", id);
+        templateDetailsRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    
+    @GetMapping("/getJournalsTemplateDetails")
+    @Timed
+    public List<TemplateDetails> getAllJournalsTemplateDetails(@RequestParam Long tenantId) {
+        log.info("REST request to get journals page details");
+        List<TemplateDetails> journalTempDetails = templateDetailsRepository.fetchTempDetailsByTenantId(tenantId);
+        return journalTempDetails;
+    }
+
+	/**
+	 * Auhtor:Shiva
+	 *@param FileTemplatesPostingDTO
+	 * @return ErrorReport
+	 * Description: Posting template details header, template attribute mapping and line criteria
+	 */
+	@PostMapping("/postingTemplateDetails")
+	@Timed
+	public TemplateDetails postingFileTempAndFileTempLinesAndSPA(@RequestBody TemplateDetailsDTO templateDetailsDTO, @RequestParam Long tenantId, @RequestParam Long userId)
+	{
+		log.info("Rest api for posting template details, template attribute mapping and line criteria");
+		List<TemplAttributeMappingDTO> tempAttMapping = templateDetailsDTO.getJeHeaderDerivations();
+		List<LineCriteriaDTO> jeLineCriteria = templateDetailsDTO.getJeLineDerivations();
+		
+		//Posting Template Details
+		TemplateDetails tempDetails = new TemplateDetails();
+		if(templateDetailsDTO.getId() != null)
+		{
+			tempDetails.setId(templateDetailsDTO.getId());
+		}
+		tempDetails.setTenantId(tenantId);
+		tempDetails.setTargetAppSource(templateDetailsDTO.getTargetAppSource());
+		tempDetails.setTemplateName(templateDetailsDTO.getTemplateName());
+		tempDetails.setDescription(templateDetailsDTO.getDescription());
+		tempDetails.setViewId(templateDetailsDTO.getViewId());
+		tempDetails.setViewName(templateDetailsDTO.getViewName());
+		tempDetails.setStartDate(templateDetailsDTO.getStartDate().plusDays(1));
+		tempDetails.setEndDate(templateDetailsDTO.getEndDate().plusDays(1));
+		tempDetails.setEnable(templateDetailsDTO.getEnable());
+		tempDetails.setCreatedBy(userId);
+		tempDetails.setLastUpdatedBy(userId);
+		tempDetails.setCreatedDate(ZonedDateTime.now());
+		tempDetails.setLastUpdatedDate(ZonedDateTime.now());
+		TemplateDetails td = templateDetailsRepository.save(tempDetails);
+		List<TemplAttributeMapping> tempAttrMapping = new ArrayList<TemplAttributeMapping>();
+		if(td != null)
+		{
+			log.info("Template Details Id: " + td.getId());
+			//Posting Template Attributes Mapping
+			if(tempAttMapping.size()>0)
+			{
+				for(TemplAttributeMappingDTO attrMap : tempAttMapping)
+				{
+					TemplAttributeMapping tmpl = new TemplAttributeMapping();
+					if(attrMap.getId() != null)
+					{
+						tmpl.setId(attrMap.getId());
+					}
+					tmpl.setJeTempId(td.getId());
+					tmpl.setAttributeName(attrMap.getAttributeName());
+					tmpl.setMappingType(attrMap.getMappingType());
+					tmpl.setValue(attrMap.getValue());
+					if(attrMap.getSourceViewColumnId() != null)
+					{
+						tmpl.setSourceViewColumnId(attrMap.getSourceViewColumnId());			
+					}			
+					tmpl.setCretaedBy(userId);
+					tmpl.setLastUpdatedBy(userId);
+					tmpl.setCreatedDate(ZonedDateTime.now());
+					tmpl.setLastUpdatedDate(ZonedDateTime.now());
+					tempAttrMapping.add(tmpl);
+				}
+				List<TemplAttributeMapping> tempAttrMpng = templAttributeMappingRepository.save(tempAttrMapping);
+				log.info("Template Attributes Mapping Size: " + tempAttrMpng.size());
+			}
+			// Posting Line Criterial
+			List<LineCriteria> lineCriteria = new ArrayList<LineCriteria>();
+			if(jeLineCriteria.size()>0)
+			{
+				if(jeLineCriteria.get(0).getId() == null)
+				{
+					List<BigInteger> jeTempIds = lineCriteriaRepository.fetchIdsByJeTempId(td.getId());
+					if(jeTempIds.size()>0)
+					{
+						for(BigInteger id : jeTempIds)
+						{
+							lineCriteriaRepository.delete(id.longValue());
+						}
+					}
+				}
+				for(LineCriteriaDTO jlc : jeLineCriteria)
+				{
+					LineCriteria lc = new LineCriteria();
+					if(jlc.getId() != null) //updating record based on id
+					{
+						lc.setId(jlc.getId());
+					}
+					lc.setJeTempId(td.getId());
+					lc.setSeq(jlc.getSeq());
+					lc.setsViewColumn(jlc.getsViewColumn());
+					lc.setOperator(jlc.getOperator());
+					lc.setValue(jlc.getValue());
+					lc.setCreatedBy(userId);
+					lc.setLastUpdatedBy(userId);
+					lc.setCreatedDate(ZonedDateTime.now());
+					lc.setLastUpdatedDate(ZonedDateTime.now());
+					lineCriteria.add(lc);
+				}
+				List<LineCriteria> lineCriterias = lineCriteriaRepository.save(lineCriteria);
+				log.info("Line Criteria Size: "+lineCriteria.size());
+			}
+		}
+		return tempDetails;
+	}
+	
+	/**Auhtor:Shiva
+	 * @param templateId
+	 * @param tenantId
+	 * @return template details in HashMap
+	 */
+	@GetMapping("/getTemplateDetails")
+	@Timed
+	public HashMap getFileTempList(@RequestParam Long tenantId,@RequestParam Long templateId)
+	{
+		log.info("Rest api for fetching template details: "+ templateId);
+		HashMap finalMap = new HashMap();
+		TemplateDetails tmpDetails = templateDetailsRepository.findOne(templateId);
+		if(tmpDetails != null)
+		{	
+			// Template Details
+			finalMap.put("id", tmpDetails.getId());
+			finalMap.put("description", tmpDetails.getDescription());
+			finalMap.put("targetAppSource", tmpDetails.getTargetAppSource());
+			finalMap.put("templateName", tmpDetails.getTemplateName());
+			finalMap.put("viewId", tmpDetails.getViewId());
+			finalMap.put("viewName", tmpDetails.getViewName());
+			finalMap.put("startDate", tmpDetails.getStartDate());
+			finalMap.put("endDate", tmpDetails.getEndDate());
+			finalMap.put("enable", tmpDetails.isEnable());
+			List<HashMap> jeHeaderDerivations = new ArrayList<HashMap>();
+			// Template Attributes Mapping
+			List<TemplAttributeMapping> tam = templAttributeMappingRepository.findByJeTempId(templateId);
+			if(tam.size()>0)
+			{
+				List<HashMap> tmplHMs = new ArrayList<HashMap>();
+				for(TemplAttributeMapping tmpMp : tam)
+				{
+					HashMap hm = new HashMap();
+					LookUpCode luc = lookUpCodeRepository.findByTenantIdAndLookUpCodeAndLookUpType(tenantId, tmpMp.getAttributeName(), "JE_DERIVATIONS");
+					if(luc != null)
+					{
+						hm.put("meaning", luc.getMeaning());
+					}
+					hm.put("id", tmpMp.getId());
+					hm.put("attributeName", tmpMp.getAttributeName());
+					hm.put("mappingType", tmpMp.getMappingType());
+					hm.put("value", tmpMp.getValue());
+					if(tmpMp.getSourceViewColumnId() != null)
+					{
+						hm.put("sourceViewColumnId", tmpMp.getSourceViewColumnId());
+					}
+					tmplHMs.add(hm);
+				}
+				finalMap.put("jeHeaderDerivations", tmplHMs);
+			}
+			//Line Criteria
+			List<LineCriteria> lcs = lineCriteriaRepository.findByJeTempId(templateId);
+			if(lcs.size()>0)
+			{
+				List<HashMap> lineCriteria = new ArrayList<HashMap>();
+				for(LineCriteria lc : lcs)
+				{
+					HashMap hm = new HashMap();
+					hm.put("id", lc.getId());
+					hm.put("seq", lc.getSeq());
+					hm.put("value", lc.getValue());
+					hm.put("sViewColumn", lc.getsViewColumn());
+					hm.put("operator", lc.getOperator());
+					lineCriteria.add(hm);
+				}
+				finalMap.put("jeLineDerivations", lineCriteria);
+			}
+		}
+		return finalMap;
+	}
+	
+	
+	
+	/**
+	 * author:ravali
+	 * @param tenantId
+	 * @param name
+	 * Desc: checking whether template name already exists
+	 * @return hashMap stating the status
+	 */
+	@GetMapping("/templateNameIsExists")
+	@Timed
+	public HashMap templateName(@RequestParam Long tenantId,@RequestParam String name)
+	{
+		HashMap map=new HashMap();
+		map.put("result", "No Duplicates Found");
+		List<TemplateDetails> temName=templateDetailsRepository.findByTenantIdAndTemplateName(tenantId,name);
+		if(temName.size()>0)
+		{
+			map.put("result", "'"+name+"' templateName already exists");
+		}
+		return map;
+		
+		
+	}
+	
+	
+}

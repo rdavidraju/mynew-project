@@ -1,0 +1,660 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.springframework.data.elasticsearch.annotations.Document;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A RuleConditions.
+ */
+@Entity
+@Table(name = "t_rule_conditions")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+@Document(indexName = "ruleconditions")
+public class RuleConditions implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "rule_id")
+    private Long ruleId;
+
+    @Column(name = "open_bracket")
+    private String openBracket;
+
+    @Column(name = "s_column_id")
+    private Long sColumnId;
+
+    @Column(name = "s_formula")
+    private String sFormula;
+
+    @Column(name = "s_tolerance_type")
+    private String sToleranceType;
+
+    @Column(name = "s_many")
+    private Boolean sMany;
+
+    @Column(name = "t_column_id")
+    private Long tColumnId;
+
+    @Column(name = "t_formula")
+    private String tFormula;
+
+    @Column(name = "t_many")
+    private Boolean tMany;
+
+    @Column(name = "t_tolerance_type")
+    private String tToleranceType;
+
+    @Column(name = "close_bracket")
+    private String closeBracket;
+
+    @Column(name = "logical_operator")
+    private String logicalOperator;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    @Column(name = "creation_date")
+    private ZonedDateTime creationDate;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+
+    @Column(name = "s_column_field_name")
+    private String sColumnFieldName;
+
+    @Column(name = "s_tolerance_operator_from")
+    private String sToleranceOperatorFrom;
+
+    @Column(name = "s_tolerance_value_from")
+    private String sToleranceValueFrom;
+
+    @Column(name = "s_tolerance_operator_to")
+    private String sToleranceOperatorTo;
+
+    @Column(name = "s_tolerance_value_to")
+    private String sToleranceValueTo;
+
+    @Column(name = "t_tolerance_operator_from")
+    private String tToleranceOperatorFrom;
+
+    @Column(name = "t_tolerance_value_from")
+    private String tToleranceValueFrom;
+
+    @Column(name = "t_tolerance_operator_to")
+    private String tToleranceOperatorTo;
+
+    @Column(name = "t_tolerance_value_to")
+    private String tToleranceValueTo;
+
+    @Column(name = "s_value_type")
+    private String sValueType;
+
+    @Column(name = "s_operator")
+    private String sOperator;
+
+    @Column(name = "s_value")
+    private String sValue;
+
+    @Column(name = "t_value_type")
+    private String tValueType;
+
+    @Column(name = "t_operator")
+    private String tOperator;
+
+    @Column(name = "t_value")
+    private String tValue;
+    
+    @Column(name = "value_type")
+    private String valueType;
+    
+    @Column(name = "operator")
+    private String operator;
+    
+    @Column(name = "value")
+    private String value;
+
+    @Column(name = "s_recon_amount_match")
+    private Boolean sReconAmountMatch;
+
+    @Column(name = "t_recon_amount_match")
+    private Boolean tReconAmountMatch;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getRuleId() {
+        return ruleId;
+    }
+
+    public RuleConditions ruleId(Long ruleId) {
+        this.ruleId = ruleId;
+        return this;
+    }
+
+    public void setRuleId(Long ruleId) {
+        this.ruleId = ruleId;
+    }
+
+    public String getOpenBracket() {
+        return openBracket;
+    }
+
+    public RuleConditions openBracket(String openBracket) {
+        this.openBracket = openBracket;
+        return this;
+    }
+
+    public void setOpenBracket(String openBracket) {
+        this.openBracket = openBracket;
+    }
+
+    public Long getsColumnId() {
+        return sColumnId;
+    }
+
+    public RuleConditions sColumnId(Long sColumnId) {
+        this.sColumnId = sColumnId;
+        return this;
+    }
+
+    public void setsColumnId(Long sColumnId) {
+        this.sColumnId = sColumnId;
+    }
+
+    public String getsFormula() {
+        return sFormula;
+    }
+
+    public RuleConditions sFormula(String sFormula) {
+        this.sFormula = sFormula;
+        return this;
+    }
+
+    public void setsFormula(String sFormula) {
+        this.sFormula = sFormula;
+    }
+
+    public String getsToleranceType() {
+        return sToleranceType;
+    }
+
+    public RuleConditions sToleranceType(String sToleranceType) {
+        this.sToleranceType = sToleranceType;
+        return this;
+    }
+
+    public void setsToleranceType(String sToleranceType) {
+        this.sToleranceType = sToleranceType;
+    }
+
+    public Boolean issMany() {
+        return sMany;
+    }
+
+    public RuleConditions sMany(Boolean sMany) {
+        this.sMany = sMany;
+        return this;
+    }
+
+    public void setsMany(Boolean sMany) {
+        this.sMany = sMany;
+    }
+
+    public Long gettColumnId() {
+        return tColumnId;
+    }
+
+    public RuleConditions tColumnId(Long tColumnId) {
+        this.tColumnId = tColumnId;
+        return this;
+    }
+
+    public void settColumnId(Long tColumnId) {
+        this.tColumnId = tColumnId;
+    }
+
+    public String gettFormula() {
+        return tFormula;
+    }
+
+    public RuleConditions tFormula(String tFormula) {
+        this.tFormula = tFormula;
+        return this;
+    }
+
+    public void settFormula(String tFormula) {
+        this.tFormula = tFormula;
+    }
+
+    public Boolean istMany() {
+        return tMany;
+    }
+
+    public RuleConditions tMany(Boolean tMany) {
+        this.tMany = tMany;
+        return this;
+    }
+
+    public void settMany(Boolean tMany) {
+        this.tMany = tMany;
+    }
+
+    public String gettToleranceType() {
+        return tToleranceType;
+    }
+
+    public RuleConditions tToleranceType(String tToleranceType) {
+        this.tToleranceType = tToleranceType;
+        return this;
+    }
+
+    public void settToleranceType(String tToleranceType) {
+        this.tToleranceType = tToleranceType;
+    }
+
+    public String getCloseBracket() {
+        return closeBracket;
+    }
+
+    public RuleConditions closeBracket(String closeBracket) {
+        this.closeBracket = closeBracket;
+        return this;
+    }
+
+    public void setCloseBracket(String closeBracket) {
+        this.closeBracket = closeBracket;
+    }
+
+    public String getLogicalOperator() {
+        return logicalOperator;
+    }
+
+    public RuleConditions logicalOperator(String logicalOperator) {
+        this.logicalOperator = logicalOperator;
+        return this;
+    }
+
+    public void setLogicalOperator(String logicalOperator) {
+        this.logicalOperator = logicalOperator;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public RuleConditions createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public RuleConditions lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public ZonedDateTime getCreationDate() {
+        return creationDate;
+    }
+
+    public RuleConditions creationDate(ZonedDateTime creationDate) {
+        this.creationDate = creationDate;
+        return this;
+    }
+
+    public void setCreationDate(ZonedDateTime creationDate) {
+        this.creationDate = creationDate;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public RuleConditions lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+
+    public String getsColumnFieldName() {
+        return sColumnFieldName;
+    }
+
+    public RuleConditions sColumnFieldName(String sColumnFieldName) {
+        this.sColumnFieldName = sColumnFieldName;
+        return this;
+    }
+
+    public void setsColumnFieldName(String sColumnFieldName) {
+        this.sColumnFieldName = sColumnFieldName;
+    }
+
+    public String getsToleranceOperatorFrom() {
+        return sToleranceOperatorFrom;
+    }
+
+    public RuleConditions sToleranceOperatorFrom(String sToleranceOperatorFrom) {
+        this.sToleranceOperatorFrom = sToleranceOperatorFrom;
+        return this;
+    }
+
+    public void setsToleranceOperatorFrom(String sToleranceOperatorFrom) {
+        this.sToleranceOperatorFrom = sToleranceOperatorFrom;
+    }
+
+    public String getsToleranceValueFrom() {
+        return sToleranceValueFrom;
+    }
+
+    public RuleConditions sToleranceValueFrom(String sToleranceValueFrom) {
+        this.sToleranceValueFrom = sToleranceValueFrom;
+        return this;
+    }
+
+    public void setsToleranceValueFrom(String sToleranceValueFrom) {
+        this.sToleranceValueFrom = sToleranceValueFrom;
+    }
+
+    public String getsToleranceOperatorTo() {
+        return sToleranceOperatorTo;
+    }
+
+    public RuleConditions sToleranceOperatorTo(String sToleranceOperatorTo) {
+        this.sToleranceOperatorTo = sToleranceOperatorTo;
+        return this;
+    }
+
+    public void setsToleranceOperatorTo(String sToleranceOperatorTo) {
+        this.sToleranceOperatorTo = sToleranceOperatorTo;
+    }
+
+    public String getsToleranceValueTo() {
+        return sToleranceValueTo;
+    }
+
+    public RuleConditions sToleranceValueTo(String sToleranceValueTo) {
+        this.sToleranceValueTo = sToleranceValueTo;
+        return this;
+    }
+
+    public void setsToleranceValueTo(String sToleranceValueTo) {
+        this.sToleranceValueTo = sToleranceValueTo;
+    }
+
+    public String gettToleranceOperatorFrom() {
+        return tToleranceOperatorFrom;
+    }
+
+    public RuleConditions tToleranceOperatorFrom(String tToleranceOperatorFrom) {
+        this.tToleranceOperatorFrom = tToleranceOperatorFrom;
+        return this;
+    }
+
+    public void settToleranceOperatorFrom(String tToleranceOperatorFrom) {
+        this.tToleranceOperatorFrom = tToleranceOperatorFrom;
+    }
+
+    public String gettToleranceValueFrom() {
+        return tToleranceValueFrom;
+    }
+
+    public RuleConditions tToleranceValueFrom(String tToleranceValueFrom) {
+        this.tToleranceValueFrom = tToleranceValueFrom;
+        return this;
+    }
+
+    public void settToleranceValueFrom(String tToleranceValueFrom) {
+        this.tToleranceValueFrom = tToleranceValueFrom;
+    }
+
+    public String gettToleranceOperatorTo() {
+        return tToleranceOperatorTo;
+    }
+
+    public RuleConditions tToleranceOperatorTo(String tToleranceOperatorTo) {
+        this.tToleranceOperatorTo = tToleranceOperatorTo;
+        return this;
+    }
+
+    public void settToleranceOperatorTo(String tToleranceOperatorTo) {
+        this.tToleranceOperatorTo = tToleranceOperatorTo;
+    }
+
+    public String gettToleranceValueTo() {
+        return tToleranceValueTo;
+    }
+
+    public RuleConditions tToleranceValueTo(String tToleranceValueTo) {
+        this.tToleranceValueTo = tToleranceValueTo;
+        return this;
+    }
+
+    public void settToleranceValueTo(String tToleranceValueTo) {
+        this.tToleranceValueTo = tToleranceValueTo;
+    }
+
+    public String getsValueType() {
+        return sValueType;
+    }
+
+    public RuleConditions sValueType(String sValueType) {
+        this.sValueType = sValueType;
+        return this;
+    }
+
+    public void setsValueType(String sValueType) {
+        this.sValueType = sValueType;
+    }
+
+    public String getsOperator() {
+        return sOperator;
+    }
+
+    public RuleConditions sOperator(String sOperator) {
+        this.sOperator = sOperator;
+        return this;
+    }
+
+    public void setsOperator(String sOperator) {
+        this.sOperator = sOperator;
+    }
+
+    public String getsValue() {
+        return sValue;
+    }
+
+    public RuleConditions sValue(String sValue) {
+        this.sValue = sValue;
+        return this;
+    }
+
+    public void setsValue(String sValue) {
+        this.sValue = sValue;
+    }
+
+    public String gettValueType() {
+        return tValueType;
+    }
+
+    public RuleConditions tValueType(String tValueType) {
+        this.tValueType = tValueType;
+        return this;
+    }
+
+    public void settValueType(String tValueType) {
+        this.tValueType = tValueType;
+    }
+
+    public String gettOperator() {
+        return tOperator;
+    }
+
+    public RuleConditions tOperator(String tOperator) {
+        this.tOperator = tOperator;
+        return this;
+    }
+
+    public void settOperator(String tOperator) {
+        this.tOperator = tOperator;
+    }
+
+    public String gettValue() {
+        return tValue;
+    }
+
+    public RuleConditions tValue(String tValue) {
+        this.tValue = tValue;
+        return this;
+    }
+
+    public void settValue(String tValue) {
+        this.tValue = tValue;
+    }
+    
+    
+    public String getValueType() {
+        return valueType;
+    }
+
+    public RuleConditions valueType(String valueType) {
+        this.valueType = valueType;
+        return this;
+    }
+
+    public void setValueType(String valueType) {
+        this.valueType = valueType;
+    }
+    
+    public String getOperator() {
+        return operator;
+    }
+
+    public RuleConditions operator(String operator) {
+        this.operator = operator;
+        return this;
+    }
+
+    public void setOperator(String operator) {
+        this.operator = operator;
+    }
+    
+    public String getValue() {
+        return value;
+    }
+
+    public RuleConditions value(String value) {
+        this.value = value;
+        return this;
+    }
+
+    public void setValue(String value) {
+        this.value = value;
+    }
+    
+    public Boolean issReconAmountMatch() {
+        return sReconAmountMatch;
+    }
+
+    public RuleConditions sReconAmountMatch(Boolean sReconAmountMatch) {
+        this.sReconAmountMatch = sReconAmountMatch;
+        return this;
+    }
+
+    public void setsReconAmountMatch(Boolean sReconAmountMatch) {
+        this.sReconAmountMatch = sReconAmountMatch;
+    }
+
+    public Boolean istReconAmountMatch() {
+        return tReconAmountMatch;
+    }
+
+    public RuleConditions tReconAmountMatch(Boolean tReconAmountMatch) {
+        this.tReconAmountMatch = tReconAmountMatch;
+        return this;
+    }
+
+    public void settReconAmountMatch(Boolean tReconAmountMatch) {
+        this.tReconAmountMatch = tReconAmountMatch;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        RuleConditions ruleConditions = (RuleConditions) o;
+        if (ruleConditions.id == null || id == null) {
+            return false;
+        }
+        return Objects.equals(id, ruleConditions.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
+	public String toString() {
+		return "RuleConditions [id=" + id + ", ruleId=" + ruleId
+				+ ", openBracket=" + openBracket + ", sColumnId=" + sColumnId
+				+ ", sFormula=" + sFormula + ", sToleranceType="
+				+ sToleranceType + ", sMany=" + sMany + ", tColumnId="
+				+ tColumnId + ", tFormula=" + tFormula + ", tMany=" + tMany
+				+ ", tToleranceType=" + tToleranceType + ", closeBracket="
+				+ closeBracket + ", logicalOperator=" + logicalOperator
+				+ ", createdBy=" + createdBy + ", lastUpdatedBy="
+				+ lastUpdatedBy + ", creationDate=" + creationDate
+				+ ", lastUpdatedDate=" + lastUpdatedDate
+				+ ", sColumnFieldName=" + sColumnFieldName
+				+ ", sToleranceOperatorFrom=" + sToleranceOperatorFrom
+				+ ", sToleranceValueFrom=" + sToleranceValueFrom
+				+ ", sToleranceOperatorTo=" + sToleranceOperatorTo
+				+ ", sToleranceValueTo=" + sToleranceValueTo
+				+ ", tToleranceOperatorFrom=" + tToleranceOperatorFrom
+				+ ", tToleranceValueFrom=" + tToleranceValueFrom
+				+ ", tToleranceOperatorTo=" + tToleranceOperatorTo
+				+ ", tToleranceValueTo=" + tToleranceValueTo + ", sValueType="
+				+ sValueType + ", sOperator=" + sOperator + ", sValue="
+				+ sValue + ", tValueType=" + tValueType + ", tOperator="
+				+ tOperator + ", tValue=" + tValue + ", valueType=" + valueType
+				+ ", operator=" + operator + ", value=" + value
+				+ ", sReconAmountMatch=" + sReconAmountMatch
+				+ ", tReconAmountMatch=" + tReconAmountMatch + "]";
+	}
+}

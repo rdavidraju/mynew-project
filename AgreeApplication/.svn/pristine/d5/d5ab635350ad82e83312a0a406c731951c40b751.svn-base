@@ -1,0 +1,242 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.search.LookUpCodeSearchRepository;
+import com.nspl.app.web.rest.dto.SrcConnectionDetailsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing LookUpCode.
+ */
+@RestController
+@RequestMapping("/api")
+public class LookUpCodeResource {
+
+    private final Logger log = LoggerFactory.getLogger(LookUpCodeResource.class);
+
+    private static final String ENTITY_NAME = "lookUpCode";
+        
+    private final LookUpCodeRepository lookUpCodeRepository;
+
+    private final LookUpCodeSearchRepository lookUpCodeSearchRepository;
+
+    public LookUpCodeResource(LookUpCodeRepository lookUpCodeRepository, LookUpCodeSearchRepository lookUpCodeSearchRepository) {
+        this.lookUpCodeRepository = lookUpCodeRepository;
+        this.lookUpCodeSearchRepository = lookUpCodeSearchRepository;
+    }
+
+    /**
+     * POST  /look-up-codes : Create a new lookUpCode.
+     *
+     * @param lookUpCode the lookUpCode to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new lookUpCode, or with status 400 (Bad Request) if the lookUpCode has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/look-up-codes")
+    @Timed
+    public ResponseEntity<LookUpCode> createLookUpCode(@RequestBody LookUpCode lookUpCode) throws URISyntaxException {
+        log.debug("REST request to save LookUpCode : {}", lookUpCode);
+        if (lookUpCode.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new lookUpCode cannot already have an ID")).body(null);
+        }
+        LookUpCode result = lookUpCodeRepository.save(lookUpCode);
+        lookUpCodeSearchRepository.save(result);
+        return ResponseEntity.created(new URI("	" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /look-up-codes : Updates an existing lookUpCode.
+     *
+     * @param lookUpCode the lookUpCode to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated lookUpCode,
+     * or with status 400 (Bad Request) if the lookUpCode is not valid,
+     * or with status 500 (Internal Server Error) if the lookUpCode couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/look-up-codes")
+    @Timed
+    public ResponseEntity<LookUpCode> updateLookUpCode(@RequestBody LookUpCode lookUpCode) throws URISyntaxException {
+        log.debug("REST request to update LookUpCode : {}", lookUpCode);
+        if (lookUpCode.getId() == null) {
+            return createLookUpCode(lookUpCode);
+        }
+        LookUpCode result = lookUpCodeRepository.save(lookUpCode);
+        lookUpCodeSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, lookUpCode.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /look-up-codes : get all the lookUpCodes.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of lookUpCodes in body
+     */
+    @GetMapping("/look-up-codes")
+    @Timed
+    public ResponseEntity<List<LookUpCode>> getAllLookUpCodes(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of LookUpCodes");
+        Page<LookUpCode> page = lookUpCodeRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/look-up-codes");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /look-up-codes/:id : get the "id" lookUpCode.
+     *
+     * @param id the id of the lookUpCode to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the lookUpCode, or with status 404 (Not Found)
+     */
+    @GetMapping("/look-up-codes/{id}")
+    @Timed
+    public ResponseEntity<LookUpCode> getLookUpCode(@PathVariable Long id) {
+        log.debug("REST request to get LookUpCode : {}", id);
+        LookUpCode lookUpCode = lookUpCodeRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(lookUpCode));
+    }
+
+    /**
+     * DELETE  /look-up-codes/:id : delete the "id" lookUpCode.
+     *
+     * @param id the id of the lookUpCode to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/look-up-codes/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteLookUpCode(@PathVariable Long id) {
+        log.debug("REST request to delete LookUpCode : {}", id);
+        lookUpCodeRepository.delete(id);
+        lookUpCodeSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/look-up-codes?query=:query : search for the lookUpCode corresponding
+     * to the query.
+     *
+     * @param query the query of the lookUpCode search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/look-up-codes")
+    @Timed
+    public ResponseEntity<List<LookUpCode>> searchLookUpCodes(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of LookUpCodes for query {}", query);
+        Page<LookUpCode> page = lookUpCodeSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/look-up-codes");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+    
+    
+    
+    /**
+     * author:ravali
+     * @param lookUpType
+     * @param tenantId
+     * @return look up code
+     */
+    @GetMapping("/lookup-codes/{lookuptype}/{tenantId}")
+    @Timed
+    public List<LookUpCode> getByLookUpType(@PathVariable String lookuptype,@PathVariable Long tenantId){
+    //	User currentUser = userService.getCurrentUser();
+    //	Long tenantId=currentUser.getTenantId();
+    //	log.info("/lookup-codes/byLookUpType tenantId: "+tenantId);
+    	List<LookUpCode> lookUpCodeList=lookUpCodeRepository.findByTenantAndLookUpTypeAndActiveState(tenantId,lookuptype);
+    	if(lookuptype.equalsIgnoreCase("all")){
+    		lookUpCodeList=lookUpCodeRepository.fetchByTenanatIdAndActiveState(tenantId);
+    	}
+    	return lookUpCodeList;
+    }
+    
+    
+    
+    /**
+     * author:ravali
+     * @param lookUpType
+     * @param tenantId
+     * @return look up code
+     */
+    @GetMapping("/lookupCodesAndMeaning/{lookuptype}/{tenantId}")
+    @Timed
+    public List<HashMap> getByLooKUpCodeAndMeaning(@PathVariable String lookuptype,@PathVariable Long tenantId){
+    	log.info("Rest Request to get lookUpCode and Meaning by lookUpType :"+lookuptype+" and tenantId" +tenantId);
+    	List<LookUpCode> lookUpCodeList=lookUpCodeRepository.findByTenantAndLookUpTypeAndActiveState(tenantId,lookuptype);
+    	List<HashMap> finalMap=new ArrayList<HashMap>();
+    	for(LookUpCode lookUpCode:lookUpCodeList)
+    	{
+    		HashMap map=new HashMap();
+    		if(lookUpCode.getLookUpCode()!=null && !lookUpCode.getLookUpCode().isEmpty())
+    			map.put("lookUpCode", lookUpCode.getLookUpCode());
+    		if(lookUpCode.getMeaning()!=null && !lookUpCode.getMeaning().isEmpty())
+    			map.put("meaning", lookUpCode.getMeaning());
+    		if(map!=null && !map.isEmpty())
+    			finalMap.add(map);	
+    	}
+    	return finalMap;
+    }
+ 
+    
+    /**
+     * Author : shobha
+     * @param lookuptype
+     * @param tenantId
+     * @return source connections and their display columns from look up code table
+     * 
+     */
+    @GetMapping("/connectionsAndDisplayColumns/{lookuptype}/{tenantId}")
+    @Timed
+    public List<SrcConnectionDetailsDTO> fetchConnectionsAndDisplayColumns(@PathVariable String lookuptype,@PathVariable Long tenantId){
+    	log.info("Rest request to fetch connections and display columns");
+    	List<SrcConnectionDetailsDTO> srcConDetails = new ArrayList<SrcConnectionDetailsDTO>();
+    	List<LookUpCode> connectionsList = lookUpCodeRepository.findByTenantAndLookUpTypeAndActiveState(tenantId,lookuptype);
+    	log.info("connectionss :"+connectionsList);
+    	for(LookUpCode con : connectionsList)
+    	{
+    		List<LookUpCode> displayCols = lookUpCodeRepository.findByTenantAndLookUpTypeAndActiveState(tenantId,con.getLookUpCode());
+    		List<HashMap> displayColMap = new ArrayList<HashMap>();
+    		for(LookUpCode displayCol : displayCols)
+    		{
+    			HashMap<String,String> map = new HashMap<String,String>();
+    			map.put("code", displayCol.getLookUpCode());
+    			map.put("meaning", displayCol.getMeaning());
+    			map.put("value","" );
+    			displayColMap.add(map);
+    		}
+    			SrcConnectionDetailsDTO srcconDTO = new SrcConnectionDetailsDTO();
+    			srcconDTO.setConnectionTypeCode(con.getLookUpCode());
+    			srcconDTO.setConnectionTypeMeaning(con.getMeaning());
+    			srcconDTO.setDisplayColumns(displayColMap);
+    			srcConDetails.add(srcconDTO);
+    	}
+    	return srcConDetails;
+    }
+}

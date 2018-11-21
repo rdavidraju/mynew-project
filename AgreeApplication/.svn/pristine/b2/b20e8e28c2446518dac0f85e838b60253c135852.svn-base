@@ -1,0 +1,229 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataChild;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.repository.DataChildRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.search.DataChildSearchRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.DataChildDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing DataChild.
+ */
+@RestController
+@RequestMapping("/api")
+public class DataChildResource {
+
+    private final Logger log = LoggerFactory.getLogger(DataChildResource.class);
+
+    private static final String ENTITY_NAME = "dataChild";
+        
+    private final DataChildRepository dataChildRepository;
+
+    private final DataChildSearchRepository dataChildSearchRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+	UserJdbcService userJdbcService;
+
+    public DataChildResource(DataChildRepository dataChildRepository, DataChildSearchRepository dataChildSearchRepository) {
+        this.dataChildRepository = dataChildRepository;
+        this.dataChildSearchRepository = dataChildSearchRepository;
+    }
+
+    /**
+     * POST  /data-children : Create a new dataChild.
+     *
+     * @param dataChild the dataChild to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new dataChild, or with status 400 (Bad Request) if the dataChild has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/data-children")
+    @Timed
+    public ResponseEntity<DataChild> createDataChild(@RequestBody DataChild dataChild) throws URISyntaxException {
+        log.debug("REST request to save DataChild : {}", dataChild);
+        if (dataChild.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataChild cannot already have an ID")).body(null);
+        }
+        DataChild result = dataChildRepository.save(dataChild);
+        dataChildSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/data-children/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /data-children : Updates an existing dataChild.
+     *
+     * @param dataChild the dataChild to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataChild,
+     * or with status 400 (Bad Request) if the dataChild is not valid,
+     * or with status 500 (Internal Server Error) if the dataChild couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/data-children")
+    @Timed
+    public ResponseEntity<DataChild> updateDataChild(@RequestBody DataChild dataChild) throws URISyntaxException {
+        log.debug("REST request to update DataChild : {}", dataChild);
+        if (dataChild.getId() == null) {
+            return createDataChild(dataChild);
+        }
+        DataChild result = dataChildRepository.save(dataChild);
+        dataChildSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, dataChild.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /data-children : get all the dataChildren.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of dataChildren in body
+     */
+    @GetMapping("/data-children")
+    @Timed
+    public ResponseEntity<List<DataChild>> getAllDataChildren(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of DataChildren");
+        Page<DataChild> page = dataChildRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/data-children");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /data-children/:id : get the "id" dataChild.
+     *
+     * @param id the id of the dataChild to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataChild, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-children/{id}")
+    @Timed
+    public ResponseEntity<DataChild> getDataChild(@PathVariable Long id) {
+        log.debug("REST request to get DataChild : {}", id);
+        DataChild dataChild = dataChildRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataChild));
+    }
+
+    /**
+     * DELETE  /data-children/:id : delete the "id" dataChild.
+     *
+     * @param id the id of the dataChild to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-children/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataChild(@PathVariable Long id) {
+        log.debug("REST request to delete DataChild : {}", id);
+        dataChildRepository.delete(id);
+        dataChildSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/data-children?query=:query : search for the dataChild corresponding
+     * to the query.
+     *
+     * @param query the query of the dataChild search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/data-children")
+    @Timed
+    public ResponseEntity<List<DataChild>> searchDataChildren(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of DataChildren for query {}", query);
+        Page<DataChild> page = dataChildSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/data-children");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    @PostMapping("/postDataChild")
+    @Timed
+    public HashMap postDataChilds(@RequestBody List<DataChildDTO> dataChilds, HttpServletRequest request) throws URISyntaxException {
+    	HashMap finalMap = new HashMap();
+        HashMap map = userJdbcService.getuserInfoFromToken(request);
+      	Long userId = Long.parseLong(map.get("userId").toString());
+      	Long tenantId = Long.parseLong(map.get("tenantId").toString());
+    	log.info("REST API for posting line split and insert row for the tenant id: "+tenantId+", DataChild Size: "+dataChilds.size());
+    	if(dataChilds.size()>0)
+    	{
+    		for(DataChildDTO dataChild : dataChilds)
+    		{
+    			DataChild dc = new DataChild();
+    			dc.setTenantId(tenantId);
+    			if(dataChild.getDataViewId() != null)
+    			{
+    		    	DataViews dv = dataViewsRepository.findByTenantIdAndIdForDisplay(tenantId, dataChild.getDataViewId());
+    		    	dc.setDataViewId(dv.getId());
+    			}
+    			if(dataChild.getMasterRowId() != null)
+    			{
+    				dc.setMasterRowId(dataChild.getMasterRowId());
+    			}
+    			if(dataChild.getRowDescription() != null)
+    			{
+    				dc.setRowDescription(dataChild.getRowDescription());
+    			}
+    			if(dataChild.getAdjustmentType() != null)
+    			{
+    				dc.setAdjustmentType(dataChild.getAdjustmentType());
+    			}
+    			if(dataChild.getAdjustmentMethod() != null)
+    			{
+    				dc.setAdjustmentMethod(dataChild.getAdjustmentMethod());
+    			}
+    			if(dataChild.getPercentValue() != null)
+    			{
+    				dc.setPercentValue(dataChild.getPercentValue());
+    			}
+    			if(dataChild.getAmount() != null)
+    			{
+    				dc.setAmount(dataChild.getAmount());
+    			}
+    			dc.setTenantId(tenantId);
+    			dc.setCreatedBy(userId);
+    			dc.setLastUpdatedBy(userId);
+    			dc.setCreationDate(ZonedDateTime.now());
+    			dc.setLastUpdatedDate(ZonedDateTime.now());
+    			dataChildRepository.save(dc);
+    		}
+    	}
+    	return finalMap;
+    }
+}

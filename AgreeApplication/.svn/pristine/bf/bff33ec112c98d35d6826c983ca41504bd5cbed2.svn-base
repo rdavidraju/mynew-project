@@ -1,0 +1,610 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.IntermediateTable;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.IntermediateTableRepository;
+import com.nspl.app.repository.search.FileTemplateLinesSearchRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.FileTemplateLinesDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing FileTemplateLines.
+ */
+@RestController
+@RequestMapping("/api")
+public class FileTemplateLinesResource {
+
+	private final Logger log = LoggerFactory.getLogger(FileTemplateLinesResource.class);
+
+	private static final String ENTITY_NAME = "fileTemplateLines";
+
+	private final FileTemplateLinesRepository fileTemplateLinesRepository;
+
+	private final FileTemplateLinesSearchRepository fileTemplateLinesSearchRepository;
+	
+	private final IntermediateTableRepository intermediateTableRepository;
+
+	private final FileTemplatesRepository fileTemplatesRepository;
+	
+	@Inject
+	UserJdbcService userJdbcService;
+	
+	public FileTemplateLinesResource(FileTemplatesRepository fileTemplatesRepository, FileTemplateLinesRepository fileTemplateLinesRepository, FileTemplateLinesSearchRepository fileTemplateLinesSearchRepository,IntermediateTableRepository intermediateTableRepository) {
+		this.fileTemplatesRepository = fileTemplatesRepository;
+		this.fileTemplateLinesRepository = fileTemplateLinesRepository;
+		this.fileTemplateLinesSearchRepository = fileTemplateLinesSearchRepository;
+		this.intermediateTableRepository =intermediateTableRepository;
+	}
+
+	/**
+	 * POST  /file-template-lines : Create a new fileTemplateLines.
+	 *
+	 * @param fileTemplateLines the fileTemplateLines to create
+	 * @return the ResponseEntity with status 201 (Created) and with body the new fileTemplateLines, or with status 400 (Bad Request) if the fileTemplateLines has already an ID
+	 * @throws URISyntaxException if the Location URI syntax is incorrect
+	 */
+	@PostMapping("/file-template-lines")
+	@Timed
+	public ResponseEntity<FileTemplateLines> createFileTemplateLines(@RequestBody FileTemplateLines fileTemplateLines) throws URISyntaxException {
+		log.debug("REST request to save FileTemplateLines : {}", fileTemplateLines);
+		if (fileTemplateLines.getId() != null) {
+			return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new fileTemplateLines cannot already have an ID")).body(null);
+		}
+		FileTemplateLines result = fileTemplateLinesRepository.save(fileTemplateLines);
+		fileTemplateLinesSearchRepository.save(result);
+		return ResponseEntity.created(new URI("/api/file-template-lines/" + result.getId()))
+				.headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+				.body(result);
+	}
+
+	/**
+	 * PUT  /file-template-lines : Updates an existing fileTemplateLines.
+	 *
+	 * @param fileTemplateLines the fileTemplateLines to update
+	 * @return the ResponseEntity with status 200 (OK) and with body the updated fileTemplateLines,
+	 * or with status 400 (Bad Request) if the fileTemplateLines is not valid,
+	 * or with status 500 (Internal Server Error) if the fileTemplateLines couldnt be updated
+	 * @throws URISyntaxException if the Location URI syntax is incorrect
+	 */
+	@PutMapping("/file-template-lines")
+	@Timed
+	public ResponseEntity<FileTemplateLines> updateFileTemplateLines(@RequestBody FileTemplateLines fileTemplateLines) throws URISyntaxException {
+		log.debug("REST request to update FileTemplateLines : {}", fileTemplateLines);
+		if (fileTemplateLines.getId() == null) {
+			return createFileTemplateLines(fileTemplateLines);
+		}
+		FileTemplateLines result = fileTemplateLinesRepository.save(fileTemplateLines);
+		fileTemplateLinesSearchRepository.save(result);
+		return ResponseEntity.ok()
+				.headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, fileTemplateLines.getId().toString()))
+				.body(result);
+	}
+
+	/**
+	 * GET  /file-template-lines : get all the fileTemplateLines.
+	 *
+	 * @param pageable the pagination information
+	 * @return the ResponseEntity with status 200 (OK) and the list of fileTemplateLines in body
+	 */
+	@GetMapping("/file-template-lines")
+	@Timed
+	public ResponseEntity<List<FileTemplateLines>> getAllFileTemplateLines(@ApiParam Pageable pageable) {
+		log.debug("REST request to get a page of FileTemplateLines");
+		Page<FileTemplateLines> page = fileTemplateLinesRepository.findAll(pageable);
+		HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/file-template-lines");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	/**
+	 * GET  /file-template-lines/:id : get the "id" fileTemplateLines.
+	 *
+	 * @param id the id of the fileTemplateLines to retrieve
+	 * @return the ResponseEntity with status 200 (OK) and with body the fileTemplateLines, or with status 404 (Not Found)
+	 */
+	@GetMapping("/file-template-lines/{id}")
+	@Timed
+	public ResponseEntity<FileTemplateLines> getFileTemplateLines(@PathVariable Long id) {
+		log.debug("REST request to get FileTemplateLines : {}", id);
+		FileTemplateLines fileTemplateLines = fileTemplateLinesRepository.findOne(id);
+		return ResponseUtil.wrapOrNotFound(Optional.ofNullable(fileTemplateLines));
+	}
+
+	/**
+	 * DELETE  /file-template-lines/:id : delete the "id" fileTemplateLines.
+	 *
+	 * @param id the id of the fileTemplateLines to delete
+	 * @return the ResponseEntity with status 200 (OK)
+	 */
+	@DeleteMapping("/file-template-lines/{id}")
+	@Timed
+	public ResponseEntity<Void> deleteFileTemplateLines(@PathVariable Long id) {
+		log.debug("REST request to delete FileTemplateLines : {}", id);
+		fileTemplateLinesRepository.delete(id);
+		fileTemplateLinesSearchRepository.delete(id);
+		return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+	}
+
+	/**
+	 * SEARCH  /_search/file-template-lines?query=:query : search for the fileTemplateLines corresponding
+	 * to the query.
+	 *
+	 * @param query the query of the fileTemplateLines search 
+	 * @param pageable the pagination information
+	 * @return the result of the search
+	 */
+	@GetMapping("/_search/file-template-lines")
+	@Timed
+	public ResponseEntity<List<FileTemplateLines>> searchFileTemplateLines(@RequestParam String query, @ApiParam Pageable pageable) {
+		log.debug("REST request to search for a page of FileTemplateLines for query {}", query);
+		Page<FileTemplateLines> page = fileTemplateLinesSearchRepository.search(queryStringQuery(query), pageable);
+		HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/file-template-lines");
+		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+	}
+
+	@PostMapping("/postTemplateLines")
+
+	@Timed
+	public List<FileTemplateLines> postFileTemplateLines(@RequestBody List<FileTemplateLines> fileTemplateLines)
+	{
+		log.debug("Rest request to save file template lines"+fileTemplateLines);
+		List<FileTemplateLines> file=fileTemplateLinesRepository.save(fileTemplateLines);
+		return file;	
+	}
+
+	
+
+
+/**
+ * Author: Kiran
+ * @param templateId
+ * @param intermediateIds
+ * @return
+ */
+	@GetMapping("/fetchTempLinesByTempIdOrIntermediateIds")
+	@Timed
+	public List<HashMap<String,List<FileTemplateLinesDTO>>> getFileTemplateLinesByTemplateIdOrintermediateIds(HttpServletRequest request,@RequestParam(required =true) String templateId, @RequestParam(value="intermediateIds", required =false) List<Long> intermediateIds)
+	{
+		log.info("Rest Request to get the template lines based on template id or intermediate ids: "+intermediateIds);
+		List<FileTemplateLines> fileTemplateLinesList=new ArrayList<FileTemplateLines>();
+		List<FileTemplateLinesDTO> fileTemplateLinesDTOList=new ArrayList<FileTemplateLinesDTO>();
+		//List<List<FileTemplateLinesDTO>> listOffileTemplateLinesDTOList=new ArrayList<List<FileTemplateLinesDTO>>();
+		 List<HashMap<String,List<FileTemplateLinesDTO>>>   listOffileTemplateLinesDTOList = new ArrayList<HashMap<String,List<FileTemplateLinesDTO>>>();
+		 
+		 HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+			
+		if(intermediateIds!=null && intermediateIds.size()>0)
+		{
+			for(int j=0;j<intermediateIds.size();j++)
+			{
+//				Long interId=Long.valueOf(intermediateIds.get(j));
+				IntermediateTable interRecord = new IntermediateTable();
+				interRecord =  intermediateTableRepository.findOne(intermediateIds.get(j));
+				log.info("Intermediate Id: "+intermediateIds.get(j));
+				fileTemplateLinesList=fileTemplateLinesRepository.findByIntermediateIdOrderByLineNumber(intermediateIds.get(j));
+				fileTemplateLinesDTOList=getFileTemplateLinesByTemplateIdOrIntermediateIds(fileTemplateLinesList);
+				HashMap<String,List<FileTemplateLinesDTO>> mapForRIAndLines = new HashMap<String,List<FileTemplateLinesDTO>>();
+				mapForRIAndLines.put(interRecord.getRowIdentifier(), fileTemplateLinesDTOList);
+				listOffileTemplateLinesDTOList.add(mapForRIAndLines);
+			}
+		}
+		else
+		{
+			FileTemplates ft = fileTemplatesRepository.findByIdForDisplayAndTenantId(templateId,tenantId);
+			fileTemplateLinesList=fileTemplateLinesRepository.findByTemplateId(ft.getId());
+			fileTemplateLinesDTOList=getFileTemplateLinesByTemplateIdOrIntermediateIds(fileTemplateLinesList);
+			HashMap<String,List<FileTemplateLinesDTO>> mapForRIAndLines = new HashMap<String,List<FileTemplateLinesDTO>>();
+			mapForRIAndLines.put("templateLines", fileTemplateLinesDTOList);
+			listOffileTemplateLinesDTOList.add(mapForRIAndLines);
+		}
+		log.info("listOffileTemplateLinesDTOList Size:"+listOffileTemplateLinesDTOList.size());
+		return listOffileTemplateLinesDTOList;
+	}
+
+	public List<FileTemplateLinesDTO> getFileTemplateLinesByTemplateIdOrIntermediateIds(List<FileTemplateLines> fileTemplateLinesList)
+	{
+		List<FileTemplateLinesDTO> fileTemplateLinesDTOList=new ArrayList<FileTemplateLinesDTO>();
+		//get last line number
+		List<Integer> lineNumbers = new ArrayList<Integer>();
+		Integer lastLine  = 0;
+		if(lineNumbers.size()>0)
+			lastLine = Collections.max(lineNumbers);
+		if(fileTemplateLinesList.size()>0&&fileTemplateLinesList!=null)
+		{
+			for(int i=0;i<fileTemplateLinesList.size();i++)
+			{
+				FileTemplateLines fileTemplateLines=fileTemplateLinesList.get(i);
+				FileTemplateLinesDTO fileTemplateLinesDTO=new FileTemplateLinesDTO();
+				fileTemplateLinesDTO.setId(fileTemplateLines.getId());
+				if(fileTemplateLines.getTemplateId()!=null)
+					fileTemplateLinesDTO.setTemplateId(fileTemplateLines.getTemplateId());
+				if(fileTemplateLines.getLineNumber()!=null)
+					fileTemplateLinesDTO.setLineNumber(fileTemplateLines.getLineNumber());
+				if(fileTemplateLines.getMasterTableReferenceColumn()!=null&&!fileTemplateLines.getMasterTableReferenceColumn().isEmpty())
+					fileTemplateLinesDTO.setMasterTableReferenceColumn(fileTemplateLines.getMasterTableReferenceColumn());
+				if(fileTemplateLines.getRecordTYpe()!=null&&!fileTemplateLines.getRecordTYpe().isEmpty())
+					fileTemplateLinesDTO.setRecordTYpe(fileTemplateLines.getRecordTYpe());
+				if(fileTemplateLines.getRecordIdentifier()!=null&&!fileTemplateLines.getRecordIdentifier().isEmpty())
+					fileTemplateLinesDTO.setRecordIdentifier(fileTemplateLines.getRecordIdentifier());
+				if(fileTemplateLines.getColumnNumber()!=null)
+					fileTemplateLinesDTO.setColumnNumber(fileTemplateLines.getColumnNumber());
+				if(fileTemplateLines.getEnclosedChar()!=null&&!fileTemplateLines.getEnclosedChar().isEmpty())
+					fileTemplateLinesDTO.setEnclosedChar(fileTemplateLines.getEnclosedChar());
+				if(fileTemplateLines.getPositionBegin()!=null)
+					fileTemplateLinesDTO.setPositionBegin(fileTemplateLines.getPositionBegin());
+				if(fileTemplateLines.getPositionEnd()!=null)
+					fileTemplateLinesDTO.setPositionEnd(fileTemplateLines.getPositionEnd());
+				if(fileTemplateLines.getColumnHeader()!=null&&!fileTemplateLines.getColumnHeader().isEmpty())
+					fileTemplateLinesDTO.setColumnHeader(fileTemplateLines.getColumnHeader());
+				if(fileTemplateLines.getConstantValue()!=null&&!fileTemplateLines.getConstantValue().isEmpty())
+					fileTemplateLinesDTO.setConstantValue(fileTemplateLines.getConstantValue());
+				if(fileTemplateLines.getZeroFill()!=null&&!fileTemplateLines.getZeroFill().isEmpty())
+					fileTemplateLinesDTO.setZeroFill(fileTemplateLines.getZeroFill());
+				if(fileTemplateLines.getAlign()!=null&&!fileTemplateLines.getAlign().isEmpty())
+					fileTemplateLinesDTO.setAlign(fileTemplateLines.getAlign());
+				if(fileTemplateLines.getFormula()!=null&&!fileTemplateLines.getFormula().isEmpty())
+					fileTemplateLinesDTO.setFormula(fileTemplateLines.getFormula());
+				if(fileTemplateLines.getDateFormat()!=null&&!fileTemplateLines.getDateFormat().isEmpty())
+					fileTemplateLinesDTO.setDateFormat(fileTemplateLines.getDateFormat());
+				if(fileTemplateLines.getTimeFormat()!=null&&!fileTemplateLines.getTimeFormat().isEmpty())
+					fileTemplateLinesDTO.setTimeFormat(fileTemplateLines.getTimeFormat());
+				if(fileTemplateLines.getAmountFormat()!=null&&!fileTemplateLines.getAmountFormat().isEmpty())
+					fileTemplateLinesDTO.setAmountFormat(fileTemplateLines.getAmountFormat());
+				if(fileTemplateLines.getOverFlow()!=null&&!fileTemplateLines.getOverFlow().isEmpty())
+					fileTemplateLinesDTO.setOverFlow(fileTemplateLines.getOverFlow());
+				if(fileTemplateLines.getSkipColumn()!=null&&!fileTemplateLines.getSkipColumn().isEmpty())
+					fileTemplateLinesDTO.setSkipColumn(fileTemplateLines.getSkipColumn());
+				if(fileTemplateLines.getColumnDelimiter()!=null&&!fileTemplateLines.getColumnDelimiter().isEmpty())
+					fileTemplateLinesDTO.setColumnDelimeter(fileTemplateLines.getColumnDelimiter());
+				if(fileTemplateLines.getCreatedDate() != null)
+					fileTemplateLinesDTO.setCreatedDate(fileTemplateLines.getCreatedDate());
+				if(fileTemplateLines.getLastUpdatedDate() != null)
+					fileTemplateLinesDTO.setLastUpdatedDate(fileTemplateLines.getLastUpdatedDate());
+				fileTemplateLinesDTO.setLastLineNumber(lastLine);
+				fileTemplateLinesDTOList.add(fileTemplateLinesDTO);
+
+
+			}
+
+		}
+		return fileTemplateLinesDTOList;
+	}
+	
+	@GetMapping("/fetchTemplateLinesByTempIdAndIntermediateId")
+	@Timed
+	public List<FileTemplateLinesDTO> fetchTemplateLinesByTempIdAndIntermediateId( HttpServletRequest request,@RequestParam String templateIdForDisplay ,@RequestParam(required=false) Long intermediateId)
+	{
+		HashMap map=userJdbcService.getuserInfoFromToken(request);
+		Long tenantId=Long.parseLong(map.get("tenantId").toString());
+		
+		FileTemplates ft = fileTemplatesRepository.findByIdForDisplayAndTenantId(templateIdForDisplay, tenantId);
+		Long templateId = ft.getId();
+		
+		List<FileTemplateLinesDTO> fileTemplateLinesDTOList=new ArrayList<FileTemplateLinesDTO>();
+		List<FileTemplateLines> fileTemplateLinesList=fileTemplateLinesRepository.findByTemplateIdAndIntermediateIdOrderByLineNumber(templateId,intermediateId);
+		if(fileTemplateLinesList.size()>0&&fileTemplateLinesList!=null)
+		{
+			for(int i=0;i<fileTemplateLinesList.size();i++)
+			{
+				FileTemplateLines fileTemplateLines=fileTemplateLinesList.get(i);
+				FileTemplateLinesDTO fileTemplateLinesDTO=new FileTemplateLinesDTO();
+				if(fileTemplateLines.getMasterTableReferenceColumn()!=null&&!fileTemplateLines.getMasterTableReferenceColumn().isEmpty())
+					fileTemplateLinesDTO.setMasterTableReferenceColumn(fileTemplateLines.getMasterTableReferenceColumn());
+				if(fileTemplateLines.getColumnHeader()!=null&&!fileTemplateLines.getColumnHeader().isEmpty())
+					fileTemplateLinesDTO.setColumnHeader(fileTemplateLines.getColumnHeader());
+				fileTemplateLinesDTOList.add(fileTemplateLinesDTO);
+			}
+		}
+		return fileTemplateLinesDTOList;
+	}
+	/**
+	 *Author:Ravali
+	 *@param templateId
+	 *@return FileTemplateLines DTO
+	 */
+	@GetMapping("/fetchTempLinesByTempId/{templateId}")
+	@Timed
+	public List<FileTemplateLinesDTO> getFileTemplateLinesByTemplateId(@RequestParam(required =true) String templateId)
+	{
+		List<FileTemplateLinesDTO> fileTemplateLinesDTOList=new ArrayList<FileTemplateLinesDTO>();
+		//List<FileTemplateLines> fileTemplateLinesList=fileTemplateLinesRepository.findByTemplateIdOrderByLineNumber(templateId);
+		List<FileTemplateLines> fileTemplateLinesList=fileTemplateLinesRepository.findBytempIdForDisplay(templateId);
+		List<Integer> lineNumbers = new ArrayList<Integer>();
+		for(int i=0;i<fileTemplateLinesList.size();i++)
+		{
+			if(fileTemplateLinesList.get(i).getLineNumber() != null)
+			lineNumbers.add(fileTemplateLinesList.get(i).getLineNumber());
+		}
+		//get last line number
+		Integer lastLine  = 0;
+		log.info("lineNumbers:"+lineNumbers);
+		if(lineNumbers.size()>0)
+			lastLine = Collections.max(lineNumbers);
+		if(fileTemplateLinesList.size()>0&&fileTemplateLinesList!=null)
+		{
+			for(int i=0;i<fileTemplateLinesList.size();i++)
+			{
+				FileTemplateLines fileTemplateLines=fileTemplateLinesList.get(i);
+				FileTemplateLinesDTO fileTemplateLinesDTO=new FileTemplateLinesDTO();
+				fileTemplateLinesDTO.setId(fileTemplateLines.getId());
+				if(fileTemplateLines.getTemplateId()!=null)
+					fileTemplateLinesDTO.setTemplateId(fileTemplateLines.getTemplateId());
+				if(fileTemplateLines.getLineNumber()!=null)
+					fileTemplateLinesDTO.setLineNumber(fileTemplateLines.getLineNumber());
+				if(fileTemplateLines.getMasterTableReferenceColumn()!=null&&!fileTemplateLines.getMasterTableReferenceColumn().isEmpty())
+					fileTemplateLinesDTO.setMasterTableReferenceColumn(fileTemplateLines.getMasterTableReferenceColumn());
+				if(fileTemplateLines.getRecordTYpe()!=null&&!fileTemplateLines.getRecordTYpe().isEmpty())
+					fileTemplateLinesDTO.setRecordTYpe(fileTemplateLines.getRecordTYpe());
+				if(fileTemplateLines.getRecordIdentifier()!=null&&!fileTemplateLines.getRecordIdentifier().isEmpty())
+					fileTemplateLinesDTO.setRecordIdentifier(fileTemplateLines.getRecordIdentifier());
+				if(fileTemplateLines.getColumnNumber()!=null)
+					fileTemplateLinesDTO.setColumnNumber(fileTemplateLines.getColumnNumber());
+				if(fileTemplateLines.getEnclosedChar()!=null&&!fileTemplateLines.getEnclosedChar().isEmpty())
+					fileTemplateLinesDTO.setEnclosedChar(fileTemplateLines.getEnclosedChar());
+				if(fileTemplateLines.getPositionBegin()!=null)
+					fileTemplateLinesDTO.setPositionBegin(fileTemplateLines.getPositionBegin());
+				if(fileTemplateLines.getPositionEnd()!=null)
+					fileTemplateLinesDTO.setPositionEnd(fileTemplateLines.getPositionEnd());
+				if(fileTemplateLines.getColumnHeader()!=null&&!fileTemplateLines.getColumnHeader().isEmpty())
+					fileTemplateLinesDTO.setColumnHeader(fileTemplateLines.getColumnHeader());
+				if(fileTemplateLines.getConstantValue()!=null&&!fileTemplateLines.getConstantValue().isEmpty())
+					fileTemplateLinesDTO.setConstantValue(fileTemplateLines.getConstantValue());
+				if(fileTemplateLines.getZeroFill()!=null&&!fileTemplateLines.getZeroFill().isEmpty())
+					fileTemplateLinesDTO.setZeroFill(fileTemplateLines.getZeroFill());
+				if(fileTemplateLines.getAlign()!=null&&!fileTemplateLines.getAlign().isEmpty())
+					fileTemplateLinesDTO.setAlign(fileTemplateLines.getAlign());
+				if(fileTemplateLines.getFormula()!=null&&!fileTemplateLines.getFormula().isEmpty())
+					fileTemplateLinesDTO.setFormula(fileTemplateLines.getFormula());
+				if(fileTemplateLines.getDateFormat()!=null&&!fileTemplateLines.getDateFormat().isEmpty())
+					fileTemplateLinesDTO.setDateFormat(fileTemplateLines.getDateFormat());
+				if(fileTemplateLines.getTimeFormat()!=null&&!fileTemplateLines.getTimeFormat().isEmpty())
+					fileTemplateLinesDTO.setTimeFormat(fileTemplateLines.getTimeFormat());
+				if(fileTemplateLines.getAmountFormat()!=null&&!fileTemplateLines.getAmountFormat().isEmpty())
+					fileTemplateLinesDTO.setAmountFormat(fileTemplateLines.getAmountFormat());
+				if(fileTemplateLines.getOverFlow()!=null&&!fileTemplateLines.getOverFlow().isEmpty())
+					fileTemplateLinesDTO.setOverFlow(fileTemplateLines.getOverFlow());
+				if(fileTemplateLines.getSkipColumn()!=null&&!fileTemplateLines.getSkipColumn().isEmpty())
+					fileTemplateLinesDTO.setSkipColumn(fileTemplateLines.getSkipColumn());
+				if(fileTemplateLines.getColumnDelimiter()!=null&&!fileTemplateLines.getColumnDelimiter().isEmpty())
+					fileTemplateLinesDTO.setColumnDelimeter(fileTemplateLines.getColumnDelimiter());
+				if(fileTemplateLines.getCreatedDate() != null)
+					fileTemplateLinesDTO.setCreatedDate(fileTemplateLines.getCreatedDate());
+				if(fileTemplateLines.getLastUpdatedDate() != null)
+					fileTemplateLinesDTO.setLastUpdatedDate(fileTemplateLines.getLastUpdatedDate());
+				if(fileTemplateLines.getRecordStartRow() != null)
+					fileTemplateLinesDTO.setRecordStartRow(fileTemplateLines.getRecordStartRow());
+				fileTemplateLinesDTO.setLastLineNumber(lastLine);
+				fileTemplateLinesDTOList.add(fileTemplateLinesDTO);
+			}
+		}
+		return fileTemplateLinesDTOList;
+	}
+
+	// Kiran
+	@PostMapping("/postTemplateLinesSample")
+	@Timed
+	public List<FileTemplateLines> postFileTemplateLinesusingForLoop(@RequestParam("Fields") Long Fields, @RequestParam("templateId") Long templateId)
+	{
+		log.debug("Rest request to save file template lines"+Fields);
+		List<FileTemplateLines> file= new ArrayList<FileTemplateLines>();
+		for(int i=1; i<=Fields;i++)
+		{
+			FileTemplateLines ftl = new FileTemplateLines();
+			ftl.setTemplateId(templateId);
+			ftl.setLineNumber(i);
+			if(i<10)
+				ftl.setMasterTableReferenceColumn("FIELD_0"+i);
+			else 
+				ftl.setMasterTableReferenceColumn("FIELD_"+i);
+			ftl.setRecordTYpe("Row Data");
+
+			switch(i)
+			{
+			case 1: ftl.setRecordTYpe("Header");
+			ftl.setPositionBegin(1);
+			ftl.setPositionEnd(45);
+			ftl.setRecordIdentifier("Record Identifier");
+			ftl.setConstantValue("ROC");
+			ftl.setFormula("IF (1:2) != 'DF' AND (44:45) = '11' then 'ROC'");
+			break;
+			case 2:
+				ftl.setPositionBegin(1);
+				ftl.setPositionEnd(10);
+				ftl.setRecordIdentifier("AMEX_PAYEE_NUMBER");
+				break;
+			case 3:
+				ftl.setPositionBegin(11);
+				ftl.setPositionEnd(20);
+				ftl.setRecordIdentifier("AMEX_SE_NUMBER");
+				break;
+			case 4:
+				ftl.setPositionBegin(21);
+				ftl.setPositionEnd(30);
+				ftl.setRecordIdentifier("SE_UNIT_NUMBER");
+				break;
+			case 5:
+				ftl.setPositionBegin(31);
+				ftl.setPositionEnd(34);
+				ftl.setRecordIdentifier("PAYMENT_YEAR");
+				break;
+			case 6:
+				ftl.setPositionBegin(35);
+				ftl.setPositionEnd(42);
+				ftl.setRecordIdentifier("PAYMENT_NUMBER");
+				break;
+			case 7:
+				ftl.setPositionBegin(43);
+				ftl.setPositionEnd(43);
+				ftl.setRecordIdentifier("RECORD_TYPE");
+				break;
+			case 8:
+				ftl.setPositionBegin(44);
+				ftl.setPositionEnd(45);
+				ftl.setRecordIdentifier("DETAIL_RECORD_TYPE");
+				break;
+			case 9:
+				ftl.setFormula("TO_CHAR(TO_DATE(SUBSTR(:FIELD_08,1,4)||'0101','YYYYMMDD')+SUBSTR(:FIELD_08,5,3)-1,'YYYYMMDD')");
+				ftl.setPositionBegin(46);
+				ftl.setPositionEnd(52);
+				ftl.setRecordIdentifier("SE_BUSINESS_DATE");
+				break;
+			case 10:
+				ftl.setPositionBegin(53);
+				ftl.setPositionEnd(59);
+				ftl.setRecordIdentifier("AMEX_PROCESS_DATE");
+				ftl.setFormula("TO_CHAR(TO_DATE(SUBSTR(:FIELD_09,1,4)||'0101','YYYYMMDD')+SUBSTR(:FIELD_09,5,3)-1,'YYYYMMDD')");
+				break;
+			case 11:
+				ftl.setPositionBegin(60);
+				ftl.setPositionEnd(65);
+				ftl.setRecordIdentifier("SOC_INVOICE_NUMBER");
+				break;
+			case 12:
+				ftl.setPositionBegin(66);
+				ftl.setPositionEnd(78);
+				ftl.setRecordIdentifier("SOC_AMT");
+				ftl.setFormula("'TRANSLATE(:FIELD_11,'ABCDEFGHI{JKLMNOPQR}','12345678901234567890') /100*DECODE(SIGN(TRANSLATE(SUBSTR(:FIELD_11,-1,1),'ABCDEFGHI{JKLMNOPQR}','11111111110000000000')),0,-1,1)'");
+				break;
+			case 13:
+				ftl.setPositionBegin(79);
+				ftl.setPositionEnd(91);
+				ftl.setRecordIdentifier("ROC_AMT");
+				ftl.setFormula("TRANSLATE(:FIELD_12,'ABCDEFGHI{JKLMNOPQR}','12345678901234567890') /100*DECODE(SIGN(TRANSLATE(SUBSTR(:FIELD_12,-1,1),'ABCDEFGHI{JKLMNOPQR}','11111111110000000000')),0,-1,1)''");
+				break;
+			case 14:
+				ftl.setPositionBegin(92);
+				ftl.setPositionEnd(106);
+				ftl.setRecordIdentifier("CM_NUMBER");
+				ftl.setFormula("REPLACE(:FIELD_13,SUBSTR(:FIELD_13,7,LENGTH(:FIELD_13)-10),LPAD('X',LENGTH(:FIELD_13)-10,'X'))");
+				break;
+			case 15:
+				ftl.setPositionBegin(107);
+				ftl.setPositionEnd(117);
+				ftl.setRecordIdentifier("CM_REF_NUMBER");
+				break;
+			case 16:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(118);
+				ftl.setPositionEnd(126);
+				ftl.setRecordIdentifier("SE_REF");
+				break;
+			case 17:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(137);
+				ftl.setPositionEnd(146);
+				ftl.setRecordIdentifier("ROC_NUMBER");
+				break;
+			case 18:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(147);
+				ftl.setPositionEnd(153);
+				ftl.setRecordIdentifier("TRANS_DATE");
+				ftl.setFormula("TO_CHAR(TO_DATE(SUBSTR(:FIELD_18,1,4)||'0101','YYYYMMDD')+SUBSTR(:FIELD_18,5,3)-1,'YYYYMMDD')");
+				break;
+			case 19:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(154);
+				ftl.setPositionEnd(183);
+				ftl.setRecordIdentifier("SE_REF_POA");
+				break;
+			case 20:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(184);
+				ftl.setPositionEnd(184);
+				ftl.setRecordIdentifier("NON_COMPL_INDICATOR");
+				ftl.setFormula("'DECODE(:FIELD_20,'',NULL,:FIELD_20||'-'||DECODE(:FIELD_20,'A','ERROR CODE','N','NOT COMPLY WITH AMEX STANDARD','UNKNOWN'))''");
+				break;
+			case 21:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(185);
+				ftl.setPositionEnd(188);
+				ftl.setRecordIdentifier("NON_COMPL_ERROR_CODE_1");
+				ftl.setFormula("This is a lookup code");
+				break;
+			case 22:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(189);
+				ftl.setPositionEnd(192);
+				ftl.setRecordIdentifier("NON_COMPL_ERROR_CODE_2");
+				ftl.setFormula("This is a lookup code");
+				break;
+			case 23:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(192);
+				ftl.setPositionEnd(196);
+				ftl.setRecordIdentifier("NON_COMPL_ERROR_CODE_3");
+				ftl.setFormula("This is a lookup code");
+				break;
+			case 24:
+				ftl.setMasterTableReferenceColumn("FIELD_"+(i+1));
+				ftl.setPositionBegin(197);
+				ftl.setPositionEnd(200);
+				ftl.setRecordIdentifier("NON_COMPL_ERROR_CODE_4");
+				ftl.setFormula("This is a lookup code");
+				break;
+			case 25:
+				ftl.setMasterTableReferenceColumn("FIELD_29");
+				ftl.setPositionBegin(201);
+				ftl.setPositionEnd(201);
+				ftl.setRecordIdentifier("NON_COMPL_ERROR_CODE_5");
+				ftl.setFormula("'DECODE(:FIELD_25,'',NULL,:FIELD_25||'-'||DECODE(:FIELD_25,'C','POS DATA CODE','H','AUTHORIZATION CODE','Z','ADJ APP-IN CODE','UNKNOWN'))'");
+				break;
+			case 26:
+				ftl.setMasterTableReferenceColumn("FIELD_30");
+				ftl.setPositionBegin(229);
+				ftl.setPositionEnd(247);
+				ftl.setRecordIdentifier("NON_SWIPED_INDICATOR");
+				ftl.setFormula("REPLACE(:FIELD_29,SUBSTR(:FIELD_29,7,LENGTH(:FIELD_29)-10),LPAD('X',LENGTH(:FIELD_29)-10,'X'))");
+				break;
+			case 27:
+				ftl.setMasterTableReferenceColumn("FIELD_31");
+				ftl.setPositionBegin(248);
+				ftl.setPositionEnd(450);
+				ftl.setRecordIdentifier("CM_NUMBER_EXD");
+				break;
+
+			}
+
+			ftl.setAlign("Right");
+			file.add(ftl);
+		}
+		fileTemplateLinesRepository.save(file);
+		return file;	
+	}
+
+
+
+}

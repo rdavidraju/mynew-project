@@ -1,0 +1,957 @@
+package com.nspl.app.service;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Properties;
+
+import javax.inject.Inject;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.io.IOUtils;
+import org.apache.oozie.client.OozieClient;
+import org.apache.oozie.client.OozieClientException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.JobDetails;
+import com.nspl.app.domain.ProgParametersSets;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.domain.TenantConfig;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.JobDetailsRepository;
+import com.nspl.app.repository.ProgParametersSetsRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.TenantConfigRepository;
+import com.nspl.app.security.IDORUtils;
+import com.nspl.app.web.rest.dto.OozieJobDTO;
+import com.oozie.components.coordinatorxml;
+import com.oozie.wfmanger.WfManager;
+import com.oozie.wfmanger.WfManagerImpl;
+
+import java.sql.Connection;
+import java.sql.Statement;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+
+@Service
+public class OozieService {
+	 private final Logger log = LoggerFactory.getLogger(OozieService.class);
+	 private static final String CONTEXT = "context";
+	
+
+		@Autowired
+		Environment env;
+		
+		@Autowired
+		org.apache.hadoop.conf.Configuration hadoopConfiguration;
+		
+		@Inject
+		PropertiesUtilService propertiesUtilService;
+		@Inject
+		ApplicationProgramsRepository applicationProgramsRepository;
+		
+	    
+	    @Inject
+	    JobDetailsRepository jobDetailsRepository;
+	    
+	    @Inject
+	    ProgParametersSetsRepository progParametersSetsRepository;
+	    
+	    @Inject
+	    ApplicationProgramsRepository applicationprogramsRepository;
+	
+	    @Inject
+	    SchedulerDetailsRepository schedularDetailsRepository;
+	    
+	    @Inject
+	    TenantConfigRepository tenantConfigRepository;
+	    
+	 public void BuildOozieJob(OozieJobDTO oozieJobDTO,Long tenantId,Long userId)
+	  
+	 {
+log.info("service call to build oozie job");
+		 log.info("oozieJobDTO .getjobName: "+oozieJobDTO.getJobName());
+		 WfManager wfManager = new WfManagerImpl();
+		 coordinatorxml cxml = new coordinatorxml();
+		 //createjobproperties cjp = new createjobproperties();
+		 System.out.println(" Job Tracket from YML: "+env.getProperty("oozie.jobTracker"));
+
+
+		 try {
+			 System.out.println("Hadoop: "+hadoopConfiguration.get("fs.defaultFS"));
+			 List<JobDetails>  jobDetailsList= jobDetailsRepository.fetchByJobNameAndTenantIdAndProgramName(oozieJobDTO.getJobId(),tenantId,oozieJobDTO.getProgramName());
+			 log.info("jobList Size: "+jobDetailsList.size());
+			 List<ProgParametersSets> prog=progParametersSetsRepository.findByProgramIdAndStatus(oozieJobDTO.getProgramId(),"ACTIVE");
+			 ApplicationPrograms app = applicationProgramsRepository.findOne(oozieJobDTO.getProgramId());
+			 log.info("prog :"+prog.size());
+			 List<String> paramList = new ArrayList<String>();
+			 String host =env.getProperty("recon.dbhost") ;
+			 log.info("hostId :"+host);
+			 String schemaName=env.getProperty("recon.dbname");
+			 log.info("DB schemaName :"+schemaName);
+			 paramList.add(host);
+			 paramList.add(schemaName);
+			 paramList.add(env.getProperty("recon.username"));
+			 paramList.add(env.getProperty("recon.password"));
+			 TenantConfig tenantConfig=tenantConfigRepository.findByTenantIdAndKey(tenantId,"targetFilePath");
+			// Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+			 
+			 
+			// String targetFilePath = props.getProperty("targetFilePath");
+			 
+			 String targetFilePath = tenantConfig.getValue();
+
+			 for(JobDetails jobDetails:jobDetailsList){
+
+
+				 int k=5;
+
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments1()==null || jobDetails.getParameterArguments1().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments1());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments2()==null || jobDetails.getParameterArguments2().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments2());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments3()==null || jobDetails.getParameterArguments3().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments3());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments4()==null || jobDetails.getParameterArguments4().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments4());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments5()==null || jobDetails.getParameterArguments5().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments5());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments6()==null || jobDetails.getParameterArguments6().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments6());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments7()==null || jobDetails.getParameterArguments7().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments7());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments8()==null || jobDetails.getParameterArguments8().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments8());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments9()==null || jobDetails.getParameterArguments9().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments9());
+				 }
+				 k++;
+				 if (k<prog.size()+5){
+					 if(jobDetails.getParameterArguments10()==null || jobDetails.getParameterArguments10().isEmpty())
+						 paramList.add("null");
+					 else
+						 paramList.add(jobDetails.getParameterArguments10());
+				 }
+				 if((app.getPrgmName().equals("DataTransformation")) || (app.getPrgmName().equals("DataTransformationStreaming")) || (app.getPrgmName().equals("DataTransformationTestDfr")))
+				 {
+					 paramList.add(targetFilePath);
+				 }
+				 if(oozieJobDTO.getRuleType()!=null)
+					 paramList.add(oozieJobDTO.getRuleType());
+				 paramList.add(jobDetails.getCreatedBy().toString());
+				 if((app.getPrgmType().equalsIgnoreCase("shell")&& app.getPrgmName().equalsIgnoreCase("Reconciliation"))||(app.getPrgmType().equalsIgnoreCase("shell")&& app.getPrgmName().equalsIgnoreCase("Accounting")))
+					 paramList.add("${wf:id()}");
+			 }
+
+
+
+
+			 log.info("parameterList :"+paramList);
+
+			 String lipPath=env.getProperty("oozie.libpath");
+			 
+			 
+			
+
+			 File fileWorkFlow = new File(oozieJobDTO.getPath()+"workflow.xml");
+			 if(fileWorkFlow.exists())
+			 {
+				 if(fileWorkFlow.delete()){
+					log.info(fileWorkFlow.getName() + " is deleted from source path");
+				 }else{
+					 log.info("Delete operation is failed.");
+				 }
+			 }
+			 
+			 File fileCord = new File(oozieJobDTO.getPath()+"coordinator.xml");
+			 if(fileCord.exists())
+			 {
+				 if(fileCord.delete()){
+					 log.info(fileCord.getName() + " is deleted from source path");
+				 }else{
+					 log.info("Delete operation is failed.");
+				 }
+			 }
+
+			 log.info("generate PATH:"+oozieJobDTO.getPath()+oozieJobDTO.getJobName()+tenantId+"/");
+			 File f=new File(oozieJobDTO.getPath()+oozieJobDTO.getJobName()+tenantId+"/");
+			 if(!f.exists())
+			 {
+				boolean flag=f.mkdir();
+				 log.info("flag :"+flag);
+				
+			 }
+			
+			 wfManager.generateWorkFlow(oozieJobDTO.getJobType(),oozieJobDTO.getPath()+oozieJobDTO.getJobName()+tenantId+"/", oozieJobDTO.getClassName(),oozieJobDTO.getJarFilePath()
+					 ,env.getProperty("oozie.jobTracker"), env.getProperty("oozie.nameNode"),oozieJobDTO.getJobName(),paramList,oozieJobDTO.getFrequencyType(),lipPath,oozieJobDTO.getProgramName()); //removethis after adding jar
+
+			 cxml.createCordinatorXml(oozieJobDTO.getJobType(),oozieJobDTO.getPath()+oozieJobDTO.getJobName()+tenantId+"/", null);
+			 //cjp.createjobprop(jobType,path,startDate,endDate,hadoopConfiguration);
+			 DeleteFromHdfs("workflow.xml",oozieJobDTO.getHdfsPath());
+			 DeleteFromHdfs("coordinator.xml",oozieJobDTO.getHdfsPath());
+
+			 
+			 log.info("oozieJobDTO.getPath() :"+oozieJobDTO.getPath());
+			 log.info("oozieJobDTO.getHdfsPath() :"+oozieJobDTO.getHdfsPath());
+			 
+			 writeToHdfs(oozieJobDTO.getPath()+oozieJobDTO.getJobName()+tenantId+"/workflow.xml",oozieJobDTO.getHdfsPath()+oozieJobDTO.getJobName()+"/workflow.xml");
+			 writeToHdfs(oozieJobDTO.getPath()+oozieJobDTO.getJobName()+tenantId+"/coordinator.xml",oozieJobDTO.getHdfsPath()+oozieJobDTO.getJobName()+"/coordinator.xml");
+			 
+			 
+			/* writeToHdfs(oozieJobDTO.getPath()+"workflow.xml",oozieJobDTO.getHdfsPath(),oozieJobDTO.getJobName());
+			 writeToHdfs(oozieJobDTO.getPath()+"workflow.xml",oozieJobDTO.getHdfsPath(),oozieJobDTO.getJobName());*/
+			 //writeToHdfs(path+"job.properties",hdfsPath+"/job.properties");
+
+			
+			 /*String JobId = wfManager.initateOozieWithGeneratedWorkflow(env.getProperty("oozie.OozieClient"),hadoopConfiguration.get("fs.defaultFS")+oozieJobDTO.getHdfsPath(),oozieJobDTO.getStartDate(),oozieJobDTO.getEndDate(),env.getProperty("oozie.jobTracker"),
+												env.getProperty("oozie.nameNode"),oozieJobDTO.getFrequency());
+
+				System.out.println("Job Id: "+JobId);*/
+		 } catch (Exception e) {
+			 log.info(CONTEXT, e);
+		 }
+
+	 }
+	 
+	 private void DeleteFromHdfs(String fileName,String hdfsPath) throws IOException {
+		 log.info("Rest Request method to delete file from hdfs path");
+			Configuration conf = new Configuration();
+			log.info("hdfsPath :"+env.getProperty("oozie.nameNode")+hdfsPath);
+			String pathName=env.getProperty("oozie.nameNode")+hdfsPath+"/"+fileName;
+			log.info("pathName :"+pathName);
+			conf.addResource(new Path(
+					"/home/hdsingle/hadoop-2.6.0/etc/hadoop/core-site.xml"));
+			conf.addResource(new Path(
+					"/home/hdsingle/hadoop-2.6.0/etc/hadoop/hdfs-site.xml"));
+			
+			FileSystem fs=null;
+			try {
+				fs = FileSystem.get(new URI(env.getProperty("oozie.nameNode")),conf);
+				Path path = new Path(pathName);
+				  if (fs.exists(path)) {
+				   // false indicates do not deletes recursively
+				  Boolean status = fs.delete(path,false);
+				  log.info(fileName+" has been deleted");
+				log.info("status :"+status);  
+			
+				  } 
+			} catch (URISyntaxException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			if(fs!=null)
+			  fs.close();
+		}
+	 
+	 public String InitiateOozieJob(@RequestBody OozieJobDTO oozieJobDTO)
+	    {
+
+	    	log.info("Service call to initiate job");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	coordinatorxml cxml = new coordinatorxml();
+	    	
+	    	System.out.println(" Job Tracket from YML: "+env.getProperty("oozie.jobTracker"));
+	    	String JobId = "";
+
+
+	    	try {
+	    		
+	    		log.info("env oozie client :"+env.getProperty("oozie.OozieClient"));
+	    		String lipPath=env.getProperty("oozie.libpath");
+	    		JobId = wfManager.initateOozieWithGeneratedWorkflow(env.getProperty("oozie.OozieClient"),hadoopConfiguration.get("fs.defaultFS")+oozieJobDTO.getHdfsPath()+oozieJobDTO.getJobName()+"/",oozieJobDTO.getStartDate(),oozieJobDTO.getEndDate(),env.getProperty("oozie.jobTracker"),
+	    				env.getProperty("oozie.nameNode"),oozieJobDTO.getFrequency(),oozieJobDTO.getFrequencyType(),lipPath,oozieJobDTO.getUserId());
+
+	    		log.info("Oozie JobId: "+JobId);
+	    	} catch (Exception e) {
+	    		log.info(CONTEXT, e);
+	    	}
+	    	return JobId;
+
+	    }
+	 
+	 
+	 
+	 public void writeToHdfs(String inputPathLocation, String outputLoaction) throws IOException
+	 {
+    	
+    	
+		BufferedReader inputReader = null;
+		FileSystem fs = null;
+		OutputStream outStream = null;
+		BufferedWriter br = null;
+	//	System.out.println("New Srinivas Writing to HDFS");
+		log.info("Source File PATH:"+inputPathLocation);
+		log.info("Output File PATH:"+outputLoaction);
+		
+		
+		
+
+		try {
+
+		//	Path inputPath = new Path("/home/sparkhadoopcl/");
+			InputStream in = new BufferedInputStream(new FileInputStream(inputPathLocation));
+		
+			Path outputPath = new Path(outputLoaction);
+
+			FileSystem hdfs = FileSystem.get(URI.create(hadoopConfiguration.get("fs.defaultFS")+outputLoaction),hadoopConfiguration);
+			OutputStream out = hdfs.create(new Path(outputLoaction));
+			//hdfs.copyFromLocalFile(inputPath, outputPath);
+			IOUtils.copyBytes(in, out, hadoopConfiguration);
+			hdfs.setPermission(outputPath, FsPermission.valueOf("drwxrwxrwx"));
+			log.info("File has been moved to hdfs path");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		//	throw new IOException(e.getMessage());
+		} finally {
+			if (null != inputReader) {
+				inputReader.close();
+			}
+			if (null != br) {
+				br.close();
+			}
+			if (null != fs) {
+				fs.close();
+			}
+			if (null != outStream) {
+				outStream.close();
+			}
+		}
+	}
+	 
+	 
+	 
+	 
+	/* public void writeToHdfs(String inputPathLocation, String outputLoaction) throws IOException
+	 {
+    	
+    	
+		
+		 
+		 
+		BufferedReader inputReader = null;
+		FileSystem fs = null;
+		OutputStream outStream = null;
+		BufferedWriter br = null;
+	//	System.out.println("New Srinivas Writing to HDFS");
+		log.info("Source File PATH:"+inputPathLocation);
+		log.info("Output File PATH:"+outputLoaction);
+		//log.info("jobName to create Dir:"+jobName);
+		Configuration conf = new Configuration();
+		
+		conf.addResource(new Path(
+				"/home/hdsingle/hadoop-2.6.0/etc/hadoop/core-site.xml"));
+		conf.addResource(new Path(
+				"/home/hdsingle/hadoop-2.6.0/etc/hadoop/hdfs-site.xml"));
+
+		try {
+
+			Path inputPath = new Path("/home/sparkhadoopcl/");
+			InputStream in = new BufferedInputStream(new FileInputStream(inputPathLocation));
+		
+			Path outputPath = new Path(outputLoaction);
+			
+			FileSystem fileSystem = FileSystem.get(conf);
+			
+			Path outputPath = new Path(outputLoaction+"/jobName");
+			 fileSystem.mkdirs(outputPath);
+			 log.info("outputPath :"+outputPath);
+
+			FileSystem hdfs = FileSystem.get(URI.create(hadoopConfiguration.get("fs.defaultFS")+outputLoaction),hadoopConfiguration);
+			OutputStream out = hdfs.create(new Path(outputLoaction));
+			//hdfs.copyFromLocalFile(inputPath, outputPath);
+			IOUtils.copyBytes(in, out, hadoopConfiguration);
+			hdfs.setPermission(outputPath, FsPermission.valueOf("drwxrwxrwx"));
+			log.info("File has been moved to hdfs path");
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		//	throw new IOException(e.getMessage());
+		} finally {
+			if (null != inputReader) {
+				inputReader.close();
+			}
+			if (null != br) {
+				br.close();
+			}
+			if (null != fs) {
+				fs.close();
+			}
+			if (null != outStream) {
+				outStream.close();
+			}
+		}
+	}*/
+	 
+	 public void rerunOozieCoordJob(@RequestParam String jobId, @RequestParam String rerunType, @RequestParam String scope) throws IOException
+	    {	  
+	        
+	    	System.out.println("REST API FOR RE-RUNNING OOZIE JOB");
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	//OozieClient oozieClient = new OozieClient(env.getProperty("oozie.OozieClient"));   //("http://ebiz.nspl.com:11000");
+	    	// create a workflow job configuration and set the workflow application path
+	    	
+	    	
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.rerunOozieCoordJob(jobId, rerunType, scope, oozieUrl);
+	    	
+	    }
+	 
+	 public void killOozieCoordJob(@RequestParam String jobId, @RequestParam String rangeType, @RequestParam String scope)
+	    {	  
+	        
+	    	System.out.println("REST API FOR Killing OOZIE JOB");
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.killOozieCoordJob(jobId, rangeType, scope, oozieUrl);
+	    	
+	    	
+	    }
+	 
+	 public void suspendOozieCoordJob(@RequestParam String jobId)
+	    {	  
+	        
+	    	System.out.println("REST API FOR Suspend OOZIE JOB");
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.suspendOozieCoordJob(jobId, oozieUrl);
+	    	 	
+	    }
+	   
+	 public void resumeOozieCoordJob(@RequestParam String jobId)
+	    {	  
+	        
+	    	System.out.println("REST API FOR Suspend OOZIE JOB");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.resumeOozieCoordJob(jobId, oozieUrl);    	
+	    	
+	    		
+	    }
+	 
+	 public void OozieCoordJobInfo(@RequestParam String jobId)
+	    {	  
+	        
+	    	System.out.println("REST API FOR OOZIE JOB Info");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.OozieCoordJobInfo(jobId, oozieUrl);  	
+	    
+	    }
+	 
+	 public void OozieWFJobInfo(@RequestParam String jobId)
+	    {	  
+	        
+	    	System.out.println("REST API FOR OOZIE JOB Info");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.OozieWFJobInfo(jobId, oozieUrl);
+	    	
+	    	
+	    
+	    }
+	 
+	  public String OozieJobLog(@RequestParam String jobId)
+	    {	  
+	        
+	    	System.out.println("REST API FOR OOZIE JOB Log");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	String jobInfo=wfManager.OozieJobLog(jobId, oozieUrl);
+	    	return jobInfo;
+	    	
+	   
+	    }
+	  
+	  public void OozieJobDef(@RequestParam String jobId)
+	    {	  
+	        
+	    	System.out.println("REST API FOR OOZIE JOB Info");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.OozieJobDef(jobId, oozieUrl);
+	    	
+	    
+	    }
+	  
+	  public String BuildInitOozieJob(@RequestBody OozieJobDTO oozieJobDTO,Long tenantId,Long userId)
+	  
+	    {
+
+			System.out.println("Started");
+			log.info("Sample Log");
+			WfManager wfManager = new WfManagerImpl();
+			coordinatorxml cxml = new coordinatorxml();
+			
+			System.out.println(" Job Tracket from YML: "+env.getProperty("oozie.jobTracker"));
+			String JobId = "";
+			
+			
+			try {
+			
+			    BuildOozieJob(oozieJobDTO,tenantId,userId);
+				log.info("env oozie client :"+env.getProperty("oozie.OozieClient"));
+				String lipPath=env.getProperty("oozie.libpath");
+				JobId = wfManager.initateOozieWithGeneratedWorkflow(env.getProperty("oozie.OozieClient"),hadoopConfiguration.get("fs.defaultFS")+oozieJobDTO.getHdfsPath(),oozieJobDTO.getStartDate(),oozieJobDTO.getEndDate(),env.getProperty("oozie.jobTracker"),
+												env.getProperty("oozie.nameNode"),oozieJobDTO.getFrequency(),oozieJobDTO.getFrequencyType(),lipPath,oozieJobDTO.getUserId());
+				
+				System.out.println("Job Id: "+JobId);
+			} catch (Exception e) {
+				log.info(CONTEXT, e);
+			}
+			return JobId;
+		
+	    }
+	    
+	    
+	  public String KillOzieParentJob(@RequestParam String jobId) throws OozieClientException
+	    {	  
+	        
+	    	System.out.println("REST API FOR OOZIE JOB Info");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.killAnyJob(jobId, oozieUrl);
+	    	OozieClient oozieClient = new OozieClient(oozieUrl); 
+	    	String status=oozieClient.getStatus(jobId);
+	    	return status;
+	    	
+	    }
+	  /**
+	   * Author : Ravali
+	   * Moved from job details resource to oozie service in order to reuse the service (moved by shobha)
+	   * @param tenantId
+	   * @param userId
+	   * @param progType
+	   * @param parameterSet
+	   * @return
+	   */
+	  public ResponseEntity jobIntiateForAcctAndRec(@RequestParam Long tenantId,@RequestParam Long userId,@RequestParam String progType,@RequestBody HashMap parameterSet,@RequestParam String ruleType)
+	  {
+	    	log.info("Rest Request to post job And scheduler details by parameter set :"+progType +"Map :"+parameterSet+" userId"+userId+ " tenantId :"+tenantId+" ruleType :"+ruleType);
+	    	OozieJobDTO oozieJobDTO=new OozieJobDTO();
+	    	//try
+	    	//{
+	    		ApplicationPrograms app = applicationprogramsRepository.findByPrgmNameAndTenantIdAndEnableIsTrue(progType,tenantId);
+	    		if(app!=null)
+	    		{
+	    			oozieJobDTO.setHdfsPath(app.getTargetPath());
+	    			if(app.getPrgmPath()!=null)
+	    				oozieJobDTO.setJarFilePath(app.getPrgmPath());
+	    			if(app.getPrgmOrClassName()!=null)
+	    				oozieJobDTO.setClassName(app.getPrgmOrClassName());
+	    			if(app.getPrgmType()!=null)
+	    				oozieJobDTO.setJobType(app.getPrgmType());
+	    			log.info("Prg.getPrgmName() :"+app.getPrgmName());
+	    			oozieJobDTO.setProgramName(app.getPrgmName());
+	    			oozieJobDTO.setPath(app.getGeneratedPath());
+	    		}
+	    		List<ProgParametersSets> prog=progParametersSetsRepository.findByProgramId(app.getId());
+	    		log.info("prog.size():"+prog.size());
+	    		log.info("parameterSet.size():"+parameterSet.size());
+
+
+	    	//	if(parameterSet.keySet().size()==prog.size())
+	    	//	{
+	    			JobDetails job=new JobDetails();
+	    			job.setJobName(progType+" OnDemand "+LocalDateTime.now());
+	    			job.setJobDescription(progType+"-OnDemand-"+LocalDateTime.now());
+	    			job.setProgrammId(app.getId());
+	    			job.setEnable(true);
+	    			job.setStartDate(LocalDate.now());
+	    			job.setEndDate(LocalDate.now().plusDays(1));
+	    			for(int i=0;i<9;i++)
+	    			{
+	    				log.info("parameterSet.get(i) :"+parameterSet.get(i));
+	    				log.info("parameterSet.entrySet().size() :"+parameterSet.keySet().size());
+	    				log.info("parameterSet.get(param1).toString() :"+parameterSet.get("param1").toString());
+	    				if(i==0 && parameterSet.get("param1")!=null)
+	    					job.setParameterArguments1(parameterSet.get("param1").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==1&& parameterSet.get("param2")!=null)
+	    					job.setParameterArguments2(parameterSet.get("param2").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==2&& parameterSet.get("param3")!=null)
+	    					job.setParameterArguments3(parameterSet.get("param3").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==3&& parameterSet.get("param4")!=null)
+	    					job.setParameterArguments4(parameterSet.get("param4").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==4&& parameterSet.get("param5")!=null&&(progType.equalsIgnoreCase("Accounting") || progType.equalsIgnoreCase("Reconciliation") || progType.equalsIgnoreCase("Reconciliation and Approvals") || progType.equalsIgnoreCase("Accounting and Approvals")
+				|| progType.toLowerCase().startsWith("reconciliation")))
+	    				{
+	    					job.setParameterArguments5(parameterSet.get("param5").toString().replaceAll("\\[", "").replaceAll("\\]", ""));
+	    				}
+	    				else if(i==4&& parameterSet.get("param5")!=null)
+	    					job.setParameterArguments5(parameterSet.get("param5").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==5&& parameterSet.get("param6")!=null)
+	    					job.setParameterArguments6(parameterSet.get("param6").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==6&& parameterSet.get("param7")!=null)
+	    					job.setParameterArguments7(parameterSet.get("param7").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==7&& parameterSet.get("param8")!=null)
+	    					job.setParameterArguments8(parameterSet.get("param8").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==8&& parameterSet.get("param9")!=null)
+	    					job.setParameterArguments9(parameterSet.get("param9").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+	    				if(i==9&& parameterSet.get("param10")!=null)
+	    					job.setParameterArguments10(parameterSet.get("param10").toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+
+	    			}
+	    			job.setTenantId(tenantId);
+	    			job.setCreatedBy(userId);
+	    			job.setCreationDate(ZonedDateTime.now());
+	    			job.setLastUpdatedBy(userId);
+	    			job.setLastUpdatedDate(ZonedDateTime.now());
+	    			JobDetails jbId=jobDetailsRepository.save(job);
+	        		String idForDisplay = IDORUtils.computeFrontEndIdentifier(job.getId().toString());
+	        		job.setIdForDisplay(idForDisplay);
+	        		job = jobDetailsRepository.save(job);
+	    			SchedulerDetails schSave=new SchedulerDetails();
+
+	    			if(jbId!=null &&jbId.getId()!=null)
+	    			{
+	    				SchedulerDetails sch=new SchedulerDetails();
+	    				sch.setJobId(jbId.getId());
+	    				sch.setFrequency("ONDEMAND");
+	    				sch.setStartDate(ZonedDateTime.now());
+	    				sch.setEndDate(ZonedDateTime.now().plusDays(1));
+	    				sch.setCreatedBy(userId);
+	    				sch.setCreationDate(ZonedDateTime.now());
+	    				sch.setLastUpdatedBy(userId);
+	    				sch.setLastUpdatedDate(ZonedDateTime.now());
+	    				schSave=schedularDetailsRepository.save(sch);
+	    			}
+
+
+
+	    			String startDate=schSave.getStartDate().toString();
+	    			log.info("startDate :"+startDate);
+	    			String start1=startDate.substring(0, 10);
+	    			String start2=startDate.substring(11, 16);
+	    			String finalStartDate=start1+"T0"+start2+"+0530";
+
+	    			if(schSave.getEndDate()!=null)
+	    			{
+	    				String endDate=schSave.getEndDate().toString();
+	    				log.info("endDate :"+startDate);
+	    				String end1=endDate.substring(0, 10);
+	    				String end2=endDate.substring(11, 16);
+	    				String finalEndDate=end1+"T0"+end2+"+0530";
+	    				log.info("finalStartDate :"+finalStartDate);
+	    				log.info("finalEndDate :"+finalEndDate);
+	    				oozieJobDTO.setEndDate(finalEndDate);
+	    			}
+	    			oozieJobDTO.setStartDate(finalStartDate);
+
+	    			if(job.getJobName()!=null)
+	    			{
+	    				String jobNm=job.getJobName().replaceAll("\\s+","").replaceAll("[^a-zA-Z0-9]","");
+	    				log.info("jobNm :"+jobNm);
+	    				oozieJobDTO.setJobName(jobNm);
+	    				oozieJobDTO.setJobId(job.getId());
+	    			}
+	    			oozieJobDTO.setProgramName(progType);
+	    			if(ruleType!=null && !ruleType.isEmpty())
+	    			oozieJobDTO.setRuleType(ruleType);
+	    			//Build Job
+	    			if(schSave.getFrequency()!=null)
+	    				oozieJobDTO.setFrequencyType(schSave.getFrequency());
+	    			oozieJobDTO.setFrequency("* * * * *");
+	    			oozieJobDTO .setProgramId(job.getProgrammId());
+	    			oozieJobDTO.setUserId(userId.toString());
+	    			BuildOozieJob(oozieJobDTO,tenantId,userId);
+	    			//Iniatiate Job
+	    			String JobId=InitiateOozieJob(oozieJobDTO);
+	    			HashMap map=new HashMap();
+	    			String Id="";
+	    			if(JobId!=null&& !JobId.isEmpty())
+	    			{
+	    				Id=JobId;
+	    				map.put("status", JobId);
+	    				schSave.setStatus("Submitted");
+	    			}
+	    			else
+	    			{
+	    				map.put("status", "Failed to intiate job");
+	    				schSave.setStatus("Error");
+	    			}
+	    			schSave.setOozieJobId(JobId);
+	    			schedularDetailsRepository.save(schSave);
+	    			
+	    			
+	    			return new ResponseEntity(map,HttpStatus.OK);
+
+	    		//}
+	    		/*else
+	    		{
+	    			HashMap map = new HashMap();
+	    			map.put("status", "Required Parameters are missing");
+	    			
+	    			return new ResponseEntity(map,HttpStatus.INTERNAL_SERVER_ERROR);
+	    			//log.info("Status Code: "+ ren.getStatusCode());
+	    			//map.put("Exception", "parameters mismatch");
+
+	    		}*/
+	    	//}
+	    /*	catch(Exception e)
+	    	{
+	    		HashMap map = new HashMap();
+	    		log.info("Excep :"+e.getCause());
+	    		map.put("status", e.getLocalizedMessage());
+	    		return new ResponseEntity(map,HttpStatus.INTERNAL_SERVER_ERROR);
+	    	}*/
+	    	//return map;
+	    }
+	 
+	  
+	  
+	  /**
+	   * author:ravali
+	   * Desc:Method to rerun WF job
+	   * @param jobId
+	   * @return
+	   * @throws OozieClientException
+	   */
+	  public String rerunOozieWFJob(@RequestParam String jobId) throws OozieClientException
+	    {	  
+	        
+	    	System.out.println("REST API FOR OOZIE JOB RERUN");
+	    	
+	    	String oozieUrl=env.getProperty("oozie.OozieClient");
+	    	WfManager wfManager = new WfManagerImpl();
+	    	wfManager.rerunOozieWFJob(jobId, oozieUrl);
+	    	OozieClient oozieClient = new OozieClient(oozieUrl); 
+	    	String status=oozieClient.getStatus(jobId);
+	    	return status;
+	    	
+	    }
+	  
+	  /**
+	   * author:ravali
+	   * @param jobId
+	   * @return
+	   * @throws OozieClientException
+	   */
+	  public String getStatusOfOozieJobId(@RequestParam String jobId) throws OozieClientException
+	  {	  
+
+		  log.info("Rest Request to get status of oozie jobId");
+		  String oozieUrl=env.getProperty("oozie.OozieClient");
+		  OozieClient oozieClient = new OozieClient(oozieUrl); 
+		  String status=oozieClient.getStatus(jobId);
+		  return status;
+
+	  }
+	  /**
+	   * Author : Ravali
+	   * @param oozieJobId
+	   * @return
+	   * @throws ClassNotFoundException
+	   * @throws SQLException
+	   */
+	  public HashMap getNextRunByOozieJobId(String oozieJobId) throws ClassNotFoundException, SQLException
+	  {
+	  	HashMap lastRunMap=new HashMap();
+	  	String oozieUrl=env.getProperty("oozie.OozieClient");
+	  	String DB_URL = env.getProperty("oozie.ozieUrl");
+	  	String USER = env.getProperty("oozie.ozieUser");
+	  	String PASS = env.getProperty("oozie.oziePswd");
+	  	String OZIESCHEMA = env.getProperty("oozie.ozieSchema");
+
+	  	Connection conn =null;
+
+	  	Statement stmt = null;
+
+
+	  	log.info("env.getProperty(spring.datasource.jdbcdriver) :"+env.getProperty("spring.datasource.jdbcdriver"));
+	  	Class.forName(env.getProperty("spring.datasource.jdbcdriver"));
+	  	if(DB_URL != null)
+	  	{
+	  		if(USER != null)
+	  		{
+	  			if(PASS != null)
+	  			{
+
+	  				conn = DriverManager.getConnection(DB_URL, USER, PASS);
+	  				if(conn != null)
+	  				{
+	  					log.info("Connected database successfully...");
+	  					stmt = conn.createStatement();
+	  					String finalQuery="select id,created_time, end_time, frequency, next_matd_time FROM "+OZIESCHEMA+".COORD_JOBS where id='"+oozieJobId+"'";
+	  					log.info("finalQuery :"+finalQuery);
+	  					ResultSet result=stmt.executeQuery(finalQuery);
+	  					while(result.next())
+	  					{
+	  						
+	  						if(result.getString("id")!=null)
+	  							lastRunMap.put("id", result.getString("id"));
+	  						else
+	  							lastRunMap.put("id", "");
+	  						if(result.getString("created_time")!=null)
+	  							lastRunMap.put("createdTime", result.getString("created_time"));
+	  						else
+	  							lastRunMap.put("createdTime", "");
+	  						if(result.getString("end_time")!=null)
+	  							lastRunMap.put("endTime", result.getString("end_time"));
+	  						else
+	  							lastRunMap.put("endTime", "");
+	  						if(result.getString("frequency")!=null)
+	  							lastRunMap.put("frequency", result.getString("frequency"));
+	  						else
+	  							lastRunMap.put("frequency", "");
+	  						if(result.getString("next_matd_time")!=null)
+	  							lastRunMap.put("nextMatdTime", result.getString("next_matd_time"));
+	  						else
+	  							lastRunMap.put("nextMatdTime", "");
+	  						
+	  					}
+
+
+	  					if(conn!=null)
+	  						conn.close();
+	  					if(stmt!=null)
+	  						stmt.close();
+
+	  					if(result!=null)
+	  						result.close();
+
+
+	  				}
+	  				else
+	  				{
+	  					log.info("connection is null");
+	  				}
+
+	  			}
+	  			else
+	  			{
+	  				log.info("PASS is null");
+	  			}
+	  		}
+	  		else
+	  		{
+	  			log.info("USER is null");
+	  		}
+	  	}
+	  	else
+	  	{
+	  		log.info("DB_URL is null");
+	  	}
+	  	return lastRunMap;
+	  }
+	  
+	  
+	  
+	 /**Service to check wherther oozie services are up**/
+		public boolean testOozieProcessWithUrl()
+		{
+			Socket socket;
+			try {
+				URL url = new URL(env.getProperty("oozie.OozieClient"));
+				socket = new Socket(url.getHost(), url.getPort());
+			} catch (IOException e) {
+				return false;
+			}
+
+			try {
+				socket.close();
+			} catch (IOException e) {
+				// will never happen, it's thread-safe
+			}
+
+			return true;
+		}
+		
+		 /**Service to check wherther oozie server(i.e.,155) is up**/
+		public HashMap checkingOozieHost() throws IOException 
+		{
+			HashMap map=new HashMap();
+			 InetAddress geek = InetAddress.getByName(env.getProperty("oozie.ozieHost"));
+			    if (geek.isReachable(5000))
+			    {
+			    	map.put("dbStatus", true);
+			    	log.info("Host is reachable");
+			    }
+			    else
+			    {
+			    	map.put("dbStatus", false);
+			    	log.info("Sorry ! We can't reach to this host");
+			    }
+				return map;
+			
+		}
+}

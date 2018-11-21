@@ -1,0 +1,656 @@
+package com.nspl.app.service;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.poi.xssf.usermodel.XSSFRow;
+import org.apache.poi.xssf.usermodel.XSSFSheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.joda.time.LocalDate;
+import org.json.CDL;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.JeLdrDetails;
+import com.nspl.app.domain.JeLines;
+import com.nspl.app.domain.JournalsHeaderData;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.TemplateDetails;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.JeLdrDetailsRepository;
+import com.nspl.app.repository.JeLinesRepository;
+import com.nspl.app.repository.JournalsHeaderDataRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.TemplateDetailsRepository;
+import com.nspl.app.web.rest.JournalsHeaderDataResource;
+
+
+@Service
+public class JeWQService {
+	
+	
+	 private final Logger log = LoggerFactory.getLogger(JournalsHeaderDataResource.class);
+	
+	
+	 @Inject
+	    TemplateDetailsRepository templateDetailsRepository;
+	    
+	    @Inject
+	    LookUpCodeRepository lookUpCodeRepository;
+	    
+	    @Inject
+	    JeLinesRepository jeLinesRepository;
+	    
+	    @Inject
+	    JeLdrDetailsRepository jeLdrDetailsRepository;
+	    
+	    @Inject
+	    DataViewsColumnsRepository dataViewsColumnsRepository;
+	    
+	    
+	    @Inject
+	    FileService fileService;
+	    
+	    @Inject
+	    JournalsHeaderDataRepository journalsHeaderDataRepository;
+	    
+	    @PersistenceContext(unitName="default")
+		private EntityManager em;
+	    
+	    @Autowired
+	   	Environment env;
+	    
+	    
+	   public HashMap jsonToCsvToExcel(Long tenantId,String batchName,LinkedHashMap map,String arrName,String path)
+	   {
+		   HashMap status=new HashMap();
+	    JSONObject output;
+    	try {
+    		output = new JSONObject(map.toString());
+
+
+
+    		JSONArray docs = output.getJSONArray(arrName);
+
+    		File file=new File(path+"/temp/"+batchName.replaceAll("[^a-zA-Z0-9]","").replaceAll("[^a-zA-Z0-9]","")+tenantId+LocalDate.now().toString().replaceAll("\\s+","").replaceAll("[^a-zA-Z0-9]","")+"HeaderLevel.csv");
+    		String csv = CDL.toString(docs);
+    		FileUtils.writeStringToFile(file, csv);
+    	} catch (JSONException e) {
+    		e.printStackTrace();
+    	} catch (IOException e) {
+    		// TODO Auto-generated catch block
+    		e.printStackTrace();
+    	}      
+
+
+    	try {
+    		String csvFileAddress = path+"/temp/"+batchName.replaceAll("[^a-zA-Z0-9]","")+tenantId+LocalDate.now().toString().replaceAll("\\s+","").replaceAll("[^a-zA-Z0-9]","")+"HeaderLevel.csv"; //csv file address
+    		String xlsxFileAddress = path+"/temp/"+batchName.replaceAll("[^a-zA-Z0-9]","")+tenantId+LocalDate.now().toString().replaceAll("\\s+","").replaceAll("[^a-zA-Z0-9]","")+"HeaderLevel.xlsx"; //xlsx file address
+    		String fileName=batchName.replaceAll("[^a-zA-Z0-9]","")+tenantId+LocalDate.now().toString().replaceAll("\\s+","").replaceAll("[^a-zA-Z0-9]","")+"HeaderLevel.xlsx";
+    		log.info("fileName :"+fileName);
+    		XSSFWorkbook workBook = new XSSFWorkbook();
+    		XSSFSheet sheet1 = workBook.createSheet("sheet1");
+    		String currentLine=null;
+    		int RowNum=0;
+
+
+    		BufferedReader br = new BufferedReader(new FileReader(csvFileAddress));
+    		while ((currentLine = br.readLine()) != null) {
+    			String str[] = currentLine.split(",");
+    			XSSFRow currentRow=sheet1.createRow(RowNum);
+    			for(int i=0;i<str.length;i++){
+    				currentRow.createCell(i).setCellValue(str[i]);
+    				
+    			}
+    			RowNum++;
+    		}
+
+    		FileOutputStream fileOutputStream =  new FileOutputStream(xlsxFileAddress);
+    		workBook.write(fileOutputStream);
+    		fileOutputStream.close();
+    		
+    		File file = new File(xlsxFileAddress);
+        	InputStream inputStream=new FileInputStream(file);
+        	String[] destPath=fileService.fileUpload(inputStream, fileName);
+        	
+        	if(destPath[0].equalsIgnoreCase("success"))
+        	{
+        		status.put("status", destPath[0]);
+        		status.put("destPath", destPath[1]);
+        	}
+        	else
+        	{
+        		status.put("status", "failure");
+        	}
+    		
+    		
+    		System.out.println("Done");
+    	} catch (Exception ex) {
+    		System.out.println(ex.getMessage()+"Exception in try");
+    	}
+		return status;
+
+	    
+	   }
+	    
+	public LinkedHashMap journalHeaderAndLineDetails(Long batchId,String desc) throws SQLException
+    {
+    	LinkedHashMap finalMap=new LinkedHashMap();
+
+
+    	JournalsHeaderData jHd=journalsHeaderDataRepository.findOne(batchId);
+    	/*finalMap.put("batchName", jHd.getJeBatchName());
+    	finalMap.put("glDate", jHd.getGlDate());
+    	finalMap.put("source", jHd.getSource());
+    	finalMap.put("conversionType", jHd.getConversionType());
+    	finalMap.put("ledger",jHd.getLedgerName());
+    	finalMap.put("period", jHd.getPeriod());
+    	finalMap.put("category", jHd.getCategory());
+    	finalMap.put("tenantId", jHd.getTenantId());*/
+    	List<LinkedHashMap> attributeNames=new ArrayList<LinkedHashMap>();
+    	List<String> attributes=new ArrayList<String>();
+    	List<JeLdrDetails> jeLdrDetailsColumns=jeLdrDetailsRepository.findByJeTempId(jHd.getJeTempId());
+		for(JeLdrDetails jeLdrDetails:jeLdrDetailsColumns)
+		{
+			if(jeLdrDetails.getColType().equalsIgnoreCase("System")){
+				LookUpCode lookUpCode=lookUpCodeRepository.findOne(jeLdrDetails.getColValue());
+				attributes.add(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+			
+			}
+			else if(jeLdrDetails.getColType().equalsIgnoreCase("Line"))
+			{
+				log.info("in else");
+				DataViewsColumns dvc=dataViewsColumnsRepository.findOne(jeLdrDetails.getColValue());
+				attributes.add(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+			
+			}
+		}
+
+		log.info("attributes :"+attributes);
+
+    	List<LinkedHashMap> jelineDetailsList=new ArrayList<LinkedHashMap>();
+    	if(desc!=null && desc.equalsIgnoreCase("Details"))
+    	{
+    		log.info("if api to fetch Details of records");
+    		List<JeLines> jeLinesList=jeLinesRepository.findByJeBatchId(batchId);
+    		int Count =0;
+    		log.info("jeLinesList :"+jeLinesList.size());
+    	
+    		for(JeLines jeLines:jeLinesList)
+    		{
+    			LinkedHashMap jelineDetails=new LinkedHashMap();
+    			Count =Count+1;
+    			//jelineDetails.put("lineNo", Count);
+    			jelineDetails.put("codeCombination", jeLines.getCodeCombination());
+    			if(jeLines.getAccountedDebit()!=null)
+    			jelineDetails.put("accountedDebit", jeLines.getAccountedDebit());
+    			else
+    				jelineDetails.put("accountedDebit", 0);
+    			if(jeLines.getAccountedCredit()!=null)
+    			jelineDetails.put("accountedCredit", jeLines.getAccountedCredit());
+    			else
+    				jelineDetails.put("accountedCredit", 0);
+    			//jelineDetails.put("enteredCurrency", jeLines.getCurrency());
+
+
+    			List<JeLdrDetails> jeLdrDetailsList=jeLdrDetailsRepository.findByJeTempIdAndRefColumnNotNull(jHd.getJeTempId());
+    			for(JeLdrDetails jeLdrDetails:jeLdrDetailsList)
+    			{
+
+    				if(jeLdrDetails.getColType().equalsIgnoreCase("System")){
+    					LookUpCode lookUpCode=lookUpCodeRepository.findOne(jeLdrDetails.getColValue());
+    					if(jeLdrDetails.getRefColumn()==1 && jeLines.getAttributeRef1()!=null)
+    						jelineDetails.put(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef1());
+    					if(jeLdrDetails.getRefColumn()==2 && jeLines.getAttributeRef2()!=null)
+    						jelineDetails.put(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef2());
+    					if(jeLdrDetails.getRefColumn()==3 && jeLines.getAttributeRef3()!=null)
+    						jelineDetails.put(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef3());
+    					if(jeLdrDetails.getRefColumn()==4 && jeLines.getAttributeRef4()!=null)
+    						jelineDetails.put(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef4());
+    					if(jeLdrDetails.getRefColumn()==5 && jeLines.getAttributeRef5()!=null)
+    						jelineDetails.put(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef5());
+    					if(jeLdrDetails.getRefColumn()==6 && jeLines.getAttributeRef6()!=null)
+    						jelineDetails.put(lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef6());
+
+    				}
+    				else if(jeLdrDetails.getColType().equalsIgnoreCase("Line"))
+    				{
+    					DataViewsColumns dvc=dataViewsColumnsRepository.findOne(jeLdrDetails.getColValue());
+    					if(jeLdrDetails.getRefColumn()==1 &&jeLines.getAttributeRef1()!=null)
+    						jelineDetails.put(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef1());
+    					if(jeLdrDetails.getRefColumn()==2&&jeLines.getAttributeRef2()!=null)
+    						jelineDetails.put(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef2());
+    					if(jeLdrDetails.getRefColumn()==3&&jeLines.getAttributeRef3()!=null)
+    						jelineDetails.put(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef3());
+    					if(jeLdrDetails.getRefColumn()==4&&jeLines.getAttributeRef4()!=null)
+    						jelineDetails.put(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef4());
+    					if(jeLdrDetails.getRefColumn()==5&&jeLines.getAttributeRef5()!=null)
+    						jelineDetails.put(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef5());
+    					if(jeLdrDetails.getRefColumn()==6&&jeLines.getAttributeRef6()!=null)
+    						jelineDetails.put(dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""), jeLines.getAttributeRef6());
+    				}
+    				if(attributes.contains("enteredDebit"))
+    					if(jeLines.getDebitAmount()!=null)
+    				jelineDetails.put("enteredDebit", jeLines.getDebitAmount());
+    					else
+    						jelineDetails.put("enteredDebit", 0);
+    				if(attributes.contains("enteredCredit"))
+    					if(jeLines.getCreditAmount()!=null)
+        			jelineDetails.put("enteredCredit", jeLines.getCreditAmount());
+    					else
+    						jelineDetails.put("enteredCredit", 0);
+    			}
+    			jelineDetailsList.add(jelineDetails);
+    		
+    			
+    		}
+    	}
+    	else
+    	{
+    		String dbUrl=env.getProperty("spring.datasource.url");
+    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+    		String host = parts[0].split("/")[2].split(":")[0];
+    		log.info("host :"+host);
+    		String schemaName=parts[0].split("/")[3];
+    		log.info("schemaName :"+schemaName);
+    		String userName = env.getProperty("spring.datasource.username");
+    		String password = env.getProperty("spring.datasource.password");
+    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+    		Connection conn = null;
+    		Statement stmt = null;
+    		conn = DriverManager.getConnection(dbUrl, userName, password);
+    		stmt = conn.createStatement();
+    		ResultSet result2=null;
+    		log.info("if api to fetch Summary of records");
+    		List<JeLdrDetails> jeLdrDetailsList=jeLdrDetailsRepository.findByJeTempIdAndRefColumnNotNull(jHd.getJeTempId());
+    		int Count=0;
+
+    		String subQry1="select code_combination,currency,sum(accounted_debit),sum(accounted_credit),sum(debit_amount),sum(credit_amount),";
+    		String subQry2=" from t_je_lines  where je_batch_id="+batchId+" group by code_combination,currency,";
+    		String subQry3="";
+    		HashMap attrbuteMap=new HashMap();
+    		for(JeLdrDetails jeLdrDetails:jeLdrDetailsList)
+    		{
+    			subQry3=subQry3+"attribute_Ref_"+jeLdrDetails.getRefColumn()+",";
+
+    			if(jeLdrDetails.getColType().equalsIgnoreCase("System")){
+    				LookUpCode lookUpCode=lookUpCodeRepository.findOne(jeLdrDetails.getColValue());
+    				if(jeLdrDetails.getRefColumn()==1)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==2)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==3)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==4)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==5)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==6)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),lookUpCode.getMeaning().substring(0, 1).toLowerCase() + lookUpCode.getMeaning().substring(1).replaceAll(" ", ""));
+
+    			}
+    			else if(jeLdrDetails.getColType().equalsIgnoreCase("Line"))
+    			{
+    				DataViewsColumns dvc=dataViewsColumnsRepository.findOne(jeLdrDetails.getColValue());
+    				if(jeLdrDetails.getRefColumn()==1)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==2)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==3)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==4)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==5)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+    				if(jeLdrDetails.getRefColumn()==6)
+    					attrbuteMap.put("attribute_Ref_"+jeLdrDetails.getRefColumn(),dvc.getColumnName().substring(0, 1).toLowerCase() + dvc.getColumnName().substring(1).replaceAll(" ", ""));
+    			}
+
+    		}
+    		log.info("attrbuteMap :"+attrbuteMap);
+    		log.info("subQry3 :"+subQry3);
+    		String subque=subQry3.substring(0, subQry3.length() - 1);
+    		log.info("subQry3 :"+subque);
+    		String finalQuery=subQry1+subque+subQry2+subque;
+    		log.info("QUERY:"+subQry1+subque+subQry2+subque);
+    		result2=stmt.executeQuery(finalQuery);
+    		ResultSetMetaData rsmd2 = result2.getMetaData();
+    		int columnCount = rsmd2.getColumnCount();
+    		while(result2.next())
+    		{
+    			LinkedHashMap map=new LinkedHashMap();
+    			for (int i = 1; i <= columnCount; i++ ) {
+    				String name = rsmd2.getColumnName(i); 
+
+    				
+    				log.info("result2.getString(code_combination) :"+result2.getString("code_combination"));
+    				log.info("result2.getString(currency) :"+result2.getString("currency"));
+    				
+    				
+    				
+						map.put("codeCombination", result2.getString("code_combination"));
+					
+    					if(result2.getString("sum(accounted_debit)")!=null)
+    						map.put("accountedDebit", result2.getString("code_combination"));
+    					else
+    						map.put("accountedDebit", 0);
+    			
+    					if( result2.getString("sum(accounted_credit)")!=null)
+    						map.put("accountedCredit", result2.getString("sum(accounted_credit)"));
+    					else
+    						map.put("accountedCredit", 0);
+    				
+    			
+    				if(name.equalsIgnoreCase("attribute_Ref_1"))
+    					map.put(attrbuteMap.get("attribute_Ref_1"), result2.getString("attribute_Ref_1"));
+    				if(name.equalsIgnoreCase("attribute_Ref_2"))
+    					map.put(attrbuteMap.get("attribute_Ref_2"), result2.getString("attribute_Ref_2"));
+    				if(name.equalsIgnoreCase("attribute_Ref_3"))
+    					map.put(attrbuteMap.get("attribute_Ref_3"), result2.getString("attribute_Ref_3"));
+    				if(name.equalsIgnoreCase("attribute_Ref_4"))
+    					map.put(attrbuteMap.get("attribute_Ref_4"), result2.getString("attribute_Ref_4"));
+    				if(name.equalsIgnoreCase("attribute_Ref_5"))
+    					map.put(attrbuteMap.get("attribute_Ref_5"), result2.getString("attribute_Ref_5"));
+    				if(name.equalsIgnoreCase("attribute_Ref_6"))
+    					map.put(attrbuteMap.get("attribute_Ref_6"), result2.getString("attribute_Ref_6"));
+
+    			}
+    		
+				if(attributes.contains("enteredDebit"))
+					if(result2.getString("sum(debit_amount)")!=null)
+						map.put("enteredDebit", result2.getString("sum(debit_amount)"));
+					else
+						map.put("enteredDebit", 0);
+				if(attributes.contains("enteredCredit"))
+					if( result2.getString("sum(credit_amount)")!=null)
+						map.put("enteredCredit", result2.getString("sum(credit_amount)"));
+					else
+						map.put("enteredCredit", 0);
+			
+    			jelineDetailsList.add(map);
+    		}
+
+
+
+    		if(result2!=null)
+    			result2.close();
+    		if(stmt!=null)
+    			stmt.close();
+    		if(conn!=null)
+    			conn.close();
+
+
+    	}
+
+    	finalMap.put("jelineDetailsList", jelineDetailsList);
+    	return finalMap;
+
+
+    }
+	
+	
+	
+	
+	
+ 	public LinkedHashMap journalHeaderDetailsForExcel( HashMap journalHeaderDetails, Long tenantId)
+    {
+    	log.info("request rest to fetch ledgerNames and periods");
+    	List<JournalsHeaderData> jHDList=new ArrayList<JournalsHeaderData>();
+    	LinkedHashMap finalLhmap=new LinkedHashMap();
+    	List<LinkedHashMap> finalMap=new ArrayList<LinkedHashMap>();
+    	if((journalHeaderDetails.get("jeTempId")!=null && Long.valueOf(journalHeaderDetails.get("jeTempId").toString())!= 0) && (journalHeaderDetails.get("jeLedger")!=null && journalHeaderDetails.get("jeLedger")!="" && !journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All"))&& 
+    			(journalHeaderDetails.get("jePeriod")!="" && journalHeaderDetails.get("jePeriod")!=null && !journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+
+    	{
+
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("1.if 5 paremeters are given");
+
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndLedgerNameAndPeriodAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString()),
+    					journalHeaderDetails.get("jeLedger").toString(),journalHeaderDetails.get("jePeriod").toString(),tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}
+    		else
+    		{
+    			log.info("2.if 3 parameters are given "+journalHeaderDetails);
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndLedgerNameAndPeriodAndTenantIdOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString()),
+    					journalHeaderDetails.get("jeLedger").toString(),journalHeaderDetails.get("jePeriod").toString(),tenantId);
+    		}
+    	}
+    	else if ((Long.valueOf(journalHeaderDetails.get("jeTempId").toString())== 0) && (journalHeaderDetails.get("jeLedger")!="" && journalHeaderDetails.get("jeLedger")!=null && !journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All")) && 
+    			(journalHeaderDetails.get("jePeriod")!=null && journalHeaderDetails.get("jePeriod")!="" && !journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+    	{
+
+    		List<BigInteger> tempIds=templateDetailsRepository.fetchByTenantIdAndActive(tenantId);
+    		log.info("tempIds :"+tempIds);
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("3.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndLedgerNameAndPeriodAndTenantIdAndJeBatchDateBetween(tempIds,
+    					journalHeaderDetails.get("jeLedger").toString(),journalHeaderDetails.get("jePeriod").toString(),tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}	
+    		else
+    		{
+    			log.info("3.journalHeaderDetails :"+journalHeaderDetails);
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndLedgerNameAndPeriodAndTenantId(tempIds,
+    					journalHeaderDetails.get("jeLedger").toString(),journalHeaderDetails.get("jePeriod").toString(),tenantId);
+    		}
+
+    	}
+    	else if ((Long.valueOf(journalHeaderDetails.get("jeTempId").toString())!= 0) && (journalHeaderDetails.get("jeLedger")=="" || journalHeaderDetails.get("jeLedger")==null || journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All")) && 
+    			(journalHeaderDetails.get("jePeriod")!=null && journalHeaderDetails.get("jePeriod")!="" && !journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+    	{
+
+
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("4.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndPeriodAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString()),
+    					journalHeaderDetails.get("jePeriod").toString(),tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}	
+    		else
+    		{
+    			log.info("4.journalHeaderDetails :"+journalHeaderDetails);
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndPeriodAndTenantIdOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString())
+    					,journalHeaderDetails.get("jePeriod").toString(),tenantId);
+    		}
+
+    	}
+    	else if ((Long.valueOf(journalHeaderDetails.get("jeTempId").toString())== 0) && (journalHeaderDetails.get("jeLedger")!="" && journalHeaderDetails.get("jeLedger")!=null && !journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All")) && 
+    			(journalHeaderDetails.get("jePeriod")==null || journalHeaderDetails.get("jePeriod")=="" || journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+    	{
+
+    		List<BigInteger> tempIds=templateDetailsRepository.fetchByTenantIdAndActive(tenantId);
+    		log.info("tempIds :"+tempIds);
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("5.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndLedgerNameAndJeBatchDateBetween(tempIds,
+    					journalHeaderDetails.get("jeLedger").toString(),tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}	
+    		else
+    		{
+    			log.info("5.journalHeaderDetails :"+journalHeaderDetails);
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndLedgerName(tempIds,
+    					journalHeaderDetails.get("jeLedger").toString(),tenantId);
+    		}
+
+    	}
+    	else if ((Long.valueOf(journalHeaderDetails.get("jeTempId").toString())!= 0) && (journalHeaderDetails.get("jeLedger")=="" || journalHeaderDetails.get("jeLedger")==null || journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All")) && 
+    			(journalHeaderDetails.get("jePeriod")==null || journalHeaderDetails.get("jePeriod")=="" || journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+    	{
+
+
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("6.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString()),
+    					tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}	
+    		else
+    		{
+    			log.info("6.journalHeaderDetails :"+journalHeaderDetails);
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndTenantIdOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString()),tenantId);
+
+    		}
+
+    	}
+    	else if ((Long.valueOf(journalHeaderDetails.get("jeTempId").toString())== 0) && (journalHeaderDetails.get("jeLedger")=="" || journalHeaderDetails.get("jeLedger")==null || journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All")) && 
+    			(journalHeaderDetails.get("jePeriod")!=null && journalHeaderDetails.get("jePeriod")!="" && !journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+    	{
+
+    		List<BigInteger> tempIds=templateDetailsRepository.fetchByTenantIdAndActive(tenantId);
+    		log.info("tempIds :"+tempIds);
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("7.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndPeriodAndTenantIdAndJeBatchDateBetween(tempIds,
+    					journalHeaderDetails.get("jePeriod").toString(),tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}	
+    		else
+    		{
+    			log.info("7.journalHeaderDetails :"+journalHeaderDetails);
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdInAndPeriod(tempIds,
+    					journalHeaderDetails.get("jePeriod").toString(),tenantId);
+    		}
+
+    	}
+    	else if ((Long.valueOf(journalHeaderDetails.get("jeTempId").toString())!= 0) && (journalHeaderDetails.get("jeLedger")!="" && journalHeaderDetails.get("jeLedger")!=null && !journalHeaderDetails.get("jeLedger").toString().equalsIgnoreCase("All")) && 
+    			(journalHeaderDetails.get("jePeriod")==null || journalHeaderDetails.get("jePeriod")=="" || journalHeaderDetails.get("jePeriod").toString().equalsIgnoreCase("all")))
+    	{
+
+
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("8.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndLedgerNameAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString()),
+    					journalHeaderDetails.get("jeLedger").toString(),tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}	
+    		else
+    		{
+    			log.info("8.journalHeaderDetails :"+journalHeaderDetails);
+
+    			jHDList=journalsHeaderDataRepository.findByjeTempIdAndLedgerNameAndTenantIdOrderByIdDesc(Long.valueOf(journalHeaderDetails.get("jeTempId").toString())
+    					,journalHeaderDetails.get("jeLedger").toString(),tenantId);
+    		}
+
+    	}
+    	else 
+    	{
+    		log.info("9 :in else");
+    		List<BigInteger> tempIds=templateDetailsRepository.fetchByTenantIdAndActive(tenantId);
+    		log.info("tempIds :"+tempIds);
+
+    		if(journalHeaderDetails.get("startDate")!=null && journalHeaderDetails.get("endDate")!=null)
+    		{
+    			log.info("9.journalHeaderDetails :"+journalHeaderDetails);
+    			ZonedDateTime fmDate=ZonedDateTime.parse(journalHeaderDetails.get("startDate").toString());
+    			ZonedDateTime toDate=ZonedDateTime.parse(journalHeaderDetails.get("endDate").toString());
+
+
+    			jHDList=journalsHeaderDataRepository.findByByJeTempIdInAndTenantIdAndJeBatchDateBetween(tempIds,
+    					tenantId,fmDate.toLocalDate().plusDays(1),toDate.toLocalDate().plusDays(1));
+    		}
+
+    		else
+    		{
+    			log.info("9.journalHeaderDetails :"+journalHeaderDetails);
+    			jHDList=journalsHeaderDataRepository.findByJeTempIdInAndTenantId(tempIds,tenantId);
+    		}
+    		
+    	}
+log.info("jHDList :"+jHDList);
+    	for(JournalsHeaderData jHD:jHDList)
+    	{
+    		LinkedHashMap map=new LinkedHashMap();
+    		if(jHD.getJeTempId()!=null)
+    		{
+    			map.put("jeTempId", jHD.getJeTempId());
+    			TemplateDetails temp=templateDetailsRepository.findOne(jHD.getJeTempId());
+    			if(temp!=null && temp.getTemplateName()!=null)
+    				map.put("templateName", temp.getTemplateName());
+    		}
+    		map.put("batchName", jHD.getJeBatchName());
+    		map.put("batchDate", jHD.getJeBatchDate());
+    		map.put("ledger", jHD.getLedgerName());
+    		map.put("source", jHD.getSource());
+    		map.put("category", jHD.getCategory());
+    		map.put("period", jHD.getPeriod());
+    		BigDecimal drAmount=jeLinesRepository.fetchDebitAmountJeBatchId(jHD.getId());
+    		map.put("drAmount", drAmount);
+    		BigDecimal crAmount=jeLinesRepository.fetchDebitAmountJeBatchId(jHD.getId());
+    		map.put("crAmount", crAmount);
+    		map.put("reference", jHD.getJobReference());
+
+    		finalMap.add(map);
+
+    	}
+    	finalLhmap.put("map", finalMap);
+    	return finalLhmap;
+
+    }
+    
+}

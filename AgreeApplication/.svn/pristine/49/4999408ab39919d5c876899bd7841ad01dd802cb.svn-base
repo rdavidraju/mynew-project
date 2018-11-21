@@ -1,0 +1,59 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.AccountingData;
+
+/**
+ * Spring Data JPA repository for the AccountingData entity.
+ */
+@SuppressWarnings("unused")
+public interface AccountingDataRepository extends JpaRepository<AccountingData,Long> {
+	
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_view_id=:viewId and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT') group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantId(@Param("tenantId") Long tenantId,@Param("viewId") Long viewId, @Param("groupId") Long groupId);
+	
+	
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_view_id=:viewId and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIds(@Param("tenantId") Long tenantId, @Param("viewId") Long viewId, @Param("groupId") Long groupId);
+	
+	
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_view_id=:viewId and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIds(@Param("tenantId") Long tenantId, @Param("viewId") Long viewId, @Param("groupId") Long groupId);
+
+	
+	
+		
+	AccountingData findByTenantIdAndOriginalRowIdAndLineTypeAndOriginalViewIdAndAcctGroupId(Long tenantId, Long originalRowId, String lineType, Long viewId, Long groupId);
+	
+	List<AccountingData> findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(Long tenantId, Long originalRowId, Long viewId, Long groupId);
+	
+/*	@Query(value =  "SELECT distinct(original_row_id) from t_accounting_data where tenant_id =:tenantId and status=:status and original_view_id = :viewId and acct_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIds(@Param("tenantId") Long tenantId, @Param("status") String status, @Param("viewId") Long viewId, @Param("groupId") Long groupId);
+*/	
+	@Query(value =  "SELECT id from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchIdsByOriginalRowIdsAndTenantidAndViewIdAndGroupId(@Param("orignalRowIds") List<Long> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId);
+	
+	List<AccountingData> findByTenantIdAndOriginalViewId(Long tenantId, Long orignalViewId);
+	
+	//List<AccountingData> findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(Long tenantId, Long originalRowId, Long originalViewId, Long groupId);
+	
+	
+}

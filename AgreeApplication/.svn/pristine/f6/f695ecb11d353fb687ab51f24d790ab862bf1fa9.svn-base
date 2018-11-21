@@ -1,0 +1,268 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.mysql.jdbc.exceptions.jdbc4.MySQLSyntaxErrorException;
+import com.nspl.app.domain.ProgParametersSets;
+import com.nspl.app.repository.ProgParametersSetsRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing ProgParametersSets.
+ */
+@RestController
+@RequestMapping("/api")
+public class ProgParametersSetsResource {
+
+    private final Logger log = LoggerFactory.getLogger(ProgParametersSetsResource.class);
+
+    private static final String ENTITY_NAME = "progParametersSets";
+        
+    private final ProgParametersSetsRepository progParametersSetsRepository;
+    
+    @Inject
+    private Environment env;
+    
+    @Inject
+	UserJdbcService userJdbcService;
+
+    public ProgParametersSetsResource(ProgParametersSetsRepository progParametersSetsRepository) {
+        this.progParametersSetsRepository = progParametersSetsRepository;
+    }
+
+    /**
+     * POST  /prog-parameters-sets : Create a new progParametersSets.
+     *
+     * @param progParametersSets the progParametersSets to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new progParametersSets, or with status 400 (Bad Request) if the progParametersSets has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/prog-parameters-sets")
+    @Timed
+    public ResponseEntity<ProgParametersSets> createProgParametersSets(@RequestBody ProgParametersSets progParametersSets) throws URISyntaxException {
+        log.debug("REST request to save ProgParametersSets : {}", progParametersSets);
+        if (progParametersSets.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new progParametersSets cannot already have an ID")).body(null);
+        }
+        ProgParametersSets result = progParametersSetsRepository.save(progParametersSets);
+        return ResponseEntity.created(new URI("/api/prog-parameters-sets/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /prog-parameters-sets : Updates an existing progParametersSets.
+     *
+     * @param progParametersSets the progParametersSets to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated progParametersSets,
+     * or with status 400 (Bad Request) if the progParametersSets is not valid,
+     * or with status 500 (Internal Server Error) if the progParametersSets couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/prog-parameters-sets")
+    @Timed
+    public ResponseEntity<ProgParametersSets> updateProgParametersSets(@RequestBody ProgParametersSets progParametersSets) throws URISyntaxException {
+        log.debug("REST request to update ProgParametersSets : {}", progParametersSets);
+        if (progParametersSets.getId() == null) {
+            return createProgParametersSets(progParametersSets);
+        }
+        ProgParametersSets result = progParametersSetsRepository.save(progParametersSets);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, progParametersSets.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /prog-parameters-sets : get all the progParametersSets.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of progParametersSets in body
+     */
+    @GetMapping("/prog-parameters-sets")
+    @Timed
+    public ResponseEntity<List<ProgParametersSets>> getAllProgParametersSets(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ProgParametersSets");
+        Page<ProgParametersSets> page = progParametersSetsRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/prog-parameters-sets");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /prog-parameters-sets/:id : get the "id" progParametersSets.
+     *
+     * @param id the id of the progParametersSets to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the progParametersSets, or with status 404 (Not Found)
+     */
+    @GetMapping("/prog-parameters-sets/{id}")
+    @Timed
+    public ResponseEntity<ProgParametersSets> getProgParametersSets(@PathVariable Long id) {
+        log.debug("REST request to get ProgParametersSets : {}", id);
+        ProgParametersSets progParametersSets = progParametersSetsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(progParametersSets));
+    }
+
+    /**
+     * DELETE  /prog-parameters-sets/:id : delete the "id" progParametersSets.
+     *
+     * @param id the id of the progParametersSets to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/prog-parameters-sets/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteProgParametersSets(@PathVariable Long id) {
+        log.debug("REST request to delete ProgParametersSets : {}", id);
+        progParametersSetsRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Shiva
+     * Description: Api to fetch Rule_Names and Rule_Ids based on program parameter set id
+     * @param tenantId, progParamSetId, dependencyId
+     * @return HashMap with ruleId and ruleName
+     */
+    @GetMapping("/getRulesByProgParamSetIdAndDependencyId")
+    @Timed
+    public List<HashMap> getReconColumnAlignmentInfo(HttpServletRequest request, @RequestParam Long progParamSetId,@RequestParam(required=false) List<Long> value)
+    {
+    	HashMap map0=userJdbcService.getuserInfoFromToken(request);
+      	Long tenantId=Long.parseLong(map0.get("tenantId").toString());
+    	log.info("Rest api for fetching rule names, rule ids for the prog parameter id "+ progParamSetId+" and tenant id "+tenantId);
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	ProgParametersSets pps = progParametersSetsRepository.findOne(progParamSetId);
+    	if(pps != null)
+    	{
+    		String dbUrl=env.getProperty("spring.datasource.url");
+    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+    		String host = parts[0].split("/")[2].split(":")[0];
+    		String schemaName=parts[0].split("/")[3];
+    		String userName = env.getProperty("spring.datasource.username");
+    		String password = env.getProperty("spring.datasource.password");
+    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+    		
+    		Connection conn = null;
+    		Statement stmt = null;
+    		ResultSet rs=null;
+    		
+    		try{
+    			Class.forName(jdbcDriver);
+      	      	conn = DriverManager.getConnection(dbUrl, userName, password);
+      	      	log.info("Connected database successfully...");
+      	      	stmt = conn.createStatement();
+      	      	log.info("Entity Name: "+ pps.getEntityName()+", Entity Column: "+ pps.getEntityColumn()+", Bind Value: "+ pps.getBindValue()+", Dependency Id: "+ pps.getDependency());
+      	      	String valueList = "";
+      	      	if(value != null && value.size()>1)
+      	      	{
+      	      		int i =0;
+      	      		for(Long val : value)
+      	      		{
+      	      			if(val != null)
+      	      			{
+      	      				if(i==value.size()-1)
+      	      					valueList = valueList+val;
+      	      				else
+      	      				{
+      	      				valueList = valueList+val+",";
+      	      				}
+      	      			}
+
+      	      			i=i+1;
+      	      		}
+      	      	}
+      	      	else
+      	      	{
+      	      		if(value.size()==1)
+      	      	valueList = value.get(0).toString();
+      	      	}
+      	      	log.info("valueList:"+valueList);
+      	      	String query = "";
+      	      	if(value == null || value.size() == 0 )
+      	      	{
+      	      	   query = "SELECT * FROM "+schemaName+"."+pps.getEntityName()+" WHERE tenant_id = "+ tenantId +" AND enabled_flag is true";
+      	      	}
+      	      	else
+      	      	{
+      	      	   query = "SELECT * FROM "+schemaName+"."+pps.getEntityName()+" WHERE "+pps.getDependency() +" in("+valueList +") AND tenant_id = "+ tenantId +" AND enabled_flag is true";
+      	      	}
+      	   
+      	      	log.info("SQL: "+ query);
+      	      	rs = stmt.executeQuery(query);
+      	      	ResultSetMetaData rsmd = rs.getMetaData();
+      	      	int colCount = rsmd.getColumnCount();
+      	      	int valueCount = 0;
+	      	   	while(rs.next()){
+	      	   		HashMap hm = new HashMap();
+/*	      	   		hm.put("id", rs.getLong(3));
+	      	   		hm.put("ruleName", rs.getString(12));*/
+	      	   		for(int i=1; i<=colCount; i++)
+	      	   		{
+	      	   			
+	      	   			if(pps.getEntityColumn().equalsIgnoreCase(rsmd.getColumnName(i)))
+	      	   			{
+	      	   				hm.put(rsmd.getColumnName(i), rs.getString(i));
+	      	   			}
+	      	   			if(pps.getBindValue().equalsIgnoreCase(rsmd.getColumnName(i)))
+	      	   			{
+	      	   				hm.put(rsmd.getColumnName(i), rs.getString(i));
+	      	   			}
+	      	   		}
+	      	   		valueCount = valueCount +1;
+	      	   		finalMap.add(hm);
+	      	   	}
+      	   		HashMap allMap = new HashMap();
+      	   		allMap.put(pps.getEntityColumn(),"All("+valueCount+")");
+      	   		allMap.put(pps.getBindValue(),"All("+valueCount+")");
+      	   		finalMap.add(0,allMap);
+	      	   	log.info("No of rules fetched: "+ finalMap.size());
+    		}
+    		catch(MySQLSyntaxErrorException e)
+    		{
+    			log.info("Oops.. It seems like view "+pps.getEntityName()+" doesn't exist.");
+    			log.info("Exception: "+ e);
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Exception: "+e);
+    		}
+    	}
+    	return finalMap;
+    }
+}
+

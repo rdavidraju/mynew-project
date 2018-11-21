@@ -1,0 +1,2890 @@
+package com.nspl.app.service;
+
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.DateFormat;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.nspl.app.domain.AccountedSummary;
+import com.nspl.app.domain.AccountingData;
+import com.nspl.app.domain.AppModuleSummary;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LedgerDefinition;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.domain.Segments;
+import com.nspl.app.repository.AccountedSummaryRepository;
+import com.nspl.app.repository.AccountingDataRepository;
+import com.nspl.app.repository.AccountingLineTypesRepository;
+import com.nspl.app.repository.AcctRuleConditionsRepository;
+import com.nspl.app.repository.AppModuleSummaryRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LedgerDefinitionRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.SegmentsRepository;
+import com.nspl.app.web.rest.AccountingDataResource;
+
+@Service
+@Transactional
+public class AccountingDataService {
+
+    private final Logger log = LoggerFactory.getLogger(AccountingDataResource.class);
+    
+	@Inject
+	ReconciliationResultService reconciliationResultService;
+	
+	@Inject
+	AccountingDataRepository accountingDataRepository;
+	
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    AccountingLineTypesRepository accountingLineTypesRepository;
+    
+    @Inject
+    AcctRuleConditionsRepository acctRuleConditionsRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    AccountingDataService accountingDataService;
+    
+    @Inject
+    AccountedSummaryRepository accountedSummaryRepository;
+    
+    @Inject
+    LedgerDefinitionRepository ledgerDefinitionRepository;
+    
+    @Inject
+    SegmentsRepository segmentsRepository;
+    
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+	
+	@Inject
+	AppModuleSummaryRepository appModuleSummaryRepository;
+	
+    @Inject
+    private Environment env;
+	
+    /**
+     * Author: Shiva
+     * */
+    public String getAcctColName(int colNumber)
+    {
+    	switch(colNumber)
+    	{
+    	case 1 : return "accountingRef1";
+    	case 2 : return "accountingRef2";
+    	case 3 : return "accountingRef3";
+    	case 4 : return "accountingRef4";
+    	case 5 : return "accountingRef5";
+    	case 6 : return "accountingRef6";
+    	case 7 : return "accountingRef7";
+    	case 8 : return "accountingRef8";
+    	case 9 : return "accountingRef9";
+    	case 10 : return "accountingRef10";
+    	default : return "";
+    	}
+    }
+
+    /**
+     * Author: Shiva
+     * Purpose: Building code combination
+     * **/
+    public String convertListToString(List<String> stringList)
+    {
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String separator = props.getProperty("codeCombinatinSeparator");
+    	String listAsString = "";
+    	if(stringList.size()>0)
+    	{
+    		for(int i=0; i<stringList.size(); i++)
+    		{
+    			if(i == stringList.size()-1)
+    			{
+    				listAsString = listAsString + stringList.get(i);
+    			}
+    			else
+    			{
+    				listAsString = listAsString + stringList.get(i) +separator;
+    			}
+    		}
+    	}
+    	return listAsString;
+    }
+
+    /**
+     * Author: Shiva
+     * Purpose: Fetching segments length based on coa reference id
+     * **/
+    public int getSegmentsLengthWithCoaRef(Long coaRefId)
+    {
+    	int segmentsLength = 0;
+    	List<Segments> segments = segmentsRepository.findByCoaId(coaRefId);
+    	segmentsLength = segmentsLength + segments.size();
+    	return segmentsLength;
+    }
+    
+    /**
+     * Author: Shiva
+     * Purpose: Fetching Accounting data view columns in sequence order
+     * **/
+    public LinkedHashMap getViewColumnHeadersMapInSequence(Long dataViewId, Long tenantId, Long groupId, List<String> groupedParams)
+    {
+    	log.info("In service for getting column headers in sequence order for viewId: "+ dataViewId+", groupId"+ groupId+", tenantId"+ tenantId);
+    	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+    	LinkedHashMap finalMap = new LinkedHashMap();
+    	List<BigInteger> ruleIds = rulesRepository.fetchRuleIdsByGroupId(groupId, tenantId, dataViewId);
+    	log.info("Rule Ids: "+ ruleIds);
+    	if(ruleIds.size()>0 && !ruleIds.contains(null))
+    	{
+    		List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+    		sViewColumnIds.remove(null);
+    		log.info("Source View Column Ids: "+sViewColumnIds);		
+    		if(sViewColumnIds.size()>0)
+    		{
+    			for(BigInteger id : sViewColumnIds)
+    			{
+    				DataViewsColumns dvc = dataViewsColumnsRepository.findOne(id.longValue());
+    				if(dvc != null)
+    				{
+    		    		if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+    		    		{
+    		        		FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn()));
+    		        		if(ftl != null)
+    		        		{
+    		        			finalMap.put(ftl.getColumnAlias(), dvc.getColumnName());
+    		        		}
+    		    		}
+    		    		else if("Data View".equalsIgnoreCase(dvc.getRefDvType()))
+    		    		{
+    		    			finalMap.put(dvc.getColumnName(), dvc.getColumnName());
+    		    		}
+    				}
+    			}
+    		}
+    		finalMap.put("Debit_Account", "Debit_Account");
+    		finalMap.put("Credit_Account", "Credit_Account");
+    		finalMap.put("Ledger", "Ledger");
+    		finalMap.put("Source", "Source");
+    		finalMap.put("Category", "Category");
+    		finalMap.put("Status", "Status");
+    		finalMap.put("Approval_Status", "Approval_Status");
+    		finalMap.put("Acct_Rule", "Acct_Rule");
+    		List<BigInteger> allViewColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(dataViewId);
+    		log.info("All View Ids: "+allViewColIds);
+    		if(allViewColIds.size()>0)
+    		{
+    			for(BigInteger id : allViewColIds)
+    			{
+    				if(!sViewColumnIds.contains(id))
+    				{
+    					remainingSequence.add(id);
+    				}
+    			}
+    		}
+    		log.info("Remaining Sequnce Ids: "+remainingSequence);
+    		if(remainingSequence.size()>0)
+    		{
+    			for(BigInteger id : remainingSequence)
+    			{
+    				DataViewsColumns dvc = dataViewsColumnsRepository.findOne(id.longValue());
+    				if(dvc != null)
+    				{
+    		    		if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+    		    		{
+    		        		FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn()));
+    		        		if(ftl != null)
+    		        		{
+    		        			finalMap.put(ftl.getColumnAlias(), dvc.getColumnName());
+    		        		}
+    		    		}
+    		    		else if("Data View".equalsIgnoreCase(dvc.getRefDvType()))
+    		    		{
+    		    			finalMap.put(dvc.getColumnName(), dvc.getColumnName());
+    		    		}
+    				}
+    			}
+    		}
+    	}
+    	return finalMap;
+    }
+    
+    public List<String> getSegmentsCodes(AccountingData ad, int segmentsSize)
+    {
+    	List<String> finalList = new ArrayList<String>();
+    	int i=1;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef1() != null)
+    			finalList.add(ad.getAccountingRef1());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef2() != null)
+    			finalList.add(ad.getAccountingRef2());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef3() != null)
+    			finalList.add(ad.getAccountingRef3());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef4() != null)
+    			finalList.add(ad.getAccountingRef4());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef5() != null)
+    			finalList.add(ad.getAccountingRef5());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef6() != null)
+    			finalList.add(ad.getAccountingRef6());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef7() != null)
+    			finalList.add(ad.getAccountingRef7());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef8() != null)
+    			finalList.add(ad.getAccountingRef8());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef9() != null)
+    			finalList.add(ad.getAccountingRef9());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	i++;
+    	if(i<=segmentsSize)
+    	{
+    		if(ad.getAccountingRef10() != null)
+    			finalList.add(ad.getAccountingRef10());
+    		else 
+    			finalList.add("XXXXX");
+    	}
+    	return finalList;
+    }
+    
+    
+    /**
+     * Author: Shiva
+     * Purpose: Fetching Accounting data with parent child hierarchy to display multiple credits and debits separately
+     * **/
+    public List<LinkedHashMap> fetchAccountingDataForMultiCreditDebit(Long tenantId,Long viewId, Long groupId, List<BigInteger> ids, Long pageStartIndx, Long pageSize, HashMap headerColumns, String exportFile,String columnName, String dataType, String sortByOrder) throws SQLException, ClassNotFoundException, ParseException
+    {
+    	log.info("In Service for fetching accounting data with sequence order for TenantId "+tenantId+", View Id: "+ viewId + ", Group Id "+ groupId);
+    	List<LinkedHashMap> finalMap = new ArrayList<LinkedHashMap>();
+    	//log.info("Header Columns:>>> "+ headerColumns);
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String currencyFormat = props.getProperty("currencyFormat");
+    	
+    	String idStr=ids.toString();
+    	idStr=idStr.replace("[", "");
+    	idStr=idStr.replace("]", "");
+    	log.info("Page Start Index: "+pageStartIndx+", Page Size: "+ pageSize);
+    	if(idStr.length()>0)
+    	{
+		// Connection to JDBC
+		Connection conn = null;
+		Statement stmt = null;
+		Statement stmt2 = null;
+		ResultSet result = null; 
+		ResultSet result2 = null; 
+    	try{
+    		String dbUrl=env.getProperty("spring.datasource.url");
+    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+    		String host = parts[0].split("/")[2].split(":")[0];
+    		String schemaName=parts[0].split("/")[3];
+    		String userName = env.getProperty("spring.datasource.username");
+    		String password = env.getProperty("spring.datasource.password");
+    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+    		Class.forName(jdbcDriver);
+     	    conn = DriverManager.getConnection(dbUrl, userName, password);
+     	   
+     	    stmt = conn.createStatement();
+     	    stmt2 = conn.createStatement();
+     	    log.info("Connected JDBC Successfully");
+     	    DataViews dv = dataViewsRepository.findById(viewId.longValue());
+     	    List<HashMap> dataMap = new ArrayList<HashMap>();
+     	    if(dv != null)	// Fetching accounting data from view based on scr ids
+     	    {
+     	    	log.info("View Name: "+ dv.getDataViewName());
+     	    	log.info("Fetching Data....");
+     	    	if(exportFile != null)
+     	    	{
+     	    		//log.info("Query:>>>> SELECT * from "+schemaName+"."+dv.getDataViewName().toLowerCase()+" WHERE scrIds IN ("+idStr+")");
+     	    		result=stmt.executeQuery("SELECT * from "+schemaName+".`"+dv.getDataViewName().toLowerCase()+"` WHERE scrIds IN ("+idStr+")");
+     	    		result2=stmt2.executeQuery("SELECT * from "+schemaName+".`"+dv.getDataViewName().toLowerCase()+"` WHERE scrIds IN ("+idStr+")");
+     	    	}
+     	    	else
+     	    	{
+     	    		//log.info("Query:>>>> SELECT * from "+schemaName+"."+dv.getDataViewName().toLowerCase()+" WHERE scrIds IN ("+idStr+") limit "+pageStartIndx+", "+ pageSize);
+/*     	    		if("DECIMAL".equalsIgnoreCase(dataType) || "DATE".equalsIgnoreCase(dataType))
+     	    		{
+     	    			result=stmt.executeQuery("SELECT * from "+schemaName+"."+dv.getDataViewName().toLowerCase()+" WHERE scrIds IN ("+idStr+") order by "+columnName+" desc limit "+pageStartIndx+", "+ pageSize);
+     	    		}
+     	    		else if("VARCHAR".equalsIgnoreCase(dataType) || "STRING".equalsIgnoreCase(dataType) || "INTEGER".equalsIgnoreCase(dataType))
+     	    		{
+     	    			result=stmt.executeQuery("SELECT * from "+schemaName+"."+dv.getDataViewName().toLowerCase()+" WHERE scrIds IN ("+idStr+") order by "+columnName+" asc limit "+pageStartIndx+", "+ pageSize);
+     	    		}
+     	    		else
+     	    		{*/
+     	    			//log.info("OrderBy Query: "+"SELECT * from "+schemaName+"."+dv.getDataViewName().toLowerCase()+" WHERE scrIds IN ("+idStr+") order by "+columnName+" "+sortByOrder+" limit "+pageStartIndx+", "+ pageSize);
+     	    			result=stmt.executeQuery("SELECT * from "+schemaName+".`"+dv.getDataViewName().toLowerCase()+"` WHERE scrIds IN ("+idStr+") order by "+columnName+" "+sortByOrder+" limit "+pageStartIndx+", "+ pageSize);
+     	    			result2=stmt2.executeQuery("SELECT * from "+schemaName+".`"+dv.getDataViewName().toLowerCase()+"` WHERE scrIds IN ("+idStr+") order by "+columnName+" "+sortByOrder+" limit "+pageStartIndx+", "+ pageSize);
+     	    		/*}*/
+     	    	}
+     	    	stmt.setFetchSize(500);
+     	    	stmt2.setFetchSize(500);
+     	    	ResultSetMetaData rsmd = result.getMetaData();
+     	    	//int colCount = rsmd.getColumnCount();
+     	    	//log.info("Column Count: "+colCount);
+     	    	Long firstOriginalRowId = 0L;
+     	    	if(result != null)
+     	    	{
+     	    		result.first();
+     	    		firstOriginalRowId = Long.parseLong(result.getString("scrIds"));
+     	    	}
+     	    	log.info("First Original Row Id:>>>>> "+firstOriginalRowId);
+     	    	int segmentsSize = 0;
+				String ledgerName = "";
+     	    	List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId, firstOriginalRowId, viewId, groupId);
+ 	    		if(accData.size()>0)
+ 	    		{
+ 	    			segmentsSize = segmentsSize + accountingDataService.getSegmentsLengthWithCoaRef(Long.parseLong(accData.get(0).getCoaRef()));
+ 	    			LedgerDefinition ld = ledgerDefinitionRepository.findOne(Long.parseLong(accData.get(0).getLedgerRef()));
+ 	    			if(ld != null)
+ 	    			{
+ 	    				ledgerName = ld.getName();
+ 	    			}
+ 	    		}
+ 	    		log.info("Segments Size:>>>>> "+segmentsSize);
+ 	    		 //ResultSetMetaData rsmd = rs.getMetaData();
+ 	    	    List<String> columns = new ArrayList<String>(rsmd.getColumnCount());
+ 	    	    for(int i = 1; i <= rsmd.getColumnCount(); i++){
+ 	    	        columns.add(rsmd.getColumnName(i));
+ 	    	    }
+ 	    	    Map<String,Map<String,String>> data = new HashMap<String,Map<String,String>>();
+ 	    	    while(result2.next()){                
+ 	    	        Map<String,String> row = new HashMap<String, String>(columns.size());
+ 	    	        for(String col : columns) {
+ 	    	            row.put(col, result2.getString(col));
+ 	    	        }
+ 	    	       data.put(result2.getString("scrIds").toString(),row);
+ 	    	    }
+ 	    	    log.info("Pagination Data Size: "+data.size());
+
+ 	    	   List<String> rowIdsSet=  new ArrayList<>(data.keySet());
+ 	    	   List<Long> rowIdsList = new ArrayList<Long>();
+ 	    	   for(String str:rowIdsSet)
+ 	    	   {
+ 	    		   rowIdsList.add(Long.valueOf(str));
+ 	    	   }
+ 	    	   log.info("Pagination row ids: "+rowIdsList);
+ 	    	   log.info("TenantId: "+ tenantId);
+ 	    	   log.info("View Id: "+ viewId);
+ 	    	   log.info("Group Id: "+ groupId);
+ 	    	   List<AccountingData> accountingDataRecords = accountingDataRepository.findByTenantIdAndOriginalRowIdInAndOriginalViewIdAndAcctGroupId(tenantId, rowIdsList, viewId, groupId);
+	    	   log.info("25 records accounting data size: "+accountingDataRecords.size());
+ 	    	   HashMap<String, List<AccountingData>> rowIdandJobrefToAccountingDataRecs = new HashMap<String, List<AccountingData>>();
+ 	    	   
+ 	    	   //// Separating rowid_jobReference as key and respecting accounting data list as value.
+	    	   for(int i=0;i<accountingDataRecords.size();i++)
+ 	    	   {
+	    		   String rowIdToJobRef = "";
+	    		   rowIdToJobRef =accountingDataRecords.get(i).getOriginalRowId()+"_"+ accountingDataRecords.get(i).getJobReference();
+	    		   List<AccountingData> listOfAccData = new ArrayList<AccountingData>();
+ 	    		   if(rowIdandJobrefToAccountingDataRecs.containsKey(rowIdToJobRef))
+ 	    		   {
+ 	    			   listOfAccData = rowIdandJobrefToAccountingDataRecs.get(rowIdToJobRef);
+ 	    			   listOfAccData.add(accountingDataRecords.get(i));
+ 	    		   }
+ 	    		   else
+ 	    		   {
+ 	    			  listOfAccData.add(accountingDataRecords.get(i));
+ 	    		   }
+ 	    		   rowIdandJobrefToAccountingDataRecs.put(rowIdToJobRef,listOfAccData);
+ 	    	   }
+	    	   log.info("After rowid and jobreference records separation: "+ rowIdandJobrefToAccountingDataRecs.size());
+	    	   
+	    	   List<AccountedSummary> accSummaryList = new ArrayList<AccountedSummary>();
+	    	   accSummaryList = accountedSummaryRepository.findByRowIdInAndRuleGroupIdAndViewId(rowIdsList, groupId, viewId);
+	    	   HashMap<Long, List<AccountedSummary>> rowIdToAccSummaryMap = new HashMap<Long, List<AccountedSummary>>();
+	    	   for(int i=0;i<accSummaryList.size();i++)
+	    	   {
+	    		   List<AccountedSummary> listOfAccSumm = new ArrayList<AccountedSummary>();
+	    		   if(rowIdToAccSummaryMap.containsKey(accSummaryList.get(i).getRowId()))
+	    		   {
+	    			   listOfAccSumm = rowIdToAccSummaryMap.get(accSummaryList.get(i).getRowId());
+	    			   listOfAccSumm.add(accSummaryList.get(i));
+	    		   }
+	    		   else
+	    		   {
+	    			   listOfAccSumm.add(accSummaryList.get(i));
+	    		   }
+	    		   rowIdToAccSummaryMap.put(accSummaryList.get(i).getRowId(),listOfAccSumm);
+	    	   }
+	    	   
+ 	    	   for(int rowId=0;rowId<rowIdsList.size();rowId++)
+ 	    		  {
+ 	    			String approvalStatus = "";
+    				String acctRule = "";
+     	    		LinkedHashMap mainHm = new LinkedHashMap();
+     	    		LinkedHashMap hm = new LinkedHashMap();
+     	    		List<LinkedHashMap> children = new ArrayList<LinkedHashMap>();
+     	    		Long orignalRowId =rowIdsList.get(rowId);
+     	    				//Long.parseLong(result.getString("scrIds").toString());
+     	    		//Long originalRowId = 
+     	    		hm.put("Id", orignalRowId);
+     	    		//commented to change afterwards
+     	    		Map<String,String> rowRecord = new HashMap<String,String>();
+     	    		rowRecord = data.get(rowIdsList.get(rowId).toString());
+     	    		//log.info("rowRecord exists"+rowRecord);
+     	    		for(Map.Entry<String,String> record : rowRecord.entrySet())
+     	    		{
+ /*    	    			log.info("_________________________________");
+     	    			log.info("record.getKey()"+record.getKey());
+     	    			log.info("record.getValue()"+record.getValue());
+     	    			log.info("_________________________________");*/
+     	    			if(record.getKey() != null )
+     	    			{
+     	    				//log.info(">>>>>>>>>>> KeyValue: "+ record.getKey()+", "+record.getValue());
+	     	    				if(headerColumns.size() >0 && headerColumns.get(record.getKey().toString()) != null)
+	     	    				{
+	     	    					
+	     	    				//log.info("header column:"+headerColumns.get(record.getKey().toString()).toString());
+	     	    				DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndColumnName(viewId,headerColumns.get(record.getKey().toString()).toString());
+	     	    				if(dvc != null)
+	     						{
+	     	    					//log.info("dvc is not null");
+	     	    					if("DECIMAL".equalsIgnoreCase(dvc.getColDataType()))
+	     							{
+	     	    						//log.info("dvc.getColDataType() is DECIMAL" );
+	     	    						if(record.getValue() != null)
+	     	    						{
+	     	    							String amountInCurrency = reconciliationResultService.getAmountInFormat(record.getValue().replace(",", ""),currencyFormat);
+		     								hm.put(headerColumns.get(record.getKey()), amountInCurrency);
+	     	    						}
+	     	    						else
+	     	    						{
+	     	    							//String amountInCurrency = reconciliationResultService.getAmountInFormat(record.getValue().replace(",", ""),currencyFormat);
+		     								hm.put(headerColumns.get(record.getKey()), "");
+	     	    						}
+	     							}
+	     	    					else if("DATE".equalsIgnoreCase(dvc.getColDataType()))
+	     	     	    			{
+	     	    						//log.info("dvc.getColDataType() is DATE" );
+	     	    						if(record.getValue() != null)
+	     	    						{
+		    	     	    			     DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+		    	     	    			     Date date= df.parse(record.getValue());
+		    	     	    			     df = new SimpleDateFormat("dd-MMM-yy");
+		    	     	    			     hm.put(headerColumns.get(record.getKey()), df.format(date));
+	     	    						}
+	     	    						else
+	     	    						{
+		    	     	    			     hm.put(headerColumns.get(record.getKey()), "");
+	     	    						}
+
+	     	     	    			}
+	     	    					else
+	     							{
+	     	    						//log.info("dvc.getColDataType() is not two" );
+	     								hm.put(headerColumns.get(record.getKey()), record.getValue());
+	     							}
+	     						}
+	     	    				else
+	     	    				{
+	     	    					//log.info("dvc is null for "+record.getKey() );
+	     	    				}
+     	    				}
+     	    			}
+     	    		}
+					hm.put("Source", "");
+     	    		hm.put("Category", "");
+     	    		hm.put("ledgerId", "");
+     	    		hm.put("Ledger_Name", "");
+     	    		hm.put("coaId", "");
+     	    		hm.put("columnId", "");
+     	    		hm.put("lineType", "");
+	    			hm.put("Status", "");
+	         	    hm.put("Approval_Status", "");
+	         	    hm.put("Acct_Rule", acctRule);
+	    			List<String> credits = new ArrayList<String>();
+	    			List<String> debits = new ArrayList<String>();
+     	    		//Fetching System Columns..
+	    			List<AccountedSummary > accSummaryRecords = new ArrayList<AccountedSummary>(); 
+	    			accSummaryRecords = rowIdToAccSummaryMap.get(orignalRowId);
+     	    		if(accSummaryRecords != null && accSummaryRecords.size() > 0)
+     	    		{
+     	    			for(int as = 0;as<accSummaryRecords.size();as++)
+     	    			{
+     	    				AccountedSummary  accSummary  = new AccountedSummary ();
+     	    				accSummary = accSummaryRecords.get(as);
+     	    				Rules rule = rulesRepository.findOne(accSummary.getRuleId());
+        					if(rule != null)
+        					{
+        						acctRule = acctRule + rule.getRuleCode();
+        					}
+        					if(accSummary.getApprovalStatus() != null){
+        						approvalStatus = approvalStatus + accSummary.getApprovalStatus();
+        						}
+        					String rowIdToJobRef = "";
+        					rowIdToJobRef = accSummary.getRowId()+"_"+accSummary.getJobReference();
+         	    			List<AccountingData> acctData = rowIdandJobrefToAccountingDataRecs.get(rowIdToJobRef);
+         	    			//accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupIdAndJobReference(tenantId, orignalRowId, viewId, groupId, accSummary.getJobReference());
+         	    			if(acctData.size()>0)
+         	    			{
+         	    				for(AccountingData ad : acctData)
+         	    				{
+         	    						hm.put("Source", ad.getSourceRef());
+                     	    			hm.put("Category", ad.getCategoryRef());
+                     	    			hm.put("ledgerId", Long.parseLong(ad.getLedgerRef()));
+                     	    			hm.put("Ledger_Name", ledgerName);
+                     	    			hm.put("coaId", Long.parseLong(ad.getCoaRef()));
+                     	    			hm.put("columnId", ad.getAmountColId());
+                     	    			hm.put("lineType", "");
+             	    					hm.put("Status", accSummary.getStatus().charAt(0));
+             	         	    		hm.put("Approval_Status", approvalStatus);
+             	         	    		hm.put("Acct_Rule", acctRule);
+             	    					if("CREDIT".equalsIgnoreCase(ad.getLineType()))
+             	    					{
+             	    						credits.add(ad.getLineType());
+             	    						LinkedHashMap childrenHm = new LinkedHashMap();
+             	    						LinkedHashMap childMpNew = (LinkedHashMap) hm.clone();
+             	    						childMpNew.put("lineType", "CREDIT");
+             	    						List<String> creditCodes = getSegmentsCodes(ad, segmentsSize);
+             	    						childMpNew.put("Debit_Account", "");
+             	    						childMpNew.put("Credit_Account", convertListToString(creditCodes));
+             	    						//childrenHm.put("data", childMpNew);
+                 	    					children.add(childMpNew);
+                 	    					hm.put("Credit_Account", convertListToString(creditCodes));
+                 	    					//hm.put("child", value);
+             	    					}
+             	    					if("DEBIT".equalsIgnoreCase(ad.getLineType()))
+             	    					{
+             	    						debits.add(ad.getLineType());
+             	    						LinkedHashMap childrenHm = new LinkedHashMap();
+             	    						LinkedHashMap childMpNew = (LinkedHashMap) hm.clone();
+             	    						childMpNew.put("lineType", "DEBIT");
+             	    						List<String> debitCodes = getSegmentsCodes(ad, segmentsSize);
+                 	    					childMpNew.put("Debit_Account", convertListToString(debitCodes));
+                 	    					//childrenHm.put("data", childMpNew);
+                 	    					children.add(childMpNew);
+                 	    					hm.put("Debit_Account", convertListToString(debitCodes));
+                 	    					childMpNew.put("Credit_Account", "");
+                 	    					//hm.put(key, value);
+             	    					}
+         	    				}
+         	    			}
+     	    			}
+     	    		}
+     	    		else
+     	    		{
+     	    			hm.put("Status", "U");
+     	    			hm.put("Approval_Status", "");
+     	    			hm.put("Acct_Rule", "");
+     	    		}
+ 	    			if(credits.size()>1 || credits.size() == 0)
+ 	    			{
+ 	    				hm.put("Credit_Account", "");
+ 	    			}
+ 	    			if(debits.size()>1 || debits.size() == 0)
+ 	    			{
+ 	    				hm.put("Debit_Account", "");
+ 	    			}
+ 	    			hm.put("children", children);
+     	    		//mainHm.put("data", hm);
+     	    		
+     	    		//mainHm.put("children", children);
+     	    		finalMap.add(hm);
+     	    	
+ 	    		   }
+     	    }
+    	}
+     	catch(Exception e)
+     	{
+     	   log.info("Exception: "+e);
+     	}
+    	finally
+    	{
+    		if(result != null)
+    			result.close();
+    		if(result2 != null)
+    			result2.close();
+    		if(stmt != null)
+    			stmt.close();
+    		if(stmt2 != null)
+    			stmt2.close();
+			if(conn != null)
+				conn.close();
+    	}
+    }
+    return finalMap;
+    }
+   
+   public List<HashMap> getAccColsAlignInfo(Long viewId, Long groupId, Long tenantId)
+   {
+	   log.info("In service for getting accounting data view columns alignment info for the view: "+ viewId+", group id: "+groupId+", tenant id: "+ tenantId);
+	   	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+		List<HashMap> finalMap = new ArrayList<HashMap>();
+		
+   		HashMap idMp = new HashMap();
+   		idMp.put("field", "Id");
+   		idMp.put("header", "Id");
+   		idMp.put("align", "left");
+   		idMp.put("width", "150px");
+   		idMp.put("colId", "");
+   		finalMap.add(idMp);
+	
+	/*   	List<BigInteger> ruleIds = accountingLineTypesRepository.fetchRuleIdsByTenantIdAndRuleId(tenantId, groupId, viewId);*/
+   		List<BigInteger> ruleIds = rulesRepository.fetchRuleIdsByGroupId(groupId, tenantId, viewId);
+	   	log.info("Rule Ids: "+ ruleIds);
+	   	if(ruleIds.size()>0 && !ruleIds.contains(null))
+	   	{
+	   		List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+	   		sViewColumnIds.remove(null);
+	   		log.info("Source View Column Ids: "+sViewColumnIds);
+	   		// sequence (rules based source view columns)
+	   		if(sViewColumnIds.size()>0)
+	   		{
+	   			finalMap.addAll(reconciliationResultService.getColAlignInfo(sViewColumnIds));
+	   		}
+				HashMap creditMp = new HashMap();
+				HashMap debitMp = new HashMap();
+				HashMap statusMp = new HashMap();
+
+				debitMp.put("field", "Debit_Account");
+				debitMp.put("header", "Debit_Account");
+				debitMp.put("align", "left");
+				debitMp.put("width", "200px");
+				debitMp.put("colId", "");
+				finalMap.add(debitMp);
+				
+				creditMp.put("field", "Credit_Account");
+				creditMp.put("header", "Credit_Account");
+				creditMp.put("align", "left");
+				creditMp.put("width", "200px");
+				creditMp.put("colId", "");
+				finalMap.add(creditMp);
+				
+				HashMap coaMeanMp = new HashMap();
+				coaMeanMp.put("field", "Ledger");
+				coaMeanMp.put("header", "Ledger");
+				coaMeanMp.put("align", "left");
+				coaMeanMp.put("width", "150px");
+				coaMeanMp.put("colId", "");
+				finalMap.add(coaMeanMp);
+				
+				HashMap ledgerNameMp = new HashMap();
+				ledgerNameMp.put("field", "Ledger_Name");
+				ledgerNameMp.put("header", "Ledger_Name");
+				ledgerNameMp.put("align", "left");
+				ledgerNameMp.put("width", "150px");
+				ledgerNameMp.put("colId", "");
+				finalMap.add(ledgerNameMp);
+				
+				HashMap sourceMp = new HashMap();
+				sourceMp.put("field", "Source");
+				sourceMp.put("header", "Source");
+				sourceMp.put("align", "left");
+				sourceMp.put("width", "150px");
+				sourceMp.put("colId", "");
+				finalMap.add(sourceMp);
+				
+				HashMap categoryMp = new HashMap();
+				categoryMp.put("field", "Category");
+				categoryMp.put("header", "Category");
+				categoryMp.put("align", "left");
+				categoryMp.put("width", "150px");
+				categoryMp.put("colId", "");
+				finalMap.add(categoryMp);
+
+				statusMp.put("field", "Status");
+				statusMp.put("header", "Status");
+				statusMp.put("align", "left");
+				statusMp.put("width", "150px");
+				statusMp.put("colId", "");
+				finalMap.add(statusMp);
+				
+				HashMap approvalStatusMp = new HashMap();
+				approvalStatusMp.put("field", "Approval_Status");
+				approvalStatusMp.put("header", "Approval_Status");
+				approvalStatusMp.put("align", "left");
+				approvalStatusMp.put("width", "150px");
+				approvalStatusMp.put("colId", "");
+				finalMap.add(approvalStatusMp);
+				
+				HashMap accRuleMp = new HashMap();
+				accRuleMp.put("field", "Acct_Rule");
+				accRuleMp.put("header", "Acct_Rule");
+				accRuleMp.put("align", "left");
+				accRuleMp.put("width", "150px");
+				accRuleMp.put("colId", "");
+				finalMap.add(accRuleMp);
+
+	   		// Remaining columns
+	   		List<BigInteger> allViewColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(viewId);
+	   		log.info("All View Ids: "+allViewColIds);
+	   		if(allViewColIds.size()>0)
+	   		{
+	   			for(BigInteger id : allViewColIds)
+	   			{
+	   				if(!sViewColumnIds.contains(id))
+	   				{
+	   					remainingSequence.add(id);
+	   				}
+	   			}
+	   		}
+	   		log.info("Remaining Sequnce Ids: "+remainingSequence);
+	   		if(remainingSequence.size()>0)
+	   		{
+	   			finalMap.addAll(reconciliationResultService.getColAlignInfo(remainingSequence));
+	   		}
+	   	}
+	   	return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getUnAccMap(Long dataViewId, Long tenantId,Long groupId,String rangeFrom, String rangeTo, String transDateColumn) throws ClassNotFoundException, SQLException{
+
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> viewOriginalIds = reconciliationResultService.getViewOriginalIds(dataViewId, rangeFrom, rangeTo,transDateColumn);
+	   List<BigInteger> reconciled = new ArrayList<BigInteger>();
+	   List<BigInteger> emptyList = new ArrayList<BigInteger>();
+	   finalMap.put("accIds", emptyList);
+	   finalMap.put("unAccIds", viewOriginalIds);
+	   finalMap.put("inProcessIds", emptyList);
+	   finalMap.put("totalIds", viewOriginalIds);
+	   	
+	   	return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getUnAccOthersMap(Long dataViewId, Long tenantId,Long groupId,String rangeFrom, String rangeTo, String transDateColumn) throws ClassNotFoundException, SQLException{
+
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> viewOriginalIds = reconciliationResultService.getViewOriginalIds(dataViewId, rangeFrom, rangeTo,transDateColumn);
+	   List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   if(viewOriginalIds.size()>0)
+	   {
+		   totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(viewOriginalIds,groupId, dataViewId);
+		   for(BigInteger id : viewOriginalIds)
+		   {
+			   if(!totalAccountedIds.contains(id))
+			   {
+				   unAccIds.add(id);
+			   }
+		   }
+	   }
+	   List<BigInteger> emptyList = new ArrayList<BigInteger>();
+	   finalMap.put("accIds", emptyList);
+	   finalMap.put("unAccIds", unAccIds);
+	   finalMap.put("inProcessIds", emptyList);
+	   finalMap.put("totalIds", unAccIds);
+	   	
+	   return finalMap;
+   }
+   
+   /**
+    * Author: Ravali
+    * **/
+   public List<String> getViewColumnHeadersMapInSequenceForAcctApproval(Long dataViewId, Long tenantId, Long groupId)
+   {
+	   log.info("In service for getting column headers in sequence order for viewId: "+ dataViewId+", groupId"+ groupId+", tenantId"+ tenantId);
+	   List<String> colNames = new ArrayList<String>();
+
+
+	   List<BigInteger> ruleIds = accountingLineTypesRepository.fetchRuleIdsByTenantIdAndRuleId(tenantId, groupId, dataViewId);
+	   log.info("Rule Ids: "+ ruleIds);
+	   if(ruleIds.size()>0 && !ruleIds.contains(null))
+	   {
+		   List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+		   log.info("Source View Column Ids: "+sViewColumnIds);
+		   if(sViewColumnIds.size()>0)
+		   {
+			   for(BigInteger id : sViewColumnIds)
+			   {
+				   DataViewsColumns dvc = dataViewsColumnsRepository.findOne(id.longValue());
+				   if(dvc != null)
+				   {
+					   FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn().toString()));
+					   if(ftl != null)	// Need to handle one more condition
+					   {
+						   colNames.add(ftl.getColumnAlias());
+					   }
+				   }
+			   }
+		   }
+	   }
+	   return colNames;
+   }
+   
+   /**
+    * Author: Ravali
+    * **/
+   public List<HashMap> getAcctApprovalsColsAlignInfo(Long viewId, Long groupId, Long tenantId)
+   {
+	   log.info("In service for getting accounting data view columns alignment info for the view: "+ viewId+", group id: "+groupId+", tenant id: "+ tenantId);
+	   	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+		List<HashMap> finalMap = new ArrayList<HashMap>();
+		
+   		HashMap idMp = new HashMap();
+   		idMp.put("field", "Id");
+   		idMp.put("header", "Id");
+   		idMp.put("align", "left");
+   		idMp.put("width", "150px");
+   		finalMap.add(idMp);
+   		
+	   	List<BigInteger> ruleIds = accountingLineTypesRepository.fetchRuleIdsByTenantIdAndRuleId(tenantId, groupId, viewId);
+	   	log.info("Rule Ids: "+ ruleIds);
+	   	if(ruleIds.size()>0 && !ruleIds.contains(null))
+	   	{
+	   		List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+	   		log.info("Source View Column Ids: "+sViewColumnIds);
+	   		// sequence (rules based source view columns)
+	   		if(sViewColumnIds.size()>0)
+	   		{
+	   			finalMap.addAll(reconciliationResultService.getColAlignInfoApp(sViewColumnIds));
+	   		}
+	   	}
+	   	return finalMap;
+   }
+
+   //******************************************************************* AWQ New Form API's ***************************************************
+   
+   public Map<String, List<BigInteger>> getAccountingIdsGroupByDaysWithRule(List<BigInteger> totalIds, String rangeFrom, String rangeTo, Long viewId, Long tenantId, Long groupId, String transQualifier, String jobReference, List<BigInteger> ruleIds) throws ClassNotFoundException, SQLException
+   {
+	 //  log.info("Fetching accounted, un-accounted, in-process ids groupby days...");
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   if(totalIds.size()>0)
+	   {
+		   totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(totalIds,groupId, viewId.longValue());
+		   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsWithoutJob(totalIds, ruleIds,groupId, viewId.longValue());
+		   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsWithoutJob(totalIds, ruleIds,groupId, viewId.longValue());
+
+		   if(ruleIds.contains(BigInteger.valueOf(0)))
+		   {
+			   //log.info("inside rule id 0");
+			   for(BigInteger id : totalIds)
+			   {
+				   if(!totalAccountedIds.contains(id))
+				   {
+					   unAccIds.add(id);
+				   }
+			   }
+			   //log.info("acc ids size: "+accIds.size());
+			   if(accIds.size()>0)
+			   {
+				   finalMap.put("accIds", new ArrayList<BigInteger>());
+				   finalMap.put("unAccIds", unAccIds);
+				   finalMap.put("inProcessIds", new ArrayList<BigInteger>());
+				   finalMap.put("totalIds", unAccIds);
+			   }
+		   }
+		   else
+		   {
+			   totalFinalIds.addAll(accIds);
+			   totalFinalIds.addAll(inProcessIds);
+			   if(totalFinalIds.size()>0)
+			   {
+				   finalMap.put("accIds", accIds);
+				   finalMap.put("unAccIds", new ArrayList<BigInteger>());
+				   finalMap.put("inProcessIds",inProcessIds);
+				   finalMap.put("totalIds", totalFinalIds);    
+			   }
+		   }
+	   }
+	   //log.info("finalMap "+finalMap.get());
+	   return finalMap;
+   }
+
+   public HashMap getDataViewColumnNameByColumnId(Long columnId)
+   {
+	   HashMap finalMap = new HashMap();
+	   String colQualifier = "";
+	   DataViewsColumns dvc = dataViewsColumnsRepository.findOne(columnId);
+	   if(dvc != null)
+	   {
+			String dataType = dvc.getColDataType();
+			if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+			{
+				FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn().toString()));
+				if(ftl != null)
+				{
+					colQualifier = colQualifier + ftl.getColumnAlias();
+				}
+			}
+			else if("Data View".equalsIgnoreCase(dvc.getRefDvType()))
+			{
+				colQualifier = colQualifier + dvc.getColumnName();
+			}
+			finalMap.put("columnName", colQualifier);
+			finalMap.put("dataType", dvc.getColDataType());
+	   }
+	   return finalMap;
+   }
+
+   /**
+    * Author: Shiva
+    * Purpose: Fetching counts and amounts based on original ids
+    * **/
+   @Transactional
+   public HashMap getCountNAmountHashMap(BigInteger viewId, Long tenantId, String amountQualifier, List<BigInteger> ids) 
+   {
+	   Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+	   String currencyFormat = props.getProperty("currencyFormat");
+	  // log.info("IdS:>>>>> "+ ids);
+	   HashMap finalMap = new HashMap();
+	   try{
+ /*		   String currencyCodeColName = reconciliationResultService.getViewColumnQualifier(viewId, "CURRENCYCODE");
+		   String currencySymbol = "";
+		   //DataViews dv = dataViewsRepository.findOne(viewId.longValue());  
+		   List<String> currenciesRec = reconciliationResultService.getDistColumnValues(ids,currencyCodeColName,dv.getDataViewName());
+		   if(currenciesRec.size()==1)
+		   {
+			   currencySymbol = currencySymbol+reconciliationResultService.getCurrencySymbol(currenciesRec.get(0));
+		   }
+		   else if(currenciesRec.size()>1)
+		   {
+			   currencySymbol = currencySymbol+"*";
+		   }*/
+		   HashMap totalAmountCount = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,ids);
+		   finalMap.put("amount", /*currencySymbol+" "+*/reconciliationResultService.getAmountInFormat(totalAmountCount.get("totalAmount").toString(),currencyFormat));
+		   finalMap.put("count", totalAmountCount.get("totalCount"));
+	   }catch(Exception e)
+	   {
+		   log.info("Exception: "+e);
+	   }
+	   return finalMap;
+   }
+   
+   
+   public Map<String, List<BigInteger>> getAccountingIdsGroupByRules(Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo,List<BigInteger> ruleIds) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalIds = new ArrayList<BigInteger>();
+	   String transDateColumn = reconciliationResultService.getTransDateQualifier(new BigInteger(viewId.toString()), "TRANSDATE");
+	   List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   if(transDateColumn.length()>0)
+	   {
+		   totalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateColumn);
+		   if(totalIds.size()>0)
+		   {
+			   totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(totalIds, groupId, viewId.longValue());
+			   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsWithoutJob(totalIds, ruleIds,groupId, viewId.longValue());
+			   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsWithoutJob(totalIds, ruleIds,groupId, viewId.longValue());
+			   if(ruleIds.contains(BigInteger.valueOf(0)))
+			   {
+				   for(BigInteger id : totalIds)
+				   {
+					   if(!totalAccountedIds.contains(id))
+					   {
+						   unAccIds.add(id);
+					   }
+				   } 
+			   }
+			   totalFinalIds.addAll(accIds);
+			   totalFinalIds.addAll(unAccIds);
+			   totalFinalIds.addAll(inProcessIds);
+			   finalMap.put("accIds", accIds);
+			   finalMap.put("unAccIds", unAccIds);
+			   finalMap.put("inProcessIds", inProcessIds);
+			   finalMap.put("totalIds", totalFinalIds);
+		   }
+		   log.info("AccIds Size: "+ accIds.size()+", UnAccIds Size: "+ unAccIds.size()+", Partially Accounted Ids: "+ inProcessIds.size()+", TotalIds Size: "+ totalFinalIds.size());
+	   }
+	   else
+	   {
+		   log.info("No trans date qualifier for the view id: "+ viewId);
+	   }
+
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccountingIdsByManualBatches(List<BigInteger> totalIds, Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, List<String> jobReferences) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> emptyList = new ArrayList<BigInteger>();
+	   
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+	   
+	   finalMap.put("accIds", accIds);
+	   finalMap.put("unAccIds", emptyList);
+	   finalMap.put("inProcessIds", emptyList);
+	   finalMap.put("totalIds", accIds);
+
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccIdsForManualBatches(List<BigInteger> totalIds, Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, List<String> jobReferences) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> emptyList = new ArrayList<BigInteger>();
+	   
+	   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+	   
+	   finalMap.put("accIds", accIds);
+	   finalMap.put("unAccIds", emptyList);
+	   finalMap.put("inProcessIds", emptyList);
+	   finalMap.put("totalIds", accIds);
+
+	   return finalMap;
+   }
+
+   public Map<String, List<BigInteger>> getAccountingIdsByOriginalBatches(List<BigInteger> totalIds, Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, List<String> jobReferences) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   
+	   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+	   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences,  groupId, viewId.longValue());
+	   
+	   totalFinalIds.addAll(accIds);
+	   totalFinalIds.addAll(inProcessIds);
+	   finalMap.put("accIds", accIds);
+	   finalMap.put("unAccIds", unAccIds);
+	   finalMap.put("inProcessIds", inProcessIds);
+	   finalMap.put("totalIds", totalFinalIds);
+
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccIdsForOriginalBatches(List<BigInteger> totalIds, Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, List<String> jobReferences) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> emptyList = new ArrayList<BigInteger>();
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+	   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences,  groupId, viewId.longValue());
+	  
+	   totalFinalIds.addAll(accIds);
+	   totalFinalIds.addAll(inProcessIds);
+		   
+	   finalMap.put("accIds", accIds);
+	   finalMap.put("unAccIds", emptyList);
+	   finalMap.put("inProcessIds", inProcessIds);
+	   finalMap.put("totalIds", totalFinalIds);
+		
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccountingIdsByBatches(List<BigInteger> totalIds, Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, List<String> jobReferences) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+	   if(totalIds.size()>0)
+	   {
+		   if(jobReferences.size()>0)
+		   {
+			   totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(totalIds,groupId, viewId.longValue());
+			   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+			   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences,  groupId, viewId.longValue());
+			   
+			   if(jobReferences.get(0).contains("MANUAL"))
+			   {
+				   for(BigInteger id : totalIds)
+				   {
+					   if(!totalAccountedIds.contains(id))
+					   {
+						   unAccIds.add(id);
+					   }
+				   } 
+			   }
+		   }
+		   finalMap.put("accIds", accIds);
+		   finalMap.put("unAccIds", unAccIds);
+		   finalMap.put("inProcessIds", inProcessIds);
+		   finalMap.put("totalIds", totalIds);
+	   }
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccountingIdsForBatch(Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, List<String> jobReferences, String transDateQualifier) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	  // List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+	   if(totalIds.size()>0)
+	   {
+		   if(jobReferences.size()>0)
+		   {
+			   //totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(totalIds,groupId, viewId.longValue());
+			   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+			   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsForbatch(totalIds, jobReferences, groupId, viewId.longValue());
+		   }
+	   }
+	   totalFinalIds.addAll(accIds);
+	   totalFinalIds.addAll(inProcessIds);
+	   if(totalFinalIds.size()>0)
+	   {
+		   finalMap.put("accIds", accIds);
+		   finalMap.put("unAccIds", unAccIds);
+		   finalMap.put("inProcessIds", inProcessIds);
+		   finalMap.put("totalIds", totalFinalIds);
+	   }
+	   return finalMap;
+   }
+   
+   
+   
+   public Map<String, List<BigInteger>> getAccountingIdsForManualBatchs(Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, String transDateQualifier, List<String> jobReferences) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalFinalIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+	   if(totalIds.size()>0)
+	   {
+		   totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByManualBatchOriginalRowIds(totalIds,groupId, viewId.longValue());
+		   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIdsForManualbatch(totalIds, jobReferences, groupId, viewId.longValue());
+		   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIdsForManualbatch(totalIds, jobReferences, groupId, viewId.longValue());
+		  // totalAccountedIds.addAll(accIds);
+		  // totalAccountedIds.addAll(inProcessIds);
+		   
+		   for(BigInteger id: totalIds)
+		   {
+			   if(!totalAccountedIds.contains(id))
+			   {
+				   unAccIds.add(id);
+			   }
+		   }
+	   }
+	   totalFinalIds.addAll(accIds);
+	   totalFinalIds.addAll(inProcessIds);
+	   totalFinalIds.addAll(unAccIds);
+	   if(totalAccountedIds.size()>0)
+	   {
+		   finalMap.put("accIds", accIds);
+		   finalMap.put("unAccIds", unAccIds);
+		   finalMap.put("inProcessIds", inProcessIds);
+		   finalMap.put("totalIds", totalFinalIds);
+	   }
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccOriginalIdsStatusWise(Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, String transDateQualifier) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+	   if(totalIds.size()>0)
+	   {
+		   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIds(totalIds, groupId, viewId.longValue());
+		   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIds(totalIds,groupId, viewId.longValue());
+		   accountingIds.addAll(accIds);
+		   accountingIds.addAll(inProcessIds);
+		   //use remove list from list concept
+		   for(BigInteger id: totalIds)
+		   {
+			   if(!accountingIds.contains(id))
+			   {
+				   unAccIds.add(id);
+			   }
+		   }
+		   finalMap.put("accIds", accIds);
+		   finalMap.put("unAccIds", unAccIds);
+		   finalMap.put("inProcessIds", inProcessIds);
+		   finalMap.put("totalIds", totalIds);
+	   }
+	   //log.info("View Id: "+viewId+"accounted ids: "+ accIds.size()+", un-accounted ids: "+ unAccIds.size()+", in-process ids: "+ inProcessIds.size()+", total ids: "+ totalIds.size());
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccountingIdsWithTransDate(Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo, String transDateQualifier, String transDate) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+	   List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(viewId.longValue(), rangeFrom, rangeTo, transDateQualifier, transDate, "DATE", "fileDate");
+	   if(totalIds.size()>0)
+	   {
+		   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIds(totalIds, groupId, viewId.longValue());
+		   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIds(totalIds,groupId, viewId.longValue());
+		   accountingIds.addAll(accIds);
+		   accountingIds.addAll(inProcessIds);
+		   for(BigInteger id: totalIds)
+		   {
+			   if(!accountingIds.contains(id))
+			   {
+				   unAccIds.add(id);
+			   }
+		   }
+		   finalMap.put("accIds", accIds);
+		   finalMap.put("unAccIds", unAccIds);
+		   finalMap.put("inProcessIds", inProcessIds);
+		   finalMap.put("totalIds", totalIds);
+	   }
+	   //log.info("View Id: "+viewId+"accounted ids: "+ accIds.size()+", un-accounted ids: "+ unAccIds.size()+", in-process ids: "+ inProcessIds.size()+", total ids: "+ totalIds.size());
+	   return finalMap;
+   }
+   
+   public Map<String, List<BigInteger>> getAccountingIdsByOriginalIds(List<BigInteger> totalIds, Long tenantId, Long groupId, BigInteger viewId, String rangeFrom, String rangeTo) throws SQLException, ClassNotFoundException
+   {
+	   Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+	   List<BigInteger> accIds = new ArrayList<BigInteger>();
+	   List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+	   List<BigInteger> inProcessIds = new ArrayList<BigInteger>();
+	   List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+	   
+	   if(totalIds.size()>0)
+	   {
+		   accIds = accountedSummaryRepository.fetchAccountedRowIdsByOriginalRowIds(totalIds, groupId, viewId.longValue());
+		   inProcessIds = accountedSummaryRepository.fetchInProcessRowIdsByOriginalRowIds(totalIds,groupId, viewId.longValue());
+		   accountingIds.addAll(accIds);
+		   accountingIds.addAll(inProcessIds);
+		   for(BigInteger id: totalIds)
+		   {
+			   if(!accountingIds.contains(id))
+			   {
+				   unAccIds.add(id);
+			   }
+		   }
+		   finalMap.put("accIds", accIds);
+		   finalMap.put("unAccIds", unAccIds);
+		   finalMap.put("inProcessIds", inProcessIds);
+		   finalMap.put("totalIds", totalIds);
+	   }
+
+	   //log.info("View Id: "+viewId+"accounted ids: "+ accIds.size()+", un-accounted ids: "+ unAccIds.size()+", in-process ids: "+ inProcessIds.size()+", total ids: "+ totalIds.size());
+	   return finalMap;
+   }
+	 public List<LinkedHashMap> getAccDataWithStatus(Map<String, List<BigInteger>> accUnAccIds, String status, Long tenantId, Long dataViewId, Long groupId, Long limit, Long pageSize, HashMap headerColumns, String exportFile, String columnAsString, String searchWord, HashMap columnInfo, String sortByOrder) throws SQLException, ClassNotFoundException, ParseException
+	 {
+			List<BigInteger> accIds = accUnAccIds.get("accIds");
+			List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+			List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+			List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+			
+        	LinkedHashMap totHm = new LinkedHashMap();
+        	LinkedHashMap totHmMain = new LinkedHashMap();
+    		
+        	LinkedHashMap accHm = new LinkedHashMap();
+        	LinkedHashMap accHmMain = new LinkedHashMap();
+    		
+        	LinkedHashMap unAccHm = new LinkedHashMap();
+        	LinkedHashMap unAccMain = new LinkedHashMap();
+    		
+        	LinkedHashMap parAccHm = new LinkedHashMap();
+        	LinkedHashMap parAccMain = new LinkedHashMap();
+			
+         if("accounted".equalsIgnoreCase(status))
+         {
+        	 log.info("Fetching accounted data...");
+        	 List<LinkedHashMap> accFinalData = new ArrayList<LinkedHashMap>();
+        	 if(accIds.size()>0)
+        	 {
+        		 if(searchWord != null)
+        		 {
+        			 log.info("Fetching data with search keyword...");
+        			 List<BigInteger> searchIds = reconciliationResultService.getSearchKeywordFilteredOriginalIds(accIds, searchWord, columnAsString,dataViewId);
+            		 accFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,searchIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+            		 accHm.put("totalCount", searchIds.size());
+            		 accHm.put("accountedCount", searchIds.size());
+        		 }
+        		 else
+        		 {
+        			 log.info("Fetching data with-out search keyword...");
+            		 accFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,accIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+            		 accHm.put("totalCount", accIds.size());
+            		 accHm.put("accountedCount", accIds.size());
+        		 }
+        		 accHmMain.put("info", accHm);
+        		 accFinalData.add(accHmMain);
+        	 }
+        	 return accFinalData;
+         }
+         else if("unaccounted".equalsIgnoreCase(status))
+         {
+        	 log.info("Fetching un-accounted data...");
+        	 List<LinkedHashMap> unAccFinalData = new ArrayList<LinkedHashMap>();
+        	 if(unAccIds.size()>0)
+        	 {
+        		 if(searchWord != null)
+        		 {
+        			 log.info("Fetching data with search keyword...");
+        			 List<BigInteger> searchIds = reconciliationResultService.getSearchKeywordFilteredOriginalIds(unAccIds, searchWord, columnAsString,dataViewId);
+        			 unAccFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,searchIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+            		 unAccHm.put("totalCount", searchIds.size());
+            		 unAccHm.put("unAccountedCount", searchIds.size());
+        		 }
+        		 else
+        		 {
+        			 log.info("Fetching data with-out search keyword...");
+        			 unAccFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,unAccIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+            		 unAccHm.put("totalCount", unAccIds.size());
+            		 unAccHm.put("unAccountedCount", unAccIds.size());
+        		 }
+        		 unAccMain.put("info", unAccHm);
+        		 unAccFinalData.add(unAccMain);
+        	 }
+        	 return unAccFinalData;
+         }
+         else if("partiallyaccounted".equalsIgnoreCase(status))
+         {
+        	 log.info("Fetching inprocess data...");
+        	 List<LinkedHashMap> parAccFinalData = new ArrayList<LinkedHashMap>();
+        	 if(inProcessIds.size()>0)
+        	 {
+        		 if(searchWord != null)
+        		 {
+        			 log.info("Fetching data with search keyword...");
+        			 List<BigInteger> searchIds = reconciliationResultService.getSearchKeywordFilteredOriginalIds(inProcessIds, searchWord, columnAsString,dataViewId);
+        			 parAccFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,searchIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+            		 parAccHm.put("totalCount", searchIds.size());
+            		 parAccHm.put("inProcessCount", searchIds.size());
+        		 }
+        		 else
+        		 {
+        			 log.info("Fetching data with-out search keyword...");
+        			 parAccFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,inProcessIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+            		 parAccHm.put("totalCount", inProcessIds.size());
+            		 parAccHm.put("inProcessCount", inProcessIds.size());
+        		 }
+        		 parAccMain.put("info", parAccHm);
+        		 parAccFinalData.add(parAccMain);
+     		}
+        	 return parAccFinalData;
+     	}
+     	else
+     	{
+     		log.info("Fetching total accounting data...");
+     		List<LinkedHashMap> allFinalData = new ArrayList<LinkedHashMap>();
+     		if(totalIds.size()>0)
+     		{
+     			if(searchWord != null)
+     			{
+     				log.info("Fetching data with search keyword...");
+     				List<BigInteger> searchIds = reconciliationResultService.getSearchKeywordFilteredOriginalIds(totalIds, searchWord, columnAsString,dataViewId);
+     				allFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,searchIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+             		totHm.put("totalCount", searchIds.size());
+             		totHm.put("accountedCount", accIds.size());
+             		totHm.put("inProcessCount", inProcessIds.size());
+             		totHm.put("unAccountedCount", unAccIds.size());
+     			}
+     			else
+     			{
+     				log.info("Fetching data with-out search keyword...");
+     				allFinalData = accountingDataService.fetchAccountingDataForMultiCreditDebit(tenantId,dataViewId,groupId,totalIds,limit,pageSize,headerColumns,exportFile,columnInfo.get("columnName").toString(),columnInfo.get("dataType").toString(),sortByOrder);
+             		totHm.put("totalCount", totalIds.size());
+             		totHm.put("accountedCount", accIds.size());
+             		totHm.put("inProcessCount", inProcessIds.size());
+             		totHm.put("unAccountedCount", unAccIds.size());
+     			}
+         		totHmMain.put("info", totHm);
+         		allFinalData.add(totHmMain);
+     		}
+     		return allFinalData;
+     	}
+	 }
+	 public HashMap getAllGroupedListAnalytics(Map<String, List<BigInteger>> accUnAccIds, Long tenantId, BigInteger viewId, String amountQualifier) throws ClassNotFoundException
+	 {
+		 HashMap finalMap = new HashMap();
+		 List<BigInteger> accIds = accUnAccIds.get("accIds");
+		 List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+		 List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+		 List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+		 
+		 
+		 //log.info("accIds: "+accIds.size()+", unAccIds: "+unAccIds.size()+", inProcessIds:"+inProcessIds.size()+", totalIds: "+totalIds.size());
+		 HashMap accntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, accIds);
+		 finalMap.put("accounted", accntedMap);
+		 HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, unAccIds);
+		 finalMap.put("unAccounted", unAccntedMap);	
+		 HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, inProcessIds);
+		 finalMap.put("partiallyAccounted", parAccntedMap);	
+		 HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, totalIds);
+		 finalMap.put("total", totAlAccntedMap);
+		 
+		 return finalMap;
+	 }
+	 
+	 public HashMap getAllGroupedList(Map<String, List<BigInteger>> accUnAccIds, Long tenantId, BigInteger viewId, String amountQualifier) throws ClassNotFoundException
+	 {
+		 HashMap finalMap = new HashMap();
+		 List<BigInteger> accIds = accUnAccIds.get("accIds");
+		 List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+		 List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+		 List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+		 
+		 Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		 String currencyFormat = props.getProperty("currencyFormat");
+
+		 HashMap acc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,accIds);
+		 finalMap.put("acount", acc.get("totalCount"));
+		 finalMap.put("aamount", reconciliationResultService.getAmountInFormat(acc.get("totalAmount").toString(),currencyFormat));
+		 
+		 HashMap unAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,unAccIds);
+		 finalMap.put("ucount", unAcc.get("totalCount"));
+		 finalMap.put("uamount", reconciliationResultService.getAmountInFormat(unAcc.get("totalAmount").toString(),currencyFormat));
+
+		 HashMap parAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,inProcessIds);
+		 finalMap.put("pcount", parAcc.get("totalCount"));
+		 finalMap.put("pamount", reconciliationResultService.getAmountInFormat(parAcc.get("totalAmount").toString(),currencyFormat));
+		 
+		 HashMap totalAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,totalIds);
+		 finalMap.put("tcount", totalAcc.get("totalCount"));
+		 finalMap.put("tamount", reconciliationResultService.getAmountInFormat(totalAcc.get("totalAmount").toString(),currencyFormat));
+
+		 return finalMap;
+	 }
+	 
+	 public HashMap getGroupedListAnalytics(Map<String, List<BigInteger>> accUnAccIds, Long tenantId, BigInteger viewId, String amountQualifier) throws ClassNotFoundException
+	 {
+		 HashMap finalMap = new HashMap();
+		 List<BigInteger> accIds = accUnAccIds.get("accIds");
+		 List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+		 List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+		 List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+		 if(accIds.size()>0 || inProcessIds.size()>0)
+		 {
+			 HashMap accntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, accIds);
+			 finalMap.put("accounted", accntedMap);
+			 HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, unAccIds);
+			 finalMap.put("unAccounted", unAccntedMap);	
+			 HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, inProcessIds);
+			 finalMap.put("partiallyAccounted", parAccntedMap);	
+			 HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, totalIds);
+			 finalMap.put("total", totAlAccntedMap);
+		 }
+		 return finalMap;
+	 }
+	 
+	 public HashMap getUnAccGroupedList(Map<String, List<BigInteger>> accUnAccIds, Long tenantId, BigInteger viewId, String amountQualifier) throws ClassNotFoundException
+	 {
+		 HashMap finalMap = new HashMap();
+		 List<BigInteger> accIds = accUnAccIds.get("accIds");
+		 List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+		 List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+		 List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+		 
+		 Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		 String currencyFormat = props.getProperty("currencyFormat");
+		 
+		 if(totalIds.size()>0)
+		 {
+			 HashMap acc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,accIds);
+			 finalMap.put("acount", acc.get("totalCount"));
+			 finalMap.put("aamount", reconciliationResultService.getAmountInFormat(acc.get("totalAmount").toString(),currencyFormat));
+			 
+			 HashMap unAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,unAccIds);
+			 finalMap.put("ucount", unAcc.get("totalCount"));
+			 finalMap.put("uamount", reconciliationResultService.getAmountInFormat(unAcc.get("totalAmount").toString(),currencyFormat));
+
+			 HashMap parAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,inProcessIds);
+			 finalMap.put("pcount", parAcc.get("totalCount"));
+			 finalMap.put("pamount", reconciliationResultService.getAmountInFormat(parAcc.get("totalAmount").toString(),currencyFormat));
+			 
+			 HashMap totalAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,totalIds);
+			 finalMap.put("tcount", totalAcc.get("totalCount"));
+			 finalMap.put("tamount", reconciliationResultService.getAmountInFormat(totalAcc.get("totalAmount").toString(),currencyFormat));
+		 }
+		 
+		 return finalMap;
+	 }
+	 
+	 
+	 public HashMap getGroupedList(Map<String, List<BigInteger>> accUnAccIds, Long tenantId, BigInteger viewId, String amountQualifier) throws ClassNotFoundException
+	 {
+		 HashMap finalMap = new HashMap();
+		 List<BigInteger> accIds = accUnAccIds.get("accIds");
+		 List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+		 List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+		 List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+		 
+		 Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		 String currencyFormat = props.getProperty("currencyFormat");
+		 
+		 if(accIds.size()>0 || inProcessIds.size()>0)
+		 {
+
+			 HashMap acc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,accIds);
+			 finalMap.put("acount", acc.get("totalCount"));
+			 finalMap.put("aamount", reconciliationResultService.getAmountInFormat(acc.get("totalAmount").toString(),currencyFormat));
+			 
+			 HashMap unAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,unAccIds);
+			 finalMap.put("ucount", unAcc.get("totalCount"));
+			 finalMap.put("uamount", reconciliationResultService.getAmountInFormat(unAcc.get("totalAmount").toString(),currencyFormat));
+
+			 HashMap parAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,inProcessIds);
+			 finalMap.put("pcount", parAcc.get("totalCount"));
+			 finalMap.put("pamount", reconciliationResultService.getAmountInFormat(parAcc.get("totalAmount").toString(),currencyFormat));
+			 
+			 HashMap totalAcc = reconciliationResultService.getCountNAmountForDVId(viewId, tenantId, amountQualifier,totalIds);
+			 finalMap.put("tcount", totalAcc.get("totalCount"));
+			 finalMap.put("tamount", reconciliationResultService.getAmountInFormat(totalAcc.get("totalAmount").toString(),currencyFormat));
+		 }
+		 return finalMap;
+	 }
+	 
+	 public HashMap getRulesGroupedList(Map<String, List<BigInteger>> accUnAccIds, Long tenantId, BigInteger viewId, String amountQualifier) throws ClassNotFoundException
+	 {
+		 HashMap finalMap = new HashMap();
+		 List<BigInteger> accIds = accUnAccIds.get("accIds");
+		 List<BigInteger> unAccIds = accUnAccIds.get("unAccIds");
+		 List<BigInteger> inProcessIds = accUnAccIds.get("inProcessIds");
+		 List<BigInteger> totalIds = accUnAccIds.get("totalIds");
+		 if(accIds.size()>0 || inProcessIds.size()>0)
+		 {
+			 HashMap accntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, accIds);
+			 finalMap.put("accounted", accntedMap);
+			 HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, unAccIds);
+			 finalMap.put("unAccounted", unAccntedMap);	
+			 HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, inProcessIds);
+			 finalMap.put("partiallyAccounted", parAccntedMap);	
+			 HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, totalIds);
+			 finalMap.put("total", totAlAccntedMap); 
+		 }
+		 return finalMap;
+	 }
+   
+	 public void manulUnAccForRules(List<BigInteger> orginalRowIds, Long tenantId, Long viewId, Long groupId, Long ruleId, Long userId)
+	 {
+		 log.info("In Service for deleting records from accounted summary and accounting data manulUnAccForRules...");
+		 if(orginalRowIds.size()>0)
+		 {
+			 List<AccountedSummary> accSummaryIds = accountedSummaryRepository.fetchIdsByTotalIdsRuleIdAndGroupId(orginalRowIds, groupId, viewId, ruleId);
+			 if(accSummaryIds.size()>0)
+			 {
+				 accountedSummaryRepository.delete(accSummaryIds);
+				 log.info("Deleted records from summary table: "+ accSummaryIds.size());
+			 }
+			 List<AccountingData> accIds = accountingDataRepository.fetchRecordsByRuleId(orginalRowIds, tenantId, viewId, groupId, ruleId);
+			 if(accIds.size()>0)	//Deleting accounting data
+			 {
+				 accountingDataRepository.delete(accIds);
+				 log.info("Deleted records from accounting data table: "+ accIds.size());
+			 }
+			 postAppModuleSummaryTableForAcc(groupId, viewId, ruleId, userId, Long.valueOf(accSummaryIds.size()), "ACCOUNTING", "ACCOUNTED");
+		 }
+	 }
+	 
+	 public void manualUnAccForBatches(List<BigInteger> orginalRowIds, Long tenantId, Long viewId, Long groupId, List<String> batches, Long userId)
+	 {
+		 log.info("In Service for deleting records from accounted summary and accounting data manualUnAccForBatches...");
+		 if(orginalRowIds.size()>0)
+		 {
+			 List<BigInteger> ruleIds = accountedSummaryRepository.fetchRuleIdsByRowIdsNBatches(orginalRowIds, groupId, viewId, batches);
+			 if(ruleIds.size()>0)
+			 {
+				 for(BigInteger ruleId : ruleIds)
+				 {
+					 List<AccountedSummary> accntdSummary = accountedSummaryRepository.fetchRecordsByTotalIdsAndRulesNGroupIdNBatches(orginalRowIds, groupId, viewId, batches, ruleId.longValue());
+					 if(accntdSummary.size()>0)
+					 {
+						 accountedSummaryRepository.delete(accntdSummary);
+						 log.info("Deleted records from summary table: " + accntdSummary.size());
+					 }
+					 List<AccountingData> accIds = accountingDataRepository.fetchRecordsByBatchNRuleId(orginalRowIds, tenantId, viewId, groupId, batches, ruleId.longValue());
+					 if(accIds.size()>0)
+					 {
+						 accountingDataRepository.delete(accIds);
+						 log.info("Deleted records from accounting data table: "+ accIds.size());
+					 }
+					 postAppModuleSummaryTableForAcc(groupId, viewId, ruleId.longValue(), userId, Long.valueOf(accntdSummary.size()), "ACCOUNTING", "ACCOUNTED");
+				 }
+			 }
+		 }
+	 }
+	 
+	 public void manualUnAccForTotal(List<BigInteger> orginalRowIds, Long tenantId, Long viewId, Long groupId, Long userId)
+	 {
+		 log.info("In Service for deleting records from accounted summary and accounting data manualUnAccForTotal...");
+		 if(orginalRowIds.size()>0)
+		 {
+			 List<BigInteger> ruleIds = accountedSummaryRepository.fetchDistinctRuleIdsByRowIds(orginalRowIds, groupId, viewId);
+			 if(ruleIds.size()>0)
+			 {
+				 for(BigInteger ruleId : ruleIds)
+				 {
+					 List<AccountedSummary> accSummary = accountedSummaryRepository.fetchIdsByTotalIdsRuleIdAndGroupId(orginalRowIds, groupId, viewId, ruleId.longValue());
+					 if(accSummary.size()>0)
+					 {
+						 accountedSummaryRepository.delete(accSummary);
+						 log.info("Deleted records from summary table: "+ accSummary.size());
+					 }
+					 List<AccountingData> accIds = accountingDataRepository.fetchRecordsByRuleId(orginalRowIds, tenantId, viewId, groupId, ruleId.longValue());
+					 if(accIds.size()>0)
+					 {
+						 accountingDataRepository.delete(accIds);
+						 log.info("Deleted records from accounting data table: "+ accIds.size());
+					 }
+					 postAppModuleSummaryTableForAcc(groupId, viewId, ruleId.longValue(), userId, Long.valueOf(accSummary.size()), "ACCOUNTING", "ACCOUNTED");
+				 }
+			 }
+		 }
+	 }
+	 
+	 public Map<String, List<BigInteger>> getOthersInfo(Long groupId, BigInteger sourceViewId, String rangeFrom, String rangeTo, String transDateQualifier) throws SQLException
+	 {
+		 log.info("Fetching Others Information...");
+		 Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+		 List<BigInteger> emptyList = new ArrayList<BigInteger>();
+		 List<BigInteger> allTotalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+		 List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+		 List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+		 log.info("Total Ids Size: " + allTotalIds.size());
+		 if(allTotalIds.size()>0)
+		 {
+			 totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId.longValue());
+			 log.info("Total Accounted Ids: "+totalAccountedIds.size());
+			 for(BigInteger id : allTotalIds)
+			 {
+				 if(!totalAccountedIds.contains(id))
+				 {
+					 othersIds.add(id);
+				 }
+			 }	
+			 log.info("Others Ids Size: "+ othersIds.size());
+			 finalMap.put("accIds",emptyList);
+			 finalMap.put("unAccIds",othersIds);
+			 finalMap.put("inProcessIds",emptyList);
+			 finalMap.put("totalIds",othersIds);
+		 }
+		 return finalMap;
+	 }
+	 
+	 public Map<String, List<BigInteger>> getOthersColumnInfo(Long groupId, BigInteger sourceViewId, String rangeFrom, String rangeTo, String transDateQualifier, String columnName) throws SQLException
+	 {
+		 Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+		 List<BigInteger> emptyList = new ArrayList<BigInteger>();
+		 List<BigInteger> othersIds = new ArrayList<BigInteger>();
+		 List<BigInteger> allTotalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(), rangeFrom, rangeTo,columnName);
+		 
+		 if(allTotalIds.size()>0)
+		 {
+			 List<BigInteger> totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId.longValue());
+			 for(BigInteger id : allTotalIds)
+			 {
+				 if(!totalAccountedIds.contains(id))
+				 {
+					 othersIds.add(id);
+				 }
+			 }
+			 
+			 finalMap.put("accIds",emptyList);
+			 finalMap.put("unAccIds",othersIds);
+			 finalMap.put("inProcessIds",emptyList);
+			 finalMap.put("totalIds",othersIds);
+			 
+		 }
+		 //log.info("accountedIds: "+emptyList.size()+", unAccounted: "+othersIds.size()+", partiallyAccounted: "+emptyList.size()+", totalIds: "+othersIds.size());
+		 return finalMap;
+	 }
+	 
+	 public Map<String, List<BigInteger>> getOthersInfoWithColumnWise(Long groupId, Long sourceViewId, String rangeFrom, String rangeTo, List<String> colValues, Long columnId) throws SQLException
+	 {
+		 log.info("Fetching Others Information...");
+		 Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+		 List<BigInteger> emptyList = new ArrayList<BigInteger>();
+		 List<BigInteger> allTotalIds = reconciliationResultService.getTotalIdsGroupByColumnValues(columnId, sourceViewId, rangeFrom, rangeTo, colValues, "fileDate");
+		 List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+		 List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+		 log.info("Total Ids Size: " + allTotalIds.size());
+		 if(allTotalIds.size()>0)
+		 {
+			 totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId.longValue());
+			 log.info("Total Accounted Ids: "+totalAccountedIds.size());
+			 for(BigInteger id : allTotalIds)
+			 {
+				 if(!totalAccountedIds.contains(id))
+				 {
+					 othersIds.add(id);
+				 }
+			 }	
+			 log.info("Others Ids Size: "+ othersIds.size());
+			 finalMap.put("accIds",emptyList);
+			 finalMap.put("unAccIds",othersIds);
+			 finalMap.put("inProcessIds",emptyList);
+			 finalMap.put("totalIds",othersIds);
+		 }
+		 return finalMap;
+	 }
+	 
+	 public Map<String, List<BigInteger>> getOthersInfoWithDayWise(Long groupId, BigInteger sourceViewId, String rangeFrom, String rangeTo, String transDateQualifier, List<String> transDates) throws SQLException
+	 {
+		 log.info("Fetching Others Information...");
+		 Map<String, List<BigInteger>> finalMap = new HashMap<String, List<BigInteger>>();
+		 List<BigInteger> emptyList = new ArrayList<BigInteger>();
+		 List<BigInteger> allTotalIds = reconciliationResultService.getOriginalIdsByTransDates(sourceViewId.longValue(), rangeFrom, rangeTo, transDateQualifier, transDates);
+		 List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+		 List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+		 log.info("Total Ids Size: " + allTotalIds.size());
+		 if(allTotalIds.size()>0)
+		 {
+			 totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId.longValue());
+			 log.info("Total Accounted Ids: "+totalAccountedIds.size());
+			 for(BigInteger id : allTotalIds)
+			 {
+				 if(!totalAccountedIds.contains(id))
+				 {
+					 othersIds.add(id);
+				 }
+			 }	
+			 log.info("Others Ids Size: "+ othersIds.size());
+			 finalMap.put("accIds",emptyList);
+			 finalMap.put("unAccIds",othersIds);
+			 finalMap.put("inProcessIds",emptyList);
+			 finalMap.put("totalIds",othersIds);
+		 }
+		 return finalMap;
+	 }
+	 
+	 public List<HashMap> getRulesGroupedListStatistics(List<String> transDates, Long tenantId, String rangeFrom, String rangeTo, String transDateQualifier, String amountQualifier, Long groupId, Long sourceViewId, String jobReference, List<BigInteger> ruleIds) throws ClassNotFoundException, SQLException, ParseException
+	 {
+			List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+			List<HashMap> groupedList = new ArrayList<HashMap>();
+			List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+			List<BigInteger> allTotalIds = new ArrayList<BigInteger>();
+			allTotalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+			totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId);
+			for(String transDate : transDates)
+			{
+				DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+				Date date= df.parse(transDate);
+				df = new SimpleDateFormat("dd-MMM-yy");
+				List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(sourceViewId, rangeFrom, rangeTo, transDateQualifier, transDate.trim(), "DATE", "fileDate");
+				
+/*				if(totalIds.size()>0)
+				{*/
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIds, rangeFrom, rangeTo, sourceViewId, tenantId, groupId, transDateQualifier, jobReference, ruleIds);
+					if(accUnAccIds.size()>0)
+					{
+					//	log.info("Inside accUnAccIds: "+transDate);
+						//List<BigInteger> totalShowIds = accUnAccIds.get("totalIds");
+						List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+						 if(ruleIds.contains(BigInteger.valueOf(0)))
+						 {
+							 for(BigInteger id : allTotalIds)
+							 {
+								 if(!totalAccountedIds.contains(id))
+								 {
+									 othersIds.add(id);
+								 }
+							 }	
+							 HashMap dateMp = accountingDataService.getGroupedList(accUnAccIds, tenantId, new BigInteger(sourceViewId.toString()), amountQualifier);
+							 if(dateMp.size()>0)
+							 {
+								 dateMp.put("name", df.format(date));
+								 groupedList.add(dateMp);
+							 }
+							 //Others Map
+							 HashMap othersMap = new HashMap();
+							 HashMap accntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+							 othersMap.put("accounted", accntedMap);
+							 HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, othersIds);
+							 othersMap.put("unAccounted", unAccntedMap);	
+							 HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+							 othersMap.put("partiallyAccounted", parAccntedMap);
+							 HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, othersIds);
+							 othersMap.put("total", totAlAccntedMap);
+							 othersMap.put("name", "Others");
+							 groupedList.add(othersMap);
+						 }
+						 else
+						 {
+						//	 log.info("Without manual rule id "+transDate);
+							 HashMap dateMp = accountingDataService.getAllGroupedList(accUnAccIds, tenantId, new BigInteger(sourceViewId.toString()), amountQualifier);
+						//	 log.info(transDate +": "+dateMp);
+							 if(dateMp.size()>0)
+							 {
+								 dateMp.put("name", df.format(date));
+								 groupedList.add(dateMp);
+							 }
+						 }
+					}
+				/*}*/
+			}
+			return groupedList;
+	 }
+	 
+	 
+	 public List<HashMap> getRulesColumnGroupedListStatistics(List<String> distColValues, Long sourceViewId, String rangeFrom, String rangeTo, String columnName, String colDataType, Long tenantId, Long groupId, String jobReference, List<BigInteger> ruleIds, String amountQualifier) throws ClassNotFoundException, SQLException
+	 {
+		List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+		List<HashMap> groupedList = new ArrayList<HashMap>();
+		
+		List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+		List<BigInteger> allTotalIds = new ArrayList<BigInteger>();
+		allTotalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(), rangeFrom, rangeTo,columnName);
+		totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId);
+		
+		for(String colValue : distColValues)
+		{
+			List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(sourceViewId, rangeFrom, rangeTo, columnName, colValue.trim(), colDataType, "fileDate");
+			if(totalIds.size()>0)
+			{
+				Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByDaysWithRule(totalIds, rangeFrom, rangeTo, sourceViewId, tenantId, groupId, columnName, jobReference,ruleIds);
+				if(accUnAccIds.size()>0)
+				{
+					List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+
+					if(ruleIds.contains(BigInteger.valueOf(0)))
+					{
+						for(BigInteger id : allTotalIds)
+						{
+							if(!totalAccountedIds.contains(id))
+							{
+								othersIds.add(id);
+							}
+						}
+						HashMap colMp = accountingDataService.getGroupedList(accUnAccIds, tenantId, new BigInteger(sourceViewId.toString()), amountQualifier);
+						if(colMp.size()>0)
+						{
+			 				colMp.put("name", colValue);
+							groupedList.add(colMp);
+					 	}
+						//Others Map
+						HashMap othersMap = new HashMap();
+						HashMap accntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+						othersMap.put("accounted", accntedMap);
+						HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, othersIds);
+						othersMap.put("unAccounted", unAccntedMap);	
+						HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+						othersMap.put("partiallyAccounted", parAccntedMap);
+						HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, othersIds);
+						othersMap.put("total", totAlAccntedMap);
+						othersMap.put("name", "Others");
+						groupedList.add(othersMap);
+					}
+					else
+					{
+					 	HashMap colMp = accountingDataService.getGroupedList(accUnAccIds, tenantId, new BigInteger(sourceViewId.toString()), amountQualifier);
+		 				if(colMp.size()>0)
+		 				{
+						 	colMp.put("name", colValue);
+							groupedList.add(colMp);
+		 				}
+					}
+				}
+			}
+		}	
+		return groupedList;
+	 }
+	 
+	 public List<HashMap> getBatchesDateGroupedListStatistics(List<String> transDates, Long sourceViewId, String rangeFrom, String rangeTo, String transDateQualifier, String amountQualifier, Long tenantId, Long groupId, List<String> batchList) throws SQLException, ClassNotFoundException, ParseException
+	 {
+			List<BigInteger> allIds = new ArrayList<BigInteger>();
+			List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+			List<HashMap> groupedList = new ArrayList<HashMap>();
+			List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+			List<BigInteger> allTotalIds = new ArrayList<BigInteger>();
+			allTotalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+			totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId);
+			List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+			for(String transDate : transDates)
+			{
+				DateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+				Date date= df.parse(transDate);
+				df = new SimpleDateFormat("dd-MMM-yy");
+				List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(sourceViewId, rangeFrom, rangeTo, transDateQualifier, transDate.trim(), "DATE", "fileDate");
+				if(totalIds.size()>0)
+				{
+					allIds.addAll(totalIds);
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByBatches(totalIds, tenantId, groupId, new BigInteger(sourceViewId.toString()), rangeFrom, rangeTo, batchList);
+					if(accUnAccIds.size()>0)
+					{
+						HashMap dateMp = accountingDataService.getGroupedList(accUnAccIds, tenantId, new BigInteger(sourceViewId.toString()), amountQualifier);
+						if(dateMp.size()>0)
+						{				
+							dateMp.put("name", df.format(date));
+							groupedList.add(dateMp);
+						}
+					}
+				}
+			}
+			//log.info("In MANUAL BATCH LIST. . . .");
+			if(batchList.get(0).contains("MANUAL"))
+			{
+				for(BigInteger id : allTotalIds)
+				{
+					if(!totalAccountedIds.contains(id))
+					{
+						othersIds.add(id);
+					}
+				}
+				//Others
+				HashMap othersMap = new HashMap();
+				HashMap accntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+				othersMap.put("accounted", accntedMap);
+				HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, othersIds);
+				othersMap.put("unAccounted", unAccntedMap);	
+				HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+				othersMap.put("partiallyAccounted", parAccntedMap);
+				HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, allTotalIds);
+				othersMap.put("total", totAlAccntedMap);
+				othersMap.put("name", "Others");
+				groupedList.add(othersMap);
+			}
+
+			return groupedList;
+	 }
+	 
+	 public List<HashMap> getBatchesColumnGroupedListStatistics(List<String> distColValues, Long sourceViewId, String rangeFrom, String rangeTo, String columnName, String colDataType,String amountQualifier, Long tenantId, Long groupId, List<String> batchList) throws SQLException, ClassNotFoundException
+	 {
+			List<BigInteger> allIds = new ArrayList<BigInteger>();
+			List<BigInteger> accountingIds = new ArrayList<BigInteger>();
+			List<HashMap> groupedList = new ArrayList<HashMap>();
+			
+			List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+			List<BigInteger> allTotalIds = new ArrayList<BigInteger>();
+			allTotalIds = reconciliationResultService.getViewOriginalIds(sourceViewId.longValue(), rangeFrom, rangeTo,columnName);
+			totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, sourceViewId);
+			List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+			for(String colValue : distColValues)
+			{
+				List<BigInteger> totalIds = reconciliationResultService.getOriginalIdsByTransDate(sourceViewId, rangeFrom, rangeTo, columnName, colValue.trim(), colDataType, "fileDate");
+				if(totalIds.size()>0)
+				{
+					allIds.addAll(totalIds);
+					Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByBatches(totalIds, tenantId, groupId, new BigInteger(sourceViewId.toString()), rangeFrom, rangeTo, batchList);
+					if(accUnAccIds.size()>0)
+					{
+	      				HashMap colMp = accountingDataService.getGroupedList(accUnAccIds, tenantId, new BigInteger(sourceViewId.toString()), amountQualifier);
+	      				if(colMp.size()>0)
+	      				{
+		      				colMp.put("name", colValue);
+							groupedList.add(colMp);
+	      				}
+					}
+				}
+			}		
+			
+			if(batchList.get(0).contains("MANUAL"))
+			{
+				for(BigInteger id : allTotalIds)
+				{
+					if(!totalAccountedIds.contains(id))
+					{
+						othersIds.add(id);
+					}
+				}
+				// Others
+				HashMap othersMap = new HashMap();
+				HashMap accntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+				othersMap.put("accounted", accntedMap);
+				HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, othersIds);
+				othersMap.put("unAccounted", unAccntedMap);	
+				HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, new ArrayList<BigInteger>());
+				othersMap.put("partiallyAccounted", parAccntedMap);
+				HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(new BigInteger(sourceViewId.toString()), tenantId, amountQualifier, allTotalIds);
+				othersMap.put("total", totAlAccntedMap);
+				othersMap.put("name", "Others");
+				groupedList.add(othersMap);
+			}
+
+			return groupedList;
+	 }
+	 
+	 public List<HashMap> fetchRulesStatisticsWithOthers(List<BigInteger> ruleIds, Long tenantId, Long groupId, String amountQualifier, String rangeFrom, String rangeTo,BigInteger viewId, String transDateQualifier) throws ClassNotFoundException, SQLException
+	 {
+		 log.info("Fetching Grouped by Process and filtered groupd by ules Statistics for others...");
+		 List<HashMap> groupedList = new ArrayList<HashMap>();
+		 List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+		 List<BigInteger> allTotalIds = new ArrayList<BigInteger>();
+		 allTotalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+		 totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, viewId.longValue());
+		 log.info("Rule Ids Size: "+ ruleIds.size());
+		 List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+		 for(BigInteger id : allTotalIds)
+			{
+				if(!totalAccountedIds.contains(id))
+				{
+					othersIds.add(id);
+				}
+			}
+		 for(BigInteger ruleId : ruleIds)
+		 {
+			 log.info("Rule Id: "+ ruleId);
+			 List<BigInteger> ruleIdSingle = new ArrayList<BigInteger>();
+			 ruleIdSingle.add(ruleId);
+			 Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsGroupByRules(tenantId,groupId,viewId,rangeFrom,rangeTo,ruleIdSingle);
+			 if(accUnAccIds.get("totalIds").size()>0)
+			 {
+
+					 HashMap ruleMap = accountingDataService.getRulesGroupedList(accUnAccIds, tenantId, viewId, amountQualifier);
+					 if(ruleMap.size()>0)
+					 {
+						 Rules rule = rulesRepository.findOne(ruleId.longValue());
+						 if(rule != null)
+						 {
+							 ruleMap.put("name", rule.getRuleCode());
+							 ruleMap.put("id", ruleId);
+						 } else if(ruleId == BigInteger.valueOf(0)) 
+						 {
+							 ruleMap.put("name", "Manual");
+							 ruleMap.put("id", ruleId);
+						 }
+						 groupedList.add(ruleMap);
+					 }
+			 }
+		 }
+		 
+		 if(othersIds.size() > 0){
+			 	HashMap othersMap = new HashMap();
+				HashMap accntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, new ArrayList<BigInteger>());
+				othersMap.put("accounted", accntedMap);
+				HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, othersIds);
+				othersMap.put("unAccounted", unAccntedMap);	
+				HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, new ArrayList<BigInteger>());
+				othersMap.put("partiallyAccounted", parAccntedMap);
+				HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, allTotalIds);
+				othersMap.put("total", totAlAccntedMap);
+				othersMap.put("name", "Others");
+				groupedList.add(othersMap);
+		 }
+		 
+		 return groupedList;
+	 }
+	 
+	 public List<HashMap> fetchBatchesStatisticsWithOthers(List<String> batches, BigInteger viewId, String rangeFrom, String rangeTo, String transDateQualifier, Long tenantId, Long groupId, String amountQualifier) throws ClassNotFoundException, SQLException
+	 {
+		 log.info("Fetching Rules Statistics for others...");
+		 List<BigInteger> totalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+		 List<HashMap> groupedList = new ArrayList<HashMap>();
+		 List<BigInteger> totalAccountedIds = new ArrayList<BigInteger>();
+		 List<BigInteger> allTotalIds = new ArrayList<BigInteger>();
+		 allTotalIds = reconciliationResultService.getViewOriginalIds(viewId.longValue(), rangeFrom, rangeTo,transDateQualifier);
+		 totalAccountedIds = accountedSummaryRepository.fetchAllAccountedRowIdsByOriginalRowIds(allTotalIds,groupId, viewId.longValue());
+		 List<BigInteger> othersIds = new ArrayList<BigInteger>();	// Others
+		 for(BigInteger id : allTotalIds)
+		 {
+			 if(!totalAccountedIds.contains(id))
+			 {
+				 othersIds.add(id);
+			 }
+		 }
+		 if(batches.size()>0)
+		 {
+			 for(String batch : batches)
+			 {
+				 List<String> batchList = new ArrayList<String>();
+				 batchList.add(batch.trim());
+				 Map<String, List<BigInteger>> accUnAccIds = accountingDataService.getAccountingIdsByBatches(totalIds, tenantId, groupId, viewId, rangeFrom, rangeTo, batchList);
+				 if(accUnAccIds.size()>0)
+				 {
+					 HashMap batchMap = accountingDataService.getGroupedList(accUnAccIds, tenantId, viewId, amountQualifier);
+					 if(batchMap.size()>0)
+					 {
+						 batchMap.put("name", batch);
+						 groupedList.add(batchMap);  
+					 }
+				 }
+			 }
+			 if(othersIds.size() > 0){
+				 //Others Map
+				 HashMap othersMap = new HashMap();
+				 HashMap accntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, new ArrayList<BigInteger>());
+				 othersMap.put("accounted", accntedMap);
+				 HashMap unAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, othersIds);
+				 othersMap.put("unAccounted", unAccntedMap);	
+				 HashMap parAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, new ArrayList<BigInteger>());
+				 othersMap.put("partiallyAccounted", parAccntedMap);
+				 HashMap totAlAccntedMap = accountingDataService.getCountNAmountHashMap(viewId, tenantId, amountQualifier, allTotalIds);
+				 othersMap.put("total", totAlAccntedMap);
+				 othersMap.put("name", "Others");
+				 groupedList.add(othersMap);
+			 }
+		 } 
+		 return groupedList;
+	 }
+	 
+	 /**
+	  * Author: Shiva
+	  * Purpose: Posting accounting counts in t_app_module_summary table.
+	  * **/
+	  public void postAppModuleSummaryTableForAcc(Long groupId, Long viewId, Long ruleId, Long userId, Long typeCount, String type, String status)
+	  {
+		  log.info("Posting "+type+" count in t_app_module_summary table for the group id: "+groupId+", view id: "+ viewId+", rule id: "+ ruleId+", status: "+ status);
+		  AppModuleSummary amsSource = appModuleSummaryRepository.findByModuleAndRuleGroupIdAndRuleIdAndTypeAndViewId(type, groupId, ruleId, status, viewId);
+		  if(amsSource != null)
+		  {
+			  log.info("Updating the app_module_summary with count: " + (amsSource.getTypeCount()-typeCount));
+			  amsSource.setLastUpdatedBy(userId);
+			  amsSource.setLastUpdatedDate(ZonedDateTime.now());
+			  amsSource.setTypeCount(amsSource.getTypeCount()-typeCount);
+			  AppModuleSummary amsSrcUpdate = appModuleSummaryRepository.save(amsSource);
+		  }
+		  else
+		  {
+			  log.info("Creating the app_module_summary record with count: "+typeCount);
+			  AppModuleSummary amsCreate = new AppModuleSummary();
+			  amsCreate.setCreatedBy(userId);
+			  amsCreate.setCreatedDate(ZonedDateTime.now());
+			  amsCreate.setLastUpdatedBy(userId);
+			  amsCreate.setLastUpdatedDate(ZonedDateTime.now());
+			  amsCreate.setModule(type);
+			  amsCreate.setRuleGroupId(groupId);
+			  amsCreate.setRuleId(ruleId);
+			  amsCreate.setType(status);
+			  amsCreate.setTypeCount(typeCount);
+			  amsCreate.setViewId(viewId);
+			  AppModuleSummary amsSrcCreate = appModuleSummaryRepository.save(amsCreate);
+		  }
+	  }
+	  
+		/**
+		 * Author: Shiva
+		 * Purpose: Fetching rule_id, view_id based on rule group id and job reference
+		 * **/
+		public HashMap getRuleViewMap(Long ruleGroupId, String jobReference)
+		{
+			System.out.println("Service for fetching rules and views for the rule group id: "+ ruleGroupId + ", job reference: "+jobReference);
+			HashMap ruleViewsMap = new HashMap();
+			String query = "SELECT rule_id, view_id FROM t_accounted_summary WHERE rule_group_id = "+ruleGroupId+" GROUP BY rule_id, view_id";
+			Connection conn = null;
+			Statement stmt = null;
+			ResultSet result = null;
+			try{
+	    		String dbUrl=env.getProperty("spring.datasource.url");
+	    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+	    		String host = parts[0].split("/")[2].split(":")[0];
+	    		String schemaName=parts[0].split("/")[3];
+	    		String userName = env.getProperty("spring.datasource.username");
+	    		String password = env.getProperty("spring.datasource.password");
+	    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+	    		Class.forName(jdbcDriver);
+	     	    conn = DriverManager.getConnection(dbUrl, userName, password);
+
+				stmt = conn.createStatement();
+				result = stmt.executeQuery(query);
+			 	while(result.next()){
+			 		ruleViewsMap.put(Long.parseLong(result.getString(1)), Long.parseLong(result.getString(2)));
+				}
+			}
+			catch(Exception e){
+			      e.printStackTrace();
+			}finally{
+				   try{
+					   if(result != null)
+						   result.close();
+				       if(stmt!=null)
+				    	   stmt.close();
+				       if(conn!=null)
+				            conn.close();
+				   }
+				   catch(SQLException e)
+				   {
+					   e.printStackTrace();
+				   }
+			}
+			System.out.println("Rule, View Map: "+ruleViewsMap);
+			return ruleViewsMap;
+		}
+		
+		/**
+		 * Author: Shiva
+		 * Purpose: Posting Accounting data counts in t_app_module_summary table
+		 * @throws SQLException
+		 * **/
+		public void postAccountingCountsInAppModuleSummary(Long ruleGroupId, String jobReference, HashMap ruleViewMap, Long userId) throws SQLException
+		{
+			System.out.println("Service for posting accounting counts in t_app_module_summary table for the rule group id: "+ ruleGroupId+", job reference: "+ jobReference+", rule-view map: "+ruleViewMap);
+			Iterator it = ruleViewMap.entrySet().iterator();
+			
+			Connection conn = null;
+		 	
+			try{
+	    		String dbUrl=env.getProperty("spring.datasource.url");
+	    		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+	    		String host = parts[0].split("/")[2].split(":")[0];
+	    		String schemaName=parts[0].split("/")[3];
+	    		String userName = env.getProperty("spring.datasource.username");
+	    		String password = env.getProperty("spring.datasource.password");
+	    		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+	    		Class.forName(jdbcDriver);
+	    		log.info("dbUrl:- "+dbUrl);
+	    		//dbUrl="jdbc:mysql://192.168.0.57:3306/agree_application_2712";
+	    		//log.info("dbUrl1:- "+dbUrl);
+	    		log.info("userName:- "+userName);
+	    		log.info("password:- "+password);
+	     	    conn = DriverManager.getConnection(dbUrl, userName, password);
+				while (it.hasNext() && !conn.isClosed())
+				{
+					Statement stmt = conn.createStatement();
+					Statement stmt1 = conn.createStatement();
+					Statement stmt2 = conn.createStatement();
+					Statement stmt3 = conn.createStatement();
+					Statement accUpdateStmt = null;
+					PreparedStatement accCreationStmt = null;
+					Statement inpUpdateStmt = null;
+					PreparedStatement inpCreationStmt = null;
+			        Map.Entry pair = (Map.Entry)it.next();
+			        Long ruleId = Long.parseLong(pair.getKey().toString());
+			        Long viewId = Long.parseLong(pair.getValue().toString());
+			        ResultSet accountedRS = stmt.executeQuery("SELECT count(*) FROM t_accounted_summary where rule_id = "+ruleId+" and view_id = "+viewId+" and rule_group_id = "+ruleGroupId+" and job_reference = '"+jobReference+"' and status = 'ACCOUNTED'");
+			        ResultSet inprocessRS = stmt1.executeQuery("SELECT count(*) FROM t_accounted_summary where rule_id = "+ruleId+" and view_id = "+viewId+" and rule_group_id = "+ruleGroupId+" and job_reference = '"+jobReference+"' and status = 'INPROCESS'");
+			        double accountedCount = 0.0;
+			        double inprocessCount = 0.0;
+			        
+			        while(accountedRS.next()){
+				 		accountedCount = accountedCount + Double.parseDouble(accountedRS.getString(1));
+					}
+			        while(inprocessRS.next()){
+			        	inprocessCount = inprocessCount + Double.parseDouble(inprocessRS.getString(1));
+					}
+			        System.out.println(">> Rule Id: " + ruleId+", View Id: " + viewId + ", accounted count: "+accountedCount+", inprocess count: " + inprocessCount);
+			        
+			        String accountedQuery = "SELECT * FROM t_app_module_summary WHERE rule_group_id = "+ruleGroupId+" and rule_id = "+ruleId+" and view_id = "+viewId+" and type = 'ACCOUNTED' and module = 'ACCOUNTING'";
+			        String inprocessQuery = "SELECT * FROM t_app_module_summary WHERE rule_group_id = "+ruleGroupId+" and rule_id = "+ruleId+" and view_id = "+viewId+" and type = 'INPROCESS' and module = 'ACCOUNTING'";
+			        
+			        ResultSet accResult = stmt2.executeQuery(accountedQuery);
+			        ResultSet inpResult = stmt3.executeQuery(inprocessQuery);
+			        
+					List<HashMap> accRecords = new ArrayList<HashMap>();
+					List<HashMap> inpRecords = new ArrayList<HashMap>();
+			        
+					ResultSetMetaData rsmdInfo = accResult.getMetaData();
+		 	    	int colCount = rsmdInfo.getColumnCount();
+		 	    	
+				 	while(accResult.next()){	// Fetching Accounted Records from t_app_module_summary
+		 	    		HashMap hm = new HashMap();
+		 	    		for(int i=1; i<=colCount; i++)
+		 	    		{
+		 	    			hm.put(rsmdInfo.getColumnName(i), accResult.getString(i));
+		 	    		}
+		 	    		accRecords.add(hm);
+					}
+				 	
+				 	while(inpResult.next()){	// Fetching Inprocess Records from t_app_module_summary
+		 	    		HashMap hm = new HashMap();
+		 	    		for(int i=1; i<=colCount; i++)
+		 	    		{
+		 	    			hm.put(rsmdInfo.getColumnName(i), inpResult.getString(i));
+		 	    		}
+		 	    		inpRecords.add(hm);
+					}
+				 	// Updating t_app_module_Summary for ACCOUNTED status
+				 	if(accRecords.size()>1)
+				 	{
+				 		System.out.println("Duplicate source records exist...");
+				 	}
+				 	else if(accRecords.size() == 1)
+				 	{	// Updating Record for ACCOUNTED
+				 		double accCount = Double.parseDouble(accRecords.get(0).get("type_count").toString())+accountedCount;
+				 		accUpdateStmt = conn.createStatement();
+				 		accUpdateStmt.executeUpdate("UPDATE TABLE t_app_module_summary SET type_count = "+accCount+" and last_updated_date = "+new java.sql.Date(System.currentTimeMillis())+" where id = "+Long.parseLong(accRecords.get(0).get("id").toString()));
+				 	}
+				 	else
+				 	{	// Creating Record for ACCOUNTED
+				 		String query = "INSERT INTO t_app_module_summary (module, rule_group_id, rule_id, type, type_count, view_id, created_by, last_updated_by, created_date, last_updated_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+				 		accCreationStmt =  conn.prepareStatement(query);
+				 		accCreationStmt.setString(1, "ACCOUNTING");
+				 		accCreationStmt.setLong(2, ruleGroupId);
+				 		accCreationStmt.setLong(3, ruleId);
+				 		accCreationStmt.setString(4, "ACCOUNTED");
+				 		accCreationStmt.setDouble(5, accountedCount);
+				 		accCreationStmt.setLong(6, viewId);
+				 		accCreationStmt.setLong(7, userId);
+				 		accCreationStmt.setLong(8, userId);
+				 		accCreationStmt.setDate(9, new java.sql.Date(System.currentTimeMillis()));
+				 		accCreationStmt.setDate(10, new java.sql.Date(System.currentTimeMillis()));
+				 		accCreationStmt.execute();
+				 	}
+				 	// Updating t_app_module_Summary for INPROCESS status
+				 	if(inpRecords.size()>1)
+				 	{
+				 		System.out.println("Duplicate source records exist...");
+				 	}
+				 	else if(inpRecords.size() == 1)
+				 	{	// Updating Record for INPROCESS
+				 		double inpCount = Double.parseDouble(inpRecords.get(0).get("type_count").toString())+inprocessCount;
+				 		inpUpdateStmt = conn.createStatement();
+				 		inpUpdateStmt.executeUpdate("UPDATE TABLE t_app_module_summary SET type_count = "+inpCount+" and last_updated_date = "+new java.sql.Date(System.currentTimeMillis())+" where id = "+Long.parseLong(inpRecords.get(0).get("id").toString()));
+				 	}
+				 	else
+				 	{	// Creating Record for INPROCESS
+				 		String query = "INSERT INTO t_app_module_summary (module, rule_group_id, rule_id, type, type_count, view_id, created_by, last_updated_by, created_date, last_updated_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+				 		inpCreationStmt = conn.prepareStatement(query);
+				 		inpCreationStmt.setString(1, "ACCOUNTING");
+				 		inpCreationStmt.setLong(2, ruleGroupId);
+				 		inpCreationStmt.setLong(3, ruleId);
+				 		inpCreationStmt.setString(4, "INPROCESS");
+				 		inpCreationStmt.setDouble(5, inprocessCount);
+				 		inpCreationStmt.setLong(6, viewId);
+				 		inpCreationStmt.setLong(7, userId);
+				 		inpCreationStmt.setLong(8, userId);
+				 		inpCreationStmt.setDate(9, new java.sql.Date(System.currentTimeMillis()));
+				 		inpCreationStmt.setDate(10, new java.sql.Date(System.currentTimeMillis()));
+				 		inpCreationStmt.execute();
+				 	}
+					if(accResult != null)
+						accResult.close();
+					if(inpResult != null)
+						inpResult.close();
+			        if(accountedRS != null)
+			        	accountedRS.close();
+			        if(inprocessRS != null)
+			        	inprocessRS.close();
+					if(stmt != null)
+						stmt.close();
+					if(stmt1 != null)
+						stmt1.close();
+					if(stmt2 != null)
+						stmt2.close();
+					if(stmt3 != null)
+						stmt3.close();
+			        if(accUpdateStmt != null)
+			        	accUpdateStmt.close();
+			        if(accCreationStmt != null)
+			        	accCreationStmt.close();
+			        if(inpUpdateStmt != null)
+			        	inpUpdateStmt.close();
+			        if(inpCreationStmt != null)
+			        	inpCreationStmt.close();
+			        it.remove(); // avoids a ConcurrentModificationException
+			    }
+			}
+			catch(Exception e)
+			{
+				e.printStackTrace();
+			}
+			finally
+			{
+			    if(conn!=null)
+			    	conn.close();
+			}
+		}
+
+		public void createReveseEntries(List<Long> originalRowIds,Long tenantId, Long userId, String jobRef) {
+			// TODO Auto-generated method stub
+			List<AccountedSummary> acctSummaryDetails = accountedSummaryRepository.findByRowIdInAndCurrentRecordFlag(originalRowIds,true);
+			List<AccountedSummary> reversedSummary = new ArrayList<AccountedSummary>();
+			
+			for(AccountedSummary acctSumm:acctSummaryDetails)
+			{
+				List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalViewIdAndOriginalRowIdAndJobReference(tenantId,acctSumm.getViewId(),acctSumm.getRowId(),acctSumm.getJobReference());
+				
+				List<AccountingData> accDataReverseEntries = new ArrayList<AccountingData>();
+				List<AccountingData> accDataReversed = new ArrayList<AccountingData>();
+				
+				for(AccountingData accDataForRev:accData)
+				{
+					AccountingData revEntry = new AccountingData();
+					revEntry.setTenantId(accDataForRev.getTenantId());
+					revEntry.setOriginalRowId(accDataForRev.getOriginalRowId());
+					if(accDataForRev.getAccountingRef1()!=null)
+					{
+						revEntry.setAccountingRef1(accDataForRev.getAccountingRef1());
+					}
+					if(accDataForRev.getAccountingRef2()!=null)
+					{
+						revEntry.setAccountingRef2(accDataForRev.getAccountingRef2());
+					}
+					if(accDataForRev.getAccountingRef3()!=null)
+					{
+						revEntry.setAccountingRef3(accDataForRev.getAccountingRef3());
+					}
+					if(accDataForRev.getAccountingRef4()!=null)
+					{
+						revEntry.setAccountingRef4(accDataForRev.getAccountingRef4());
+					}
+					if(accDataForRev.getAccountingRef5()!=null)
+					{
+						revEntry.setAccountingRef5(accDataForRev.getAccountingRef5());
+					}
+					if(accDataForRev.getAccountingRef6()!=null)
+					{
+						revEntry.setAccountingRef6(accDataForRev.getAccountingRef6());
+					}
+					if(accDataForRev.getAccountingRef7()!=null)
+					{
+						revEntry.setAccountingRef7(accDataForRev.getAccountingRef7());
+					}
+					if(accDataForRev.getAccountingRef8()!=null)
+					{
+						revEntry.setAccountingRef8(accDataForRev.getAccountingRef8());
+					}
+					if(accDataForRev.getAccountingRef9()!=null)
+					{
+						revEntry.setAccountingRef9(accDataForRev.getAccountingRef9());
+					}
+					if(accDataForRev.getAccountingRef10()!=null)
+					{
+						revEntry.setAccountingRef10(accDataForRev.getAccountingRef10());
+					}
+					if(accDataForRev.getLedgerRef()!=null)
+					{
+						revEntry.setLedgerRef(accDataForRev.getLedgerRef());
+					}
+					if(accDataForRev.getLineTypeId()!=null)
+					{
+						revEntry.setLineTypeId(accDataForRev.getLineTypeId());
+					}
+					if(accDataForRev.getAmountColId()!=null)
+					{
+						revEntry.setAmountColId(accDataForRev.getAmountColId());
+					}
+					revEntry.setCategoryRef(accDataForRev.getCategoryRef());
+					revEntry.setSourceRef(accDataForRev.getSourceRef());
+					revEntry.setCurrencyRef(accDataForRev.getCurrencyRef());
+					if(accDataForRev.getLineType()!=null)
+					{
+						if(accDataForRev.getLineType().equalsIgnoreCase("CREDIT"))
+						{
+							revEntry.setLineType("DEBIT");
+						}
+						else if(accDataForRev.getLineType().equalsIgnoreCase("DEBIT"))
+						{
+							revEntry.setLineType("CREDIT");
+						}
+					}
+					if(accDataForRev.getCoaRef()!=null)
+					{
+						revEntry.setCoaRef(accDataForRev.getCoaRef());
+					}
+					revEntry.setCreatedBy(userId);
+					revEntry.setCreatedDate(ZonedDateTime.now());
+					if(accDataForRev.getStatus()!=null)
+					{
+						revEntry.setStatus(accDataForRev.getStatus());
+					}
+					if(accDataForRev.getAcctGroupId()!=null)
+					{
+						revEntry.setAcctGroupId(accDataForRev.getAcctGroupId());
+					}
+					if(accDataForRev.getAcctRuleId()!=null)
+					{
+						revEntry.setAcctRuleId(accDataForRev.getAcctRuleId());
+					}
+					if(accDataForRev.getOriginalViewId()!=null)
+					{
+						revEntry.setOriginalViewId(accDataForRev.getOriginalViewId());
+					}
+					if(accDataForRev.getLineTypeDetail()!=null)
+					{
+						revEntry.setLineTypeDetail(accDataForRev.getLineTypeDetail());
+					}
+					if(accDataForRev.getLedgerRefType()!=null)
+					{
+						revEntry.setLedgerRefType(accDataForRev.getLedgerRefType());
+					}
+					revEntry.setReverseRefId(accDataForRev.getId());
+					revEntry.setJobReference(jobRef);
+					
+					accDataReverseEntries.add(revEntry);
+					
+					accDataForRev.setStatus("REVERSED");
+					accDataForRev.setLastUpdatedBy(userId);
+					accDataForRev.setLastUpdatedDate(ZonedDateTime.now());
+					accDataReversed.add(accDataForRev);
+				}
+				
+				accountingDataRepository.save(accDataReverseEntries);
+				accountingDataRepository.save(accDataReversed);
+				
+				/*AccountSummary*/
+				AccountedSummary accSummRevEntry = new AccountedSummary();
+				
+				accSummRevEntry.setRowId(acctSumm.getRowId());
+				accSummRevEntry.setRuleId(acctSumm.getRuleId());
+				accSummRevEntry.setDebitCount(acctSumm.getCreditCount());
+				accSummRevEntry.setCreditCount(acctSumm.getDebitCount());
+				accSummRevEntry.setStatus(acctSumm.getStatus());
+				accSummRevEntry.setCreatedBy(userId);
+				accSummRevEntry.setCreatedDate(ZonedDateTime.now());
+				accSummRevEntry.setViewId(acctSumm.getViewId());
+				accSummRevEntry.setRuleGroupId(acctSumm.getRuleGroupId());
+				accSummRevEntry.setJobReference(jobRef);
+				accSummRevEntry.setCurrentRecordFlag(true);
+				
+				accountedSummaryRepository.save(accSummRevEntry);
+				
+				/**/
+			}
+			
+			List<AccountedSummary> acctSummaryAll = accountedSummaryRepository.findByRowIdInAndJobReferenceNotIn(originalRowIds,jobRef);
+			
+			for(AccountedSummary accSummary: acctSummaryAll)
+			{
+				accSummary.setCurrentRecordFlag(!accSummary.getCurrentRecordFlag());
+				accSummary.setLastUpdatedBy(userId);
+				accSummary.setLastUpdatedDate(ZonedDateTime.now());
+				accountedSummaryRepository.save(accSummary);
+			}
+		}
+		
+		// New form services
+		public List<String> getActityOrNonActityBased(Long tenantId, Long groupId, Long viewId) throws SQLException
+		{
+			String dbUrl=env.getProperty("spring.datasource.url");
+			String[] parts=dbUrl.split("[\\s@&?$+-]+");
+			String host = parts[0].split("/")[2].split(":")[0];
+			String schemaName=parts[0].split("/")[3];
+			String userName = env.getProperty("spring.datasource.username");
+			String password = env.getProperty("spring.datasource.password");
+			String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");  
+			List<String> activityBasedYorN = new ArrayList<String>();
+
+			Connection conn = null;
+			Statement stmt = null;
+			ResultSet result = null; 
+			try{
+		  		
+				Class.forName(jdbcDriver);
+				conn = DriverManager.getConnection(dbUrl, userName, password);
+				log.info("Connected to JDBC Successfully");
+				stmt = conn.createStatement();
+				
+				String query = "select distinct source_data_view_id,data_view_name, (case when reconciliation_view_id is null and accounting_status is null"
+						+ " and reconciliation_status is null"
+						+ " then 'N'"
+						+ " else"
+						+ " 'Y' "
+						+ " END) activity_based from "+schemaName+".t_rule_group rg,"+schemaName+".t_rule_group_details rgd,"+schemaName+".t_rules rl,"+schemaName+".t_data_views dvt"
+						+ " where rg.tenant_id = "+tenantId+" and rg.id = "+groupId+""
+						+ " and rg.id = rgd.rule_group_id"
+						+ " and rgd.rule_id = rl.id"
+						+ " and rl.source_data_view_id = dvt.id";
+				
+				log.info("Query to fetch activity and non activity based data views: "+ query);
+				
+	        	result=stmt.executeQuery(query);
+	        	while(result.next()){
+	        		Long dataViewId = Long.parseLong(result.getString(1));
+	        		String viewName = result.getString(2);
+	        		String activityBased = result.getString(3);
+	        		if(dataViewId == viewId)
+	        		{
+	        			activityBasedYorN.add(activityBased);
+	        		}
+	        	}  
+			}
+			catch(Exception e)
+			{
+				log.info("Exception while getting databse properties");
+			}
+			finally{
+				if(result != null)
+					result.close();
+				if(stmt != null)
+					stmt.close();
+				if(conn != null)
+					conn.close();
+			}
+			return activityBasedYorN;
+		}
+		
+		public List<HashMap> getNonActivitySummary(Long viewId, Long groupId, String amountQualifier, String dateQualifier, String rangeFrom, String rangeTo) throws SQLException
+		{
+			log.info("Fetching Accounting summary info for the view id: "+ viewId+", group id: "+ groupId);
+			List<HashMap> finalList = new ArrayList<HashMap>();
+			DataViews dv = dataViewsRepository.findById(viewId.longValue());
+			NumberFormat numFormat = NumberFormat.getInstance();
+			Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+			String currencyFormat = props.getProperty("currencyFormat");
+			if(dv != null)
+			{
+				Connection conn = null;
+				Statement stmt = null;
+				ResultSet result = null; 
+				try{
+					String dbUrl=env.getProperty("spring.datasource.url");
+					String[] parts=dbUrl.split("[\\s@&?$+-]+");
+					String host = parts[0].split("/")[2].split(":")[0];
+					String schemaName=parts[0].split("/")[3];
+					String userName = env.getProperty("spring.datasource.username");
+					String password = env.getProperty("spring.datasource.password");
+					String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");  
+			  		
+					Class.forName(jdbcDriver);
+					conn = DriverManager.getConnection(dbUrl, userName, password);
+					log.info("Connected to JDBC Successfully");
+					stmt = conn.createStatement();
+					
+					String query = "select accounting_status,count(*),sum(`"+amountQualifier+"`) from"
+							+ " ("
+							+ " select dv.*,"
+							+ " (case when status is null"
+							+ "  THEN"
+							+ "       'UN ACCOUNTED'"
+							+ "  ELSE"
+							+ "       status"
+							+ "  END) as accounting_status"
+							+ "  from (select * from "+schemaName+".`"+dv.getDataViewName().toLowerCase()+"` where Date("+dateQualifier+") between '"+rangeFrom+"' and '"+rangeTo+"') dv"
+							+ " LEFT JOIN (select distinct row_id,status from "+schemaName+".t_accounted_summary where rule_group_id = "+groupId+" and view_id = "+viewId+") acs ON dv.scrids = acs.row_id"
+							+ " ) grp"
+							+ " group by accounting_status";
+					log.info("Query to fetch non activity based counts and amounts: "+query);
+					
+		        	result=stmt.executeQuery(query);
+		        	
+		        	while(result.next()){
+		        		HashMap statusMap = new HashMap();
+		        		String status = result.getString(1).toString();
+		        		String count = result.getString(2).toString();
+		        		String amount = result.getString(3).toString();
+		        		statusMap.put("status",  status);
+		        		statusMap.put("count", numFormat.format(Integer.parseInt(count)));
+		        		statusMap.put("amount", reconciliationResultService.getAmountInFormat(amount, currencyFormat));
+		        		finalList.add(statusMap);
+		        	}
+				}
+				catch(Exception e)
+				{
+					log.info("Exception while getting databse properties: "+e);
+				}
+				finally{
+					if(result != null)
+						result.close();
+					if(stmt != null)
+						stmt.close();
+					if(conn != null)
+						conn.close();
+				}
+			}
+			log.info("Statuses Map: "+finalList);
+			return finalList;
+		}
+		
+		
+		public List<HashMap> getGroupBySummaryInfo(String status,String groupBy, String viewName, String dateQualifier, String rangeFrom, String rangeTo, Long tenantId, Long groupId, Long viewId, String whereString, String amountQualifier) throws SQLException
+		{
+			List<HashMap> finalList = new ArrayList<HashMap>();
+			NumberFormat numFormat = NumberFormat.getInstance();
+			Connection conn = null;
+			Statement stmt = null;
+			ResultSet result = null; 
+			try{
+				String dbUrl=env.getProperty("spring.datasource.url");
+				String[] parts=dbUrl.split("[\\s@&?$+-]+");
+				String host = parts[0].split("/")[2].split(":")[0];
+				String schemaName=parts[0].split("/")[3];
+				String userName = env.getProperty("spring.datasource.username");
+				String password = env.getProperty("spring.datasource.password");
+				String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");  
+		  		
+				Class.forName(jdbcDriver);
+				conn = DriverManager.getConnection(dbUrl, userName, password);
+				log.info("Connected to JDBC Successfully");
+				stmt = conn.createStatement();
+
+				String query = "select det."+groupBy+", count(*), SUM("+amountQualifier+") from "
+						+ " (select dv.*,  "
+						+ " 	(case when acd.ACCOUNTING_STATUS is null  "
+						+ "     THEN       "
+						+ " 		'UN ACCOUNTED'  "
+						+ " 	ELSE      "
+						+ "     acd.ACCOUNTING_STATUS  END) as accounting_status,  "
+						+ "     line_type,  "
+						+ "     line_type_detail,  "
+						+ "		source_ref,	"
+						+ "     coa_ref,  "
+						+ "     ledger_ref,  "
+						+ "     led.name ledger_name,  "
+						+ "     coa.name coa_name,  "
+						+ "     accounting_ref_1,accounting_ref_2,accounting_ref_3,accounting_ref_4,accounting_ref_5,accounting_ref_6,accounting_ref_7,accounting_ref_8,accounting_ref_9, accounting_ref_10,  "
+						+ "     rl.rule_code,  "
+						+ "     rl.id rule_id,  "
+						+ "     acd.job_reference  "
+						+ "     from (select * from "+schemaName+".`"+viewName+"` where Date("+dateQualifier+") between '"+rangeFrom+"' and '"+rangeTo+"') dv "
+						+ "     LEFT JOIN ("
+						+ "     SELECT su.STATUS ACCOUNTING_STATUS, de.* FROM "+schemaName+".t_accounted_summary su, "
+						+ "     "+schemaName+".t_accounting_data de WHERE su.id = de.accounted_summary_id AND su.rule_group_id = "+groupId+" and su.view_id = "+viewId+""
+						+ "     ) acd "
+						+ "     ON dv.scrIds = acd.original_row_id "
+						+ "     LEFT JOIN "+schemaName+".t_ledger_definition led ON acd.ledger_ref = led.id "
+						+ "     LEFT JOIN "+schemaName+".t_chart_of_account coa ON acd.coa_ref = coa.id "
+						+ "     LEFT JOIN "+schemaName+".t_rules rl ON acd.acct_rule_id = rl.id ) det "
+						+ "     where accounting_status = '"+status+"' "+whereString+" group by det."+groupBy+"";
+				
+				/*log.info("---->> Query: "+ query);*/
+				result=stmt.executeQuery(query);
+	        	
+	        	while(result.next()){
+	        		HashMap summaryMap = new HashMap();
+	        		String name = result.getString(1);
+	        		String count = result.getString(2).toString();
+	        		String amount = result.getString(3).toString();
+	        		//summaryMap.put(status, count);
+	        		summaryMap.put("name", name);
+	        		summaryMap.put("count", numFormat.format(Integer.parseInt(count)));
+	        		summaryMap.put("amount", amount);
+	        		summaryMap.put("filterColumn", groupBy);
+	        		finalList.add(summaryMap);
+	        	}
+			}
+			catch(Exception e)
+			{
+				log.info("Exception while getting databse properties: "+ e);
+			}
+			finally{
+				if(result != null)
+					result.close();
+				if(stmt != null)
+					stmt.close();
+				if(conn != null)
+					conn.close();
+			}			
+			log.info("Group by: "+groupBy+" Size: "+finalList.size());
+			return finalList;
+		}
+		
+		public List<String> getGroupByColsTrue(Long viewId)
+		{
+			log.info("Fetching data view columns with group by is true for the view id: "+ viewId);
+			List<String> finalList = new ArrayList<String>();
+			List<DataViewsColumns> dvsc = dataViewsColumnsRepository.findByDataViewIdAndGroupByIsTrue(viewId);
+			if(dvsc.size()>0)
+			{
+				for(DataViewsColumns dvc : dvsc)
+				{
+					if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+					{
+						FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn().toString()));
+						if(ftl != null)
+						{
+							finalList.add(ftl.getColumnAlias());
+						}
+					}
+					else if("Data View".equalsIgnoreCase(dvc.getRefDvType()))
+					{
+						finalList.add(dvc.getColumnName());
+					}
+				}
+			}
+			else 
+			{
+				log.info("No records found for group by is true for the view id: "+ viewId);
+			}
+			return finalList;
+		}
+		
+		public String getQualifierViewColName(Long viewId, String qualifier)
+		{
+			log.info("Fetching "+qualifier+" column name for view id: "+viewId);
+			DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndQualifier(viewId, qualifier);
+			String qualifierColName = "";
+			if(dvc != null)
+			{
+				if("File Template".equalsIgnoreCase(dvc.getRefDvType()))
+				{
+					FileTemplateLines ftl = fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn().toString()));
+					if(ftl != null)
+					{
+						qualifierColName = ftl.getColumnAlias();
+					}
+				}
+				else if("Data View".equalsIgnoreCase(dvc.getRefDvType()))
+				{
+					qualifierColName = dvc.getColumnName();
+				}
+			}
+			else
+			{
+				log.info("No "+qualifier+" found for the view id: "+ viewId);
+			}
+			return qualifierColName;
+		}
+}

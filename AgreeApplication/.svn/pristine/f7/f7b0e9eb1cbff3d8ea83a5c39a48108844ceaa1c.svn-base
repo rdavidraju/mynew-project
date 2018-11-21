@@ -1,0 +1,411 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApprovalGroups;
+import com.nspl.app.domain.Calendar;
+import com.nspl.app.domain.FxRates;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.Periods;
+import com.nspl.app.exception.CustomException;
+import com.nspl.app.repository.CalendarRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.PeriodsRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
+
+/**
+ * REST controller for managing Calendar.
+ */
+@RestController
+@RequestMapping("/api")
+public class CalendarResource {
+
+    private final Logger log = LoggerFactory.getLogger(CalendarResource.class);
+
+    private static final String ENTITY_NAME = "calendar";
+        
+    private final CalendarRepository calendarRepository;
+    
+    
+    @Inject
+    PeriodsRepository periodsRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+
+    public CalendarResource(CalendarRepository calendarRepository) {
+        this.calendarRepository = calendarRepository;
+    }
+
+    /**
+     * POST  /calendars : Create a new calendar.
+     *
+     * @param calendar the calendar to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new calendar, or with status 400 (Bad Request) if the calendar has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/calendars")
+    @Timed
+    public ResponseEntity<Calendar> createCalendar(@RequestBody Calendar calendar) throws URISyntaxException {
+        log.debug("REST request to save Calendar : {}", calendar);
+        if (calendar.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new calendar cannot already have an ID")).body(null);
+        }
+        Calendar result = calendarRepository.save(calendar);
+        return ResponseEntity.created(new URI("/api/calendars/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /calendars : Updates an existing calendar.
+     *
+     * @param calendar the calendar to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated calendar,
+     * or with status 400 (Bad Request) if the calendar is not valid,
+     * or with status 500 (Internal Server Error) if the calendar couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/calendars")
+    @Timed
+    public ResponseEntity<Calendar> updateCalendar(@RequestBody Calendar calendar,@RequestParam Long userId) throws URISyntaxException {
+        log.debug("REST request to update Calendar : {}", calendar);
+        if (calendar.getId() == null) {
+            return createCalendar(calendar);
+        }
+        calendar.setStartDate(calendar.getStartDate().plusDays(1));
+        if(calendar.getEndDate()!=null){
+        calendar.setEndDate(calendar.getEndDate().plusDays(1));
+        }
+        calendar.setLastUpdatedBy(userId);
+        calendar.setLastUpdatedDate(ZonedDateTime.now());
+        Calendar result = calendarRepository.save(calendar);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, calendar.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /calendars : get all the calendars.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of calendars in body
+     */
+    @GetMapping("/calendars")
+    @Timed
+    public ResponseEntity<List<Calendar>> getAllCalendars(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of Calendars");
+        Page<Calendar> page = calendarRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/calendars");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /calendars/:id : get the "id" calendar.
+     *
+     * @param id the id of the calendar to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the calendar, or with status 404 (Not Found)
+     */
+    @GetMapping("/calendars/{id}")
+    @Timed
+    public ResponseEntity<Calendar> getCalendar(@PathVariable Long id) {
+        log.debug("REST request to get Calendar : {}", id);
+        Calendar calendar = calendarRepository.findOne(id);
+        if(calendar == null)
+        {
+        	throw new CustomException(id,"record with id "+id+" not present");
+        }
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(calendar));
+    }
+
+    /**
+     * DELETE  /calendars/:id : delete the "id" calendar.
+     *
+     * @param id the id of the calendar to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/calendars/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteCalendar(@PathVariable Long id) {
+        log.debug("REST request to delete Calendar : {}", id);
+        calendarRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * author:ravali
+     * @param offset
+     * @param limit
+     * @param tenantId
+     * @param response
+     * @return
+     * @throws URISyntaxException
+     */
+    @GetMapping("/getAllcalenderList")
+ 	@Timed
+ 	public ResponseEntity<List<Calendar>> getRuleGroupsByTenantId(@RequestParam(value = "page" , required = false) Integer offset,
+ 			@RequestParam(value = "per_page", required = false) Integer limit,@RequestParam Long tenantId,HttpServletResponse response,@RequestParam(value = "activeFlag" , required = false) Boolean activeFlag) throws URISyntaxException {
+ 		log.debug("REST request to get a page of Calendar "+activeFlag);
+ 		List<Calendar> calendarList = new ArrayList<Calendar>();
+ 		PaginationUtil paginationUtil=new PaginationUtil();
+ 		
+ 		int maxlmt=paginationUtil.MAX_LIMIT;
+ 		int minlmt=paginationUtil.MIN_OFFSET;
+ 		log.info("maxlmt: "+maxlmt);
+ 		Page<Calendar> page = null;
+ 		HttpHeaders headers = null;
+ 		
+ 		
+ 		List<Calendar> calendarListCnt = calendarRepository.findByTenantIdOrderByIdDesc(tenantId);
+    	response.addIntHeader("X-COUNT", calendarListCnt.size());
+ 		
+ 		
+ 		
+ 		if(limit==null || limit<minlmt){
+ 			if(activeFlag!=null)
+ 			{
+ 				calendarList = calendarRepository.findByTenantIdAndEnabledFlagIsTrue(tenantId);
+ 			}
+ 			else
+ 			{
+ 			calendarList = calendarRepository.findByTenantIdOrderByIdDesc(tenantId);
+ 			}
+ 			limit = calendarList.size();
+ 		}
+ 		if(limit == 0 )
+     	{
+     		limit = paginationUtil.DEFAULT_LIMIT;
+     	}
+     	if(offset == null || offset == 0)
+     	{
+     		offset = paginationUtil.DEFAULT_OFFSET;
+     	}
+     	if(limit>maxlmt)
+ 		{
+ 			log.info("input limit exceeds maxlimit");
+ 			 page = calendarRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequest2(offset, limit));
+ 			headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/getAllcalenderList",offset, limit);
+ 		}
+ 		else{
+ 			log.info("input limit is within maxlimit");
+ 			if(activeFlag!=null)
+ 			{
+ 				page = calendarRepository.findByTenantIdAndEnabledFlagIsTrue(tenantId,PaginationUtil.generatePageRequest(offset, limit));
+ 	 			headers = PaginationUtil.generatePaginationHttpHeaderss(page, "/api/getAllcalenderList", offset, limit);
+ 			}
+ 			else
+ 			{
+ 			page = calendarRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequest(offset, limit));
+ 			headers = PaginationUtil.generatePaginationHttpHeaderss(page, "/api/getAllcalenderList", offset, limit);
+ 			}
+ 		}
+ 		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+     }
+    
+    /**
+     * author:ravali
+     * @param id
+     * @return
+     */
+    @GetMapping("/getCalenderAndItsPeriods")
+ 	@Timed
+ 	public HashMap getCalenderAndItsPeriods(@RequestParam Long id)
+ 	{
+    	HashMap calMap=new HashMap();
+    	Calendar cal=calendarRepository.findOne(id);
+    	calMap.put("id", cal.getId());
+    	calMap.put("calendarType", cal.getCalendarType());
+    	calMap.put("createdBy", cal.getCreatedBy());
+    	calMap.put("createdDate", cal.getCreatedDate());
+    	calMap.put("description", cal.getDescription());
+    	calMap.put("enabledFlag", cal.isEnabledFlag());
+    	calMap.put("endDate", cal.getEndDate());
+    	calMap.put("lastUpdatedBy", cal.getLastUpdatedBy());
+    	calMap.put("name", cal.getName());
+    	calMap.put("startDate", cal.getStartDate());
+    	calMap.put("tenantId", cal.getTenantId());
+    	
+    	List<HashMap> periodMapList=new ArrayList<HashMap>();
+    	List<Periods> periodsList=periodsRepository.findByCalId(id);
+    	for(Periods periods:periodsList)
+    	{
+    		HashMap periodMap=new HashMap();
+    		periodMap.put("id", periods.getId());
+    		periodMap.put("adjustment", periods.isAdjustment());
+    		periodMap.put("calId", periods.getCalId());
+    		periodMap.put("createdBy", periods.getCreatedBy());
+    		periodMap.put("createdDate", periods.getCreatedDate());
+    		periodMap.put("fromDate", periods.getFromDate());
+    		periodMap.put("lastUpdatedBy", periods.getLastUpdatedBy());
+    		periodMap.put("lastUpdatedDate", periods.getLastUpdatedDate());
+    		periodMap.put("periodName", periods.getPeriodName());
+    		periodMap.put("periodNum", periods.getPeriodNum());
+    		periodMap.put("quarter", periods.getQuarter());
+    		//periodMap.put("status", periods.getStatus());
+    		periodMap.put("enabledFlag", periods.isEnabledFlag());
+    		periodMap.put("toDate", periods.getToDate());
+    		periodMap.put("year", periods.getYear());
+    		periodMapList.add(periodMap);
+    	}
+    	calMap.put("periodList", periodMapList);
+    	return calMap;
+ 	}
+    
+    /**
+     * author:ravali
+     * @param calMap
+     * @param userId
+     * @param tenantId
+     * @return
+     */
+    @PostMapping("/PostCalenderAndItsPeriods")
+ 	@Timed
+ 	public HashMap getCalenderAndItsPeriods(@RequestBody HashMap calMap,@RequestParam Long userId,@RequestParam Long tenantId)
+    {
+
+    	log.info("Request Rest to post calender and its periods");
+    	HashMap finaMap=new HashMap();
+    	Calendar cal=new Calendar();
+    	if(calMap.get("calendarType")!=null)
+    		cal.setCalendarType(calMap.get("calendarType").toString());
+    	cal.setCreatedBy(userId);
+    	cal.setCreatedDate(ZonedDateTime.now());
+    	if(calMap.get("description")!=null)
+    		cal.setDescription(calMap.get("description").toString());
+    	cal.setEnabledFlag(true);
+    	if(calMap.get("endDate")!=null)
+    	{
+    		ZonedDateTime edDate=ZonedDateTime.parse(calMap.get("endDate").toString());
+    		cal.setEndDate(edDate.toLocalDate().plusDays(1));
+    	}
+    	cal.setLastUpdatedBy(userId);
+    	if(calMap.get("name")!=null)
+    		cal.setName(calMap.get("name").toString());
+    	if(calMap.get("startDate")!=null)
+    	{
+    		ZonedDateTime stDate=ZonedDateTime.parse(calMap.get("startDate").toString());
+    		cal.setStartDate(stDate.toLocalDate().plusDays(1));
+    	}
+    	cal.setTenantId(tenantId);
+    	calendarRepository.save(cal);
+
+    	List<HashMap> periodsMapList=(List<HashMap>) calMap.get("periodList");
+    	log.info("calMap.get(periodList) :"+periodsMapList.size());
+    	if(cal.getId()!=null)
+    	{
+    		for(int i=0;i<periodsMapList.size();i++)
+    		{
+    			Periods periods=new Periods();
+    			if((Boolean)periodsMapList.get(i).get("adjustment")!=null)
+    				periods.setAdjustment((Boolean)periodsMapList.get(i).get("adjustment"));
+    			periods.setCalId(cal.getId());
+    			periods.setCreatedBy(userId);
+    			periods.setCreatedDate(ZonedDateTime.now());
+    			if(periodsMapList.get(i).get("fromDate")!=null)
+    			{
+    				ZonedDateTime fmDate=ZonedDateTime.parse(periodsMapList.get(i).get("fromDate").toString());
+    				periods.setFromDate(fmDate.toLocalDate().plusDays(1));
+    			}
+    			periods.setLastUpdatedBy(userId);
+    			periods.setLastUpdatedDate(ZonedDateTime.now());
+    			if(periodsMapList.get(i).get("periodName")!=null)
+    				periods.setPeriodName(periodsMapList.get(i).get("periodName").toString());
+    			if(periodsMapList.get(i).get("periodNum")!=null)
+    				periods.setPeriodNum(Integer.parseInt(periodsMapList.get(i).get("periodNum").toString()));
+    			if(periodsMapList.get(i).get("quarter")!=null)
+    				periods.setQuarter(Integer.parseInt(periodsMapList.get(i).get("quarter").toString()));
+    			//periods.status(periodsMapList.get(i).get("status").toString());
+    			periods.setEnabledFlag(true);
+    			if(periodsMapList.get(i).get("toDate")!=null)
+    			{
+    				ZonedDateTime toDate=ZonedDateTime.parse(periodsMapList.get(i).get("toDate").toString());
+    				periods.setToDate(toDate.toLocalDate().plusDays(1));
+    			}
+    			if(periodsMapList.get(i).get("year")!=null)
+    				periods.setYear(Integer.parseInt(periodsMapList.get(i).get("year").toString()));
+    			periodsRepository.save(periods);
+
+    		}
+    	}
+    	finaMap.put("id", cal.getId());
+    	finaMap.put("name", cal.getName());
+    	return finaMap;
+
+    }
+    
+    @GetMapping("/getActiveCalenderType")
+ 	@Timed
+ 	public List<LookUpCode> getActiveCalenderType(@RequestParam Long tenantId)
+ 	{
+    	log.info("rest request to get active calender type");
+    	List<String> calenderList=calendarRepository.findDistinctCalendarTypeByTenantAndActiveState(tenantId);
+    	List<LookUpCode> lookUpCodeList=new  ArrayList<LookUpCode>();
+    	for(String cal:calenderList)
+    	{
+    		LookUpCode lookUpCode=lookUpCodeRepository.findByTenantIdAndLookUpCodeAndLookUpType(tenantId, cal,"CALENDAR_TYPE");
+    		lookUpCodeList.add(lookUpCode);
+    	}
+		return lookUpCodeList;
+ 	}
+    /**
+     * Author: Shiva
+     * Purpose: Check weather calendar name exist or not
+     * **/
+    @GetMapping("/checkCalendarNameIsExist")
+	@Timed
+	public HashMap checkCalendarNameIsExist(@RequestParam String name,@RequestParam Long tenantId,@RequestParam(required=false,value="id") Long id)
+	{
+		HashMap map=new HashMap();
+		map.put("result", "No Duplicates Found");
+		if(id != null)
+		{
+			Calendar calenWithId = calendarRepository.findByIdAndNameAndTenantId(id, name, tenantId);
+			if(calenWithId != null)
+			{
+				map.put("result", "No Duplicates Found");
+			}
+			else
+			{
+				List<Calendar> cals = calendarRepository.findByTenantIdAndName(tenantId, name);
+				if(cals.size()>0)
+				{
+					map.put("result", "'"+name+"' calendar already exists");
+				}
+			}
+		}
+		else 
+		{
+			List<Calendar> cals = calendarRepository.findByTenantIdAndName(tenantId, name);
+			if(cals.size()>0)
+			{
+				map.put("result", "'"+name+"' calendar already exists");
+			}
+		}
+		return map;
+	}
+}

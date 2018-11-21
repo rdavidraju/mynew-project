@@ -1,0 +1,316 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApprovalGroups;
+import com.nspl.app.domain.Calendar;
+import com.nspl.app.domain.ChartOfAccount;
+import com.nspl.app.domain.FxRates;
+import com.nspl.app.domain.LedgerDefinition;
+import com.nspl.app.repository.CalendarRepository;
+import com.nspl.app.repository.ChartOfAccountRepository;
+import com.nspl.app.repository.LedgerDefinitionRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing LedgerDefinition.
+ */
+@RestController
+@RequestMapping("/api")
+public class LedgerDefinitionResource {
+
+    private final Logger log = LoggerFactory.getLogger(LedgerDefinitionResource.class);
+
+    private static final String ENTITY_NAME = "ledgerDefinition";
+        
+    private final LedgerDefinitionRepository ledgerDefinitionRepository;
+    
+    
+    @Inject
+    CalendarRepository calendarRepository;
+    
+    @Inject
+    ChartOfAccountRepository chartOfAccountRepository;
+
+    public LedgerDefinitionResource(LedgerDefinitionRepository ledgerDefinitionRepository) {
+        this.ledgerDefinitionRepository = ledgerDefinitionRepository;
+    }
+
+    /**
+     * POST  /ledger-definitions : Create a new ledgerDefinition.
+     *
+     * @param ledgerDefinition the ledgerDefinition to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new ledgerDefinition, or with status 400 (Bad Request) if the ledgerDefinition has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/ledger-definitions")
+    @Timed
+    public ResponseEntity<LedgerDefinition> createLedgerDefinition(@RequestBody LedgerDefinition ledgerDefinition) throws URISyntaxException {
+        log.debug("REST request to save LedgerDefinition : {}", ledgerDefinition);
+        if (ledgerDefinition.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new ledgerDefinition cannot already have an ID")).body(null);
+        }
+        LedgerDefinition result = ledgerDefinitionRepository.save(ledgerDefinition);
+        return ResponseEntity.created(new URI("/api/ledger-definitions/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /ledger-definitions : Updates an existing ledgerDefinition.
+     *
+     * @param ledgerDefinition the ledgerDefinition to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated ledgerDefinition,
+     * or with status 400 (Bad Request) if the ledgerDefinition is not valid,
+     * or with status 500 (Internal Server Error) if the ledgerDefinition couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/ledger-definitions")
+    @Timed
+    public ResponseEntity<LedgerDefinition> updateLedgerDefinition(@RequestBody LedgerDefinition ledgerDefinition,@RequestParam Long userId) throws URISyntaxException {
+        log.debug("REST request to update LedgerDefinition : {}", ledgerDefinition);
+        if (ledgerDefinition.getId() == null) {
+            return createLedgerDefinition(ledgerDefinition);
+        }
+        ledgerDefinition.setStartDate(ledgerDefinition.getStartDate().plusDays(1));
+        if(ledgerDefinition.getEndDate()!=null){
+        ledgerDefinition.setEndDate(ledgerDefinition.getEndDate().plusDays(1));
+        }
+        ledgerDefinition.setLastUpdatedBy(userId);
+        ledgerDefinition.setLastUpdatedDate(ZonedDateTime.now());
+        LedgerDefinition result = ledgerDefinitionRepository.save(ledgerDefinition);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, ledgerDefinition.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /ledger-definitions : get all the ledgerDefinitions.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of ledgerDefinitions in body
+     */
+    @GetMapping("/ledger-definitions")
+    @Timed
+    public ResponseEntity<List<LedgerDefinition>> getAllLedgerDefinitions(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of LedgerDefinitions");
+        Page<LedgerDefinition> page = ledgerDefinitionRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/ledger-definitions");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /ledger-definitions/:id : get the "id" ledgerDefinition.
+     *
+     * @param id the id of the ledgerDefinition to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the ledgerDefinition, or with status 404 (Not Found)
+     */
+    @GetMapping("/ledger-definitions/{id}")
+    @Timed
+    public ResponseEntity<LedgerDefinition> getLedgerDefinition(@PathVariable Long id) {
+        log.debug("REST request to get LedgerDefinition : {}", id);
+        LedgerDefinition ledgerDefinition = ledgerDefinitionRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(ledgerDefinition));
+    }
+
+    /**
+     * DELETE  /ledger-definitions/:id : delete the "id" ledgerDefinition.
+     *
+     * @param id the id of the ledgerDefinition to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/ledger-definitions/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteLedgerDefinition(@PathVariable Long id) {
+        log.debug("REST request to delete LedgerDefinition : {}", id);
+        ledgerDefinitionRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    
+    
+    
+    @GetMapping("/getAllLedgers")
+ 	@Timed
+ 	public ResponseEntity<List<LedgerDefinition>> getRuleGroupsByTenantId(@RequestParam(value = "page" , required = false) Integer offset,
+ 			@RequestParam(value = "per_page", required = false) Integer limit,@RequestParam Long tenantId,HttpServletResponse response) throws URISyntaxException {
+ 		log.debug("REST request to get a page of FxRates");
+ 		List<LedgerDefinition> ledgerDefList = new ArrayList<LedgerDefinition>();
+ 		PaginationUtil paginationUtil=new PaginationUtil();
+ 		
+ 		int maxlmt=paginationUtil.MAX_LIMIT;
+ 		int minlmt=paginationUtil.MIN_OFFSET;
+ 		log.info("maxlmt: "+maxlmt);
+ 		Page<LedgerDefinition> page = null;
+ 		HttpHeaders headers = null;
+ 		
+ 		
+ 		List<LedgerDefinition> ledgerDefListCnt = ledgerDefinitionRepository.findByTenantIdOrderByIdDesc(tenantId);
+    	response.addIntHeader("X-COUNT", ledgerDefListCnt.size());
+ 		
+ 		
+ 		
+ 		if(limit==null || limit<minlmt){
+ 			ledgerDefList = ledgerDefinitionRepository.findByTenantIdOrderByIdDesc(tenantId);
+ 			limit = ledgerDefList.size();
+ 		}
+ 		if(limit == 0 )
+     	{
+     		limit = paginationUtil.DEFAULT_LIMIT;
+     	}
+     	if(offset == null || offset == 0)
+     	{
+     		offset = paginationUtil.DEFAULT_OFFSET;
+     	}
+     	if(limit>maxlmt)
+ 		{
+ 			log.info("input limit exceeds maxlimit");
+ 			 page = ledgerDefinitionRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequest2(offset, limit));
+ 			headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/getAllLedgers",offset, limit);
+ 		}
+ 		else{
+ 			log.info("input limit is within maxlimit");
+ 			page = ledgerDefinitionRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequest(offset, limit));
+ 			headers = PaginationUtil.generatePaginationHttpHeaderss(page, "/api/getAllLedgers", offset, limit);
+ 		}
+ 		return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+     }
+    
+    
+    
+    
+    
+    /**Author: Shiva
+     * Description: API for fetching Ledger Details based on tenant id
+     * @param tenantId
+     * return List<LinkedHashmap> with ledger information
+     */
+    @GetMapping("/getLedgerDataByTenantId")
+    @Timed
+    public List<LinkedHashMap> getLedgerDataByTenantId(@RequestParam Long tenantId){
+    	log.info("Rest api for fetching ledger data for the tenant id: "+ tenantId);
+    	List<LinkedHashMap> finalData = new ArrayList<LinkedHashMap>();
+    	
+    	List<LedgerDefinition> ledgers = ledgerDefinitionRepository.findByTenantId(tenantId);
+    	log.info("No of records fetched: "+ ledgers.size());
+    	if(ledgers.size()>0)
+    	{
+    		for(LedgerDefinition ledger : ledgers)
+    		{
+    			LinkedHashMap hm = new LinkedHashMap();
+    			hm.put("id", ledger.getId());
+    			hm.put("tenantId", ledger.getTenantId());
+    			hm.put("name", ledger.getName());
+    			hm.put("description", ledger.getDescription());
+    			hm.put("ledgerType", ledger.getLedgerType());
+    			hm.put("startDate", ledger.getStartDate());
+    			hm.put("endDate", ledger.getEndDate());
+    			hm.put("currency", ledger.getCurrency());
+    			hm.put("calendarId", ledger.getCalendarId());
+    			hm.put("status",ledger.getStatus());
+    			hm.put("enabledFlag", ledger.isEnabledFlag());
+    			hm.put("createdBy", ledger.getCreatedBy());
+    			hm.put("createdDate", ledger.getCreatedDate());
+    			hm.put("lastUpdatedBy", "lastUpdatedDate");
+    			hm.put("lastUpdatedDate", ledger.getLastUpdatedDate());
+    			if(ledger.getCalendarId() != null)
+    			{
+    				Calendar calendar=calendarRepository.findOne(ledger.getCalendarId());
+        			hm.put("calendarName",calendar.getName());
+    			}
+    			if(ledger.getCoaId() != null)
+    			{
+    				hm.put("coaId",ledger.getCoaId());
+        			ChartOfAccount coa=chartOfAccountRepository.findOne(ledger.getCoaId());
+        			hm.put("coaName", coa.getName());
+    			}
+    			
+    			finalData.add(hm);
+    		}
+    	}
+    	log.info("Final Size: "+ finalData.size());
+    	return finalData;
+    }
+    /**
+     * Author : Shobha
+     * @param tenantId
+     * @param coa
+     * @return
+     */
+    @GetMapping("/getLedgerDataByTenantIdAndCoa")
+    @Timed
+    public List<LedgerDefinition> getLedgerDataByTenantIdandCOA(@RequestParam Long tenantId,@RequestParam(required = false) Long coa){
+    	List<LedgerDefinition> ledgersbyTenantAndCoa = new ArrayList<LedgerDefinition>();
+    	ledgersbyTenantAndCoa = ledgerDefinitionRepository.findByTenantIdAndCoaId(tenantId,coa);
+    	return ledgersbyTenantAndCoa;
+    }
+    
+    /**
+     * Author: Shiva
+     * Purpose: Check weather ledger exist or not
+     * **/
+    @GetMapping("/checkLedgerIsExist")
+	@Timed
+	public HashMap checkLedgerIsExist(@RequestParam String name,@RequestParam Long tenantId,@RequestParam(required=false,value="id") Long id)
+	{
+		HashMap map=new HashMap();
+		map.put("result", "No Duplicates Found");
+		if(id != null)
+		{
+			LedgerDefinition ledgerWithId = ledgerDefinitionRepository.findByIdAndNameAndTenantId(id, name, tenantId);
+			if(ledgerWithId != null)
+			{
+				map.put("result", "No Duplicates Found");
+			}
+			else
+			{
+				List<LedgerDefinition> ledgers = ledgerDefinitionRepository.findByTenantIdAndName(tenantId, name);
+				if(ledgers.size()>0)
+				{
+					map.put("result", "'"+name+"' ledger name already exists");
+				}
+			}
+		}
+		else 
+		{
+			List<LedgerDefinition> ledgers = ledgerDefinitionRepository.findByTenantIdAndName(tenantId, name);
+			if(ledgers.size()>0)
+			{
+				map.put("result", "'"+name+"' ledger already exists");
+			}
+		}
+		return map;
+	}
+}

@@ -1,0 +1,330 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.BucketDetails;
+import com.nspl.app.domain.BucketList;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.repository.BucketDetailsRepository;
+import com.nspl.app.repository.BucketListRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.joda.time.Days;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+
+/**
+ * REST controller for managing BucketList.
+ */
+@RestController
+@RequestMapping("/api")
+public class BucketListResource {
+
+    private final Logger log = LoggerFactory.getLogger(BucketListResource.class);
+
+    private static final String ENTITY_NAME = "bucketList";
+
+    private final BucketListRepository bucketListRepository;
+    
+    @Inject
+    BucketDetailsRepository bucketDetailsRepository;
+
+    public BucketListResource(BucketListRepository bucketListRepository) {
+        this.bucketListRepository = bucketListRepository;
+    }
+
+    /**
+     * POST  /bucket-lists : Create a new bucketList.
+     *
+     * @param bucketList the bucketList to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new bucketList, or with status 400 (Bad Request) if the bucketList has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/bucket-lists")
+    @Timed
+    public ResponseEntity<BucketList> createBucketList(@RequestBody BucketList bucketList) throws URISyntaxException {
+        log.debug("REST request to save BucketList : {}", bucketList);
+        if (bucketList.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new bucketList cannot already have an ID")).body(null);
+        }
+        BucketList result = bucketListRepository.save(bucketList);
+        return ResponseEntity.created(new URI("/api/bucket-lists/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /bucket-lists : Updates an existing bucketList.
+     *
+     * @param bucketList the bucketList to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated bucketList,
+     * or with status 400 (Bad Request) if the bucketList is not valid,
+     * or with status 500 (Internal Server Error) if the bucketList couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/bucket-lists")
+    @Timed
+    public ResponseEntity<BucketList> updateBucketList(@RequestBody BucketList bucketList) throws URISyntaxException {
+        log.debug("REST request to update BucketList : {}", bucketList);
+        if (bucketList.getId() == null) {
+            return createBucketList(bucketList);
+        }
+        BucketList result = bucketListRepository.save(bucketList);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, bucketList.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /bucket-lists : get all the bucketLists.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of bucketLists in body
+     */
+    /*@GetMapping("/bucket-lists")
+    @Timed
+    public ResponseEntity<List<BucketList>> getAllBucketLists(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of BucketLists");
+        Page<BucketList> page = bucketListRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/bucket-lists");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }*/
+    
+    @GetMapping("/bucket-lists")
+    @Timed
+    public ResponseEntity<List<BucketList>> getAllBucketLists(@RequestParam Long tenantId, @ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of BucketLists");
+        Page<BucketList> page = bucketListRepository.findByTenantIdAndEnabledFlagTrueOrderByIdDesc(tenantId,pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/bucket-lists");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /bucket-lists/:id : get the "id" bucketList.
+     *
+     * @param id the id of the bucketList to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the bucketList, or with status 404 (Not Found)
+     */
+    @GetMapping("/bucket-lists/{id}")
+    @Timed
+    public ResponseEntity<BucketList> getBucketList(@PathVariable Long id) {
+        log.debug("REST request to get BucketList : {}", id);
+        BucketList bucketList = bucketListRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(bucketList));
+    }
+
+    /**
+     * DELETE  /bucket-lists/:id : delete the "id" bucketList.
+     *
+     * @param id the id of the bucketList to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/bucket-lists/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteBucketList(@PathVariable Long id) {
+        log.debug("REST request to delete BucketList : {}", id);
+        bucketListRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Swetha
+     * Api to Post Bucket and its detail info
+     * @param bucketInfo
+     * @return
+     */
+    @PostMapping("/postBucketInfo")
+    @Timed
+    public Long postBucketInfo(@RequestBody HashMap bucketInfo, @RequestParam(value="tenantId") Long tenantId, @RequestParam(value="userId") Long userId){
+    	
+    	log.info("Rest request to post complete bucket and detail info with data: "+bucketInfo);
+    	Long newBucketListDataId=0L;
+    	if(bucketInfo!=null && !(bucketInfo.isEmpty())){
+    		
+    		BucketList bucketListData=new BucketList();
+    		if(bucketInfo.get("bucketName")!=null && !(bucketInfo.get("bucketName").toString().isEmpty()))
+    			bucketListData.setBucketName(bucketInfo.get("bucketName").toString());
+    		if(bucketInfo.get("type")!=null && !(bucketInfo.get("type").toString().isEmpty()))
+    			bucketListData.setType(bucketInfo.get("type").toString());
+    		if(bucketInfo.get("count")!=null && !(bucketInfo.get("count").toString().isEmpty()))
+    			bucketListData.setCount(Integer.parseInt(bucketInfo.get("count").toString()));
+    		
+    		// Updated to handle Zoned Date with milli secs conflict @Rk
+    		if(bucketInfo.get("startDate")!=null && !(bucketInfo.get("startDate").toString().isEmpty()))
+    		{
+    			ZonedDateTime stDate=ZonedDateTime.parse(bucketInfo.get("startDate").toString());
+    			bucketListData.setStartDate(stDate.toLocalDate());
+    		}
+    		if(bucketInfo.get("endDate")!=null && !(bucketInfo.get("endDate").toString().isEmpty()))
+    		{
+    			ZonedDateTime edDate=ZonedDateTime.parse(bucketInfo.get("endDate").toString());
+    			bucketListData.setEndDate(edDate.toLocalDate());
+    		}
+    		
+    		if(bucketInfo.get("enabledFlag")!=null && !(bucketInfo.get("enabledFlag").toString().isEmpty()))
+    			bucketListData.setEnabledFlag((Boolean) bucketInfo.get("enabledFlag"));
+    		bucketListData.setTenantId(tenantId);
+    		bucketListData.setCreatedBy(userId);
+    		bucketListData.setCreatedDate(ZonedDateTime.now());
+    		
+    		BucketList newBucketListData=bucketListRepository.save(bucketListData);
+    		newBucketListDataId=newBucketListData.getId();
+    		log.info("newBucketListData has been save with id: "+newBucketListDataId);
+    		
+    		if(bucketInfo.get("bucketDetDataList")!=null){
+    			List<HashMap> bucketDetailsDataList= (List<HashMap>) bucketInfo.get("bucketDetDataList");
+    			if(!(bucketDetailsDataList.isEmpty()) && bucketDetailsDataList.size()>0){
+    			
+    				for(int i=0;i<bucketDetailsDataList.size();i++){
+    					
+    					HashMap bucketDetailsData=bucketDetailsDataList.get(i);
+    					BucketDetails bucketDetData=new BucketDetails();
+    					if(bucketDetailsData.get("fromValue")!=null && !(bucketDetailsData.get("fromValue").toString().isEmpty()))
+    						bucketDetData.setFromValue(Integer.parseInt(bucketDetailsData.get("fromValue").toString()));
+    					if(bucketDetailsData.get("toValue")!=null && !(bucketDetailsData.get("toValue").toString().isEmpty()))
+    						bucketDetData.setToValue(Integer.parseInt(bucketDetailsData.get("toValue").toString()));
+    					if(bucketDetailsData.get("seqNum")!=null && !(bucketDetailsData.get("seqNum").toString().isEmpty()))
+    						bucketDetData.setSeqNum(Integer.parseInt(bucketDetailsData.get("seqNum").toString()));
+    						bucketDetData.setBucketId(newBucketListDataId);	
+    						bucketDetData.setCreatedBy(userId);
+    						bucketDetData.setCreatedDate(ZonedDateTime.now());
+    					BucketDetails newBucketDet=bucketDetailsRepository.save(bucketDetData);
+    					log.info("newBucketDet has been saved with id: "+newBucketDet.getId());
+    					
+    				}
+    			}
+    				
+    		}
+    		
+    		
+    	}
+		return newBucketListDataId;
+    	
+    }
+    
+    /**
+     * Author: Swetha
+     * Api to retrieve bucket and its detail info
+     * @param bucketId
+     * @param tenantId
+     * @return
+     */
+    @GetMapping("/getBucketInfo")
+    @Timed
+    public HashMap getBucketInfo(@RequestParam(value="bucketId") Long bucketId,@RequestParam(value="tenantId") Long tenantId){
+    	
+    	log.info("Rest request to get complete bucket and detail for bucketId: "+bucketId);
+    	HashMap BucketData=new HashMap();
+    	BucketList bucketInfo=bucketListRepository.findOne(bucketId);
+    	if(bucketInfo!=null){
+    	
+    		if(bucketInfo.getBucketName()!=null)
+    			BucketData.put("bucketName",bucketInfo.getBucketName());
+    		if(bucketInfo.getId()!=null)
+    			BucketData.put("id",bucketInfo.getId());
+    		if(bucketInfo.getStartDate()!=null)
+    			BucketData.put("startDate",bucketInfo.getStartDate());
+    		if(bucketInfo.getEndDate()!=null)
+    			BucketData.put("endDate",bucketInfo.getEndDate());
+    		if(bucketInfo.getEndDate()!=null)
+    			BucketData.put("enabledFalg",bucketInfo.getEndDate());
+    		if(bucketInfo.getType()!=null)
+    			BucketData.put("type",bucketInfo.getType());
+    		if(bucketInfo.getCount()!=null)
+    			BucketData.put("count",bucketInfo.getCount());
+    		if(bucketInfo.getCreatedBy()!=null)
+    			BucketData.put("createdBy",bucketInfo.getCreatedBy());
+    		if(bucketInfo.getCreatedDate()!=null)
+    			BucketData.put("createdDate",bucketInfo.getCreatedDate());
+    		
+    			List<HashMap> bucketDetDataList= new ArrayList<HashMap>();
+    			List<BucketDetails> bucketDetailsDataList=bucketDetailsRepository.findByBucketId(bucketId);
+    				for(int i=0;i<bucketDetailsDataList.size();i++){
+    					
+    					BucketDetails bucketDetailsData=bucketDetailsDataList.get(i);
+    					HashMap bucketDetData=new HashMap();
+    					if(bucketDetailsData.getFromValue()!=null)
+    						bucketDetData.put("fromValue",bucketDetailsData.getFromValue());
+    					if(bucketDetailsData.getToValue()!=null)
+    					bucketDetData.put("toValue",bucketDetailsData.getToValue());
+    					if(bucketDetailsData.getSeqNum()!=null)
+    						bucketDetData.put("seqNum",bucketDetailsData.getSeqNum());
+    					if(bucketDetailsData.getBucketId()!=null)
+    						bucketDetData.put("bucketId", bucketDetailsData.getBucketId());
+    					if(bucketDetailsData.getCreatedBy()!=null)
+    						bucketDetData.put("createdBy", bucketDetailsData.getCreatedBy());
+    					if(bucketDetailsData.getCreatedDate()!=null)
+    						bucketDetData.put("createdDate", bucketDetailsData.getCreatedDate());
+    					if(bucketDetailsData.getId()!=null)
+    						bucketDetData.put("id", bucketDetailsData.getId());
+    					bucketDetDataList.add(bucketDetData);
+    				}
+    				
+    				BucketData.put("bucketDetDataList", bucketDetDataList);
+    		
+    		
+    	}
+		return BucketData;
+    	
+    }
+    
+    /**
+     * Author: Swetha
+     * Api to check BucketName Duplication
+     * @param tenantId
+     * @param bucketName
+     * @return
+     */
+    @GetMapping("/checkBucketNameDuplication")
+    @Timed
+    public Long checkBucketNameDuplication(@RequestParam Long tenantId, @RequestParam String bucketName){
+    	
+    	log.info("Rest Request to checkBucketNameDuplication with tenantId: "+tenantId+" and bucketName: "+bucketName);
+    	Long result=0L;
+    	Long count=bucketListRepository.fetchBucketNameCount(tenantId, bucketName);
+    	log.info("count of bucketName: "+bucketName+" is: "+count);
+    	if(count>1){
+    		Long bucketNameCnt=bucketListRepository.fetchBucketNameCount(tenantId, bucketName);
+    		result=bucketNameCnt;
+    	}
+    	else if(count==1){
+    		BucketList bucket=bucketListRepository.findByTenantIdAndBucketName(tenantId, bucketName);
+    		result=bucket.getId();
+    	}
+		return result;
+    			
+    }
+    
+   /* @GetMapping("/getBucketsByTenantId")
+    @Timed
+    public List<HashMap> getBucketsByTenantId(@RequestParam(value="tenantId") Long tenantId){
+    	
+    	log.info("Rest request to getBucketsByTenantId for tenantId: "+tenantId);
+    	List<BucketList> bucketList=bucketListRepository.findByTenantIdAndEnabledFlagTrue(tenantId);
+    	if(bucketList!=null && bucketList.size()>0){
+    		log.info("bucketList.size() for tenantId: "+tenantId+" is: "+bucketList.size());
+    	}
+		return null;
+    	
+    }*/
+}

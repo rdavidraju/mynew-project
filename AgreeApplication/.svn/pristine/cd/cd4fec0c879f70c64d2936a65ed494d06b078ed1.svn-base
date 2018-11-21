@@ -1,0 +1,315 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.SourceProfileUsages;
+import com.nspl.app.repository.SourceProfileUsagesRepository;
+import com.nspl.app.repository.search.SourceProfileUsagesSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the SourceProfileUsagesResource REST controller.
+ *
+ * @see SourceProfileUsagesResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class SourceProfileUsagesResourceIntTest {
+
+    private static final Long DEFAULT_PROFILE_ID = 1L;
+    private static final Long UPDATED_PROFILE_ID = 2L;
+
+    private static final Long DEFAULT_PROJECT_ID = 1L;
+    private static final Long UPDATED_PROJECT_ID = 2L;
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private SourceProfileUsagesRepository sourceProfileUsagesRepository;
+
+    @Autowired
+    private SourceProfileUsagesSearchRepository sourceProfileUsagesSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restSourceProfileUsagesMockMvc;
+
+    private SourceProfileUsages sourceProfileUsages;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        SourceProfileUsagesResource sourceProfileUsagesResource = new SourceProfileUsagesResource(sourceProfileUsagesRepository, sourceProfileUsagesSearchRepository);
+        this.restSourceProfileUsagesMockMvc = MockMvcBuilders.standaloneSetup(sourceProfileUsagesResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static SourceProfileUsages createEntity(EntityManager em) {
+        SourceProfileUsages sourceProfileUsages = new SourceProfileUsages()
+            .profileId(DEFAULT_PROFILE_ID)
+            .projectId(DEFAULT_PROJECT_ID)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return sourceProfileUsages;
+    }
+
+    @Before
+    public void initTest() {
+        sourceProfileUsagesSearchRepository.deleteAll();
+        sourceProfileUsages = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createSourceProfileUsages() throws Exception {
+        int databaseSizeBeforeCreate = sourceProfileUsagesRepository.findAll().size();
+
+        // Create the SourceProfileUsages
+        restSourceProfileUsagesMockMvc.perform(post("/api/source-profile-usages")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(sourceProfileUsages)))
+            .andExpect(status().isCreated());
+
+        // Validate the SourceProfileUsages in the database
+        List<SourceProfileUsages> sourceProfileUsagesList = sourceProfileUsagesRepository.findAll();
+        assertThat(sourceProfileUsagesList).hasSize(databaseSizeBeforeCreate + 1);
+        SourceProfileUsages testSourceProfileUsages = sourceProfileUsagesList.get(sourceProfileUsagesList.size() - 1);
+        assertThat(testSourceProfileUsages.getProfileId()).isEqualTo(DEFAULT_PROFILE_ID);
+        assertThat(testSourceProfileUsages.getProjectId()).isEqualTo(DEFAULT_PROJECT_ID);
+        assertThat(testSourceProfileUsages.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testSourceProfileUsages.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testSourceProfileUsages.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testSourceProfileUsages.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+
+        // Validate the SourceProfileUsages in Elasticsearch
+        SourceProfileUsages sourceProfileUsagesEs = sourceProfileUsagesSearchRepository.findOne(testSourceProfileUsages.getId());
+        assertThat(sourceProfileUsagesEs).isEqualToComparingFieldByField(testSourceProfileUsages);
+    }
+
+    @Test
+    @Transactional
+    public void createSourceProfileUsagesWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = sourceProfileUsagesRepository.findAll().size();
+
+        // Create the SourceProfileUsages with an existing ID
+        sourceProfileUsages.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restSourceProfileUsagesMockMvc.perform(post("/api/source-profile-usages")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(sourceProfileUsages)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<SourceProfileUsages> sourceProfileUsagesList = sourceProfileUsagesRepository.findAll();
+        assertThat(sourceProfileUsagesList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllSourceProfileUsages() throws Exception {
+        // Initialize the database
+        sourceProfileUsagesRepository.saveAndFlush(sourceProfileUsages);
+
+        // Get all the sourceProfileUsagesList
+        restSourceProfileUsagesMockMvc.perform(get("/api/source-profile-usages?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(sourceProfileUsages.getId().intValue())))
+            .andExpect(jsonPath("$.[*].profileId").value(hasItem(DEFAULT_PROFILE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].projectId").value(hasItem(DEFAULT_PROJECT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getSourceProfileUsages() throws Exception {
+        // Initialize the database
+        sourceProfileUsagesRepository.saveAndFlush(sourceProfileUsages);
+
+        // Get the sourceProfileUsages
+        restSourceProfileUsagesMockMvc.perform(get("/api/source-profile-usages/{id}", sourceProfileUsages.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(sourceProfileUsages.getId().intValue()))
+            .andExpect(jsonPath("$.profileId").value(DEFAULT_PROFILE_ID.intValue()))
+            .andExpect(jsonPath("$.projectId").value(DEFAULT_PROJECT_ID.intValue()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingSourceProfileUsages() throws Exception {
+        // Get the sourceProfileUsages
+        restSourceProfileUsagesMockMvc.perform(get("/api/source-profile-usages/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateSourceProfileUsages() throws Exception {
+        // Initialize the database
+        sourceProfileUsagesRepository.saveAndFlush(sourceProfileUsages);
+        sourceProfileUsagesSearchRepository.save(sourceProfileUsages);
+        int databaseSizeBeforeUpdate = sourceProfileUsagesRepository.findAll().size();
+
+        // Update the sourceProfileUsages
+        SourceProfileUsages updatedSourceProfileUsages = sourceProfileUsagesRepository.findOne(sourceProfileUsages.getId());
+        updatedSourceProfileUsages
+            .profileId(UPDATED_PROFILE_ID)
+            .projectId(UPDATED_PROJECT_ID)
+            .createdBy(UPDATED_CREATED_BY)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restSourceProfileUsagesMockMvc.perform(put("/api/source-profile-usages")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedSourceProfileUsages)))
+            .andExpect(status().isOk());
+
+        // Validate the SourceProfileUsages in the database
+        List<SourceProfileUsages> sourceProfileUsagesList = sourceProfileUsagesRepository.findAll();
+        assertThat(sourceProfileUsagesList).hasSize(databaseSizeBeforeUpdate);
+        SourceProfileUsages testSourceProfileUsages = sourceProfileUsagesList.get(sourceProfileUsagesList.size() - 1);
+        assertThat(testSourceProfileUsages.getProfileId()).isEqualTo(UPDATED_PROFILE_ID);
+        assertThat(testSourceProfileUsages.getProjectId()).isEqualTo(UPDATED_PROJECT_ID);
+        assertThat(testSourceProfileUsages.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testSourceProfileUsages.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testSourceProfileUsages.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testSourceProfileUsages.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+
+        // Validate the SourceProfileUsages in Elasticsearch
+        SourceProfileUsages sourceProfileUsagesEs = sourceProfileUsagesSearchRepository.findOne(testSourceProfileUsages.getId());
+        assertThat(sourceProfileUsagesEs).isEqualToComparingFieldByField(testSourceProfileUsages);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingSourceProfileUsages() throws Exception {
+        int databaseSizeBeforeUpdate = sourceProfileUsagesRepository.findAll().size();
+
+        // Create the SourceProfileUsages
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restSourceProfileUsagesMockMvc.perform(put("/api/source-profile-usages")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(sourceProfileUsages)))
+            .andExpect(status().isCreated());
+
+        // Validate the SourceProfileUsages in the database
+        List<SourceProfileUsages> sourceProfileUsagesList = sourceProfileUsagesRepository.findAll();
+        assertThat(sourceProfileUsagesList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteSourceProfileUsages() throws Exception {
+        // Initialize the database
+        sourceProfileUsagesRepository.saveAndFlush(sourceProfileUsages);
+        sourceProfileUsagesSearchRepository.save(sourceProfileUsages);
+        int databaseSizeBeforeDelete = sourceProfileUsagesRepository.findAll().size();
+
+        // Get the sourceProfileUsages
+        restSourceProfileUsagesMockMvc.perform(delete("/api/source-profile-usages/{id}", sourceProfileUsages.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean sourceProfileUsagesExistsInEs = sourceProfileUsagesSearchRepository.exists(sourceProfileUsages.getId());
+        assertThat(sourceProfileUsagesExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<SourceProfileUsages> sourceProfileUsagesList = sourceProfileUsagesRepository.findAll();
+        assertThat(sourceProfileUsagesList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchSourceProfileUsages() throws Exception {
+        // Initialize the database
+        sourceProfileUsagesRepository.saveAndFlush(sourceProfileUsages);
+        sourceProfileUsagesSearchRepository.save(sourceProfileUsages);
+
+        // Search the sourceProfileUsages
+        restSourceProfileUsagesMockMvc.perform(get("/api/_search/source-profile-usages?query=id:" + sourceProfileUsages.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(sourceProfileUsages.getId().intValue())))
+            .andExpect(jsonPath("$.[*].profileId").value(hasItem(DEFAULT_PROFILE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].projectId").value(hasItem(DEFAULT_PROJECT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(SourceProfileUsages.class);
+    }
+}

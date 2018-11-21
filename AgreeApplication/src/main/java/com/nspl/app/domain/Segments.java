@@ -1,0 +1,217 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A Segments.
+ */
+@Entity
+@Table(name = "t_segments")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+public class Segments implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "coa_id")
+    private Long coaId;
+
+    @Column(name = "segment_name")
+    private String segmentName;
+
+    @Column(name = "value_id")
+    private Long valueId;
+
+    @Column(name = "sequence")
+    private Integer sequence;
+    
+    @Column(name = "segment_length")
+    private Integer segmentLength;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "created_date")
+    private ZonedDateTime createdDate;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+    
+    @Column(name = "qualifier")
+    private String qualifier;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getCoaId() {
+        return coaId;
+    }
+
+    public Segments coaId(Long coaId) {
+        this.coaId = coaId;
+        return this;
+    }
+
+    public void setCoaId(Long coaId) {
+        this.coaId = coaId;
+    }
+
+    public String getSegmentName() {
+        return segmentName;
+    }
+
+    public Segments segmentName(String segmentName) {
+        this.segmentName = segmentName;
+        return this;
+    }
+
+    public void setSegmentName(String segmentName) {
+        this.segmentName = segmentName;
+    }
+
+    public Long getValueId() {
+        return valueId;
+    }
+
+    public Segments valueId(Long valueId) {
+        this.valueId = valueId;
+        return this;
+    }
+
+    public void setValueId(Long valueId) {
+        this.valueId = valueId;
+    }
+
+    public Integer getSequence() {
+		return sequence;
+	}
+
+	public void setSequence(Integer sequence) {
+		this.sequence = sequence;
+	}
+
+	public Integer getSegmentLength() {
+        return segmentLength;
+    }
+
+    public Segments segmentLength(Integer segmentLength) {
+        this.segmentLength = segmentLength;
+        return this;
+    }
+
+    public void setSegmentLength(Integer segmentLength) {
+        this.segmentLength = segmentLength;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public Segments createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public ZonedDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    public Segments createdDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+        return this;
+    }
+
+    public void setCreatedDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public Segments lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public Segments lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+
+    public String getQualifier() {
+		return qualifier;
+	}
+
+	public void setQualifier(String qualifier) {
+		this.qualifier = qualifier;
+	}
+
+	@Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        Segments segments = (Segments) o;
+        if (segments.getId() == null || getId() == null) {
+            return false;
+        }
+        return Objects.equals(getId(), segments.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getId());
+    }
+
+    @Override
+    public String toString() {
+        return "Segments{" +
+            "id=" + getId() +
+            ", coaId='" + getCoaId() + "'" +
+            ", segmentName='" + getSegmentName() + "'" +
+            ", valueId='" + getValueId() + "'" +
+            ", segmentLength='" + getSegmentLength() + "'" +
+            ", createdBy='" + getCreatedBy() + "'" +
+            ", createdDate='" + getCreatedDate() + "'" +
+            ", lastUpdatedBy='" + getLastUpdatedBy() + "'" +
+            ", lastUpdatedDate='" + getLastUpdatedDate() + "'" +
+            "}";
+    }
+}

@@ -1,0 +1,480 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.Date;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.ReconciliationResult;
+
+/**
+ * Spring Data JPA repository for the ReconciliationResult entity.
+ */
+@SuppressWarnings("unused")
+public interface ReconciliationResultRepository extends JpaRepository<ReconciliationResult,Long> {
+	
+	//shiva source
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and (reconciliation_rule_id in (:ruleIds) or reconciliation_rule_id is null) and original_view_id = :originalViewId and target_view_id is null and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsByTenantIdAndRuleIdsAndSourceViewId(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId);
+
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id = :originalViewId and original_row_id in (:originalRowIds) and reconciliation_rule_group_id = :groupId and recon_job_reference = :jobReference",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsByOriginalIdsAndJobReference(@Param("tenantId") Long tenantId, @Param("originalViewId") Long originalViewId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId,  @Param("jobReference") String jobReference);
+	
+	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and target_view_id = :targetViewId and target_row_id in (:targetRowIds) and reconciliation_rule_group_id = :groupId and recon_job_reference = :jobReference",nativeQuery=true)
+	List<BigInteger> fetchTargetRowIdsByOriginalIdsAndJobReference(@Param("tenantId") Long tenantId, @Param("targetViewId") Long targetViewId, @Param("targetRowIds") List<BigInteger> targetRowIds, @Param("groupId") Long groupId,  @Param("jobReference") String jobReference);
+	
+	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and target_view_id = :targetViewId and target_row_id in (:targetRowIds) and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchTargetRowIdsByOriginalIdsAndJobReferenceNull(@Param("tenantId") Long tenantId, @Param("targetViewId") Long targetViewId, @Param("targetRowIds") List<BigInteger> targetRowIds, @Param("groupId") Long groupId);
+	
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id = :originalViewId and original_row_id in (:originalRowIds) and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsByOriginalIdsAndJobReferenceNull(@Param("tenantId") Long tenantId, @Param("originalViewId") Long originalViewId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId);
+
+	//shiva target
+	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and (reconciliation_rule_id in (:ruleIds) or reconciliation_rule_id is null) and target_view_id =:targetViewId and original_view_id is null and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsByTenantIdAndRuleIdsAndTargetViewId(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("targetViewId") Long targetViewId, @Param("groupId") Long groupId);
+
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_row_id in(:originalViewIds) and reconciliation_rule_group_id = :groupId and recon_job_reference = :jobReference",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsBySourceViewIdNJobReference(@Param("tenantId") Long tenantId, @Param("originalViewIds") List<BigInteger> originalViewIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference);
+
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_row_id in (:originalViewIds) and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsBySourceViewidNJobReferenceNull(@Param("tenantId") Long tenantId, @Param("originalViewIds") List<BigInteger> originalViewId, @Param("groupId") Long groupId);
+
+	//shiva target
+	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and target_row_id in(:targetRowIds) and reconciliation_rule_group_id = :groupId and recon_job_reference = :reconJobReference",nativeQuery=true)
+	List<BigInteger> fetchTargetIdsByJobReferenceNTargetIds(@Param("tenantId") Long tenantId, @Param("targetRowIds") List<BigInteger> targetRowIds, @Param("groupId") Long groupId,  @Param("reconJobReference") String reconJobReference);
+
+	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and target_row_id in(:targetRowIds) and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchTargetIdsByJobReferenceNullNTargetIds(@Param("tenantId") Long tenantId, @Param("targetRowIds") List<BigInteger> targetRowIds, @Param("groupId") Long groupId);
+
+	
+	//shiva get max recon reference id
+	//SELECT max(CAST(recon_reference as unsigned integer)) from t_reconciliation_result where tenant_id =4;
+	@Query(value =  "SELECT max(CAST(recon_reference as unsigned integer)) from t_reconciliation_result",nativeQuery=true)
+	Long fetchMaxReconReference();
+	
+	//shiva
+	@Query(value =  "SELECT id from t_reconciliation_result where recon_reference in(:reconReferenceIds)",nativeQuery=true)
+	List<BigInteger> fetchIdsByReconReferenceIds(@Param("reconReferenceIds") List<String> reconReferenceIds);
+	
+	//Shiva
+	@Query(value =  "select distinct(target_view_id) from t_reconciliation_result where reconciliation_rule_group_id = :ruleGroupId and recon_reference in(:recRefs)",nativeQuery=true)
+	List<BigInteger> fetchTargetViewIdsByReconReference(@Param("ruleGroupId") Long ruleGroupId, @Param("recRefs") List<String> recRefs);
+	
+	@Query(value =  "SELECT * from t_reconciliation_result where recon_reference in(:reconReferenceIds) and (final_status is null or final_status = 'REJECTED')",nativeQuery=true)
+	List<ReconciliationResult> fetchRecordsByReconReferenceIds(@Param("reconReferenceIds") List<String> reconReferenceIds);
+
+	@Query(value =  "SELECT * from t_reconciliation_result where recon_reference in(:reconReferenceIds) and reconciliation_rule_id = :ruleId and tenant_id =:tenantId and reconciliation_rule_group_id = :groupId and original_view_id = :viewId",nativeQuery=true)
+	List<ReconciliationResult> fetchRecordsByReconReferenceIdsNRuleId(@Param("reconReferenceIds") List<String> reconReferenceIds, @Param("ruleId") Long ruleId, @Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+
+	@Query(value =  "select * from t_reconciliation_result where original_row_id = :originalRowId and tenant_id = :tenantId and original_view_id = :originalViewId and reconciliation_rule_group_id = :groupId and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+	ReconciliationResult fetchSourceUniqueRecord(@Param("originalRowId") Long originalRowId, @Param("tenantId") Long tenantId, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId);
+	
+	@Query(value =  "select * from t_reconciliation_result where target_row_id = :targetRowId and tenant_id = :tenantId and target_view_id = :targetViewId and reconciliation_rule_group_id = :groupId and recon_status = 'RECONCILED' and current_record_flag is true;",nativeQuery=true)
+	ReconciliationResult fetchTargetUniqueRecord(@Param("targetRowId") Long targetRowId, @Param("tenantId") Long tenantId, @Param("targetViewId") Long targetViewId, @Param("groupId") Long groupId);
+	
+	//source
+	ReconciliationResult findByOriginalRowIdAndOriginalViewIdAndTenantId(Long orginalRowId,Long orginalViewId,Long tenantId);
+
+	//target
+	ReconciliationResult findByTargetRowIdAndTargetViewIdAndTenantId(Long targetRowId,Long targetViewId,Long tenantId);
+	
+	@Query(value =  "SELECT distinct(target_row_id) from t_reconciliation_result where recon_reference in(:reconReferenceIds) and target_view_id = :targetViewId and original_view_id is null and sign(target_row_id)=1 ",nativeQuery=true)
+	List<BigInteger> fetchByTargetReconRefIdsAndTenantId(@Param("reconReferenceIds") List<String> reconReferenceIds, @Param("targetViewId") Long targetViewId);
+	
+	@Query(value =  "SELECT distinct(original_row_id) from t_reconciliation_result where recon_reference in(:reconReferenceIds) and original_view_id = :sourceViewId and target_view_id is null and sign(original_view_id)=1 and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+	List<BigInteger> fetchByReconSourceRefIdsAndTenantId(@Param("reconReferenceIds") List<String> reconReferenceIds , @Param("sourceViewId") Long sourceViewId);
+
+	@Query(value =  "SELECT distinct(original_row_id) from t_reconciliation_result where recon_reference in(:reconReferenceIds) and original_view_id = :sourceViewId and target_view_id is null and sign(original_row_id)= -1 and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+	List<BigInteger> fetchSrcVariancesByRecReference(@Param("reconReferenceIds") List<String> reconReferenceIds , @Param("sourceViewId") Long sourceViewId);
+
+	@Query(value =  "SELECT distinct(target_row_id) from t_reconciliation_result where recon_reference in(:reconReferenceIds) and target_view_id = :targetViewId and original_view_id is null and sign(target_row_id)= -1 ",nativeQuery=true)
+	List<BigInteger> fetchTargetVariancesByRecReference(@Param("reconReferenceIds") List<String> reconReferenceIds, @Param("targetViewId") Long targetViewId);
+	
+	
+	List<ReconciliationResult> findByApprovalBatchId(Long id);
+	
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id =:originalViewId and target_view_id is null and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and recon_job_reference = :jobReference",nativeQuery=true)
+	List<BigInteger> fetchRecIdsByTransDateSourceNJobReference(@Param("tenantId") Long tenantId, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReference") String jobReference);
+
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id =:originalViewId and target_view_id is null and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds)",nativeQuery=true)
+	List<BigInteger> fetchRecIdsByTransDateSourceNJobReferenceNull(@Param("tenantId") Long tenantId, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds);
+
+	
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and recon_job_reference = :batchName and original_view_id = :originalViewId and target_view_id is null and reconciliation_rule_group_id = :groupId and original_row_id in(:totalIds)",nativeQuery=true)
+	List<BigInteger> fetchRecIdsByBatchNameNJobReference(@Param("tenantId") Long tenantId, @Param("batchName") String batchName, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds);
+
+	// RWQ New Form
+	@Query(value =  "SELECT distinct(reconciliation_rule_id) FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id = :groupId and original_view_id=:viewId and recon_status = 'RECONCILED' AND current_record_flag is true", nativeQuery=true)
+	List<BigInteger> fetchRuleIdsByGroupIdAndTenantId(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+	
+	@Query(value =  "SELECT distinct(reconciliation_rule_id) FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id = :groupId and target_view_id=:viewId and recon_status = 'RECONCILED' AND current_record_flag is true", nativeQuery=true)
+	List<BigInteger> fetchRuleIdsByGroupIdAndTenantIdForTarget(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+	
+	@Query(value =  "SELECT distinct(reconciliation_rule_id) FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id = :groupId and original_view_id =:viewId and recon_reference in(:reconReferences)", nativeQuery=true)
+	List<BigInteger> fetchDistinctRuleIdsByReconReferences(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("reconReferences") List<String> reconReferences);
+	
+	//** For Source **/
+	
+	
+		// By Rules - Unreconciled without Job Reference
+		// By Days - Unreconciled and Reconciled without Job Reference
+		// By Process - Unreconciled and Reconciled without Job Reference
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithStatusUnreconciledForSource(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("viewId") Long viewId);
+		
+		
+		/**reconciled and approvalAction**/
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true and final_status=:finalStatus and approval_group_id=:apprRuleGrpId",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithStatusUnreconciledForSourceApprovals(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("viewId") Long viewId,@Param("finalStatus") String finalStatus,@Param("apprRuleGrpId") Long apprRuleGrpId);
+		
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true and approval_group_id is null",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithStatusUnreconciledForSourceApprovalsAwaiting(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("viewId") Long viewId);
+		
+		
+		
+		// By Rules - Unreconciled with Job Reference
+		// By Batches - Reconciled and Unreconciled
+		// By Days - With Job Reference - Reconciled and Unreconciled
+		// By Process - With Job Reference - Reconciled and Unreconciled
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and recon_job_reference = :jobReference and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithJobReferenceForSource(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReference") String jobReference, @Param("viewId") Long viewId);
+
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and recon_job_reference in (:jobReferences) and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithJobReferencesForSource(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReferences") List<String> jobReferences, @Param("viewId") Long viewId);
+
+		
+		// batches reconciled, unreconciled
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and recon_job_reference in (:jobReference) and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswittBatchesForSource(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReference") List<String> jobReference, @Param("viewId") Long viewId);
+		
+		// By Rules - Reconciled with Job Reference
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_id in (:ruleIds) and reconciliation_rule_group_id = :groupId and original_row_id in(:totalIds) and recon_job_reference = :reconJobReference",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithJobRefAndStatusReconciledForSource(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("reconJobReference") String reconJobReference);
+		
+		
+		// By Rules - Reconciled without Job Reference
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_id in (:ruleIds) and reconciliation_rule_group_id = :groupId and original_row_id in(:totalIds) and original_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdsWithOutJobRefWithStatusReconciledForSource(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("viewId") Long viewId);
+
+	//** For target **/
+	
+	
+		// By Rules - Unreconciled without Job Reference
+		// By Days - Unreconciled and Reconciled without Job Reference
+		// By Process - Unreconciled and Reconciled without Job Reference
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id = :groupId and target_row_id in(:totalIds) and target_view_id = :viewId and recon_status ='RECONCILED' and current_record_flag is true order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithStatusUnreconciledForTarget(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("viewId") Long viewId);
+		
+		
+		// By Rules - Unreconciled with Job Reference
+		// By Batches - Reconciled and Unreconciled
+		// By Days - With Job Reference - Reconciled and Unreconciled
+		// By Process - With Job Reference - Reconciled and Unreconciled
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and target_row_id in(:totalIds) and recon_job_reference = :jobReference and target_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithJobReferenceForTarget(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReference") String jobReference, @Param("viewId") Long viewId);
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and target_row_id in(:totalIds) and recon_job_reference in (:jobReferences) and target_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithJobReferencesForTarget(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReferences") List<String> jobReferences, @Param("viewId") Long viewId);
+
+		// batches reconciled, unreconciled
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and target_row_id in(:totalIds) and recon_job_reference in (:jobReference) and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithBatchesForTarget(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReference") List<String> jobReference);
+		
+
+		
+		// By Rules - Reconciled with Job Reference
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_id in (:ruleIds) and reconciliation_rule_group_id = :groupId and target_row_id in(:totalIds) and recon_job_reference = :reconJobReference",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdswithJobRefAndStatusReconciledForTarget(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("reconJobReference") String reconJobReference);
+	
+		
+		// By Rules - Reconciled without Job Reference
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_id in (:ruleIds) and reconciliation_rule_group_id = :groupId and target_row_id in(:totalIds) and target_view_id = :viewId and recon_status = 'RECONCILED' and current_record_flag is true order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> fetchReconciledIdsWithOutJobRefWithStatusReconciledForTarget(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("viewId") Long viewId);
+	
+
+		//tenantId, groupId, viewId, keyValues.getRuleIds()
+		//SELECT id from t_reconciliation_result table where reconciliation_rule_group_id = groupId AND tenant_id=tenantId and reconciliation_rule_id in(ruleIds)
+		@Query(value =  "SELECT id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id = :viewId and target_view_id is null and reconciliation_rule_group_id = :groupId and reconciliation_rule_id in(:ruleIds)",nativeQuery=true)
+		List<BigInteger> fetchIdsByRuleIds(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("ruleIds") List<Long> ruleIds);
+
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id in (:originalViewIds) and target_view_id is null and reconciliation_rule_group_id = :groupId and recon_job_reference = :reconJobReference",nativeQuery=true)
+		List<BigInteger> fetchOriginalRowIdsSourceViewIdNJobReference(@Param("tenantId") Long tenantId, @Param("originalViewIds") List<BigInteger> originalViewIds, @Param("groupId") Long groupId, @Param("reconJobReference") String reconJobReference);
+
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and original_view_id in (:originalViewIds) and target_view_id is null and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+		List<BigInteger> fetchOriginalRowIdsSourceViewIdNJobReferenceNull(@Param("tenantId") Long tenantId, @Param("originalViewIds") List<BigInteger> originalViewIds, @Param("groupId") Long groupId);
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_id = :ruleId and original_view_id = :originalViewId and target_view_id is null and reconciliation_rule_group_id = :groupId and original_row_id in(:totalIds)",nativeQuery=true)
+		List<BigInteger> fetchRecIdsByRuleIdAndJobReferenceNull(@Param("tenantId") Long tenantId, @Param("ruleId") Long ruleId, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds);
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_id = :ruleId and original_view_id = :originalViewId and target_view_id is null and reconciliation_rule_group_id = :groupId and original_row_id in(:totalIds) and recon_job_reference = :reconJobReference",nativeQuery=true)
+		List<BigInteger> fetchRecIdsByRuleIdAndJobReference(@Param("tenantId") Long tenantId, @Param("ruleId") Long ruleId, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("reconJobReference") String reconJobReference);
+		
+		
+		//SELECT id from t_reconciliation_result table where reconciliation_rule_group_id = groupId AND tenant_id=tenantId and reconciliation_rule_id in(ruleIds)
+		@Query(value =  "SELECT id from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id=:tenantId and reconciliation_rule_id in(:ruleIds)",nativeQuery=true)
+		List<BigInteger> fetchRecIdsByRuleIds(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("ruleIds") List<Long> ruleIds);
+		//fetchRecIdsByBatches
+		
+		@Query(value =  "SELECT id from t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and recon_job_reference in(:batchNames)",nativeQuery=true)
+		List<BigInteger> fetchRecIdsByBatches(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("batchNames") List<String> batchNames);
+		
+		@Query(value =  "SELECT * from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id = :originalRowId and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+		ReconciliationResult fetchRecRefByOriginalRowIdAndReconciliationRuleGroupId(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("originalRowId") Long originalRowId);
+		
+		@Query(value =  "SELECT * from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and (original_row_id = :originalRowId || target_row_id = :originalRowId)  and recon_status = 'RECONCILED' and current_record_flag is true",nativeQuery=true)
+		ReconciliationResult fetchRecRefByRowIdAndReconciliationRuleGroupId(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("originalRowId") Long originalRowId);
+		
+		@Query(value =  "SELECT target_row_id from t_reconciliation_result where recon_reference in (:reconReference) and target_view_id = :targetViewId",nativeQuery=true)
+		List<BigInteger> fetchByTargetIdsByReconReference(@Param("reconReference") String reconReference, @Param("targetViewId") Long targetViewId);
+		
+		@Query(value =  "SELECT target_row_id from t_reconciliation_result where target_row_id in (:targetIds)",nativeQuery=true)
+		List<BigInteger> fetchTargetIdsFromAllTargetIds(@Param("targetIds") List<BigInteger> targetIds);
+		
+		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and reconciliation_rule_id in (:ruleIds) and original_view_id = :viewId",nativeQuery=true)
+		List<String> fetchDistinctReconReferenceByOriginalIdsNViewIdNRuleIds(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds);
+		
+
+		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and reconciliation_rule_id in = :ruleId and original_view_id = :viewId",nativeQuery=true)
+		List<String> fetchDistinctReconReferenceByOriginalIdsNViewIdNRuleId(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId, @Param("ruleId") Long ruleId);
+		
+		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and original_view_id = :viewId",nativeQuery=true)
+		List<String> fetchDistinctReconReferenceByOriginalIdsNViewId(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId);
+
+/*		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and original_view_id = :viewId and reconciliation_rule_id = :ruleId",nativeQuery=true)
+		List<String> fetchDistinctReconReferenceByOriginalIdsNViewIdNRuleId(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId, @Param("ruleId") Long ruleId);
+*/
+		
+		@Query(value =  "SELECT distinct(reconciliation_rule_id) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and original_view_id = :viewId",nativeQuery=true)
+		List<BigInteger> fetchDistinctRuleIdsByOriginalIdsNViewId(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId);
+
+		
+		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and recon_job_reference in (:batches) and original_view_id = :viewId",nativeQuery=true)
+		List<String> fetchDistinctReconReferenceByOriginalIdsNViewIdNBatches(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId, @Param("batches") List<String> batches);
+
+		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and recon_job_reference in (:batches) and original_view_id = :viewId and reconciliation_rule_id = :ruleId",nativeQuery=true)
+		List<String> fetchDistinctReconReferenceByOriginalIdsNViewIdNBatchesNRuleId(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId, @Param("batches") List<String> batches, @Param("ruleId") Long ruleId);
+
+		
+		@Query(value =  "SELECT distinct(reconciliation_rule_id) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and recon_job_reference in (:batches) and original_view_id = :viewId",nativeQuery=true)
+		List<BigInteger> fetchDistinctRuleIdsByOriginalIdsNViewIdNBatches(@Param("originalIds") List<BigInteger> originalIds, @Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("tenantId") Long tenantId, @Param("batches") List<String> batches);
+
+		
+		@Query(value =  "SELECT distinct(recon_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_row_id in (:originalIds) and original_view_id = :viewId",nativeQuery=true)
+		List<String> fetchRecRefByViewId(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId,@Param("originalIds") List<BigInteger> originalIds);
+		
+		@Query(value =  "SELECT distinct(recon_job_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_view_id = :viewId",nativeQuery=true)
+		List<String> fetchDistinctbatches(@Param("groupId") Long groupId, @Param("tenantId") Long tenantId, @Param("viewId") Long viewId);
+		
+		@Query(value =  "SELECT distinct(recon_job_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId",nativeQuery=true)
+		List<String> fetchDistinctbatchesByGroup(@Param("groupId") Long groupId, @Param("tenantId") Long tenantId);
+		
+		@Query(value =  "SELECT distinct(recon_job_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_view_id = :viewId and recon_status = 'RECONCILED' AND current_record_flag is true",nativeQuery=true)
+		List<String> fetchDistinctbatchesByGroupNView(@Param("groupId") Long groupId, @Param("tenantId") Long tenantId, @Param("viewId") Long viewId);
+
+		@Query(value =  "SELECT distinct(recon_job_reference) from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and target_view_id = :viewId and recon_status = 'RECONCILED' AND current_record_flag is true",nativeQuery=true)
+		List<String> fetchDistinctbatchesTarget(@Param("groupId") Long groupId, @Param("tenantId") Long tenantId, @Param("viewId") Long viewId);
+		
+//		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and reconciliation_rule_group_id =:groupId and original_row_id in(:totalIds) and recon_job_reference = :jobReference",nativeQuery=true)
+//		List<BigInteger> fetchRecIdsByTransDateSourceNJobReference(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("totalIds") List<BigInteger> totalIds, @Param("jobReference") String jobReference);
+		
+		
+		@Query(value =  "SELECT * from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and ((original_row_id in (:srcIds) and original_view_id = :viewId) or (target_row_id in (:srcIds) and target_view_id = :viewId))",nativeQuery=true)
+		List<ReconciliationResult> fetchReconciledByViewId(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId,@Param("srcIds") List<Long> srcIds);
+
+		
+		@Query(value =  "SELECT * from t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and ((original_row_id in (:srcIds) and original_view_id = :viewId) or (target_row_id in (:srcIds) and target_view_id = :viewId)) and reconciled_date between :Date and :dt",nativeQuery=true)
+		List<ReconciliationResult> fetchReconciledByViewIdAndReconciledDate(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId,@Param("srcIds") List<Long> srcIds,@Param("Date") ZonedDateTime Date,@Param("dt") ZonedDateTime dt);
+		
+
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id =:groupId AND tenant_id =:tenantId and original_view_id =:viewId  and original_row_id in (:srcIds)",nativeQuery=true)
+		List<BigInteger> fetchOrginalRowIds(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("srcIds") List<BigInteger> srcIds);
+
+		
+		//ravali to get reconciled srcIds for a rule group
+		
+		@Query(value =  "SELECT distinct original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id =:groupId and original_view_id = :viewId and current_record_flag is true and recon_status='reconciled' and original_row_id is not null",nativeQuery=true)
+		List<BigInteger> fetchOrginalRowIdsByRuleGroupId(@Param("groupId") Long groupId,@Param("viewId") Long viewId);
+		
+		//ravali to get reconciled srcIds for a rule group
+		@Query(value =  "SELECT distinct target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id =:groupId and target_view_id = :viewId and current_record_flag is true and recon_status='reconciled' and target_row_id is not null ",nativeQuery=true)
+		List<BigInteger> fetchTargetRowIdsByRuleGroupId(@Param("groupId") Long groupId,@Param("viewId") Long viewId);
+
+		
+		
+		//Reconcile
+		@Query(value =  "SELECT"+
+        " DATEDIFF( r.reconciled_date,`v`.`file_date`) as `rule_age`, count(`v`.`id`), concat((DATEDIFF( r.reconciled_date,`v`.`file_date`)-1),'-' ,DATEDIFF( r.reconciled_date,`v`.`file_date`)) as "+
+        "period, coalesce (sum(r.final_status = 'APPROVED'),0) as Approved FROM"+
+
+" (SELECT * FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and original_view_id =:viewId  and original_row_id in (select id from t_data_master where tenant_id =:tenantId and file_date between :fmDate and :toDate))r"+
+				" JOIN t_data_master `v`"+
+                " where ( `r`.`original_row_id` = `v`.`id` )   group by rule_age, period",nativeQuery=true)
+		List<Object[]> fetchAgeAnalysisForSrcReconciliation(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId,@Param("fmDate") String fmDate,@Param("toDate") String toDate);
+		
+		
+		@Query(value =  "SELECT"+
+		        " DATEDIFF( r.reconciled_date,`v`.`file_date`) as `rule_age`, count(`v`.`id`), concat((DATEDIFF( r.reconciled_date,`v`.`file_date`)-1),'-' ,DATEDIFF( r.reconciled_date,`v`.`file_date`)) as "+
+		        "period, coalesce (sum(r.final_status = 'APPROVED'),0) as Approved FROM"+
+
+		" (SELECT * FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND tenant_id= :tenantId and target_view_id =:viewId  and target_row_id in (select id from t_data_master where tenant_id =:tenantId and file_date between :fmDate and :toDate))r"+
+						" JOIN t_data_master `v`"+
+		                " where ( `r`.`target_row_id` = `v`.`id` )   group by rule_age, period",nativeQuery=true)
+				List<Object[]> fetchAgeAnalysisForTrgReconciliation(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId,@Param("fmDate") String fmDate,@Param("toDate") String toDate);
+				
+		//Unreconcile
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id =:groupId AND tenant_id =:tenantId and original_view_id =:viewId  and original_row_id in (select id from t_data_master where tenant_id =:tenantId and file_date between :fmDate and :toDate)",nativeQuery=true)
+		List<BigInteger> fetchOrginalRowIdsByDMIds(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId, @Param("fmDate") String fmDate,@Param("toDate") String toDate);
+
+/*		@Query(value =  "SELECT * from t_reconciliation_result where recon_reference in(:reconReferenceIds)",nativeQuery=true)
+		List<ReconciliationResult> fetchByReconReferenceIds(@Param("reconReferenceIds") List<String> reconRefs);*/
+		
+		@Query(value =  "SELECT distinct(original_row_id) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND tenant_id = :tenantId and original_view_id = :viewId and target_view_id is null",nativeQuery=true)
+		List<BigInteger> fetchReconciledSourceIds(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId);
+		
+		@Query(value =  "SELECT distinct(original_row_id) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId and reconciliation_rule_id in (:reconRuleIds) and original_view_id= :srcViewId",nativeQuery=true)
+		List<BigInteger> fetchSourceIds(@Param("groupId") Long grouId, @Param("reconRuleIds") String reconRuleIds, @Param("srcViewId") Long srcViewId);
+		
+		@Query(value =  "SELECT distinct(target_row_id) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId and reconciliation_rule_id in (:reconRuleIds) and target_view_id= :tgtViewId",nativeQuery=true)
+		List<BigInteger> fetchTargetIds(@Param("groupId") Long groupId, @Param("reconRuleIds") String reconRuleIds, @Param("tgtViewId") Long tgtViewId);
+		
+		
+		@Query(value =  "SELECT distinct(original_row_id) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND tenant_id = :tenantId and original_view_id = :viewId and target_view_id is null and final_status='APPROVED'",nativeQuery=true)
+		List<BigInteger> fetchApprovedSourceIds(@Param("tenantId") Long tenantId,@Param("groupId") Long groupId, @Param("viewId") Long viewId);
+
+		@Query(value =  "SELECT distinct(target_row_id) FROM t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id = :tenantId and target_view_id = :viewId and original_view_id is null",nativeQuery=true)
+		List<BigInteger> fetchReconciledTargetIds(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+		
+		
+		@Query(value =  "SELECT distinct(target_row_id) FROM t_reconciliation_result where reconciliation_rule_group_id = :groupId AND tenant_id = :tenantId and target_view_id = :viewId and original_view_id is null and final_status='APPROVED'",nativeQuery=true)
+		List<BigInteger> fetchApprovedTargetIds(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+
+		/** New Form After UR Observations ***/
+
+		@Query(value =  "SELECT distinct(reconciliation_rule_id) FROM t_reconciliation_result where tenant_id = :tenantId and reconciliation_rule_group_id = :groupId", nativeQuery=true)
+		List<BigInteger> fetchRuleIdsByGroupIdAndTenantId(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId);
+		
+		@Query(value =  "SELECT distinct(reconciliation_rule_id) FROM t_reconciliation_result where tenant_id = :tenantId and reconciliation_rule_group_id = :groupId and original_view_id = :viewId and recon_status = 'RECONCILED' AND current_record_flag is true", nativeQuery=true)
+		List<BigInteger> fetchRuleIdsByGroupIdAndTenantIdAndViewId(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+
+		@Query(value =  "SELECT original_view_id,target_view_id,reconciliation_rule_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId and id in (:recIdsList) group by original_view_id,target_view_id,reconciliation_rule_id",nativeQuery=true)
+		List<Object[]> fetchDistinctRuleIdAndViewIdByRuleGroupId(
+				@Param("groupId") Long groupId,@Param("recIdsList") List<Long> recIdsList);
+
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where id in (:id) and original_row_id is not null and reconciliation_rule_group_id =:groupId AND reconciliation_rule_id=:ruleId and original_view_id =:viewId  and original_row_id in (select id from t_data_master where tenant_id =:tenantId and Date(file_date)=:fmDate) ",nativeQuery=true)
+		List<BigInteger> fetchApprovedCount(@Param("id") List<Long> id,@Param("groupId") Long groupId,@Param("ruleId") Long ruleId, @Param("viewId") Long viewId, @Param("fmDate") LocalDate fmDate,@Param("tenantId") Long tenantId);
+		
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where id in (:id) and target_row_id is not null and reconciliation_rule_group_id =:groupId AND reconciliation_rule_id=:ruleId and target_view_id =:viewId  and target_row_id in (select id from t_data_master where tenant_id =:tenantId and Date(file_date)=:fmDate) ",nativeQuery=true)
+		List<BigInteger> fetchApprovedCountForTarget(@Param("id") List<Long> id,@Param("groupId") Long groupId,@Param("ruleId") Long ruleId, @Param("viewId") Long viewId, @Param("fmDate") LocalDate fmDate,@Param("tenantId") Long tenantId);
+
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and final_status=:finalStatus and approval_group_id=:apprRuleGrpId",nativeQuery=true)
+		List<BigInteger> findByApprovalRuleGroupIdAndOrginalViewIdAndFinalStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalStatus") String finalStatus);
+		
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and final_status in (:finalStatus) and approval_group_id=:apprRuleGrpId order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> findByApprovalRuleGroupIdAndOrginalViewIdAndFinalStatusIn(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalStatus") List<String> finalStatus);
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and final_status in (:finalStatus) and approval_group_id=:apprRuleGrpId order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> findByApprovalRuleGroupIdAndTargetViewIdAndFinalStatusIn(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalStatus") List<String> finalStatus);
+		
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and final_status=:finalStatus and approval_group_id=:apprRuleGrpId",nativeQuery=true)
+		List<BigInteger> findByApprovalRuleGroupIdAndTargetViewIdAndFinalStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalStatus") String finalStatus);
+		
+		
+		@Query(value =  "SELECT distinct Date(final_action_date) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and approval_group_id=:apprRuleGrpId",nativeQuery=true)
+		List<Date> findDistinctFinalActionDateByApprovalRuleGroupIdAndOrginalViewIdAndFinalStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId);
+		
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and approval_group_id=:apprRuleGrpId and Date(final_action_date)=:finalActionDate",nativeQuery=true)
+		List<BigInteger> findOrginalRowIdByApprovalRuleGroupIdAndOrginalViewIdAndFinalActionDate(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalActionDate") String finalActionDate);
+		
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and approval_group_id=:apprRuleGrpId and Date(final_action_date) in (:finalActionDate) order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> findOrginalRowIdByApprovalRuleGroupIdAndOrginalViewIdAndFinalActionDateIn(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalActionDate") List<String> finalActionDate);
+		
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and approval_group_id=:apprRuleGrpId and Date(final_action_date) in (:finalActionDate) order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> findTargetRowIdByApprovalRuleGroupIdAndTargetViewIdAndFinalActionDateIn(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalActionDate") List<String> finalActionDate);
+		
+		
+		
+		
+		@Query(value =  "SELECT distinct Date(final_action_date) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and approval_group_id=:apprRuleGrpId",nativeQuery=true)
+		List<Date> findDistinctFinalActionDateByApprovalRuleGroupIdAndTargetViewIdAndFinalStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId);
+		
+		
+	//	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and approval_group_id=:apprRuleGrpId and Date(final_action_date)=:finalActionDate",nativeQuery=true)
+	//	List<BigInteger> findTargetRowIdByApprovalRuleGroupIdAndOrginalViewIdAndFinalActionDate(@Param("groupId") Long groupId,
+	//			@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("finalActionDate") String finalActionDate);
+
+
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and approval_group_id is null",nativeQuery=true)
+		List<BigInteger> findByApprovalRuleGroupIdAndOrginalViewIdAndAwaitingStatus(@Param("groupId") Long groupId,
+				@Param("viewId") Long viewId);
+		
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and approval_group_id is null",nativeQuery=true)
+		List<BigInteger> findByApprovalRuleGroupIdAndTargetViewIdAndAwaitingStatus(@Param("groupId") Long groupId,
+				@Param("viewId") Long viewId);
+		
+		
+		
+		@Query(value =  "SELECT distinct final_status FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId and approval_group_id=:apprRuleGrpId and approval_rule_id=:appRuleId",nativeQuery=true)
+		List<String> fetchDistinctFinalStatusByApprovalRuleAndGroupId(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("appRuleId") Long appRuleId);
+		
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and approval_group_id=:apprRuleGrpId and approval_rule_id=:appRuleId and final_status=:appStatus",nativeQuery=true)
+		List<BigInteger> findOrginalRowIdByApprovalRuleGroupIdAndOrginalViewIdAndApprovalRuleIdAndStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("appRuleId") Long appRuleId,@Param("appStatus") String appStatus);
+		
+		
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and approval_group_id=:apprRuleGrpId and approval_rule_id=:appRuleId and final_status=:appStatus",nativeQuery=true)
+		List<BigInteger> findTargetRowIdByApprovalRuleGroupIdAndOrginalViewIdAndApprovalRuleIdAndStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("appRuleId") Long appRuleId,@Param("appStatus") String appStatus);
+		
+		
+		@Query(value =  "SELECT original_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND original_view_id = :viewId and target_view_id is null and approval_group_id=:apprRuleGrpId and approval_rule_id in (:appRuleId) and final_status in (:appStatus) order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> findOrginalRowIdByApprovalRuleGroupIdAndOrginalViewIdAndApprovalRuleIdInInAndStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("appRuleId") List<Long> appRuleId,@Param("appStatus") List<String> appStatus);
+		
+		@Query(value =  "SELECT target_row_id FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND target_view_id = :viewId and original_view_id is null and approval_group_id=:apprRuleGrpId and approval_rule_id in (:appRuleId) and final_status in (:appStatus) order by recon_reference asc",nativeQuery=true)
+		List<BigInteger> findTargetRowIdByApprovalRuleGroupIdAndTargetViewIdAndApprovalRuleIdInInAndStatus(@Param("groupId") Long groupId,
+				@Param("apprRuleGrpId")	Long apprRuleGrpId,@Param("viewId") Long viewId,@Param("appRuleId") List<Long> appRuleId,@Param("appStatus") List<String> appStatus);
+
+		@Query(value =  "SELECT count(*) FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId and reconciliation_rule_id=:ruleId",nativeQuery=true)
+		Object fetchRecordCountByGroupIdAndRuleId(@Param("groupId") Long groupId,@Param("ruleId") Long ruleId);
+		
+		
+		/**dashboard v8**/
+		
+		@Query(value =  "SELECT * FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND (original_view_id = :viewId or target_view_id =:viewId) and final_status is not null",nativeQuery=true)
+		List<ReconciliationResult> findByRuleGroupIdAndViewIdAndFinalStatusNotNull(@Param("groupId") Long groupId,
+				@Param("viewId") Long viewId);
+		
+		@Query(value =  "SELECT * FROM t_reconciliation_result  where reconciliation_rule_group_id = :groupId AND (original_view_id = :viewId or target_view_id =:viewId) and final_status='IN_PROCESS'",nativeQuery=true)
+		List<ReconciliationResult> findByRuleGroupIdAndViewIdAndFinalStatusInProcess(@Param("groupId") Long groupId,
+				@Param("viewId") Long viewId);
+		
+		
+}

@@ -1,0 +1,347 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.JobDetails;
+import com.nspl.app.domain.ProgParametersSets;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.JobDetailsRepository;
+import com.nspl.app.repository.search.ApplicationProgramsSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.repository.ProgParametersSetsRepository;
+import com.nspl.app.service.PropertiesUtilService;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.json.simple.JSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing ApplicationPrograms.
+ */
+@RestController
+@RequestMapping("/api")
+public class ApplicationProgramsResource {
+
+    private final Logger log = LoggerFactory.getLogger(ApplicationProgramsResource.class);
+
+    private static final String ENTITY_NAME = "applicationPrograms";
+        
+    private final ApplicationProgramsRepository applicationProgramsRepository;
+
+    @Inject
+    ProgParametersSetsRepository progParametersSetsRepository;
+    
+    @PersistenceContext(unitName="default")
+	private EntityManager em;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    JobDetailsRepository jobDetailsRepository;
+    
+    @Autowired
+	Environment env;
+    private final ApplicationProgramsSearchRepository applicationProgramsSearchRepository;
+
+    public ApplicationProgramsResource(ApplicationProgramsRepository applicationProgramsRepository, ApplicationProgramsSearchRepository applicationProgramsSearchRepository) {
+        this.applicationProgramsRepository = applicationProgramsRepository;
+        this.applicationProgramsSearchRepository = applicationProgramsSearchRepository;
+    }
+
+    /**
+     * POST  /application-programs : Create a new applicationPrograms.
+     *
+     * @param applicationPrograms the applicationPrograms to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new applicationPrograms, or with status 400 (Bad Request) if the applicationPrograms has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/application-programs")
+    @Timed
+    public ResponseEntity<ApplicationPrograms> createApplicationPrograms(@RequestBody ApplicationPrograms applicationPrograms) throws URISyntaxException {
+        log.debug("REST request to save ApplicationPrograms : {}", applicationPrograms);
+        if (applicationPrograms.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new applicationPrograms cannot already have an ID")).body(null);
+        }
+        ApplicationPrograms result = applicationProgramsRepository.save(applicationPrograms);
+        applicationProgramsSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/application-programs/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /application-programs : Updates an existing applicationPrograms.
+     *
+     * @param applicationPrograms the applicationPrograms to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated applicationPrograms,
+     * or with status 400 (Bad Request) if the applicationPrograms is not valid,
+     * or with status 500 (Internal Server Error) if the applicationPrograms couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/application-programs")
+    @Timed
+    public ResponseEntity<ApplicationPrograms> updateApplicationPrograms(@RequestBody ApplicationPrograms applicationPrograms) throws URISyntaxException {
+        log.debug("REST request to update ApplicationPrograms : {}", applicationPrograms);
+        if (applicationPrograms.getId() == null) {
+            return createApplicationPrograms(applicationPrograms);
+        }
+        ApplicationPrograms result = applicationProgramsRepository.save(applicationPrograms);
+        applicationProgramsSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, applicationPrograms.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /application-programs : get all the applicationPrograms.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of applicationPrograms in body
+     */
+    @GetMapping("/application-programs")
+    @Timed
+    public List<ApplicationPrograms> getAllApplicationPrograms() {
+        log.debug("REST request to get all ApplicationPrograms");
+        List<ApplicationPrograms> applicationPrograms = applicationProgramsRepository.findAll();
+        return applicationPrograms;
+    }
+
+    /**
+     * GET  /application-programs/:id : get the "id" applicationPrograms.
+     *
+     * @param id the id of the applicationPrograms to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the applicationPrograms, or with status 404 (Not Found)
+     */
+    @GetMapping("/application-programs/{id}")
+    @Timed
+    public ResponseEntity<ApplicationPrograms> getApplicationPrograms(@PathVariable Long id) {
+        log.debug("REST request to get ApplicationPrograms : {}", id);
+        ApplicationPrograms applicationPrograms = applicationProgramsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(applicationPrograms));
+    }
+
+    /**
+     * DELETE  /application-programs/:id : delete the "id" applicationPrograms.
+     *
+     * @param id the id of the applicationPrograms to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/application-programs/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteApplicationPrograms(@PathVariable Long id) {
+        log.debug("REST request to delete ApplicationPrograms : {}", id);
+        applicationProgramsRepository.delete(id);
+        applicationProgramsSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/application-programs?query=:query : search for the applicationPrograms corresponding
+     * to the query.
+     *
+     * @param query the query of the applicationPrograms search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/application-programs")
+    @Timed
+    public List<ApplicationPrograms> searchApplicationPrograms(@RequestParam String query) {
+        log.debug("REST request to search ApplicationPrograms for query {}", query);
+        return StreamSupport
+            .stream(applicationProgramsSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+    
+    /**
+     * Author Ravali
+     * @param tenantId
+     * @return
+     * @throws SQLException 
+     */
+   /* @GetMapping("/programe")
+    @Timed
+    public List<HashMap> getProgrammes(@RequestParam Long tenantId) throws SQLException
+    {*/
+    @GetMapping("/programe")
+    @Timed
+    public List<HashMap> getProgrammes(@RequestParam Long tenantId) throws SQLException
+    {
+    	log.info("rest request to get application programs");
+    	List<ApplicationPrograms> getAllPrograms=applicationProgramsRepository.findByTenantId(tenantId);
+    	HashMap programs=new HashMap();
+    	List<HashMap> map=new ArrayList<HashMap>();
+    	if(getAllPrograms.size()>0)
+    	{
+    		for(ApplicationPrograms prog:getAllPrograms)
+    		{
+
+    			HashMap program=new HashMap();
+    			program.put("programId",prog.getId());
+    			if(prog.getPrgmName()!=null)
+    				program.put("programName", prog.getPrgmName());
+    			List<ProgParametersSets> paramsetsList=progParametersSetsRepository.findByProgramIdAndStatus(prog.getId(),"ACTIVE");
+    			log.info("paramsetsList size:"+paramsetsList.size());
+    			List<HashMap> paramSetsMapList=new ArrayList<HashMap>();
+
+    			for(ProgParametersSets paramset:paramsetsList)
+    			{
+    				HashMap param=new HashMap();
+    				if(paramset.getId()!=null)
+    					param.put("paramId", paramset.getId());
+    				if(paramset.getParameterName()!=null)
+    					param.put("paramName", paramset.getParameterName());
+    				param.put("bindValue", paramset.getBindValue());
+    				param.put("showValue", paramset.getEntityColumn());
+    				param.put("mandatory", paramset.getMandatory());
+    				param.put("dependency", paramset.getDependency());
+    				param.put("entityColumn",paramset.getEntityName());
+    				if(paramset.getDependency() != null )
+    				{
+    					/*ProgParametersSets dependencyPgmSet = new ProgParametersSets();
+    					dependencyPgmSet = progParametersSetsRepository.findByPrograamIdAndParameterName(dependencyPgmSet.getProgramId(),dependencyPgmSet.getParameterName());
+    					if(dependencyPgmSet != null )
+    					{
+    						param.put("dependencyName",dependencyPgmSet.getParameterName());//set dependency parameter name
+    					}*/
+    				}
+    				else
+    				{
+    					List<HashMap> valueList=new ArrayList<HashMap>();
+        				
+
+        				if(paramset.getEntityName()!=null && paramset.getEntityColumn()!=null)
+        				{
+
+        					String dbUrl=env.getProperty("spring.datasource.url");
+        					String[] parts=dbUrl.split("[\\s@&?$+-]+");
+        					String host = parts[0].split("/")[2].split(":")[0];
+        					log.info("host :"+host);
+        					String schemaName=parts[0].split("/")[3];
+        					log.info("schemaName :"+schemaName);
+        					String userName = env.getProperty("spring.datasource.username");
+        					String password = env.getProperty("spring.datasource.password");
+        					String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+
+        					Connection conn = null;
+        					Statement stmt = null;
+        					conn = DriverManager.getConnection(dbUrl, userName, password);
+        					log.info("Connected database successfully...");
+        					stmt = conn.createStatement();
+        					//Class.forName("com.mysql.jdbc.Driver");
+
+        					log.info("paramset.getEntityName() :"+paramset.getEntityName());
+        					ResultSet result2=stmt.executeQuery("select * from "+schemaName+"."+paramset.getEntityName()+" where tenant_id="+tenantId+" and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and if(end_date is null, sysdate()+1, (DATEDIFF(end_date,CURDATE()) >= 0))) order by "+paramset.getEntityColumn()+" asc");
+
+        					ResultSetMetaData rsmd2 = result2.getMetaData();
+        					int columnCount=rsmd2.getColumnCount();
+        					List<HashMap<String,String>> finalValueSet=new ArrayList<HashMap<String,String>>();
+        					while(result2.next())
+        					{
+        						HashMap rec=new HashMap();
+        						for (int i = 1; i <= columnCount; i++ ) {
+        							String name = rsmd2.getColumnName(i); 
+
+        							rec.put(name, result2.getString(i));
+        						}
+
+        						finalValueSet.add(rec);
+        					}
+        					if(conn!=null && stmt!=null)
+        					{
+        						stmt.close();
+        						conn.close();
+        					}
+        					param.put("valuesList", finalValueSet);
+
+        				}
+        				
+    				}
+    				paramSetsMapList.add(param);
+    			
+    			}
+    			program.put("parametersSet", paramSetsMapList);
+    			map.add(program);
+    		}
+    	}
+    	return map;
+    }
+    
+    /**
+     * author :Ravali
+     * @param tenantId
+     * @return fetching jobs lists with program name
+     */
+    
+    @GetMapping("/JobsListWithProgramName")
+    @Timed
+    public List<HashMap> jobsListWithProgramName(@RequestParam Long tenantId)
+    {
+    	List<String> distPrgName=applicationProgramsRepository.findByTenantIdAndDistinctPrgmName(tenantId);
+    	log.info("distPrgName :"+distPrgName.size());
+    	List<HashMap> finalMapList=new ArrayList<HashMap>();
+    	for(int i=0;i<distPrgName.size();i++)
+    	{
+    		if(distPrgName.get(i)!=null)
+    		{
+    			List<BigInteger> progIds=applicationProgramsRepository.findIdsByTenantIdAndPrgmName(tenantId,distPrgName.get(i));
+    			log.info("progIds :"+progIds);
+    			HashMap map=new HashMap();
+    			map.put("name", distPrgName.get(i));
+    			List<JobDetails> jobNameList=jobDetailsRepository.findByTenantIdAndProgramIds(tenantId,progIds);
+    			log.info("jobNameList :"+jobNameList.size());
+    			if(jobNameList.size()>0)
+    			{
+    			map.put("count", jobNameList.size());
+    			List<HashMap> jobMapList=new ArrayList<HashMap>();
+    			for(JobDetails jobs:jobNameList)
+    			{
+    				HashMap jbMap=new HashMap();
+    				jbMap.put("id", jobs.getId());
+    				if(jobs.getJobName()!=null)
+    					jbMap.put("jobName", jobs.getJobName());
+    				jobMapList.add(jbMap);
+    			}
+    			map.put("List", jobMapList);
+    			finalMapList.add(map);
+    			
+    		}
+    			
+    		}
+    	}
+		return finalMapList;
+		
+    	
+    }
+
+
+}

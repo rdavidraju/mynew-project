@@ -1,0 +1,951 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.JobDetails;
+import com.nspl.app.domain.ProgParametersSets;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.SchedulerDetails;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.JobDetailsRepository;
+import com.nspl.app.repository.ProgParametersSetsRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.search.JobDetailsSearchRepository;
+import com.nspl.app.service.OozieService;
+import com.nspl.app.web.rest.dto.Frequencies;
+import com.nspl.app.web.rest.dto.JobDetialsDTO;
+import com.nspl.app.web.rest.dto.OozieJobDTO;
+import com.nspl.app.web.rest.dto.Parameters;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+import com.oozie.wfsubmit.OzzieWfSubmit;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.apache.oozie.client.OozieClientException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing JobDetails.
+ */
+@RestController
+@RequestMapping("/api")
+public class JobDetailsResource {
+
+    private final Logger log = LoggerFactory.getLogger(JobDetailsResource.class);
+
+    private static final String ENTITY_NAME = "jobDetails";
+        
+    private final JobDetailsRepository jobDetailsRepository;
+
+    private final JobDetailsSearchRepository jobDetailsSearchRepository;
+    
+    @Inject
+    SchedulerDetailsRepository schedularDetailsRepository;
+    
+    @Inject
+    ApplicationProgramsRepository applicationprogramsRepository;
+    
+    @Inject
+    ReconcileResource reconcileResource;
+    
+    @Inject
+	OozieService oozieService;
+    
+    @Inject
+    ProgParametersSetsRepository progParametersSetsRepository;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    RuleGroupRepository ruleGroupRepository;
+    
+    
+    
+    
+
+    public JobDetailsResource(JobDetailsRepository jobDetailsRepository, JobDetailsSearchRepository jobDetailsSearchRepository) {
+        this.jobDetailsRepository = jobDetailsRepository;
+        this.jobDetailsSearchRepository = jobDetailsSearchRepository;
+    }
+
+    /**
+     * POST  /job-details : Create a new jobDetails.
+     *
+     * @param jobDetails the jobDetails to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new jobDetails, or with status 400 (Bad Request) if the jobDetails has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/job-details")
+    @Timed
+    public ResponseEntity<JobDetails> createJobDetails(@RequestBody JobDetails jobDetails) throws URISyntaxException {
+        log.debug("REST request to save JobDetails : {}", jobDetails);
+        if (jobDetails.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new jobDetails cannot already have an ID")).body(null);
+        }
+        JobDetails result = jobDetailsRepository.save(jobDetails);
+        jobDetailsSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/job-details/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /job-details : Updates an existing jobDetails.
+     *
+     * @param jobDetails the jobDetails to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated jobDetails,
+     * or with status 400 (Bad Request) if the jobDetails is not valid,
+     * or with status 500 (Internal Server Error) if the jobDetails couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/job-details")
+    @Timed
+    public ResponseEntity<JobDetails> updateJobDetails(@RequestBody JobDetails jobDetails) throws URISyntaxException {
+        log.debug("REST request to update JobDetails : {}", jobDetails);
+        if (jobDetails.getId() == null) {
+            return createJobDetails(jobDetails);
+        }
+        JobDetails result = jobDetailsRepository.save(jobDetails);
+        jobDetailsSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, jobDetails.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /job-details : get all the jobDetails.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of jobDetails in body
+     */
+    @GetMapping("/job-details")
+    @Timed
+    public List<JobDetails> getAllJobDetails() {
+        log.debug("REST request to get all JobDetails");
+        List<JobDetails> jobDetails = jobDetailsRepository.findAll();
+        return jobDetails;
+    }
+
+    /**
+     * GET  /job-details/:id : get the "id" jobDetails.
+     *
+     * @param id the id of the jobDetails to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the jobDetails, or with status 404 (Not Found)
+     */
+    @GetMapping("/job-details/{id}")
+    @Timed
+    public ResponseEntity<JobDetails> getJobDetails(@PathVariable Long id) {
+        log.debug("REST request to get JobDetails : {}", id);
+        JobDetails jobDetails = jobDetailsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(jobDetails));
+    }
+
+    /**
+     * DELETE  /job-details/:id : delete the "id" jobDetails.
+     *
+     * @param id the id of the jobDetails to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/job-details/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteJobDetails(@PathVariable Long id) {
+        log.debug("REST request to delete JobDetails : {}", id);
+        jobDetailsRepository.delete(id);
+        jobDetailsSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/job-details?query=:query : search for the jobDetails corresponding
+     * to the query.
+     *
+     * @param query the query of the jobDetails search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/job-details")
+    @Timed
+    public List<JobDetails> searchJobDetails(@RequestParam String query) {
+        log.debug("REST request to search JobDetails for query {}", query);
+        return StreamSupport
+            .stream(jobDetailsSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+    
+    
+    
+    /**
+     * @author ravali
+     * @param jobDetialsDTO(posting job details and frequency details(schedulers)
+     * @param userId
+     * @param tenantId
+     */
+    @PostMapping("/postingJobDetails")
+    @Timed
+    public List<String> postDto(@RequestBody JobDetialsDTO jobDetialsDTO,@RequestParam Long userId,@RequestParam Long tenantId)
+    {
+    	log.info("JobDetialsDTO :"+jobDetialsDTO);
+    	List<JobDetails> jobDet=new ArrayList<JobDetails>();
+    	JobDetails jobDetails=new JobDetails();
+    	Boolean nameExists=false;
+    	OozieJobDTO oozieJobDTO=new OozieJobDTO();
+    	oozieJobDTO.setTenantId(tenantId.toString());
+    	List<String> Ids=new ArrayList<String>();
+    	if(jobDetialsDTO.getId()!=null)
+    	{
+    		jobDetails.setId(jobDetialsDTO.getId());
+    		jobDet=jobDetailsRepository.findByJobNameAndTenantId(jobDetialsDTO.getJobName(),tenantId);
+    		if(jobDet.size()==1 || jobDet.size()==0)
+    			nameExists=true;
+
+    	}
+    	else
+    	{
+    		jobDet=jobDetailsRepository.findByJobNameAndTenantId(jobDetialsDTO.getJobName(),tenantId);
+    		if(jobDet.size()==0)
+    			nameExists=true;
+    	}
+    	log.info("nameExists :"+nameExists);
+    	if(nameExists)
+    	{
+
+    		if(jobDetialsDTO.getProgramId()!=null)
+    			jobDetails.setProgrammId(jobDetialsDTO.getProgramId());
+    		if(jobDetialsDTO.getJobName()!=null)
+    			jobDetails.setJobName(jobDetialsDTO.getJobName());
+    		if(jobDetialsDTO.getJobDesc()!=null)
+    			jobDetails.setJobDescription(jobDetialsDTO.getJobDesc());
+    		if(jobDetialsDTO.getJobStatus()!=null)
+    			jobDetails.setJobStatus(jobDetialsDTO.getJobStatus());
+    		List<Parameters> parameter=jobDetialsDTO.getParameters();
+    		for(int i=0;i<parameter.size();i++)
+    		{
+    			if(i==0)
+    				jobDetails.setParameterArguments1(parameter.get(i).getSelectedValue());
+    			if(i==1)
+    			{
+    				if(jobDetialsDTO.getProgramId()!=null)
+    				{
+    					log.info("parameter.get(i).getSelectedValue() :"+parameter.get(i).getSelectedValue());
+    					ApplicationPrograms prgName=applicationprogramsRepository.findOne(jobDetialsDTO.getProgramId());
+    					if(prgName.getPrgmName().equalsIgnoreCase("Reconcilation") && prgName.getPrgmType().equalsIgnoreCase("shell") && jobDetails.getParameterArguments1()!=null)
+    					{
+    						
+    						if(parameter.get(i).getSelectedValue()==null)
+    						{
+    							log.info("jobDetails.getParameterArguments1() :"+jobDetails.getParameterArguments1());
+    						//	RuleGroup rg=ruleGroupRepository.findByTenantIdAndName(tenantId, jobDetails.getParameterArguments1());
+    						//	log.info("rg :"+rg);
+    							List<BigInteger> ruleIds=ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(Long.valueOf(jobDetails.getParameterArguments1()),tenantId);
+    							log.info("ruleIds :"+ruleIds);
+    							if(ruleIds.size()>0)
+    							{
+    								log.info("ruleIds.toString() :"+ruleIds.toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+    								jobDetails.setParameterArguments2(ruleIds.toString().replaceAll("\\[", "").replaceAll("\\]", "").replaceAll("\\s", ""));
+    							}
+    						}
+    						else
+    						{
+    							jobDetails.setParameterArguments2(parameter.get(i).getSelectedValue());
+    						}
+    						
+    					}
+    					else
+    					{
+    						log.info("get xx: "+parameter.get(i).getSelectedValue());
+        					jobDetails.setParameterArguments2(parameter.get(i).getSelectedValue());
+        				}
+    				}
+    				
+    				
+    			}
+    			if(i==2)
+    				jobDetails.setParameterArguments3(parameter.get(i).getSelectedValue());
+    			if(i==3)
+    				jobDetails.setParameterArguments4(parameter.get(i).getSelectedValue());
+    			if(i==4)
+    				jobDetails.setParameterArguments5(parameter.get(i).getSelectedValue());
+    			if(i==5)
+    				jobDetails.setParameterArguments6(parameter.get(i).getSelectedValue());
+    			if(i==6)
+    				jobDetails.setParameterArguments7(parameter.get(i).getSelectedValue());
+    			if(i==7)
+    				jobDetails.setParameterArguments8(parameter.get(i).getSelectedValue());
+    			if(i==8)
+    				jobDetails.setParameterArguments9(parameter.get(i).getSelectedValue());
+    			if(i==9)
+    				jobDetails.setParameterArguments10(parameter.get(i).getSelectedValue());
+
+
+
+    		}
+    		if(jobDetialsDTO.getMaxConsecutiveFails()!=null)
+    			jobDetails.setMaxConsecutiveFails(jobDetialsDTO.getMaxConsecutiveFails());
+    		if(jobDetialsDTO.getSendFailAlerts()!=null)
+    			jobDetails.setSendFailAlerts(jobDetialsDTO.getSendFailAlerts());
+    		jobDetails.setCreatedBy(userId);
+    		jobDetails.setLastUpdatedBy(userId);
+    		jobDetails.setCreationDate(ZonedDateTime.now());
+    		jobDetails.setLastUpdatedDate(ZonedDateTime.now());
+    		jobDetails.setTenantId(tenantId);
+    		if(jobDetialsDTO.getScheStartDate()!=null)
+    			jobDetails.setStartDate(jobDetialsDTO.getScheStartDate().toLocalDate());
+    		if(jobDetialsDTO.getScheEndDate()!=null)
+    			jobDetails.setEndDate(jobDetialsDTO.getScheEndDate().toLocalDate());
+    		JobDetails job=jobDetailsRepository.save(jobDetails);
+    		log.info("job :"+job);
+    		if(job.getId()!=null)
+    		{
+    			/*List<SchedulerDetails> schedularDetList=schedularDetailsRepository.findByJobId(job.getId());
+    			if(schedularDetList.size()>0)
+    			{
+    				schedularDetailsRepository.delete(schedularDetList);
+    			}*/
+
+    			List<SchedulerDetails> schedularList=new ArrayList<SchedulerDetails>();
+    			List<Frequencies> frequencies=jobDetialsDTO.getFrequencies();
+    			List<Long> freqIdList=new ArrayList<Long>();
+    			//getting frequencies
+    			for(int i=0;i<frequencies.size();i++)
+    			{
+    				if(frequencies.get(i).getId()!=null)
+    				{
+    					freqIdList.add(frequencies.get(i).getId());
+    				}
+    			}
+    			log.info("freqIdList :"+freqIdList);
+    			List<Long> delList=new ArrayList<Long>();
+    			List<SchedulerDetails> schedularDetailList=schedularDetailsRepository.findByJobId(job.getId());
+    			List<Long> schIds=new ArrayList<Long>();
+    			for(SchedulerDetails scheduler:schedularDetailList)
+				{
+
+    				schIds.add(scheduler.getId());
+				}
+    			log.info("schIds :"+schIds);
+    			for(int l=0;l<schIds.size();l++)
+    			{
+    				if(freqIdList.contains(schIds.get(l)))
+    				{
+    					
+    				}
+    				else
+    				{
+    					log.info("in else");
+    					delList.add(schIds.get(l));
+    					SchedulerDetails schDetail=schedularDetailsRepository.findOne(schIds.get(l));
+    					schDetail.setDeleteFlag(true);
+    					schDetail.setLastUpdatedBy(userId);
+						schDetail.setLastUpdatedDate(ZonedDateTime.now());
+						schedularDetailsRepository.save(schDetail);
+						if(schDetail.getOozieJobId()!=null)
+							try {
+								String status=oozieService.KillOzieParentJob(schDetail.getOozieJobId());
+								log.info("JobStatus :"+status);
+							} catch (OozieClientException e) {
+								// TODO Auto-generated catch block
+								log.info("Failed to kill job");
+								e.printStackTrace();
+							}
+						//schedularList.add(schDetail);
+    					
+    				}
+    			}
+    			log.info("delList :"+delList);
+
+    			//getting id of existing schedulers for particular job and updating
+    			List<SchedulerDetails> schedularDetails=schedularDetailsRepository.findByJobId(job.getId());
+    			if(schedularDetails.size()>0)
+    			{
+    				/*for(SchedulerDetails scheduler:schedularDetails)
+    				{*/
+
+
+    				//update
+
+    				for(int j=0;j<frequencies.size();j++)
+    				{
+    					if(frequencies.get(j).getId()!=null)
+    					{
+    						//already exists
+    						log.info("frequencies.get(j).getId() :"+frequencies.get(j).getId());
+    						SchedulerDetails schDetail=schedularDetailsRepository.findOne(frequencies.get(j).getId());
+    						schDetail.setDate(frequencies.get(j).getDate().plusDays(1));
+    						schDetail.setLastUpdatedBy(userId);
+    						schDetail.setLastUpdatedDate(ZonedDateTime.now());
+    						schedularList.add(schDetail);
+
+    					}
+    					else
+    					{
+    						log.info("new creation for existing job Id");
+    						SchedulerDetails schedularr=new SchedulerDetails();
+    						schedularr.setJobId(job.getId());
+    						int count=schedularDetails.size();
+
+    						if(jobDetialsDTO.getScheStartDate()!=null)
+    						{
+    							schedularr.setStartDate(jobDetialsDTO.getScheStartDate());
+    						}
+    						if(jobDetialsDTO.getScheEndDate()!=null)
+    						{
+    							schedularr.setEndDate(jobDetialsDTO.getScheEndDate());
+    						}
+    						if(frequencies.get(j).getType()!=null)
+    							schedularr.setFrequency(frequencies.get(j).getType());
+    						if(frequencies.get(j).getOccurance()!=null)
+    							schedularr.setFrequencyValue(frequencies.get(j).getOccurance());
+    						if(frequencies.get(j).getTime()!=null)
+    						{
+    							log.info("frequencies.get(j).getTime() :"+frequencies.get(j).getTime());
+    							//log.info("frequencies.get(j).getTime().substring(10, 18) :"+frequencies.get(j).getTime().substring(11, 19));
+    							schedularr.setTime(frequencies.get(j).getTime());
+    						}
+    						if(frequencies.get(j).getDay()!=null)
+    							schedularr.setDayOf(frequencies.get(j).getDay().toString().replace("[", "").replace("]", "").replaceAll("\\s",""));
+    						if(frequencies.get(j).getMinutes()!=null)
+    							schedularr.setMinutes(frequencies.get(j).getMinutes());
+    						if(frequencies.get(j).getHours()!=null)
+    							schedularr.setHours(frequencies.get(j).getHours());
+    						if(frequencies.get(j).getMonth()!=null)
+    							schedularr.setMonth(frequencies.get(j).getMonth().toString().replace("[", "").replace("]", "").replaceAll("\\s",""));
+    						if(frequencies.get(j).getWeekDay()!=null)
+    							schedularr.setWeekDay(frequencies.get(j).getWeekDay().toString().replace("[", "").replace("]", "").replaceAll("\\s",""));
+    						if(frequencies.get(j).getDate()!=null)
+    						{
+    							schedularr.setDate(frequencies.get(j).getDate().plusDays(1));
+    						}
+    						schedularr.setTenantId(tenantId);
+    						schedularr.setCreatedBy(userId);
+    						schedularr.setLastUpdatedBy(userId);
+    						schedularr.setCreationDate(ZonedDateTime.now());
+    						schedularr.setLastUpdatedDate(ZonedDateTime.now());
+    						schedularr.setSchedulerName(job.getJobName()+"_"+count);
+    						schedularList.add(schedularr);
+    						count++;
+    					}
+    				}
+
+
+
+
+
+
+    			}
+    			else
+
+    			{
+
+    				for(int j=0;j<frequencies.size();j++)
+    				{
+    					log.info("new creation ");
+
+    					SchedulerDetails schedular=new SchedulerDetails();
+    					schedular.setJobId(job.getId());
+    					int count=1;
+
+    					if(jobDetialsDTO.getScheStartDate()!=null)
+    					{
+    						schedular.setStartDate(jobDetialsDTO.getScheStartDate());
+    					}
+    					if(jobDetialsDTO.getScheEndDate()!=null)
+    					{
+    						schedular.setEndDate(jobDetialsDTO.getScheEndDate());
+    					}
+    					if(frequencies.get(j).getType()!=null)
+    						schedular.setFrequency(frequencies.get(j).getType());
+    					if(frequencies.get(j).getOccurance()!=null)
+    						schedular.setFrequencyValue(frequencies.get(j).getOccurance());
+    					if(frequencies.get(j).getTime()!=null)
+    					{
+    						log.info("frequencies.get(j).getTime() :"+frequencies.get(j).getTime());
+    						//log.info("frequencies.get(j).getTime().substring(10, 18) :"+frequencies.get(j).getTime().substring(11, 19));
+    						schedular.setTime(frequencies.get(j).getTime());
+    					}
+    					if(frequencies.get(j).getDay()!=null)
+    						schedular.setDayOf(frequencies.get(j).getDay().toString().replace("[", "").replace("]", "").replaceAll("\\s",""));
+    					if(frequencies.get(j).getMinutes()!=null)
+    						schedular.setMinutes(frequencies.get(j).getMinutes());
+    					if(frequencies.get(j).getHours()!=null)
+    						schedular.setHours(frequencies.get(j).getHours());
+    					if(frequencies.get(j).getMonth()!=null)
+    						schedular.setMonth(frequencies.get(j).getMonth().toString().replace("[", "").replace("]", "").replaceAll("\\s",""));
+    					if(frequencies.get(j).getWeekDay()!=null)
+    						schedular.setWeekDay(frequencies.get(j).getWeekDay().toString().replace("[", "").replace("]", "").replaceAll("\\s",""));
+    					if(frequencies.get(j).getDate()!=null)
+    						schedular.setDate(frequencies.get(j).getDate().plusDays(1));
+    					schedular.setTenantId(tenantId);
+    					schedular.setCreatedBy(userId);
+    					schedular.setLastUpdatedBy(userId);
+    					schedular.setCreationDate(ZonedDateTime.now());
+    					schedular.setLastUpdatedDate(ZonedDateTime.now());
+    					schedular.setSchedulerName(job.getJobName()+"_"+count);
+    					schedularList.add(schedular);
+    					count++;
+
+    				}
+    			}
+    			List<SchedulerDetails> sch=schedularDetailsRepository.save(schedularList);
+    			log.info("sch :"+sch);
+
+    			for(int i=0;i<sch.size();i++)
+    			{
+    				//oozieJobDTO.setHdfsPath("/user/hdsingle/examples/apps/xxdr_java_test");
+    				String Freq="";
+    				if(sch.get(i).getMinutes()!=null)
+    					Freq=sch.get(i).getMinutes().toString()+" ";
+    				else
+    					Freq="* ";
+    				if(sch.get(i).getHours()!=null && sch.get(i).getFrequency().equalsIgnoreCase("hourly"))
+    				{
+    					Freq=Freq+"0/"+sch.get(i).getHours().toString()+" ";
+    				}
+    				else if(sch.get(i).getHours()!=null)
+    				{
+    					Freq=Freq+sch.get(i).getHours().toString()+" ";
+    				}
+    				else
+    					Freq=Freq+"* ";
+    				if(sch.get(i).getDayOf()!=null)
+    					Freq=Freq+sch.get(i).getDayOf().toString()+" ";
+    				else
+    					Freq=Freq+"* ";
+    				if(sch.get(i).getMonth()!=null)
+    					Freq=Freq+sch.get(i).getMonth()+" ";
+    				else
+    					Freq=Freq+"* ";
+    				if(sch.get(i).getWeekDay()!=null)
+    					Freq=Freq+sch.get(i).getWeekDay()+" ";
+    				else
+    					Freq=Freq+"*";
+
+    				log.info("Freq :"+Freq);
+
+    				
+    				
+    				if(sch.get(i).getFrequency()!=null && sch.get(i).getFrequency().equalsIgnoreCase("minutes"))
+    				{
+    					Freq="0/"+Freq;
+    					log.info("Freq if min:"+Freq);
+    				}
+    				
+    				oozieJobDTO.setFrequency(Freq);
+    				if(job.getProgrammId()!=null)
+    				{
+    					ApplicationPrograms Prg=applicationprogramsRepository.findOne(job.getProgrammId());
+    					log.info("Prg.getargetPath :"+Prg.getTargetPath());
+    					oozieJobDTO.setHdfsPath(Prg.getTargetPath());
+    					if(Prg.getPrgmPath()!=null)
+    						oozieJobDTO.setJarFilePath(Prg.getPrgmPath());
+    					if(Prg.getPrgmOrClassName()!=null)
+    						oozieJobDTO.setClassName(Prg.getPrgmOrClassName());
+    					if(Prg.getPrgmType()!=null)
+    						oozieJobDTO.setJobType(Prg.getPrgmType());
+    					log.info("Prg.getPrgmName() :"+Prg.getPrgmName());
+    					oozieJobDTO.setProgramName(Prg.getPrgmName());
+    					oozieJobDTO.setPath(Prg.getGeneratedPath());
+    				}
+    				String startDate=sch.get(i).getStartDate().toString();
+    				log.info("startDate :"+startDate);
+    				String start1=startDate.substring(0, 10);
+    				String start2=startDate.substring(11, 16);
+    				String finalStartDate=start1+"T0"+start2+"+0530";
+
+    				if(sch.get(i).getEndDate()!=null)
+    				{
+    					String endDate=sch.get(i).getEndDate().toString();
+    					log.info("endDate :"+startDate);
+    					String end1=endDate.substring(0, 10);
+    					String end2=endDate.substring(11, 16);
+    					String finalEndDate=end1+"T0"+end2+"+0530";
+    					log.info("finalStartDate :"+finalStartDate);
+    					log.info("finalEndDate :"+finalEndDate);
+    					oozieJobDTO.setEndDate(finalEndDate);
+    				}
+    				oozieJobDTO.setStartDate(finalStartDate);
+
+    				if(job.getJobName()!=null)
+    				{
+    					String jobNm=job.getJobName().replaceAll("\\s+","");
+    					log.info("jobNm :"+jobNm);
+    					oozieJobDTO.setJobName(jobNm);
+    					oozieJobDTO.setJobId(job.getId());
+    				}
+    				//Build Job
+    				if(sch.get(i).getFrequency()!=null)
+    					oozieJobDTO.setFrequencyType(sch.get(i).getFrequency());
+    				oozieJobDTO .setProgramId(jobDetialsDTO.getProgramId());
+    					oozieService.BuildOozieJob(oozieJobDTO,tenantId);
+    				//Iniatiate Job
+    				String JobId=oozieService.InitiateOozieJob(oozieJobDTO);
+    				String Id="";
+    				if(JobId!=null)
+    				{
+    					Id=JobId;
+    					sch.get(i).setStatus("Submitted");
+    				}
+    				else
+    					sch.get(i).setStatus("Error");
+    				Ids.add(Id);
+    				sch.get(i).setOozieJobId(JobId);
+    				schedularDetailsRepository.save(sch);
+
+    			}
+    		}
+    	}
+    	return Ids;
+
+    }
+    
+    
+/**
+ * @author ravali
+ * @param Id
+ * @param tenantId
+ * @return job details and respective schedulers
+ */
+    @GetMapping("/jobDetailsAndSchedularByJobId")
+    @Timed
+    
+    public JobDetialsDTO getJobDetailsAndSchedular(@RequestParam Long Id,@RequestParam Long tenantId)
+    {
+
+    	JobDetialsDTO jobDetailsDTO=new JobDetialsDTO();
+    	JobDetails jobDetails=jobDetailsRepository.findByTenantIdAndId(tenantId,Id);
+    	
+    	if(jobDetails.getId()!=null)
+    		jobDetailsDTO.setId(jobDetails.getId());
+    	if(jobDetails.getProgrammId()!=null)
+    		jobDetailsDTO.setProgramId(jobDetails.getProgrammId());
+    	if(jobDetails.getJobName()!=null)
+    		jobDetailsDTO.setJobName(jobDetails.getJobName());
+    	if(jobDetails.getJobDescription()!=null)
+    		jobDetailsDTO.setJobDesc(jobDetails.getJobDescription());
+
+    	if(jobDetails.getJobStatus()!=null)
+    		jobDetailsDTO.setJobStatus(jobDetailsDTO.getJobStatus());
+    	List<String> paramList=new ArrayList<String>();
+
+    	if(jobDetails.getParameterArguments1()!=null && !jobDetails.getParameterArguments1().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments1());
+    	if(jobDetails.getParameterArguments2()!=null && !jobDetails.getParameterArguments2().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments2());
+    	if(jobDetails.getParameterArguments3()!=null && !jobDetails.getParameterArguments3().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments3());
+    	if(jobDetails.getParameterArguments4()!=null && !jobDetails.getParameterArguments4().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments4());
+    	if(jobDetails.getParameterArguments5()!=null && !jobDetails.getParameterArguments5().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments5());
+    	if(jobDetails.getParameterArguments6()!=null && !jobDetails.getParameterArguments6().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments6());
+    	if(jobDetails.getParameterArguments7()!=null && !jobDetails.getParameterArguments7().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments7());
+    	if(jobDetails.getParameterArguments8()!=null && !jobDetails.getParameterArguments8().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments8());
+    	if(jobDetails.getParameterArguments9()!=null && !jobDetails.getParameterArguments9().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments9());
+    	if(jobDetails.getParameterArguments10()!=null && !jobDetails.getParameterArguments10().isEmpty())
+    		paramList.add(jobDetails.getParameterArguments10());
+
+    	List<Parameters> parameterList=new ArrayList<Parameters>();
+    	log.info("paramList :"+paramList);
+    	for(int i=0;i<paramList.size();i++)
+    	{
+    		Parameters parameter=new Parameters();
+    		//parameter.setParamId(paramId);
+    		List<ProgParametersSets> paramsetsList=progParametersSetsRepository.findByProgramId(jobDetails.getProgrammId());
+/*    		for(ProgParametersSets paramset:paramsetsList)
+			{
+    			
+    			parameter.setParamId(paramset.getId());
+    			parameter.setParamName(paramset.getParameterName());
+    			
+    		
+			}*/
+    		if(paramsetsList.size()>0)
+    		{
+    			try
+    			{
+    			ProgParametersSets pps = paramsetsList.get(i);
+    			parameter.setParamId(pps.getId());
+    			parameter.setParamName(pps.getParameterName());
+        		parameter.setSelectedValue(paramList.get(i));
+        		parameterList.add(parameter);
+    			}
+    			catch(Exception e)
+    			{
+    				
+    			}
+    		}
+
+    	}
+
+    	jobDetailsDTO.setParameters(parameterList);
+
+    	if(jobDetails.getMaxConsecutiveFails()!=null)
+    		jobDetailsDTO.setMaxConsecutiveFails(jobDetails.getMaxConsecutiveFails());
+    	if(jobDetails.isSendFailAlerts()!=null)
+    		jobDetailsDTO.setSendFailAlerts(jobDetails.isSendFailAlerts());
+
+
+
+    	List<SchedulerDetails> schedularList=schedularDetailsRepository.findByJobIdAndDeleteFlagIsNull(Id);
+
+    	List<Frequencies> frequencies=new ArrayList<Frequencies>();
+    	for(int j=0;j<schedularList.size();j++)
+    	{
+    		Frequencies freq=new Frequencies();
+    		if(schedularList.get(j).getStartDate()!=null)
+    			jobDetailsDTO.setScheStartDate(schedularList.get(j).getStartDate());
+    		if(schedularList.get(j).getEndDate()!=null)
+    			jobDetailsDTO.setScheEndDate(schedularList.get(j).getEndDate());
+    		if(schedularList.get(j).getFrequency()!=null)
+    			freq.setType(schedularList.get(j).getFrequency());
+    		if(schedularList.get(j).getFrequencyValue()!=null)
+    			freq.setOccurance(schedularList.get(j).getFrequencyValue());
+    		if(schedularList.get(j).getTime()!=null)
+    			freq.setTime(schedularList.get(j).getTime());
+    		if(schedularList.get(j).getOozieJobId()!=null && !schedularList.get(j).getOozieJobId().isEmpty())
+    		freq.setOozieJobId(schedularList.get(j).getOozieJobId());
+    		
+    		
+    		freq.setId(schedularList.get(j).getId());
+    		if(schedularList.get(j).getDayOf()!=null)
+    		{
+    			List<String> myList = new ArrayList<String>(Arrays.asList(schedularList.get(j).getDayOf().split(",")));
+    			freq.setDay(myList);
+    		}
+    		if(schedularList.get(j).getTime()!=null)
+    			freq.setTime(schedularList.get(j).getTime());
+
+    		if(schedularList.get(j).getMinutes()!=null)
+    			freq.setMinutes(schedularList.get(j).getMinutes());
+    		if(schedularList.get(j).getHours()!=null)
+    			freq.setHours(schedularList.get(j).getHours());
+    		if(schedularList.get(j).getMonth()!=null)
+    		{
+    			List<String> myList = new ArrayList<String>(Arrays.asList(schedularList.get(j).getMonth().split(",")));
+    			freq.setMonth(myList);
+    		}
+    		if(schedularList.get(j).getWeekDay()!=null)
+    		{
+    			List<String> myList = new ArrayList<String>(Arrays.asList(schedularList.get(j).getWeekDay().split(",")));
+    			freq.setWeekDay(myList);
+    		}
+    		if(schedularList.get(j).getDate()!=null)
+    			freq.setDate(schedularList.get(j).getDate());
+    		frequencies.add(freq);
+    	}
+    	jobDetailsDTO.setFrequencies(frequencies);
+    	return jobDetailsDTO;
+
+    }
+    
+    /**
+     * @author ravali
+     * @param tenantId
+     * @return List of job details
+     */
+    @GetMapping("/getAllJobDetailsByTenantId")
+    @Timed
+    public List<HashMap> getAllJobDetailsByTenantId(@RequestParam Long tenantId,@RequestParam(value = "page" , required = false) Integer offset,
+			@RequestParam(value = "per_page", required = false) Integer limit,HttpServletResponse response)
+			{
+    	log.info("Request Rest to get all job details By tenantId");
+    	List<HashMap> finalMap=new ArrayList<HashMap>();
+    	List<JobDetails> jobDetailsList=new ArrayList<JobDetails>();
+    	PaginationUtil paginationUtil=new PaginationUtil();
+
+    	int maxlmt=paginationUtil.MAX_LIMIT;
+    	int minlmt=paginationUtil.MIN_OFFSET;
+    	log.info("maxlmt: "+maxlmt);
+    	Page<JobDetails> page = null;
+    	HttpHeaders headers = null;
+
+    	List<JobDetails> jobDetailsListCnt = jobDetailsRepository.findByTenantIdAndOrderById(tenantId);
+    	response.addIntHeader("X-COUNT", jobDetailsListCnt.size());
+    	
+    	if(limit==null || limit<minlmt){
+    		jobDetailsList = jobDetailsRepository.findByTenantIdAndOrderById(tenantId);
+        	
+    		limit = jobDetailsList.size();
+    	}
+    	if(limit == 0 )
+    	{
+    		limit = paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+    	{
+    		offset = paginationUtil.DEFAULT_OFFSET;
+    	}
+    	if(limit>maxlmt)
+    	{
+    		log.info("input limit exceeds maxlimit");
+    		page = jobDetailsRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequest2(offset, limit));
+        	
+
+    	}
+    	else{
+    		log.info("input limit is within maxlimit");
+    		page = jobDetailsRepository.findByTenantIdOrderByIdDesc(tenantId,PaginationUtil.generatePageRequest(offset, limit));
+
+    	}
+
+    	if(jobDetailsList.size()==0)
+    	{
+    		//jobDetailsList = jobDetailsRepository.findByTenantIdAndOrderById(tenantId);
+    		jobDetailsList=page.getContent();
+    	}
+
+    	for(JobDetails jobDetails:jobDetailsList)
+    	{
+    		HashMap map=new HashMap();
+    		if(jobDetails.getId()!=null)
+    			map.put("jobId", jobDetails.getId());
+    		else
+    			map.put("jobId", "");
+    		if(jobDetails.getJobName()!=null)
+    			map.put("jobName", jobDetails.getJobName());
+    		else
+    			map.put("jobName", "");
+    		if(jobDetails.getJobDescription()!=null)
+    			map.put("jobDescription",jobDetails.getJobDescription());
+    		else
+    			map.put("jobDescription", "");
+    		if(jobDetails.getJobStatus()!=null)
+    			map.put("jobStatus", jobDetails.getJobStatus());
+    		else
+    			map.put("jobStatus", "");
+    		if(jobDetails.getProgrammId()!=null){
+    			ApplicationPrograms program=applicationprogramsRepository.findOne(jobDetails.getProgrammId());
+    			if(program!=null)
+    				map.put("programName",program.getPrgmName());
+    			else
+    				map.put("programName","");
+    		}
+    		if(jobDetails.getStartDate()!=null)
+    			map.put("startDate",jobDetails.getStartDate());
+    		else
+    			map.put("startDate","");
+    		if(jobDetails.getEndDate()!=null)
+    			map.put("startDate",jobDetails.getEndDate());
+    		else
+    			map.put("startDate","");
+    		map.put("tenantId", jobDetails.getTenantId());
+    		if(jobDetails.getMaxConsecutiveFails()!=null)
+    			map.put("maxConsecutiveFails", jobDetails.getMaxConsecutiveFails());
+    		else
+    			map.put("maxConsecutiveFails", "");
+    		if(jobDetails.isSendFailAlerts()!=null)
+    			map.put("sendFailAlerts",jobDetails.isSendFailAlerts());
+    		else
+    			map.put("sendFailAlerts","");
+    		if(jobDetails.getParameterArguments1()!=null)
+    			map.put("parameterArguments1", jobDetails.getParameterArguments1());
+    		else
+    			map.put("parameterArguments1", "");
+    		if(jobDetails.getParameterArguments2()!=null)
+    			map.put("parameterArguments2", jobDetails.getParameterArguments2());
+    		else
+    			map.put("parameterArguments2", "");
+    		if(jobDetails.getParameterArguments3()!=null)
+    			map.put("parameterArguments3", jobDetails.getParameterArguments3());
+    		else
+    			map.put("parameterArguments3", "");
+    		if(jobDetails.getParameterArguments4()!=null)
+    			map.put("parameterArguments4", jobDetails.getParameterArguments4());
+    		else
+    			map.put("parameterArguments4", "");
+    		if(jobDetails.getParameterArguments5()!=null)
+    			map.put("parameterArguments5", jobDetails.getParameterArguments5());
+    		else
+    			map.put("parameterArguments5", "");
+    		if(jobDetails.getParameterArguments6()!=null)
+    			map.put("parameterArguments6", jobDetails.getParameterArguments6());
+    		else
+    			map.put("parameterArguments6", "");	
+    		if(jobDetails.getParameterArguments7()!=null)
+    			map.put("parameterArguments7", jobDetails.getParameterArguments7());
+    		else
+    			map.put("parameterArguments7", "");
+    		if(jobDetails.getParameterArguments8()!=null)
+    			map.put("parameterArguments8", jobDetails.getParameterArguments8());
+    		else
+    			map.put("parameterArguments8", "");
+    		if(jobDetails.getParameterArguments9()!=null)
+    			map.put("parameterArguments9", jobDetails.getParameterArguments9());
+    		else
+    			map.put("parameterArguments9", "");
+    		if(jobDetails.getParameterArguments10()!=null)
+    			map.put("parameterArguments10", jobDetails.getParameterArguments10());
+    		else
+    			map.put("parameterArguments10","");
+    		finalMap.add(map);
+    	}
+    	return finalMap;
+
+
+			}
+    
+    /**
+     * author ravali
+     * @param name
+     * @return count of job names
+     */
+    @GetMapping("/isJobNameAvailable")
+    @Timed 
+    public Long getJobNameCount(@RequestParam String jobName,@RequestParam Long tenantId)
+    {
+    	log.info("Request Rest to check jon name");
+    	Long i=0L;
+    	List<JobDetails> jobDetList=jobDetailsRepository.findByJobNameAndTenantId(jobName,tenantId);
+    	log.info("jobDetList :"+jobDetList);
+    	if(jobDetList.size()>0)
+    	{
+    		for(JobDetails jobDet:jobDetList)
+    		{
+    			i=jobDet.getId();
+    		}
+    	}
+    	return i;
+    }
+    
+    
+    
+    @PostMapping("/jobIntiateForAcctAndRec")
+    @Timed
+    public ResponseEntity jobIntiateForAcctAndRec(@RequestParam Long tenantId,@RequestParam Long userId,@RequestParam String progType,@RequestBody HashMap parameterSet)
+    {
+    	log.info("Rest Request to post job And scheduler details by parameter set :"+progType +"Map :"+parameterSet);
+    	ResponseEntity response= oozieService.jobIntiateForAcctAndRec(tenantId, userId, progType, parameterSet);
+    	return response;
+    }
+
+}

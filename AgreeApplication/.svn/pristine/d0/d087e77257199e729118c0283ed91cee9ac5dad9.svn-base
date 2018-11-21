@@ -1,0 +1,183 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.AccountedSummary;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.ReconciliationResult;
+import com.nspl.app.domain.SourceFileInbHistory;
+import com.nspl.app.domain.SourceProfileFileAssignments;
+import com.nspl.app.domain.SourceProfiles;
+import com.nspl.app.repository.AccountedSummaryRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.SourceFileInbHistoryRepository;
+import com.nspl.app.repository.SourceProfileFileAssignmentsRepository;
+import com.nspl.app.repository.SourceProfilesRepository;
+import com.nspl.app.repository.search.SourceFileInbHistorySearchRepository;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing SourceFileInbHistory.
+ */
+@RestController
+@RequestMapping("/api")
+public class SourceFileInbHistoryResource {
+
+    private final Logger log = LoggerFactory.getLogger(SourceFileInbHistoryResource.class);
+
+    private static final String ENTITY_NAME = "sourceFileInbHistory";
+        
+    private final SourceFileInbHistoryRepository sourceFileInbHistoryRepository;
+
+    private final SourceFileInbHistorySearchRepository sourceFileInbHistorySearchRepository;
+    
+    
+
+    public SourceFileInbHistoryResource(SourceFileInbHistoryRepository sourceFileInbHistoryRepository, SourceFileInbHistorySearchRepository sourceFileInbHistorySearchRepository) {
+        this.sourceFileInbHistoryRepository = sourceFileInbHistoryRepository;
+        this.sourceFileInbHistorySearchRepository = sourceFileInbHistorySearchRepository;
+    }
+
+    /**
+     * POST  /source-file-inb-histories : Create a new sourceFileInbHistory.
+     *
+     * @param sourceFileInbHistory the sourceFileInbHistory to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new sourceFileInbHistory, or with status 400 (Bad Request) if the sourceFileInbHistory has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/source-file-inb-histories")
+    @Timed
+    public ResponseEntity<SourceFileInbHistory> createSourceFileInbHistory(@RequestBody SourceFileInbHistory sourceFileInbHistory) throws URISyntaxException {
+        log.debug("REST request to save SourceFileInbHistory : {}", sourceFileInbHistory);
+        if (sourceFileInbHistory.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new sourceFileInbHistory cannot already have an ID")).body(null);
+        }
+        SourceFileInbHistory result = sourceFileInbHistoryRepository.save(sourceFileInbHistory);
+        sourceFileInbHistorySearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/source-file-inb-histories/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /source-file-inb-histories : Updates an existing sourceFileInbHistory.
+     *
+     * @param sourceFileInbHistory the sourceFileInbHistory to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated sourceFileInbHistory,
+     * or with status 400 (Bad Request) if the sourceFileInbHistory is not valid,
+     * or with status 500 (Internal Server Error) if the sourceFileInbHistory couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/source-file-inb-histories")
+    @Timed
+    public ResponseEntity<SourceFileInbHistory> updateSourceFileInbHistory(@RequestBody SourceFileInbHistory sourceFileInbHistory) throws URISyntaxException {
+        log.debug("REST request to update SourceFileInbHistory : {}", sourceFileInbHistory);
+        if (sourceFileInbHistory.getId() == null) {
+            return createSourceFileInbHistory(sourceFileInbHistory);
+        }
+        SourceFileInbHistory result = sourceFileInbHistoryRepository.save(sourceFileInbHistory);
+        sourceFileInbHistorySearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, sourceFileInbHistory.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /source-file-inb-histories : get all the sourceFileInbHistories.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of sourceFileInbHistories in body
+     */
+    @GetMapping("/source-file-inb-histories")
+    @Timed
+    public List<SourceFileInbHistory> getAllSourceFileInbHistories() {
+        log.debug("REST request to get all SourceFileInbHistories");
+        List<SourceFileInbHistory> sourceFileInbHistories = sourceFileInbHistoryRepository.findAll();
+        return sourceFileInbHistories;
+    }
+
+    /**
+     * GET  /source-file-inb-histories/:id : get the "id" sourceFileInbHistory.
+     *
+     * @param id the id of the sourceFileInbHistory to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the sourceFileInbHistory, or with status 404 (Not Found)
+     */
+    @GetMapping("/source-file-inb-histories/{id}")
+    @Timed
+    public ResponseEntity<SourceFileInbHistory> getSourceFileInbHistory(@PathVariable Long id) {
+        log.debug("REST request to get SourceFileInbHistory : {}", id);
+        SourceFileInbHistory sourceFileInbHistory = sourceFileInbHistoryRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(sourceFileInbHistory));
+    }
+
+    /**
+     * DELETE  /source-file-inb-histories/:id : delete the "id" sourceFileInbHistory.
+     *
+     * @param id the id of the sourceFileInbHistory to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/source-file-inb-histories/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteSourceFileInbHistory(@PathVariable Long id) {
+        log.debug("REST request to delete SourceFileInbHistory : {}", id);
+        sourceFileInbHistoryRepository.delete(id);
+        sourceFileInbHistorySearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/source-file-inb-histories?query=:query : search for the sourceFileInbHistory corresponding
+     * to the query.
+     *
+     * @param query the query of the sourceFileInbHistory search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/source-file-inb-histories")
+    @Timed
+    public List<SourceFileInbHistory> searchSourceFileInbHistories(@RequestParam String query) {
+        log.debug("REST request to search SourceFileInbHistories for query {}", query);
+        return StreamSupport
+            .stream(sourceFileInbHistorySearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+   
+
+}

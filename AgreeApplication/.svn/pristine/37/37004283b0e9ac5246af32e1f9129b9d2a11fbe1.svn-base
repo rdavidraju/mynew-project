@@ -1,0 +1,1349 @@
+package com.nspl.app.service;
+import java.math.BigInteger;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+
+import com.nspl.app.domain.DataViewConditions;
+import com.nspl.app.domain.DataViewFilters;
+import com.nspl.app.domain.DataViewUnion;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.DataViewsSrcMappings;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.ReportDefination;
+import com.nspl.app.domain.ReportParameters;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewConditionsRepository;
+import com.nspl.app.repository.DataViewFiltersRepository;
+import com.nspl.app.repository.DataViewUnionRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.DataViewsSrcMappingsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.FileTemplatesRepository;
+import com.nspl.app.repository.ReportDefinationRepository;
+import com.nspl.app.repository.ReportParametersRepository;
+import com.nspl.app.repository.ReportsRepository;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Service
+public class DataViewsService {
+	
+	 private final Logger log = LoggerFactory.getLogger(DataViewsService.class);
+	
+		@Inject
+		DataViewsRepository dataViewsRepository;
+	
+	 	@Inject
+	    DataViewsColumnsRepository dataViewsColumnsRepository;
+	    
+	    @Inject
+	    DataViewFiltersRepository dataViewFiltersRepository;
+	    
+	    @Inject
+	    FileTemplatesRepository fileTemplatesRepository;
+	    
+	    @Inject
+	    FileTemplateLinesRepository fileTemplateLinesRepository;
+	    
+	    @Inject
+	    DataViewConditionsRepository dataViewConditionsRepository;
+	    
+	    @Inject
+	    DataMasterRepository dataMasterRepository;
+	    
+	    @Inject
+	    ExcelFunctionsService excelFunctionsService;
+	    
+	    @Inject
+	    SourceConnectionDetailsService sourceConnectionDetailsService;
+	    
+	    @Inject
+	    DataViewsSrcMappingsRepository dataViewsSrcMappingsRepository;
+	    
+	    @Inject
+	    ReportDefinationRepository reportDefinationRepository;
+	    
+	    @Inject
+	    ReportsRepository reportsRepository;
+	    
+	    @Inject
+	    ReportParametersRepository reportParametersRepository;
+	    
+	    @Inject
+	    DataViewUnionRepository dataViewUnionRepository;
+	    
+	    @Inject
+	    private Environment env;
+
+	/**
+     * Author: Swetha
+     * Description: Function to frame data view query
+     * @param viewId
+     * @return 
+     * @throws ClassNotFoundException
+     */    
+    public String frameQuery(Long viewId, Long tenanatId) throws ClassNotFoundException {	
+	
+    log.info("Request frameQuery for viewId: "+viewId+" and tenanatId: "+tenanatId);
+	DataViews dv=dataViewsRepository.findOne(viewId); 
+ 	log.info("dv: "+dv);
+ 	/*List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewId(viewId);
+ 	log.info("dvcList sz for dataView: "+dvcList.size()); */
+ 	List<String> tempIdList=new ArrayList<String>();
+ 	
+ 	String viewQuery="(select ";
+ 	tempIdList=dataViewsColumnsRepository.fetchDistinctTemplateId(viewId);
+ 	log.info("tempIdList sz for viewId: "+viewId+" are: "+tempIdList.size());
+ 	
+ 	/* Part 1 */
+ 	String part1="";
+ 	HashMap map=new HashMap();
+ 	List<DataViewsColumns> dvColDataList=new ArrayList<DataViewsColumns>();
+ 	List<DataViewsColumns> dvColDataListEmp=new ArrayList<DataViewsColumns>();
+ 	List<DataViewsColumns> dvColDataList3=new ArrayList<DataViewsColumns>();
+ 	String srcIds="";
+ 	for(int j=0;j<tempIdList.size();j++){
+ 		
+ 		String tempId=tempIdList.get(j);
+ 		log.info("tempId at j: "+j+" is: "+tempId);
+ 		String tabAlias="";
+ 		if(tempId!=null){
+ 		tabAlias="ds"+j;
+ 		map.put(tempId, tabAlias);
+ 		log.info("map: "+map);
+ 		} 
+ 		else{
+ 			log.info("tempId is null: "+tempId);
+ 			log.info("map: "+map);
+ 		}
+ 		
+ 		if(tempId!=null){
+ 		dvColDataList=dataViewsColumnsRepository.findByRefDvNameAndDataViewId(tempId, viewId);
+ 		log.info("dvColDataList for tempId: "+tempId+" and viewId: "+viewId+" is: "+dvColDataList);
+ 		}
+		else{
+ 			log.info("tempId is null: "+tempId);
+ 			dvColDataListEmp=dataViewsColumnsRepository.findByDataViewIdAndRefDvType(viewId,"Data View");
+ 			log.info("dvColDataList for tempid null: "+dvColDataList);
+ 			for(int z=0;z<dvColDataListEmp.size();z++){
+ 				DataViewsColumns dvc1=dvColDataListEmp.get(z);
+ 				log.info("dvc1 at"+z+":"+dvc1);
+ 				if(dvc1.getRefDvName()==null){
+ 					log.info("dvf for dvc1.getId(): "+dvc1.getId()+" viewId: "+viewId);
+ 					dvColDataList3.add(dvc1);
+ 				}
+ 			}
+ 			dvColDataList.addAll(dvColDataList3);
+ 			log.info("dvColDataList3 in else: "+dvColDataList3);
+ 			log.info("dvColDataList aftr adding new columns: "+dvColDataList);
+ 		}
+ 		for(int i=0;i<dvColDataList.size();i++){
+     		DataViewsColumns DvColData=dvColDataList.get(i);
+     		String dType=DvColData.getColDataType();
+     		String formulaQuery="";
+     		log.info("DvColData: "+DvColData); 
+     		
+     		if(DvColData.getRefDvColumn()!=null){
+ 		FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(DvColData.getRefDvColumn().toString()));
+ 		log.info("ftl: "+ftl);
+ 		log.info("ftl colalias: "+ftl.getColumnAlias());
+ 		log.info("tabAlias: "+tabAlias);
+ 		if(i<dvColDataList.size()-1 && tabAlias!=null && !(tabAlias.isEmpty())){
+ 			log.info("in if tabAlias");
+ 			if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("INTEGER")){
+ 				part1=part1+" cast(trim(replace("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+", ',', '') ) as  signed)"+" as `"+ftl.getColumnAlias()+"`"+",";
+ 			}
+ 			else if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("DECIMAL")){
+ 				part1=part1+" cast(trim(replace("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+", ',', '') ) as  decimal(38,5))"+" as "+"`"+ftl.getColumnAlias()+"`"+",";
+ 			}
+ 			else if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("BOOLEAN")){
+ 				part1=part1+" (CASE WHEN ("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+") <> 0 THEN 'True' ELSE 'False' END) as "+"`"+ftl.getColumnAlias()+"`"+",";
+ 			}
+ 			else part1=part1+" trim("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+" )"+" as `"+ftl.getColumnAlias()+"`"+",";
+ 		}
+ 		else if(i==dvColDataList.size()-1 && tabAlias!=null && !(tabAlias.isEmpty())){
+ 			log.info("in else tabAlias");
+ 			if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("INTEGER")){
+ 				part1=part1+" cast(trim(replace("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+", ',', '') ) as  signed)"+" as `"+ftl.getColumnAlias()+"`";
+ 			}
+ 			else if(dType!=null && !(dType.isEmpty()) &&  dType.equalsIgnoreCase("DECIMAL")){
+ 				part1=part1+" cast(trim(replace("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+", ',', '') ) as  decimal(38,5))"+" as `"+ftl.getColumnAlias()+"`";
+ 			}
+ 			else if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("BOOLEAN")){
+ 				part1=part1+" (CASE WHEN ("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+") <> 0 THEN 'True' ELSE 'False' END) as "+"`"+ftl.getColumnAlias()+"`";
+ 			}
+ 			else part1=part1+" trim("+tabAlias+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+" )"+" as `"+ftl.getColumnAlias()+"`";
+ 		}
+ 		log.info("part1: "+part1);
+ 		}
+ 		else{
+ 			log.info("New Column accessing in part1");
+ 			formulaQuery="";
+ 			log.info("formulaQuery at start: "+formulaQuery);
+ 			if(DvColData.getFormula()!=null){
+ 				
+ 				if(DvColData.getFormulaAlias()!=null)
+ 				formulaQuery=DvColData.getFormulaAlias();
+				log.info("framed query is: "+formulaQuery);
+ 			}
+ 			
+ 			log.info("formulaQuery: "+formulaQuery);
+ 			if(i>0 && dvColDataList.size()>1 && i!=dvColDataList.size()-1){
+ 				part1=part1+formulaQuery+" as `"+DvColData.getColumnName()+"`"+",";
+ 				log.info("in part1 if part1: "+part1);
+ 			}
+ 			else{
+ 				part1=part1+formulaQuery+" as `"+DvColData.getColumnName()+"`";
+ 				log.info("in part1 else part1: "+part1);
+ 			}
+ 		}
+}
+ 		
+ 		if(j<tempIdList.size()-1){
+ 			part1=part1+",";
+ 		}
+ 		else{
+ 			part1=part1;
+ 		}
+ 		
+ 		log.info("part1 at: "+j+"is: "+part1);
+ 	}
+ 	log.info("srcIds: "+srcIds);
+ 	DataViewsSrcMappings dvcSrcMapngs=new DataViewsSrcMappings();
+ 	List<DataViewsSrcMappings> dvcSrcMapngsList=dataViewsSrcMappingsRepository.findByDataViewId(viewId);
+ 	if(dvcSrcMapngsList!=null && dvcSrcMapngsList.size()==1){
+ 		dvcSrcMapngs=dvcSrcMapngsList.get(0);
+ 	}
+ 	else {
+ 		dvcSrcMapngs=dataViewsSrcMappingsRepository.findByDataViewIdAndBase(viewId,"Primary");
+ 	}
+ 	if(dvcSrcMapngs!=null){
+ 	log.info("map.get(dvcSrcMapngs.getTemplateId()): "+map.get(dvcSrcMapngs.getTemplateId().toString()));
+ 	srcIds=srcIds+map.get(dvcSrcMapngs.getTemplateId().toString())+".id"+" as scrIds, "+map.get(dvcSrcMapngs.getTemplateId().toString())+".src_file_inb_id as srcFileInbId, "+map.get(dvcSrcMapngs.getTemplateId().toString())+".file_date as fileDate, ";
+ 	log.info("srcIds: "+srcIds);
+ 	part1=srcIds+part1;
+ 	log.info("part1 aftr adding srcIds: "+srcIds);
+ 	log.info("final map: "+map);
+ 	}
+ 
+ 	viewQuery=viewQuery+part1+" from ";
+ 	log.info("viewQuery after part1: "+viewQuery);
+ 	
+ 	/* Part2 */
+ 	
+ 	String part2="";
+ 	List<DataViewFilters> dataViewFiltersList2=new ArrayList<DataViewFilters>();
+ 	int sz=tempIdList.size();
+ 	for(int k=0;k<sz;k++){
+ 		
+ 		String tempId=tempIdList.get(k);
+ 		if(tempId!=null){
+ 		log.info("map.get(tempId) for tempId: "+tempId+" is: "+map.get(tempId));
+ 		String part2SubQuery="(select * from t_data_master ";
+ 		
+ 		part2=part2+part2SubQuery;
+ 		/* Data View Filters */
+ 		
+ 		String whereCond=" where ";
+ 		List<DataViewFilters> dataViewFiltersList=new ArrayList<DataViewFilters>();
+ 		if(tempId!=null){
+ 		dataViewFiltersList=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcId(viewId,"File Template",Long.parseLong(tempId));
+ 		log.info("dataViewFiltersList in if: "+dataViewFiltersList);
+ 		}
+ 		
+ 		if(dataViewFiltersList!=null && dataViewFiltersList.size()>0){
+ 			for(int h=0;h<dataViewFiltersList.size();h++){
+ 		DataViewFilters dvf=dataViewFiltersList.get(h);
+ 		log.info("dataViewFiltersList for viewId: "+viewId+" tempId: "+tempId+" are: "+dvf);
+ 		
+ 		if(dvf!=null){
+ 		Long colId=dvf.getRefSrcColId();
+ 		DataViewsColumns dvcFil=dataViewsColumnsRepository.findOne(colId);
+ 		log.info("dvcFil: "+dvcFil);
+ 		Long templateLineId=Long.parseLong(dvcFil.getRefDvColumn());
+ 		log.info("templateLineId: "+templateLineId);
+ 		FileTemplateLines ftl=fileTemplateLinesRepository.findOne(templateLineId);
+ 		log.info("ftl : "+ftl);
+ 		//log.info("dvf.getFilterOperator(): "+dvf.getFilterOperator()+" dvcFil.getColDataType(): "+dvcFil.getColDataType());
+ 		if(dvcFil.getColDataType().equalsIgnoreCase("INTEGER") && (dvf.getFilterOperator().equalsIgnoreCase("=") || dvf.getFilterOperator().equalsIgnoreCase(">") || dvf.getFilterOperator().equalsIgnoreCase("<") || dvf.getFilterOperator().equalsIgnoreCase(">=") || dvf.getFilterOperator().equalsIgnoreCase("<=") || dvf.getFilterOperator().equalsIgnoreCase("!="))){
+ 			whereCond=whereCond+"cast(trim(replace("+ftl.getMasterTableReferenceColumn().toLowerCase()+",',','')) as  signed) "+dvf.getFilterOperator()+"'"+dvf.getFilterValue()+"'";
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("DECIMAL") && (dvf.getFilterOperator().equalsIgnoreCase("=") || dvf.getFilterOperator().equalsIgnoreCase(">") || dvf.getFilterOperator().equalsIgnoreCase("<") || dvf.getFilterOperator().equalsIgnoreCase(">=") || dvf.getFilterOperator().equalsIgnoreCase("<=") || dvf.getFilterOperator().equalsIgnoreCase("!="))){
+ 			log.info("dvcFil.getColDataType(): "+dvcFil.getColDataType()+" and dvf.getFilterOperator(): "+dvf.getFilterOperator());
+ 			log.info("whereCond br casting: "+whereCond);
+ 			whereCond=whereCond+"cast(trim(replace("+ftl.getMasterTableReferenceColumn().toLowerCase()+",',','')) as  decimal(38,5)) "+dvf.getFilterOperator()+"'"+dvf.getFilterValue()+"'";
+ 			log.info("whereCond aftr casting: "+whereCond);
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("DATE") && (dvf.getFilterOperator().equalsIgnoreCase("=") || dvf.getFilterOperator().equalsIgnoreCase(">") || dvf.getFilterOperator().equalsIgnoreCase("<") || dvf.getFilterOperator().equalsIgnoreCase(">=") || dvf.getFilterOperator().equalsIgnoreCase("<=") || dvf.getFilterOperator().equalsIgnoreCase("!="))){
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+dvf.getFilterOperator()+"'"+dvf.getFilterValue()+"'";
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("VARCHAR") && (dvf.getFilterOperator().equalsIgnoreCase("=") || dvf.getFilterOperator().equalsIgnoreCase(">") || dvf.getFilterOperator().equalsIgnoreCase("<") || dvf.getFilterOperator().equalsIgnoreCase(">=") || dvf.getFilterOperator().equalsIgnoreCase("<=") || dvf.getFilterOperator().equalsIgnoreCase("!="))){
+ 			//log.info("in dvf.getFilterOperator() [Varchar]: "+dvf.getFilterOperator()+" not equals ");
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+dvf.getFilterOperator()+"'"+dvf.getFilterValue()+"'";
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("VARCHAR") && (dvf.getFilterOperator().equalsIgnoreCase("in"))) {
+ 			String valList=dvf.getFilterValue();
+ 			String[] valArr=valList.split(",");
+ 			log.info("valArr: "+valArr);
+ 			String val=Stream.of(valArr).collect(Collectors.joining("','", "'", "'"));
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+" "+dvf.getFilterOperator()+"("+val+")";
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("INTEGER") && (dvf.getFilterOperator().equalsIgnoreCase("in"))) {
+ 			String valList=dvf.getFilterValue();
+ 			String[] valArr=valList.split(",");
+ 			log.info("valArr: "+valArr);
+ 			String val=Stream.of(valArr).collect(Collectors.joining(","));
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+" "+dvf.getFilterOperator()+"("+val+")";
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("DECIMAL") && dvf.getFilterOperator().equalsIgnoreCase("BETWEEN")){
+ 			String arr[]=dvf.getFilterValue().split("\\,");
+ 			whereCond=whereCond+"cast(trim(replace("+ftl.getMasterTableReferenceColumn().toLowerCase()+",',','')) as  decimal(38,5)) "+" "+dvf.getFilterOperator()+" '"+arr[0]+"' and '"+arr[1]+"'";
+ 		}
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("INTEGER") && dvf.getFilterOperator().equalsIgnoreCase("BETWEEN")){
+ 			String arr[]=dvf.getFilterValue().split("\\,");
+ 			whereCond=whereCond+"cast(trim(replace("+ftl.getMasterTableReferenceColumn().toLowerCase()+",',','')) as  signed) "+" "+dvf.getFilterOperator()+" '"+arr[0]+"' and '"+arr[1]+"'";
+ 		} 
+ 		else if(dvcFil.getColDataType().equalsIgnoreCase("DATE") && dvf.getFilterOperator().equalsIgnoreCase("BETWEEN")){
+ 			String arr[]=dvf.getFilterValue().split("\\,");
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+" "+dvf.getFilterOperator()+" '"+arr[0]+"' and '"+arr[1]+"'";
+ 		} 
+ 		else if(dvf.getFilterOperator().equalsIgnoreCase("EQUALS") || dvf.getFilterOperator().equalsIgnoreCase("=")){
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+"='"+dvf.getFilterValue()+"'";
+ 		}
+ 		else if(dvf.getFilterOperator().equalsIgnoreCase("BEGINS_WITH")){
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+" like "+"'"+dvf.getFilterValue()+"%'";
+ 		}
+ 		else if(dvf.getFilterOperator().equalsIgnoreCase("ENDS_WITH")){
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+" like "+"'%"+dvf.getFilterValue()+"'";
+ 		}
+ 		else if(dvf.getFilterOperator().equalsIgnoreCase("NOT_EQUALS") || dvf.getFilterOperator().equalsIgnoreCase("!=")){
+ 			log.info("in dvf.getFilterOperator(): "+dvf.getFilterOperator()+" not equals ");
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+"!='"+dvf.getFilterValue()+"'";
+ 		}
+ 		else if(dvf.getFilterOperator().equalsIgnoreCase("CONTAINS")){
+ 			whereCond=whereCond+ftl.getMasterTableReferenceColumn().toLowerCase()+" like "+"'%"+dvf.getFilterValue()+"%'";
+ 		}
+ 		else{
+ 			log.info("Filter Operator not matched");
+ 		}
+ 		}
+ 		if(h>0 && h!=dataViewFiltersList.size()-1){
+ 			log.info("h in if: b4 adding AND: "+whereCond);
+ 			whereCond=whereCond+" and ";
+ 			log.info("h in if: after adding AND: "+whereCond);
+ 		}
+ 		else if(h==0 && dataViewFiltersList.size()>1){
+ 			log.info("in h is 0 and sz>0: whereCond b4:"+whereCond);
+ 			whereCond=whereCond+" and ";
+ 			log.info("in h is 0 and sz>0: whereCond aftr:"+whereCond);
+ 		}
+ 		else if(h==dataViewFiltersList.size()-1){
+ 			log.info("h in else: b4 : "+whereCond);
+ 			whereCond=whereCond;
+ 		}
+ 		/*if(whereCond.equals(" where ")){
+ 			whereCond=whereCond+" template_id= "+tempId+") as "+map.get(tempId);
+ 		}
+ 		else{
+ 		whereCond=whereCond+" and template_id= "+tempId+") as "+map.get(tempId);
+ 		}*/
+ 		}
+ 			if(whereCond.equals(" where ")){
+ 	 			whereCond=whereCond+" template_id= "+tempId+") as "+map.get(tempId);
+ 	 		}
+ 	 		else{
+ 	 		whereCond=whereCond+" and template_id= "+tempId+") as "+map.get(tempId);
+ 	 		}
+ 			log.info("whereCond after for at k:"+k+" is: "+whereCond);
+ 		}
+ 		else{
+ 			log.info("No filters exist for DataViewId: "+viewId);
+ 			whereCond=whereCond+" template_id= "+tempId+") as "+map.get(tempId);
+ 		}		
+ 		log.info("k: "+k+" tempIdList sz minus 1: "+tempIdList.size());		
+ 		if(k>=0 && k!=sz-1){
+ 			whereCond=whereCond+",";
+ 			log.info("whereCond in if: "+whereCond);
+ 		}
+ 		else if(k==sz-1){
+ 			log.info("whereCond in else: "+whereCond);
+ 		}
+ 		
+ 		
+ 		log.info("whereCond:"+whereCond+"enddddddd");
+ 		
+ 		log.info("part2:"+part2+"enddddd");
+ 		part2=part2+whereCond;
+ 		log.info("part2 at k in dvfilterslist: "+k+" is: "+part2);
+ 	}
+ 		
+ 		else {
+ 			log.info("tempId is null after part2: "+tempId);
+ 		}
+ 		log.info("after tempId loop end whereCond: "+part2);
+ 	}
+ 	
+ 	log.info("dataViewFiltersList2.size(): "+dataViewFiltersList2.size());
+ 	
+ 	log.info("part2: "+part2);
+ 	if(part2.endsWith(",")){
+ 		int lastComma=part2.lastIndexOf(",");
+ 		log.info("lastIndex of comma: "+lastComma);
+ 		
+ 		StringBuilder sb = new StringBuilder(part2);
+ 		sb.setCharAt(lastComma, ' ');
+ 		part2 = sb.toString();
+ 		log.info("part2 after replacing comma: "+part2);
+ 	}
+ 	viewQuery=viewQuery+part2;
+ 	log.info("viewQuery aftr part2: "+viewQuery);
+ 	
+ 	/* Part 3 */
+ 	
+ 	String part3="";
+ 	
+ 	/* Data View Conditions */
+ 	
+ 	List<DataViewConditions> dataViewConsList=dataViewConditionsRepository.findByDataViewId(viewId);
+		log.info("dataViewConsList for viewId: "+viewId+" are: "+dataViewConsList+" dataViewConsList.size(): "+dataViewConsList.size());
+		
+		String joinCond=" where ";
+		if(dataViewConsList!=null && dataViewConsList.size()!=0){
+		DataViewConditions dvc=dataViewConsList.get(0);
+		
+		log.info("dvc.getRefSrcId(): "+dvc.getRefSrcId());
+		log.info("Long.parseLong(dvc.getRefSrcId().toString(): "+Long.parseLong(dvc.getRefSrcId().toString()));
+		
+		
+		FileTemplateLines ftl=fileTemplateLinesRepository.findOne(dvc.getRefSrcColId());
+		FileTemplateLines ftl2=fileTemplateLinesRepository.findOne(dvc.getRefSrcColId2());
+		joinCond=joinCond+" "+map.get(dvc.getRefSrcId().toString())+"."+ftl.getMasterTableReferenceColumn().toLowerCase()+dvc.getFilterOperator()+map.get(dvc.getRefSrcId2().toString())+"."+ftl2.getMasterTableReferenceColumn().toLowerCase();
+ 	
+ 	part3=part3+joinCond;
+		}
+ 	log.info("part3: "+part3);
+ 	viewQuery=viewQuery+part3+")";
+ 	
+ 	log.info("viewQuery finall: "+viewQuery);
+	return viewQuery;
+	}
+    
+  /*  public List<HashMap> fetchDataViewAndColumnsByDvId(Long dataViewId)
+    {
+    	List<HashMap> dvTodvcDtoLIst=new ArrayList<HashMap>();
+		DataViews dv=dataViewsRepository.findOne(dataViewId);
+		if(dv!=null){
+			HashMap dvToDvcDto=new HashMap();
+			dvToDvcDto.put("id",dv.getId());
+			if(dv.getDataViewName()!=null)
+			dvToDvcDto.put("dataViewName",dv.getDataViewName());
+			if(dv.getDataViewDispName()!=null){
+			dvToDvcDto.put("dataViewDispName",dv.getDataViewDispName());
+			}
+			dvToDvcDto.put("createdBy",dv.getCreatedBy());
+			dvToDvcDto.put("creationDate",dv.getCreationDate());
+			if(dv.isEnabledFlag()!=null)
+			dvToDvcDto.put("enabledFlag",dv.isEnabledFlag());
+			dvToDvcDto.put("lastUpdatedBy",dv.getLastUpdatedBy());
+			dvToDvcDto.put("lastUpdatedDate",dv.getLastUpdatedDate());
+			dvToDvcDto.put("tenantId",dv.getTenantId());
+			dvToDvcDto.put("startDate",dv.getStartDate());
+			dvToDvcDto.put("endDate",dv.getEndDate());
+			if(dv.getDescription()!=null)
+			dvToDvcDto.put("description",dv.getDescription());
+		List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewId(dv.getId());
+		List<HashMap> dvcdtoLIst=new ArrayList<HashMap>();
+		log.info("dvc List sz for data view Id: "+dv.getId()+" is: "+dvcList.size() );
+		
+		List<DataViewsSrcMappings> dataViewSrcMapList=dataViewsSrcMappingsRepository.findByDataViewId(dataViewId);
+		if(dataViewSrcMapList!=null && dataViewSrcMapList.size()==1){
+			log.info("Single Template Data View");
+		}
+		else{
+		for(int k=0;k<dataViewSrcMapList.size();k++){
+			DataViewsSrcMappings dvSrcMapng=dataViewSrcMapList.get(k);
+			if(dvSrcMapng.getRelation()!=null)
+				dvToDvcDto.put("viewRelation", dvSrcMapng.getRelation());
+		}
+		}
+
+		for(int j=0;j<dvcList.size();j++){
+			
+			DataViewsColumns dvcdto=dvcList.get(j);
+			log.info("dvcdto: "+dvcdto);
+			log.info("dvcdto .getId() :"+dvcdto.getId());
+			HashMap dvc=new HashMap();
+			dvc.put("id",dvcdto.getId());
+			if(dvcdto.getColDataType()!=null)
+			dvc.put("colDataType",dvcdto.getColDataType());
+			if(dvcdto.getFormula()!=null)
+    		dvc.put("formula",dvcdto.getFormula());
+			if(dvcdto.getColumnName()!=null){
+				dvc.put("columnName",dvcdto.getColumnName());
+				dvc.put("columnHeader",dvcdto.getColumnName());
+			}
+			if(dvcdto.getQualifier()!=null){
+				dvc.put("qualifier", dvcdto.getQualifier());
+			}
+			if(dvcdto.getRefDvColumn()!=null){
+    			//FileTemplateLines ftl=fileTemplateLinesRepository.findByTemplateIdAndMasterTableReferenceColumn(Long.parseLong(dvcdto.getRefDvName()),dvcdto.getColumnName());
+				FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(dvcdto.getRefDvColumn()));
+    			log.info("ftl for dvc.getRefDvColumn(): "+dvcdto.getRefDvColumn()+" is: "+ftl);
+    			if(ftl!=null){
+    				dvc.put("colName",ftl.getColumnHeader());
+    				dvc.put("refDvColumn",dvcdto.getRefDvColumn());
+    			}
+    			}
+			dvc.put("createdBy",dvcdto.getCreatedBy());
+			dvc.put("creationDate",dvcdto.getCreationDate());
+			if(dvcdto.getDataViewId()!=null)
+			dvc.put("dataViewId",dvcdto.getDataViewId());
+			dvc.put("lastUpdatedBy",dvcdto.getLastUpdatedBy());
+			dvc.put("lastUpdatedDate",dvcdto.getLastUpdatedDate());
+			if(dvcdto.getRefDvColumn()!=null)
+			dvc.put("refDvColumn",dvcdto.getRefDvColumn());
+			if(dvcdto.getRefDvName()!=null){
+				String refDvName=dvcdto.getRefDvName();
+				FileTemplates ftemp=fileTemplatesRepository.findOne(Long.parseLong(refDvName));
+				if(ftemp!=null && ftemp.getTemplateName()!=null)
+			dvc.put("sourceName",ftemp.getTemplateName());
+			dvc.put("refDvName",refDvName);
+			}
+			if(dvcdto.getRefDvType()!=null)
+			dvc.put("refDvType",dvcdto.getRefDvType());
+			
+			 Filters 
+			log.info("dvcdto.getRefDvColumn(): "+dvcdto.getRefDvColumn());
+			//log.info("Long.parseLong(dvcdto.getRefDvColumn()): "+Long.parseLong(dvcdto.getRefDvColumn()));
+			//log.info("dataViewId: "+dataViewId+" dvcdto.getRefDvType(): "+dvcdto.getRefDvType()+" Long.parseLong(dvcdto.getRefDvName().toString()): "+Long.parseLong(dvcdto.getRefDvName().toString()));
+			DataViewFilters dvf;
+			log.info("dvcdto.getRefDvName(): "+dvcdto.getRefDvName()+" dvcdto.getRefDvColumn(): "+dvcdto.getRefDvColumn());
+			if(dvcdto.getRefDvName()!=null && dvcdto.getRefDvColumn()!=null){
+				log.info("in if");
+				log.info("dataViewId: "+dataViewId+"  dvcdto.getRefDvType(): "+ dvcdto.getRefDvType()+" dvcdto.getRefDvName(): "+dvcdto.getRefDvName() +"dvcdto.getId(): "+dvcdto.getId());
+			dvf=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcIdAndRefSrcColId(dataViewId, dvcdto.getRefDvType(), Long.parseLong(dvcdto.getRefDvName().toString()), dvcdto.getId());
+			log.info("dvf: "+dvf);
+			}
+			else{
+				log.info("filter need to added for a newly added column");
+				dvf=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcColId(dataViewId,dvcdto.getRefDvType(),dvcdto.getId());
+				log.info("dvf: "+dvf);
+			}
+			if(dvf!=null){
+			dvc.put("operator", dvf.getFilterOperator());
+			dvc.put("colValue", dvf.getFilterValue());
+			}
+			dvcdtoLIst.add(dvc);
+		}
+		
+		List<DataViewConditions> dvCondList=dataViewConditionsRepository.findByDataViewId(dataViewId);
+		log.info("dvCondList sz for dataViewId: "+dataViewId+" is: "+dvCondList.size());
+		List<HashMap> dvConMapList=new ArrayList<HashMap>();
+		for(int h=0;h<dvCondList.size();h++){
+			
+			DataViewConditions dvCond=dvCondList.get(h);
+			HashMap dvConMap=new HashMap();
+			if(dvCond.getRefSrcType()!=null)
+			dvConMap.put("srcType1", dvCond.getRefSrcType());
+			if(dvCond.getRefSrcType2()!=null)
+			dvConMap.put("srcType2", dvCond.getRefSrcType2());
+			if(dvCond.getRefSrcId()!=null)
+			dvConMap.put("scr1", dvCond.getRefSrcId());
+			if(dvCond.getRefSrcId2()!=null)
+			dvConMap.put("scr2", dvCond.getRefSrcId2());
+			if(dvCond.getRefSrcColId()!=null)
+			dvConMap.put("srcCol1", dvCond.getRefSrcColId());
+			if(dvCond.getRefSrcColId2()!=null)
+			dvConMap.put("srcCol2", dvCond.getRefSrcColId2());
+			if(dvCond.getDataViewId()!=null)
+			dvConMap.put("dvId", dvCond.getDataViewId());
+			if(dvCond.getId()!=null)
+    			dvConMap.put("id", dvCond.getId());
+			dvConMapList.add(dvConMap);
+		}
+		
+		dvToDvcDto.put("dataViewsColumnsList",dvcdtoLIst);
+		dvToDvcDto.put("conditions", dvConMapList);
+
+		dvTodvcDtoLIst.add(dvToDvcDto);
+		}
+	return dvTodvcDtoLIst;
+    }*/
+    
+    public List<HashMap> fetchDataViewAndColumnsByDvId(Long dataViewId)
+    {
+    	List<HashMap> templateInfoList=new ArrayList<HashMap>();
+    	List<BigInteger> tempIdsListFromUnion=new ArrayList<BigInteger>();
+    	List<String> tempIdsListFromJoin=new ArrayList<String>();
+    	List<HashMap> dvTodvcDtoLIst=new ArrayList<HashMap>();
+		DataViews dv=dataViewsRepository.findOne(dataViewId);
+		if(dv!=null){
+			HashMap dvToDvcDto=new HashMap();
+			dvToDvcDto.put("id",dv.getId());
+			if(dv.getDataViewName()!=null)
+			dvToDvcDto.put("dataViewName",dv.getDataViewName());
+			if(dv.getDataViewDispName()!=null){
+			dvToDvcDto.put("dataViewDispName",dv.getDataViewDispName());
+			}
+			dvToDvcDto.put("createdBy",dv.getCreatedBy());
+			dvToDvcDto.put("creationDate",dv.getCreationDate());
+			if(dv.isEnabledFlag()!=null)
+			dvToDvcDto.put("enabledFlag",dv.isEnabledFlag());
+			dvToDvcDto.put("lastUpdatedBy",dv.getLastUpdatedBy());
+			dvToDvcDto.put("lastUpdatedDate",dv.getLastUpdatedDate());
+			dvToDvcDto.put("tenantId",dv.getTenantId());
+			dvToDvcDto.put("startDate",dv.getStartDate());
+			dvToDvcDto.put("endDate",dv.getEndDate());
+			if(dv.getDescription()!=null)
+			dvToDvcDto.put("description",dv.getDescription());
+		List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewId(dv.getId());
+		List<HashMap> dvcdtoLIst=new ArrayList<HashMap>();
+		log.info("dvc List sz for data view Id: "+dv.getId()+" is: "+dvcList.size() );
+		
+		List<DataViewsSrcMappings> dataViewSrcMapList=dataViewsSrcMappingsRepository.findByDataViewId(dataViewId);
+		DataViewsSrcMappings dvSrcMapng=new DataViewsSrcMappings();
+		if(dataViewSrcMapList!=null && dataViewSrcMapList.size()==1){
+			dvSrcMapng=dataViewSrcMapList.get(0);
+			log.info("Single Template Data View");
+		}
+		else{
+		for(int k=0;k<dataViewSrcMapList.size();k++){
+			dvSrcMapng=dataViewSrcMapList.get(k);
+			if(dvSrcMapng.getRelation()!=null)
+				dvToDvcDto.put("viewRelation", dvSrcMapng.getRelation());
+		}
+		}
+
+		for(int j=0;j<dvcList.size();j++){
+			
+			DataViewsColumns dvcdto=dvcList.get(j);
+			log.info("dvcdto: "+dvcdto);
+			log.info("dvcdto .getId() :"+dvcdto.getId());
+			HashMap dvc=new HashMap();
+			dvc.put("id",dvcdto.getId());
+			dvc.put("sViewColumn",dvcdto.getId());
+			if(dvcdto.getColDataType()!=null)
+			dvc.put("colDataType",dvcdto.getColDataType());
+			if(dvcdto.getFormula()!=null)
+    		dvc.put("formula",dvcdto.getFormula());
+			if(dvcdto.getColumnName()!=null){
+				dvc.put("columnName",dvcdto.getColumnName());
+				/*dvc.put("columnHeader",dvcdto.getColumnName());*/
+			}
+			if(dvcdto.getQualifier()!=null){
+				dvc.put("qualifier", dvcdto.getQualifier());
+			}
+			if(dvcdto.getGroupBy()!=null){
+				dvc.put("groupBy",dvcdto.getGroupBy());
+			}
+			if(dvcdto.getRefDvColumn()!=null){
+    			//FileTemplateLines ftl=fileTemplateLinesRepository.findByTemplateIdAndMasterTableReferenceColumn(Long.parseLong(dvcdto.getRefDvName()),dvcdto.getColumnName());
+				FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(dvcdto.getRefDvColumn()));
+    			log.info("ftl for dvc.getRefDvColumn(): "+dvcdto.getRefDvColumn()+" is: "+ftl);
+    			if(ftl!=null){
+    				dvc.put("colName",ftl.getColumnHeader());
+    				dvc.put("columnHeader",ftl.getColumnHeader());
+    				dvc.put("refDvColumn",dvcdto.getRefDvColumn());
+    			}
+    			}
+			dvc.put("createdBy",dvcdto.getCreatedBy());
+			dvc.put("creationDate",dvcdto.getCreationDate());
+			if(dvcdto.getDataViewId()!=null)
+			dvc.put("dataViewId",dvcdto.getDataViewId());
+			dvc.put("lastUpdatedBy",dvcdto.getLastUpdatedBy());
+			dvc.put("lastUpdatedDate",dvcdto.getLastUpdatedDate());
+			/*if(dvcdto.getRefDvColumn()!=null)
+			dvc.put("refDvColumn",dvcdto.getRefDvColumn());*/
+			if(dvcdto.getRefDvName()!=null){
+				String refDvName=dvcdto.getRefDvName();
+				FileTemplates ftemp=fileTemplatesRepository.findOne(Long.parseLong(refDvName));
+				if(ftemp!=null && ftemp.getTemplateName()!=null)
+			dvc.put("sourceName",ftemp.getTemplateName());
+			dvc.put("refDvName",refDvName);
+			}
+			if(dvcdto.getRefDvType()!=null)
+			dvc.put("refDvType",dvcdto.getRefDvType());
+			
+			/* Filters */
+			log.info("dvcdto.getRefDvColumn(): "+dvcdto.getRefDvColumn());
+			
+			//log.info("Long.parseLong(dvcdto.getRefDvColumn()): "+Long.parseLong(dvcdto.getRefDvColumn()));
+			//log.info("dataViewId: "+dataViewId+" dvcdto.getRefDvType(): "+dvcdto.getRefDvType()+" Long.parseLong(dvcdto.getRefDvName().toString()): "+Long.parseLong(dvcdto.getRefDvName().toString()));
+			if(dvSrcMapng.getRelation()!=null && dvSrcMapng.getRelation().equalsIgnoreCase("UNION"))
+			{
+				log.info("dvSrcMapng.getRelation() :"+dvSrcMapng.getRelation());
+				List<HashMap> dvUList=new ArrayList<HashMap>();
+				List<DataViewUnion> dvunionList=dataViewUnionRepository.findByDataViewLineId(dvcdto.getId());
+				for(DataViewUnion dvunion:dvunionList)
+				{
+					HashMap dvU=new HashMap();
+					dvU.put("id", dvunion.getId());
+					if(dvunion.getDataViewLineId()!=null){
+						dvU.put("dataViewLineId",dvunion.getDataViewLineId());
+						dvc.put("sViewColumn",dvunion.getDataViewLineId());
+					}
+					if(dvunion.getRefDvType()!=null)
+					dvU.put("refDvType",dvunion.getRefDvType());
+					if(dvunion.getRefDvName()!=null)
+					dvU.put("refDvName",dvunion.getRefDvName());
+					if(dvunion.getRefDvColumn()!=null)
+					dvU.put("refDvColumn",dvunion.getRefDvColumn());
+					dvU.put("createdBy",dvunion.getCreatedBy());
+					dvU.put("creationDate", dvunion.getCreationDate());
+					dvU.put("lastUpdatedBy", dvunion.getLastUpdatedBy());
+					dvU.put("lastUpdatedDate", dvunion.getLastUpdatedDate());
+					dvUList.add(dvU);
+				}
+				dvc.put("src", dvUList);
+				log.info("dvc :"+dvc);
+				dvcdtoLIst.add(dvc);
+				dvToDvcDto.put("dataViewsUnionColumnsList",dvcdtoLIst);
+				
+				
+				//to get list irrespective of union and join
+				dvToDvcDto.put("dvColumnsList", dvcdtoLIst);
+				
+				/* Retrieving Template Info */
+				tempIdsListFromUnion=dataViewUnionRepository.fetchDistinctTemplateIdsByViewId(dataViewId);
+				for(int g=0;g<tempIdsListFromUnion.size();g++){
+					BigInteger tempId=tempIdsListFromUnion.get(g);
+					HashMap tempMap=new HashMap();
+					tempMap.put("type", "File Template");
+					tempMap.put("typeId", tempId);
+					templateInfoList.add(tempMap);
+				}
+				dvToDvcDto.put("templateInfo", templateInfoList);
+			}
+			else
+			{
+			DataViewFilters dvf;
+			log.info("dvcdto.getRefDvName(): "+dvcdto.getRefDvName()+" dvcdto.getRefDvColumn(): "+dvcdto.getRefDvColumn());
+			if(dvcdto.getRefDvName()!=null && dvcdto.getRefDvColumn()!=null){
+				log.info("in if");
+				log.info("dataViewId: "+dataViewId+"  dvcdto.getRefDvType(): "+ dvcdto.getRefDvType()+" dvcdto.getRefDvName(): "+dvcdto.getRefDvName() +"dvcdto.getId(): "+dvcdto.getId());
+			dvf=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcIdAndRefSrcColId(dataViewId, dvcdto.getRefDvType(), Long.parseLong(dvcdto.getRefDvName().toString()), dvcdto.getId());
+			log.info("dvf: "+dvf);
+			}
+			else{
+				log.info("filter need to added for a newly added column");
+				dvf=dataViewFiltersRepository.findByDataViewIdAndRefSrcTypeAndRefSrcColId(dataViewId,dvcdto.getRefDvType(),dvcdto.getId());
+				log.info("dvf: "+dvf);
+			}
+			if(dvf!=null){
+			dvc.put("operator", dvf.getFilterOperator());
+			dvc.put("colValue", dvf.getFilterValue());
+			}
+			dvcdtoLIst.add(dvc);
+		}
+		}
+		
+		if(dvSrcMapng.getRelation()==null || dvSrcMapng.getRelation().equalsIgnoreCase("JOIN"))
+		{
+		List<DataViewConditions> dvCondList=dataViewConditionsRepository.findByDataViewId(dataViewId);
+		log.info("dvCondList sz for dataViewId: "+dataViewId+" is: "+dvCondList.size());
+		List<HashMap> dvConMapList=new ArrayList<HashMap>();
+		for(int h=0;h<dvCondList.size();h++){
+			
+			DataViewConditions dvCond=dvCondList.get(h);
+			HashMap dvConMap=new HashMap();
+			if(dvCond.getRefSrcType()!=null)
+			dvConMap.put("srcType1", dvCond.getRefSrcType());
+			if(dvCond.getRefSrcType2()!=null)
+			dvConMap.put("srcType2", dvCond.getRefSrcType2());
+			if(dvCond.getRefSrcId()!=null)
+			dvConMap.put("scr1", dvCond.getRefSrcId());
+			if(dvCond.getRefSrcId2()!=null)
+			dvConMap.put("scr2", dvCond.getRefSrcId2());
+			if(dvCond.getRefSrcColId()!=null)
+			dvConMap.put("srcCol1", dvCond.getRefSrcColId());
+			if(dvCond.getRefSrcColId2()!=null)
+			dvConMap.put("srcCol2", dvCond.getRefSrcColId2());
+			if(dvCond.getDataViewId()!=null)
+			dvConMap.put("dvId", dvCond.getDataViewId());
+			if(dvCond.getId()!=null)
+    			dvConMap.put("id", dvCond.getId());
+			dvConMapList.add(dvConMap);
+		}
+		
+		dvToDvcDto.put("dataViewsColumnsList",dvcdtoLIst);
+		
+		//to get list irrespective of union and join
+		dvToDvcDto.put("dvColumnsList", dvcdtoLIst);
+		
+		dvToDvcDto.put("conditions", dvConMapList);
+		
+		/* Retrieving Template Info */
+		tempIdsListFromJoin=dataViewsColumnsRepository.fetchDistinctTemplateId(dataViewId);
+		for(int g=0;g<tempIdsListFromJoin.size();g++){
+			String tempId=tempIdsListFromJoin.get(g);
+			HashMap tempMap=new HashMap();
+			tempMap.put("type", "File Template");
+			tempMap.put("typeId", tempId);
+			templateInfoList.add(tempMap);
+		}
+		dvToDvcDto.put("templateInfo", templateInfoList);
+		}
+		
+		
+		dvTodvcDtoLIst.add(dvToDvcDto);
+		}
+	return dvTodvcDtoLIst;
+    }
+	
+    public String frameReportsQuery(Long reportId, Long tenanatId, HashMap filtersMap) throws ClassNotFoundException {	
+	
+	    log.info("Request frameQuery for reportId: "+reportId+" and tenanatId: "+tenanatId);
+	    Reports reports=reportsRepository.findOne(reportId);
+		List<ReportDefination> reportDefList=reportDefinationRepository.findByReportId(reportId);
+		ReportDefination reportDef=reportDefList.get(0);
+		Long viewId=reportDef.getRefSrcId();
+		DataViews dv=dataViewsRepository.findById(viewId);
+		String tableName=dv.getDataViewName();
+	 	log.info("dv: "+dv);
+	 	
+	 	String query="select ";
+	 	String colsQuery="";
+	 	for(int i=0;i<reportDefList.size();i++){
+	 		ReportDefination rdef=reportDefList.get(i);
+	 		Long colId=rdef.getRefColId();
+	 		FileTemplateLines ftl=fileTemplateLinesRepository.findOne(colId);
+	 		String col=ftl.getColumnAlias();
+	 		colsQuery=colsQuery+col;
+	 		if(i>=0 && i<reportDefList.size()-1){
+	 			colsQuery=colsQuery+",";
+	 		}
+	 	}
+	 	log.info("colsQuery: "+colsQuery);
+	 	colsQuery=colsQuery+" from "+tableName;
+	 	
+	 	String whereQry=" where ";
+	 	/*if(filtersMap.containsKey("segments")){
+	 	List<HashMap> segMapList= (List<HashMap>) filtersMap.get("segments");
+	 	String segSubQuery="";
+	 	for(int k=0;k<segMapList.size();k++){
+	 		HashMap segmentMap=segMapList.get(k);
+	 		if(segmentMap.get("from")!=null && segmentMap.get("to")!=null){
+	 			segSubQuery=segSubQuery+segmentMap.get("segment").toString()+" between "+segmentMap.get("from").toString()+" and "+segmentMap.get("to").toString();
+	 		}
+	 	}
+	 	log.info("segSubQuery: "+segSubQuery);
+	 	}*/
+	 	
+	 	String filterQuery="";
+	 	if(filtersMap.containsKey("fields")){
+	 		List<HashMap> colFilterMapList=(List<HashMap>) filtersMap.get("fields");
+	 		String subQuery="";
+	 	for(int j=0;j<colFilterMapList.size();j++){
+	 		
+	 		HashMap colFilterMap=colFilterMapList.get(j);
+	 		
+	 		String colName=colFilterMap.get("fieldName").toString();
+	 		//ReportParameters param=reportParametersRepository.findByReportIdAndRefTypeidAndRefSrcIdAndRefColId(reportId, reportTypeid, refSrcId, refColId);
+	 		//String colAlias=param.getDisplayName();
+	 		String selType=colFilterMap.get("fieldType").toString();
+	 		colFilterMap.get("selectedValues").toString();
+	 		String operator="";
+	 		if(selType.equalsIgnoreCase("MULTI_SELECTION")){
+	 			operator="in";
+	 			List<String> valList=(List<String>) colFilterMap.get("selectedValues");
+	 			//String valSet=String.join(",", valList);
+	 			String finVal="";
+	 			for(int f=0;f<valList.size();f++){
+	 				String val=valList.get(f);
+	 				if(f>=0 && f<valList.size()-1){
+	 					finVal=finVal+"'"+val+"',";
+	 				}
+	 				finVal=finVal+"'"+val+"'";
+	 			}
+	 			log.info("finVal: "+finVal);
+	 			subQuery=filterQuery+colName+" "+operator+" ( "+finVal+" ) ";
+	 		}
+	 		else if(selType.equalsIgnoreCase("DATE_RANGE_SELECTION")){
+	 			operator="between";
+	 			
+	 		}
+	 		else  if(selType.equalsIgnoreCase("BOOLEAN_SELECTION")){
+	 			operator="is";
+	 			subQuery=filterQuery+colName+" "+operator+colFilterMap.get("selectedValues").toString();
+	 		}
+	 		else  if(selType.equalsIgnoreCase("TEXT")){
+	 			operator="=";
+	 			subQuery=filterQuery+colName+" "+operator+colFilterMap.get("selectedValues").toString();
+	 		}
+	 	}
+	 	filterQuery=filterQuery+subQuery;
+	 	log.info("filterQuery: "+filterQuery);
+	 	}
+	 	
+	 	query=query+colsQuery+whereQry+filterQuery;
+	 	log.info("query: "+query);
+		return query; 
+    }
+    
+    /**
+     * Author: Swetha
+     * Function to map field references from reporting data tables to column names 
+     * @param reportId
+     * @param tableName
+     * @return
+     */
+    public LinkedHashMap getFieldRef(Long reportId, String tableName){
+    	log.info("in getFieldRef with reportId: "+reportId+" tableName: "+tableName);
+    	List<String> colNameList=reportParametersRepository.fetchTableColumns(tableName);
+    	log.info("colNameList: "+colNameList);
+    	//List<ReportParameters> repParamList=reportParametersRepository.findByReportId(reportId);
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	LinkedHashMap map=new LinkedHashMap();
+    	int j=4;
+    	for(int i=0;i<repDefList.size();i++){
+    		ReportDefination rDef=repDefList.get(i);
+    		String disName=rDef.getDisplayName();
+    		if(rDef.getRefTypeId().equalsIgnoreCase("DATA_VIEW")){
+    		for( ;j<colNameList.size();){
+    			String refColName=colNameList.get(j);
+    			map.put(disName, refColName);
+    			j++;
+    			break;
+    		}
+    	}
+    		else{
+    			
+    		}
+    	}
+    	log.info("map: "+map);
+		return map;
+    	
+    }
+    
+    
+    public LinkedHashMap getFieldRefNew(Long reportId){
+    	log.info("in getFieldRef with reportId: "+reportId);
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	LinkedHashMap map=new LinkedHashMap();
+    	for(int i=0;i<repDefList.size();i++){
+    		ReportDefination rDef=repDefList.get(i);
+    		String disName=rDef.getDisplayName();
+    		if(rDef.getRefTypeId().equalsIgnoreCase("DATA_VIEW")){
+    			Long refColId=rDef.getRefColId();
+    			DataViewsColumns dvc=dataViewsColumnsRepository.findOne(refColId);
+    			String ftlId=dvc.getRefDvColumn();
+    			FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(ftlId));
+    			String colAlias=ftl.getColumnAlias();
+    			map.put(disName, colAlias);
+    		}
+    		else{
+    			
+    		}
+    	}
+    	
+    	
+    	List<ReportParameters> repParamList=reportParametersRepository.findByReportId(reportId);
+    	for(int i=0;i<repParamList.size();i++){
+    		ReportParameters rParam=repParamList.get(i);
+    		String disName=rParam.getDisplayName();
+    		if(rParam.getRefTypeid().equalsIgnoreCase("DATA_VIEW")){
+    			Long refColId=rParam.getRefColId();
+    			DataViewsColumns dvc=dataViewsColumnsRepository.findOne(refColId);
+    			String ftlId=dvc.getRefDvColumn();
+    			FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(ftlId));
+    			String colAlias=ftl.getColumnAlias();
+    			map.put(disName, colAlias);
+    		}
+    		else{
+    			
+    		}
+    	}
+    	
+    	log.info("map: "+map);
+		return map;
+    	
+    }
+    
+    /**
+     * Author: Swetha
+     * Framing Query for Unions
+     * @param viewId
+     * @param tenanatId
+     * @return
+     * @throws ClassNotFoundException
+     */
+    public String frameUnionsQuery(Long viewId, Long tenanatId) throws ClassNotFoundException {	
+    	
+        log.info("Request frameUnionsQuery2 for viewId: "+viewId+" and tenanatId: "+tenanatId);
+    	DataViews dv=dataViewsRepository.findOne(viewId); 
+     	log.info("dv: "+dv);
+     	List<BigInteger> tempIdList=new ArrayList<BigInteger>();
+     	List<DataViewUnion> dvUnionDataList=new ArrayList<DataViewUnion>();
+     	String viewQuery="(select ";
+     	tempIdList=dataViewUnionRepository.fetchDistinctTemplateIdsByViewId(viewId);
+     	log.info("tempIdList sz for viewId: "+viewId+" are: "+tempIdList.size());
+     	
+     	HashMap tempIdRefMap=new HashMap();
+     	for(int i=0;i<tempIdList.size();i++){
+     		String tempAlias="ds";
+     		Long tempId=tempIdList.get(i).longValue();
+     		tempAlias=tempAlias+i;
+     		tempIdRefMap.put(tempId, tempAlias);
+     	}
+     	log.info("tempIdRefMap: "+tempIdRefMap);
+     	
+     	String partQuery=" select ";
+     	List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewId(viewId);
+     	for(int k=0;k<dvcList.size();k++){
+     		
+     		DataViewsColumns dvc=dvcList.get(k);
+     		log.info("dvc: "+dvc);
+     		//log.info("dvc formula: "+dvc.getFormula());
+     		String dType=dvc.getColDataType();
+     		String colName="";
+     		if(dvc.getFormula()==null){
+     			if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("INTEGER")){
+     				colName="`"+dvc.getColumnName()+"`"; 
+     				log.info("in INTEGER colName: "+colName); //cast(trim(replace(field_04,',',''))  as  signed) as col1
+     				colName=" cast(trim(replace("+colName+",',',''))  as  signed) as `"+dvc.getColumnName()+"`";
+     				log.info("colName: "+colName);
+     			}
+     			if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("DECIMAL")){
+     				colName="`"+dvc.getColumnName()+"`"; //cast(trim(replace(field_19,',',''))  as  decimal(38,5))
+     				log.info("in decimal colName: "+colName);
+     				colName=" cast(trim(replace("+colName+",',',''))  as  decimal(38,5)) as `"+dvc.getColumnName()+"`";
+     				log.info("colName: "+colName);
+     			}
+     			else colName="`"+dvc.getColumnName()+"`";
+     			//log.info("partQuery b4 colName: "+partQuery);
+     		partQuery=partQuery+colName;
+     		//log.info("partQuery aftr colName: "+colName);
+     		}
+     		else{
+     			log.info("dvc.getFormula(): "+dvc.getFormula());
+     			colName="`"+dvc.getFormula()+"`";
+     			log.info("in formula else colName: "+colName);
+     			if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("INTEGER")){
+     			colName="cast(trim(replace("+colName+",',',''))  as  signed) as `"+dvc.getColumnName()+"`";
+     			}
+     			else if(dType!=null && !(dType.isEmpty()) && dType.equalsIgnoreCase("DECIMAL")){
+         			colName="cast(trim(replace("+colName+",',',''))   as  decimal(38,5)) as `"+dvc.getColumnName()+"`";
+         			}
+     			partQuery=partQuery+colName+" as '"+dvc.getColumnName()+"'";
+     		}
+     		log.info("partQuery: "+partQuery);
+     		log.info("dvcList.size(): "+dvcList.size());
+     		if(k<dvcList.size()-1){
+     			partQuery=partQuery+",";
+     		}
+     	}
+     	partQuery=partQuery+" from (";
+     	log.info("partQuery final: "+partQuery);
+     	
+     	String finQuery="";
+     	for(int i=0;i<tempIdList.size();i++){
+     		
+     		String mainQuery="(select ";
+     		Long tempId=tempIdList.get(i).longValue();
+     		log.info("tempId: "+tempId);
+     		dvUnionDataList=dataViewUnionRepository.fetchDataByTemplateIdByViewId(viewId,tempId.longValue());
+     		int sz=dvUnionDataList.size();
+     		String tempAlias="";
+     		for(int k=0;k<sz;k++){
+     			String subQuery="";
+     			DataViewUnion dvu=dvUnionDataList.get(k);
+     			log.info("dvu: "+dvu);
+     			Long refDvName=dvu.getRefDvName();
+     			Long refDvCol=dvu.getRefDvColumn();
+     			Long dvLineId=dvu.getDataViewLineId();
+     			DataViewsColumns dvc=dataViewsColumnsRepository.findOne(dvLineId);
+     			String colAlias=dvc.getColumnName();
+     			FileTemplateLines ftl=fileTemplateLinesRepository.findOne(refDvCol);
+     			tempAlias=tempIdRefMap.get(refDvName).toString();
+     			subQuery=subQuery+tempAlias+"."+ftl.getMasterTableReferenceColumn()+" as `"+colAlias+"`";
+     			if(k<sz-1){
+     				subQuery=subQuery+","; 
+     			}
+     			mainQuery=mainQuery+subQuery;
+     			log.info("mainQuery: "+mainQuery);
+     		}
+     		mainQuery=mainQuery+" from t_data_master "+tempAlias+" where template_id="+tempId+" )";
+     		if(i<tempIdList.size()-1){
+     			mainQuery=mainQuery+" union all "; 
+     		}
+     		
+     		finQuery=finQuery+mainQuery;
+     	}
+     	log.info("finQuery b4 adding partQuery: "+finQuery);
+ 		finQuery=partQuery+finQuery+ ") as temptable";
+ 		log.info("finQuery aftr partQuery: "+finQuery);
+    	return finQuery;
+    	}
+
+    
+    public String excelFormulas(String formula,Long tenanatId,List<String> FTList)
+    {
+    	log.info("temp :"+FTList);
+    	List<String> listDistinct = FTList.stream().distinct().collect(Collectors.toList());
+    	log.info("listDistinct :"+listDistinct);
+    	String formulaQuery="";
+    	String strrrrr=formula;
+    	String finalQuery="";
+
+    	String tabAlias="ds";
+    	HashMap map=new HashMap();
+    	for(int t=0;t<listDistinct.size();t++)
+    	{
+    		map.put(listDistinct.get(t), tabAlias+t);
+    	}
+    	log.info("map :"+map);
+    	if(formula!=null)
+    	{
+
+    		Pattern p = Pattern.compile("\\[([^\\]]+)\\]");
+    		//  Matcher m = p.matcher("[FT/DV.templateName.column1],[FT/DV.templateName.column1]");
+    		log.info("DvColData.getFormula() :"+formula);
+    		log.info("DvColData.getFormula() split :"+formula.split("\\(")[0]);
+    		Matcher m = p.matcher(formula);
+    		List<String> strList=new ArrayList<String>();
+
+    		while (m.find()) {
+    			System.out.println("We found: " + m.group(1));
+
+
+    			log.info("tabAlias :"+tabAlias);
+    			strList.add(m.group(1));
+    			log.info("strList :"+strList);
+
+    			String formulaSubQuery="";
+    			String str=m.group(1);
+    			String[] temp= str.split("\\.");
+    			String fd=temp[0];
+    			String tempName=temp[1].trim();
+    			log.info("tempName:"+tempName+"fd:"+fd+"temp[2]:"+temp[2].trim());
+    			String column=temp[2].trim();
+    			log.info("column:"+column);
+    			if(temp[0].equalsIgnoreCase("ft"))
+    			{
+    				FileTemplates tempData=fileTemplatesRepository.findByTenantIdAndTemplateName(tenanatId,tempName);
+    				log.info("tempData for tempName:"+tempName+" is: "+tempData);
+    				log.info("tempData.getId().toString() :"+tempData.getId().toString());
+    				log.info("");
+    				FileTemplateLines ftlines = new FileTemplateLines();
+    				List<FileTemplateLines> tempLinesList= fileTemplateLinesRepository.findByTemplateId(tempData.getId());
+
+    				log.info("tempData.getId(): "+tempData.getId()+" column: "+column);
+    				String colHeader=column;
+    				ftlines=fileTemplateLinesRepository.findByTemplateIdAndColumnHeader(tempData.getId(),colHeader);
+    				log.info("ftlines: "+ftlines);
+    				log.info("tempData.getId() Map :"+tempData.getId());
+    				log.info("map alias :"+map);
+    				log.info("map.get(tempData.getId()).toString() :"+map.get(tempData.getId().toString()).toString());
+    				tabAlias=map.get(tempData.getId().toString()).toString();
+    				formulaSubQuery=formulaSubQuery+tabAlias+"."+ftlines.getMasterTableReferenceColumn();
+    				log.info("formulaSubQuery from if: "+formulaSubQuery);
+    				log.info("out formulaSubQuery: "+formulaSubQuery);
+    				log.info("formulaQuery: "+formulaQuery);
+    				strrrrr=strrrrr.replace(m.group(1), formulaSubQuery);
+    				log.info("strrrrr :"+strrrrr);
+    				formulaQuery=formulaQuery+formulaSubQuery;
+    			}
+
+    		}
+    	}
+
+    	String finalFormula=strrrrr.replaceAll("]", "").replace("[", "");
+    	log.info("str4 :"+finalFormula);
+    	return finalFormula;
+    }
+    
+    /**
+     * Author: Swetha
+     * Description: Api to fetch the dataView data
+     * @param viewName
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+public HashMap getDataViewsData( Long viewId,Long pageStartIndx, Long pageSize) throws ClassNotFoundException, SQLException {
+    	
+    	log.info("Request to getDataViewsData with viewId: "+viewId+" limit: "+pageStartIndx+" pageSize: "+pageSize);
+    	HashMap map=new HashMap();
+		String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+
+    	   Connection conn = null;
+    	   Statement stmt = null;
+    	   Statement stmt2 = null;
+    	   Statement stmt3=null;
+    	   ResultSet result = null;
+    	   ResultSet result2=null;
+    	   ResultSet result3=null;
+    	   List<HashMap> mapList=new ArrayList<HashMap>();
+    	   String count = null;
+    	   String totDataCount=null;
+    	   try{
+    	      Class.forName(jdbcDriver);
+    	      conn = DriverManager.getConnection(dbUrl, userName, password);
+    	      log.info("Connected database successfully...");
+ 	      stmt = conn.createStatement();
+ 	      stmt2 = conn.createStatement();
+ 	      stmt3=conn.createStatement();
+ 	     
+ 	     DataViews dv=dataViewsRepository.findOne(viewId);
+ 	     String viewName=dv.getDataViewName().toLowerCase();
+ 	    result2=stmt.executeQuery("SELECT count(*) FROM information_schema.columns WHERE table_schema = '"+schemaName+"' AND table_name = '"+viewName+"'");
+ 	   result3=stmt3.executeQuery("SELECT count(*) FROM "+schemaName+".`"+viewName+"`" );
+ 	   
+ 	   while(result3.next()){
+ 		  totDataCount=result3.getString(1);
+ 	   }
+ 	   
+ 	    while(result2.next()){
+ 	  count=result2.getString(1);
+ 	    }
+ 	    
+ 	    log.info("count: "+count+" totDataCount: "+totDataCount);
+ 	   String viewsQuery=frameViewColumnQuery(viewId);
+ 	   String finQuery=viewsQuery+" from "+schemaName+".`"+viewName +"` limit "+pageStartIndx+", "+ pageSize;
+ 	   log.info("finQuery: "+finQuery);
+ 	    result=stmt2.executeQuery(finQuery);
+	   ResultSet rs=stmt2.getResultSet();
+	   
+	   int rsSz=rs.getFetchSize();
+	   log.info("rsSz: "+rsSz);
+	
+	  ResultSetMetaData rsmd2 = rs.getMetaData();
+	int columnsNumber = rsmd2.getColumnCount();
+	int columnCount = rsmd2.getColumnCount();
+	
+	while(rs.next()){
+  	 HashMap<String,String> map2=new HashMap<String,String>();
+  	for (int i = 1; i <= columnCount; i++ ) {
+			  String name = rsmd2.getColumnLabel(i);
+			  //log.info("name: "+name);
+  	 for(int t=0,num=1;t<columnsNumber;t++, num++){
+  		 String Val=rs.getString(num);
+  	 }
+  	 map2.put(name, rs.getString(i));
+  	
+  	}
+  	mapList.add(map2);
+   }
+	   }catch(SQLException se){
+		   log.info("se: "+se);
+     }
+   finally{
+	   		if(result2 != null)
+    			result2.close();
+	   		if(result != null)
+    			result.close();
+	   		if(stmt != null)
+    			stmt.close();
+	   		if(stmt2 != null)
+    			stmt2.close();
+	   		if(conn != null)
+    			conn.close();
+    		}
+    	   
+    	   map.put("mapList", mapList);
+    	   map.put("count",totDataCount );
+	return map;
+	}
+
+/**
+ * Author: Swetha
+ * @param viewId
+ * @return
+ */
+	public String frameViewColumnQuery(Long viewId){
+
+		log.info("In frameViewColumnQuery with viewId: "+viewId);
+		String finQuery="select ";
+		List<DataViewsColumns> dvcList=dataViewsColumnsRepository.findByDataViewId(viewId);
+     	for(int k=0;k<dvcList.size();k++){
+     		
+     		String subQuery="";
+     		DataViewsColumns dvc=dvcList.get(k);
+     		//log.info("dvc: "+dvc);
+     		String dType=dvc.getColDataType();
+     		String refDvCol=dvc.getRefDvColumn();
+     		String colName=dvc.getColumnName();
+     		String dataType=dvc.getColDataType();
+     		if(refDvCol!=null && !(refDvCol.isEmpty())){
+     			FileTemplateLines fileTemplateLines=fileTemplateLinesRepository.findOne(Long.parseLong(refDvCol));
+     			String dvColName=fileTemplateLines.getColumnAlias();
+     			if(dataType.equalsIgnoreCase("DECIMAL"))
+     			subQuery="FORMAT("+dvColName+",2) as `"+colName+"`";
+     			else
+     				subQuery=dvColName+" as `"+colName+"`";	
+     		}
+     		else{
+     			if(dataType.equalsIgnoreCase("DECIMAL"))
+     				subQuery="FORMAT(`"+colName+"`,2)"+" as `"+colName+"`";
+     			else
+     		subQuery="`"+colName+"`"+" as `"+colName+"`";
+     		}
+     		if(k>=0 && k<=dvcList.size()){
+     		finQuery=finQuery+subQuery+",";
+     		}
+     		else{
+     			finQuery=finQuery+subQuery;
+     		}
+     		
+     		log.info("subQuery at k: "+k+" is: "+subQuery);
+     		log.info("finQueryat k: "+k+" is: "+finQuery);
+	}
+     	int len=finQuery.length();
+     	//log.info("len: "+len);
+     	
+     	 if(finQuery.endsWith(",")){
+	            System.out.println("removing comma");
+	            int commaIndex=finQuery.lastIndexOf(",");
+	            //log.info("commaIndex: "+commaIndex);
+	            finQuery=finQuery.substring(0,commaIndex);
+	        }
+     	log.info("finQuery aftr removing comma: "+finQuery);
+		return finQuery;
+	}
+	
+	/*@Async
+	public String sampleAsyncMethod() {
+		long time = System.currentTimeMillis();
+		String str="asynStr";
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			// We've been interrupted
+			System.out.println(String.format("Task interrupted after %d milliseconds", System.currentTimeMillis() - time));
+			//return str;
+		}
+
+		System.out.println(String.format("Task completed after %d milliseconds", System.currentTimeMillis() - time));
+		return str;
+	}*/
+
+    }

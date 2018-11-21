@@ -1,0 +1,110 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.Rules;
+
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+/*import scala.math.BigInt;*/
+
+import java.math.BigInteger;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the Rules entity.
+ */
+@SuppressWarnings("unused")
+public interface RulesRepository extends JpaRepository<Rules,Long> {
+
+	List<Rules> findByTenantIdAndRuleTypeAndEnabledFlag(Long tenantId,
+			String ruleType, boolean b);
+
+	
+
+
+	//List<Rules> findByTenantIdAndRulePurposeAndRuleTypeAndEnabledFlag(
+	//		Long tenantId, String rulePurpose, String ruleType, boolean b);
+	
+	List<Rules> findByTenantIdAndEnabledFlag(Long tenantId,boolean enabledFlag);
+
+
+
+	@Query(value =  "SELECT * FROM t_rules where id in (:ids) and rule_type= :ruleType and tenant_id= :tenantId and enabled_flag is true",nativeQuery=true)
+	List<Rules> findByIdsAndTenantIdAndRuleTypeAndEnabledFlag(@Param("ids") List<Long> ids,@Param("tenantId") Long tenantId,@Param("ruleType")
+			String ruleType);
+	
+	
+	@Query(value =  "SELECT * FROM t_rules where id in (:ids) and tenant_id= :tenantId and enabled_flag is true",nativeQuery=true)
+	List<Rules> findByIdsAndTenantIdAndEnabledFlag(@Param("ids") List<Long> ids,@Param("tenantId") Long tenantId);
+	
+	//shiva
+	@Query(value =  "select * FROM t_rules where tenant_id=:tenantId and id in(:ruleIds)",nativeQuery=true)
+	List<Rules>  fetchRulesByTenantId(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds);
+	
+	Rules findByIdAndTargetDataViewId(Long ruleId, Long targetDataViewId);
+
+	Rules findByIdAndTenantIdAndSourceDataViewId(Long ruleId, Long tenantId, Long sourceDataViewId);
+	
+	@Query(value =  "SELECT distinct(source_data_view_id) FROM t_rules where id in (:ids)",nativeQuery=true)
+	List<BigInteger>  fetchDistictSrcViewIdsByRuleId(@Param("ids") List<Long> ids);
+	
+	@Query(value =  "SELECT distinct(target_data_view_id) FROM t_rules where id in (:ids)",nativeQuery=true)
+	List<BigInteger>  fetchDistictTargetViewIdsByRuleId(@Param("ids") List<Long> ids);
+	
+	@Query(value =  "SELECT distinct(target_data_view_id) FROM t_rules where id in (:ids) and source_data_view_id= :source_data_view_id ",nativeQuery=true)
+	List<BigInteger>  fetchDistictTargetViewIdsByRuldNSrcDVId(@Param("ids") List<Long> ids, @Param("source_data_view_id") Long source_data_view_id);
+	
+	@Query(value =  "SELECT id FROM t_rules where source_data_view_id= :source_data_view_id and tenant_id=:tenantId",nativeQuery=true)
+	List<Long> fetchIdsByViewId(@Param("source_data_view_id") Long source_data_view_id, @Param("tenantId") Long tenantId);
+	
+	@Query(value =  "SELECT id FROM t_rules where target_data_view_id= :target_data_view_id and tenant_id=:tenantId",nativeQuery=true)
+	List<Long> fetchTargetIdsByViewId(@Param("target_data_view_id") Long target_data_view_id, @Param("tenantId") Long tenantId);
+	
+	@Query(value =  "SELECT distinct(target_data_view_id) FROM t_rules where source_data_view_id= :source_data_view_id and tenant_id=:tenantId and id in(:ruleIds)",nativeQuery=true)
+	List<BigInteger> fetchDistinctTargetViewIdsBySourceId(@Param("source_data_view_id") Long source_data_view_id, @Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds);
+	
+	//SELECT distinct(source_data_view_id) FROM t_rules where target_data_view_id= 167 and tenant_id=5 and id in(261,262,263,264,265,274);
+	@Query(value =  "SELECT distinct(source_data_view_id) FROM t_rules where target_data_view_id = :target_data_view_id and tenant_id=:tenantId and id in(:ruleIds)",nativeQuery=true)
+	List<BigInteger> fetchDistinctSourceViewIdsByTargetId(@Param("target_data_view_id") Long target_data_view_id, @Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds);
+
+	
+	//Source
+	@Query(value =  "SELECT id FROM t_rules where tenant_id=:tenantId and source_data_view_id=:sourceDataViewId and id in(:ruleIds)",nativeQuery=true)
+	List<BigInteger>  fetchIdsBySourceViewIdAndIds(@Param("tenantId") Long tenantId,@Param("sourceDataViewId") Long sourceDataViewId, @Param("ruleIds") List<BigInteger> ruleIds);
+	
+	//Target
+	@Query(value =  "SELECT id FROM t_rules where tenant_id=:tenantId and target_data_view_id=:targetDataViewId and id in(:ruleIds)",nativeQuery=true)
+	List<BigInteger>  fetchIdsByTargetViewIdAndIds(@Param("tenantId") Long tenantId,@Param("targetDataViewId") Long targetDataViewId, @Param("ruleIds") List<BigInteger> ruleIds);
+
+	@Query(value =  "SELECT distinct id FROM t_rules where id in (select rule_id from t_rule_group_details where rule_group_id=:groupId and tenant_id=:tenantId) and source_data_view_id = :viewId",nativeQuery=true)
+	List<BigInteger> fetchRuleIdsByGroupId(@Param("groupId") Long groupId, @Param("tenantId") Long tenantId, @Param("viewId") Long viewId);
+
+
+	Rules findById(Long bigInteger);
+
+
+	@Query(value =  "SELECT id FROM t_rules where id in(SELECT rule_id FROM t_rule_group_details where rule_group_id = :ruleGroupId) order by creation_date desc limit 1;",nativeQuery=true)
+
+	Long findIdOfAdhocRule(@Param("ruleGroupId")  Long ruleGroupId);
+	
+	@Query(value =  "SELECT id FROM t_rules where id in(:ruleIds) order by rule_code asc",nativeQuery=true)
+	List<BigInteger> fetchRuleIdsOrderByRuleCodeAsc(@Param("ruleIds") List<BigInteger> ruleIds);
+	
+	//ravali
+	@Query(value =  "SELECT id FROM t_rules where source_data_view_id= :source_data_view_id and tenant_id=:tenantId",nativeQuery=true)
+	List<BigInteger> fetchIdsBySrcViewId(@Param("source_data_view_id") Long source_data_view_id, @Param("tenantId") Long tenantId);
+	
+	@Query(value =  "SELECT id FROM t_rules where target_data_view_id= :target_data_view_id and tenant_id=:tenantId",nativeQuery=true)
+	List<BigInteger> fetchIdsByTrgViewId(@Param("target_data_view_id") Long target_data_view_id, @Param("tenantId") Long tenantId);
+	
+	// Kiran
+	@Query(value = "SELECT distinct(source_data_view_id) FROM t_rules where id in (SELECT rule_id FROM t_rule_group_details where rule_group_id =:ruleGroupId) and target_data_view_id=:viewId UNION ALL SELECT distinct(target_data_view_id) FROM t_rules where id in (SELECT rule_id FROM t_rule_group_details where rule_group_id =:ruleGroupId) and source_data_view_id=:viewId",nativeQuery=true)
+	List<Long> fetchDataViewIdsByRuleGrpAndViewIds(@Param("ruleGroupId") Long ruleGroupId, @Param("viewId") Long viewId);
+	
+	
+	@Query(value = "SELECT distinct(source_data_view_id) FROM t_rules where id in (SELECT rule_id FROM t_rule_group_details where rule_group_id =:ruleGroupId) UNION ALL SELECT distinct(target_data_view_id) FROM t_rules where id in (SELECT rule_id FROM t_rule_group_details where rule_group_id =:ruleGroupId)",nativeQuery=true)
+	List<Long> fetchDataViewIdsByRuleGrpIds(@Param("ruleGroupId") Long ruleGroupId);
+
+	
+	
+}

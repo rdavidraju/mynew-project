@@ -1,0 +1,147 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.SourceProfileUsages;
+
+import com.nspl.app.repository.SourceProfileUsagesRepository;
+import com.nspl.app.repository.search.SourceProfileUsagesSearchRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing SourceProfileUsages.
+ */
+@RestController
+@RequestMapping("/api")
+public class SourceProfileUsagesResource {
+
+    private final Logger log = LoggerFactory.getLogger(SourceProfileUsagesResource.class);
+
+    private static final String ENTITY_NAME = "sourceProfileUsages";
+        
+    private final SourceProfileUsagesRepository sourceProfileUsagesRepository;
+
+    private final SourceProfileUsagesSearchRepository sourceProfileUsagesSearchRepository;
+
+    public SourceProfileUsagesResource(SourceProfileUsagesRepository sourceProfileUsagesRepository, SourceProfileUsagesSearchRepository sourceProfileUsagesSearchRepository) {
+        this.sourceProfileUsagesRepository = sourceProfileUsagesRepository;
+        this.sourceProfileUsagesSearchRepository = sourceProfileUsagesSearchRepository;
+    }
+
+    /**
+     * POST  /source-profile-usages : Create a new sourceProfileUsages.
+     *
+     * @param sourceProfileUsages the sourceProfileUsages to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new sourceProfileUsages, or with status 400 (Bad Request) if the sourceProfileUsages has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/source-profile-usages")
+    @Timed
+    public ResponseEntity<SourceProfileUsages> createSourceProfileUsages(@RequestBody SourceProfileUsages sourceProfileUsages) throws URISyntaxException {
+        log.debug("REST request to save SourceProfileUsages : {}", sourceProfileUsages);
+        if (sourceProfileUsages.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new sourceProfileUsages cannot already have an ID")).body(null);
+        }
+        SourceProfileUsages result = sourceProfileUsagesRepository.save(sourceProfileUsages);
+        sourceProfileUsagesSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/source-profile-usages/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /source-profile-usages : Updates an existing sourceProfileUsages.
+     *
+     * @param sourceProfileUsages the sourceProfileUsages to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated sourceProfileUsages,
+     * or with status 400 (Bad Request) if the sourceProfileUsages is not valid,
+     * or with status 500 (Internal Server Error) if the sourceProfileUsages couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/source-profile-usages")
+    @Timed
+    public ResponseEntity<SourceProfileUsages> updateSourceProfileUsages(@RequestBody SourceProfileUsages sourceProfileUsages) throws URISyntaxException {
+        log.debug("REST request to update SourceProfileUsages : {}", sourceProfileUsages);
+        if (sourceProfileUsages.getId() == null) {
+            return createSourceProfileUsages(sourceProfileUsages);
+        }
+        SourceProfileUsages result = sourceProfileUsagesRepository.save(sourceProfileUsages);
+        sourceProfileUsagesSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, sourceProfileUsages.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /source-profile-usages : get all the sourceProfileUsages.
+     *
+     * @return the ResponseEntity with status 200 (OK) and the list of sourceProfileUsages in body
+     */
+    @GetMapping("/source-profile-usages")
+    @Timed
+    public List<SourceProfileUsages> getAllSourceProfileUsages() {
+        log.debug("REST request to get all SourceProfileUsages");
+        List<SourceProfileUsages> sourceProfileUsages = sourceProfileUsagesRepository.findAll();
+        return sourceProfileUsages;
+    }
+
+    /**
+     * GET  /source-profile-usages/:id : get the "id" sourceProfileUsages.
+     *
+     * @param id the id of the sourceProfileUsages to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the sourceProfileUsages, or with status 404 (Not Found)
+     */
+    @GetMapping("/source-profile-usages/{id}")
+    @Timed
+    public ResponseEntity<SourceProfileUsages> getSourceProfileUsages(@PathVariable Long id) {
+        log.debug("REST request to get SourceProfileUsages : {}", id);
+        SourceProfileUsages sourceProfileUsages = sourceProfileUsagesRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(sourceProfileUsages));
+    }
+
+    /**
+     * DELETE  /source-profile-usages/:id : delete the "id" sourceProfileUsages.
+     *
+     * @param id the id of the sourceProfileUsages to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/source-profile-usages/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteSourceProfileUsages(@PathVariable Long id) {
+        log.debug("REST request to delete SourceProfileUsages : {}", id);
+        sourceProfileUsagesRepository.delete(id);
+        sourceProfileUsagesSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/source-profile-usages?query=:query : search for the sourceProfileUsages corresponding
+     * to the query.
+     *
+     * @param query the query of the sourceProfileUsages search 
+     * @return the result of the search
+     */
+    @GetMapping("/_search/source-profile-usages")
+    @Timed
+    public List<SourceProfileUsages> searchSourceProfileUsages(@RequestParam String query) {
+        log.debug("REST request to search SourceProfileUsages for query {}", query);
+        return StreamSupport
+            .stream(sourceProfileUsagesSearchRepository.search(queryStringQuery(query)).spliterator(), false)
+            .collect(Collectors.toList());
+    }
+
+
+}

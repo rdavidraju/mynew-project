@@ -1,0 +1,1994 @@
+package com.nspl.app.web.rest;
+
+import static org.elasticsearch.index.query.QueryBuilders.queryStringQuery;
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.Reconcile;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.JobDetailsRepository;
+import com.nspl.app.repository.ReconcileRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.SchedulerDetailsRepository;
+import com.nspl.app.repository.search.ReconcileSearchRepository;
+import com.nspl.app.service.AccountingDataService;
+import com.nspl.app.service.OozieService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReconciliationResultService;
+import com.nspl.app.service.SourceConnectionDetailsService;
+import com.nspl.app.web.rest.dto.ErrorReporting;
+import com.nspl.app.web.rest.dto.FilterColumns;
+import com.nspl.app.web.rest.dto.ReconcileCustomFilter;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/*import org.apache.oozie.client.CoordinatorAction;
+import org.apache.oozie.client.CoordinatorJob;
+import org.apache.oozie.client.OozieClient;
+import org.apache.oozie.client.WorkflowJob;*/
+
+/**
+ * REST controller for managing Reconcile.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReconcileResource {
+	
+	private static DecimalFormat df = new DecimalFormat(".##");
+
+    private final Logger log = LoggerFactory.getLogger(ReconcileResource.class);
+
+    private static final String ENTITY_NAME = "reconcile";
+        
+    private final ReconcileRepository reconcileRepository;
+
+    private final ReconcileSearchRepository reconcileSearchRepository;
+    
+    
+    private static final String CONTEXT = "context";
+    
+    @Inject
+    SourceConnectionDetailsService sourceConnectionDetailsService;
+    
+    @Inject
+    JobDetailsRepository jobDetailsRepository;
+    
+    @Inject
+	SchedulerDetailsRepository schedulerDetailsRepository;
+    
+    @Inject
+    RuleGroupRepository ruleGroupRepository;
+    
+    @Inject
+    RuleGroupDetailsRepository ruleGroupDetailsRepository;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    DataViewsResource dataViewsResource;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    ReconciliationResultService reconciliationResultService;
+    
+    @Inject
+    DataMasterRepository dataMasterRepository;
+
+    @PersistenceContext(unitName="default")
+	private EntityManager em;
+	
+	@Autowired
+	Environment env;
+	
+	@Autowired
+	org.apache.hadoop.conf.Configuration hadoopConfiguration;
+	
+	@Inject
+	PropertiesUtilService propertiesUtilService;
+	
+	@Inject
+	OozieService oozieService;
+	
+	@Inject
+	AccountingDataService accountingDataService;
+	
+	@Inject
+	ReconciliationResultRepository reconciliationResultRepository;
+    
+    
+    public ReconcileResource(ReconcileRepository reconcileRepository, ReconcileSearchRepository reconcileSearchRepository) {
+        this.reconcileRepository = reconcileRepository;
+        this.reconcileSearchRepository = reconcileSearchRepository;
+    }
+
+    /**
+     * POST  /reconciles : Create a new reconcile.
+     *
+     * @param reconcile the reconcile to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reconcile, or with status 400 (Bad Request) if the reconcile has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/reconciles")
+    @Timed
+    public ResponseEntity<Reconcile> createReconcile(@RequestBody Reconcile reconcile) throws URISyntaxException {
+        log.debug("REST request to save Reconcile : {}", reconcile);
+        if (reconcile.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reconcile cannot already have an ID")).body(null);
+        }
+        Reconcile result = reconcileRepository.save(reconcile);
+        reconcileSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/reconciles/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /reconciles : Updates an existing reconcile.
+     *
+     * @param reconcile the reconcile to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reconcile,
+     * or with status 400 (Bad Request) if the reconcile is not valid,
+     * or with status 500 (Internal Server Error) if the reconcile couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/reconciles")
+    @Timed
+    public ResponseEntity<Reconcile> updateReconcile(@RequestBody Reconcile reconcile) throws URISyntaxException {
+        log.debug("REST request to update Reconcile : {}", reconcile);
+        if (reconcile.getId() == null) {
+            return createReconcile(reconcile);
+        }
+        Reconcile result = reconcileRepository.save(reconcile);
+        reconcileSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reconcile.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /reconciles : get all the reconciles.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reconciles in body
+     */
+    @GetMapping("/reconciles")
+    @Timed
+    public ResponseEntity<List<Reconcile>> getAllReconciles(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of Reconciles");
+        Page<Reconcile> page = reconcileRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/reconciles");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /reconciles/:id : get the "id" reconcile.
+     *
+     * @param id the id of the reconcile to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reconcile, or with status 404 (Not Found)
+     */
+    @GetMapping("/reconciles/{id}")
+    @Timed
+    public ResponseEntity<Reconcile> getReconcile(@PathVariable Long id) {
+        log.debug("REST request to get Reconcile : {}", id);
+        Reconcile reconcile = reconcileRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reconcile));
+    }
+
+    /**
+     * DELETE  /reconciles/:id : delete the "id" reconcile.
+     *
+     * @param id the id of the reconcile to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/reconciles/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReconcile(@PathVariable Long id) {
+        log.debug("REST request to delete Reconcile : {}", id);
+        reconcileRepository.delete(id);
+        reconcileSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/reconciles?query=:query : search for the reconcile corresponding
+     * to the query.
+     *
+     * @param query the query of the reconcile search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/reconciles")
+    @Timed
+    public ResponseEntity<List<Reconcile>> searchReconciles(@RequestParam String query, @ApiParam Pageable pageable) {
+        log.debug("REST request to search for a page of Reconciles for query {}", query);
+        Page<Reconcile> page = reconcileSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/reconciles");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+ 
+ /*   
+    @GetMapping("/reconciledDataByYear")
+    @Timed
+    public void getReconciledDataByYear(@RequestParam Integer year)
+    {
+    	log.debug("Rest request to fetch reconcile data by year"+year);
+    	String viewQuery = "CREATE OR REPLACE VIEW reconcileView AS SELECT  *,Month(transaction_date) as month,CASE Month(transaction_date) WHEN 1 THEN 'january' WHEN 2 THEN 'February' WHEN 3 THEN 'March'"+"WHEN 4 THEN 'April' WHEN 5 THEN 'May' WHEN 6 THEN 'June' WHEN 7 THEN 'July' WHEN 8 THEN 'August'WHEN 9 THEN 'September'WHEN 10 THEN 'October' WHEN 11 THEN 'November'WHEN 12 THEN 'December'END AS 'monthName'from reconcile";
+    	Query queryBuilt = em.createQuery(viewQuery);
+    	String groupByQuery = "";
+    	groupByQuery = "SELECT monthName,sum(amount) from reconcileView where Year(transaction_date) = "+year+" group by monthName ";
+    	Query groupByQueryBuilt = em.createQuery(groupByQuery);
+    	List listOfGroupedData = groupByQueryBuilt.getResultList();
+    	log.info("List of grouped data:"+listOfGroupedData);
+    	
+    }*/
+    @SuppressWarnings("unchecked")
+    @GetMapping("/reconciledYearlyData/{year}")
+    @Timed
+    public List<HashMap> getReconcileOfYear(@PathVariable Integer year){
+    	log.info("rest request to reconcile data with  ");
+    	log.info("year :"+year);
+    	List<HashMap> hashMap=new ArrayList<HashMap>();
+    	LocalDate startDate;
+    	LocalDate endDate;
+    	if(year!=null)
+    	{
+    		startDate=LocalDate.parse(year+"-01-01");
+    		log.info("startDate :"+startDate);
+    		//LocalDate endDate=LocalDate.parse(year+"-12-31");
+    		endDate=LocalDate.parse(year+"-01-31");
+    		log.info("endDate :"+endDate);
+
+    		BigDecimal reconcileData1 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		log.info("reconcileData1 :"+reconcileData1);
+    		if(reconcileData1!=null)
+    		{
+    			HashMap map1=new HashMap();
+    			map1.put("month","january");
+    			map1.put("amount",reconcileData1);
+    			if(map1!=null&&!map1.isEmpty())
+    				hashMap.add(map1);
+    		}
+
+    		startDate=LocalDate.parse(year+"-02-01");
+    		endDate=LocalDate.parse(year+"-02-29");
+    		BigDecimal reconcileData2 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData2!=null)
+    		{
+    			HashMap map2=new HashMap();
+    			map2.put("month","february");
+    			map2.put("amount",reconcileData2);
+    			if(map2!=null&&!map2.isEmpty())
+    				hashMap.add(map2);
+    		}
+
+    		startDate=LocalDate.parse(year+"-03-01");
+    		endDate=LocalDate.parse(year+"-03-31");
+    		BigDecimal reconcileData3 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData3!=null)
+    		{
+    			HashMap map3=new HashMap();
+    			map3.put("month","march");
+    			map3.put("amount",reconcileData3);
+    			if(map3!=null&&!map3.isEmpty())
+    				hashMap.add(map3);
+    		}
+
+    		startDate=LocalDate.parse(year+"-04-01");
+    		endDate=LocalDate.parse(year+"-04-30");
+    		BigDecimal reconcileData4 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData4!=null)
+    		{
+    			HashMap map4=new HashMap();
+    			map4.put("month","april");
+    			map4.put("amount",reconcileData4);
+    			if(map4!=null&&!map4.isEmpty())
+    				hashMap.add(map4);
+    		}
+
+    		startDate=LocalDate.parse(year+"-05-01");
+    		endDate=LocalDate.parse(year+"-05-31");
+    		BigDecimal reconcileData5 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData5!=null)
+    		{
+    			HashMap map5=new HashMap();
+    			map5.put("month","may");
+    			map5.put("amount",reconcileData5);
+    			if(map5!=null&&!map5.isEmpty())
+    				hashMap.add(map5);
+    		}
+
+
+    		startDate=LocalDate.parse(year+"-06-01");
+    		endDate=LocalDate.parse(year+"-06-30");
+    		BigDecimal reconcileData6 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData6!=null)
+    		{
+    			HashMap map6=new HashMap();
+    			map6.put("month","june");
+    			map6.put("amount",reconcileData6);
+    			if(map6!=null&&!map6.isEmpty())
+    				hashMap.add(map6);
+    		}
+
+
+    		startDate=LocalDate.parse(year+"-07-01");
+    		endDate=LocalDate.parse(year+"-07-31");
+    		BigDecimal reconcileData7 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData7!=null)
+    		{
+    			HashMap map7=new HashMap();
+    			map7.put("month","july");
+    			map7.put("amount",reconcileData7);
+    			if(map7!=null&&!map7.isEmpty())
+    				hashMap.add(map7);
+    		}
+
+
+    		startDate=LocalDate.parse(year+"-08-01");
+    		endDate=LocalDate.parse(year+"-08-31");
+    		BigDecimal reconcileData8 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData8!=null)
+    		{
+    			HashMap map8=new HashMap();
+    			map8.put("month","august");
+    			map8.put("amount",reconcileData8);
+    			if(map8!=null&&!map8.isEmpty())
+    				hashMap.add(map8);
+    		}
+
+    		startDate=LocalDate.parse(year+"-09-01");
+    		endDate=LocalDate.parse(year+"-09-30");
+    		BigDecimal reconcileData9 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData9!=null)
+    		{
+    			HashMap map9=new HashMap();
+    			map9.put("month","september");
+    			map9.put("amount",reconcileData9);
+    			if(map9!=null&&!map9.isEmpty())
+    				hashMap.add(map9);
+    		}
+
+    		startDate=LocalDate.parse(year+"-10-01");
+    		endDate=LocalDate.parse(year+"-10-31");
+    		BigDecimal reconcileData10 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData10!=null)
+    		{
+    			HashMap map10=new HashMap();
+    			map10.put("month","october");
+    			map10.put("amount",reconcileData10);
+    			if(map10!=null&&!map10.isEmpty())
+    				hashMap.add(map10);
+    		}
+
+    		startDate=LocalDate.parse(year+"-11-01");
+    		endDate=LocalDate.parse(year+"-11-30");
+    		BigDecimal reconcileData11 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData11!=null)
+    		{
+    			HashMap map11=new HashMap();
+    			map11.put("month","november");
+    			map11.put("amount",reconcileData11);
+    			if(map11!=null&&!map11.isEmpty())
+    				hashMap.add(map11);
+    		}
+
+    		startDate=LocalDate.parse(year+"-12-01");
+    		endDate=LocalDate.parse(year+"-12-31");
+
+    		BigDecimal reconcileData12 = reconcileRepository.fetchAmountBytransactionDate(startDate,endDate);
+    		if(reconcileData12!=null)
+    		{
+    			HashMap map12=new HashMap();
+    			map12.put("month","december");
+    			map12.put("amount",reconcileData12);
+    			if(map12!=null&&!map12.isEmpty())
+    				hashMap.add(map12);
+    		}
+
+    	}
+    	log.info("hashMap.size():"+hashMap.size());
+    	log.info("hashMap2 :"+hashMap);
+    	return hashMap;
+    }
+
+    
+ 
+    
+    
+    @SuppressWarnings("unchecked")
+    @GetMapping("/reconcileData/{month}/{year}")
+    @Timed
+    public List<HashMap> getReconcile(@PathVariable String month,@PathVariable Integer year){
+    	log.info("rest request to reconcile data with  ");
+    	//String month="november";
+    	//	LocalDate localDate;
+    	List<HashMap> hashMap=new ArrayList<HashMap>();
+    	log.info("month :"+month);
+    	log.info("year :"+year);
+    	LocalDate startDate;
+    	LocalDate endDate;
+    	List<Object[]> reconcileData = new ArrayList<Object[]>() ;
+    	if(year!=null)
+    	{
+    	if(month.equalsIgnoreCase("january"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-01-01");
+    		endDate=LocalDate.parse(year+"-01-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("february"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-02-01");
+    		endDate=LocalDate.parse(year+"-02-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("march"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-03-01");
+    		endDate=LocalDate.parse(year+"-03-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("april"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-04-01");
+    		endDate=LocalDate.parse(year+"-04-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("may"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-05-01");
+    		endDate=LocalDate.parse(year+"-05-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("june"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-06-01");
+    		endDate=LocalDate.parse(year+"-06-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("july"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-07-01");
+    		endDate=LocalDate.parse(year+"-07-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("august"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-08-01");
+    		endDate=LocalDate.parse(year+"-08-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("september"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-09-01");
+    		endDate=LocalDate.parse(year+"-09-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("october"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-10-01");
+    		endDate=LocalDate.parse(year+"-10-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("november"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-11-01");
+    		endDate=LocalDate.parse(year+"-11-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("december"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-12-01");
+    		endDate=LocalDate.parse(year+"-12-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByProcessorNameAndRecordTypeAndCurrency(startDate,endDate);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    //	HashMap map=new HashMap();
+    	for(int i = 0; i<reconcileData.size();i++)
+    	{ 
+    		log.info("reconcile data");
+    		Object[] obj = reconcileData.get(i);
+    		HashMap map=new HashMap();
+    		map.put("processName",obj[0]);
+    		map.put("Amount",obj[1]);
+    		/*map.put("recordType",obj[2]);
+    		map.put("currencyCode",obj[3]);*/
+    		hashMap.add(map);
+
+    	}
+    	
+    }
+    	log.info("hashMap.size():"+hashMap.size());
+    	return hashMap;
+    }
+    
+    
+    @SuppressWarnings("unchecked")
+    @GetMapping("/reconcileDataByProcessName/{month}/{year}/{processName}")
+    @Timed
+    public List<HashMap> getReconcileGroupedByCurrency(@PathVariable String month,@PathVariable Integer year,@PathVariable String processName){
+    	log.info("rest request to reconcile data with  ");
+    	//String month="november";
+    	//	LocalDate localDate;
+    	List<HashMap> hashMap=new ArrayList<HashMap>();
+    	log.info("month :"+month);
+    	log.info("year :"+year);
+    	LocalDate startDate;
+    	LocalDate endDate;
+    	List<Object[]> reconcileData = new ArrayList<Object[]>() ;
+    	if(year!=null)
+    	{
+    	if(month.equalsIgnoreCase("january"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-01-01");
+    		endDate=LocalDate.parse(year+"-01-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("february"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-02-01");
+    		endDate=LocalDate.parse(year+"-02-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("march"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-03-01");
+    		endDate=LocalDate.parse(year+"-03-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("april"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-04-01");
+    		endDate=LocalDate.parse(year+"-04-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("may"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-05-01");
+    		endDate=LocalDate.parse(year+"-05-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("june"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-06-01");
+    		endDate=LocalDate.parse(year+"-06-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("july"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-07-01");
+    		endDate=LocalDate.parse(year+"-07-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("august"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-08-01");
+    		endDate=LocalDate.parse(year+"-08-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("september"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-09-01");
+    		endDate=LocalDate.parse(year+"-09-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("october"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-10-01");
+    		endDate=LocalDate.parse(year+"-10-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("november"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-11-01");
+    		endDate=LocalDate.parse(year+"-11-30");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    	if(month.equalsIgnoreCase("december"))
+    	{
+    		
+    		startDate=LocalDate.parse(year+"-12-01");
+    		endDate=LocalDate.parse(year+"-12-31");
+    		log.info("startDate :"+startDate);
+    		log.info("endDate :"+endDate);
+    	reconcileData = reconcileRepository.fetchAmountByCurrency(startDate,endDate,processName);
+    	log.info("reconcileData.size(): "+reconcileData.size());
+    	}
+    //	HashMap map=new HashMap();
+    	for(int i = 0; i<reconcileData.size();i++)
+    	{ 
+    		log.info("reconcile data");
+    		Object[] obj = reconcileData.get(i);
+    		HashMap map=new HashMap();
+    		map.put("currencyCode",obj[0]);
+    		map.put("Amount",obj[1]);
+    		
+    		/*map.put("currencyCode",obj[3]);*/
+    		hashMap.add(map);
+
+    	}
+    	
+    }
+    	log.info("hashMap.size():"+hashMap.size());
+    	return hashMap;
+    }
+    /**
+     * Author : Shobha
+     * @param query
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    @GetMapping("/groupedData")
+    @Timed
+    public List<HashMap> fetchGroupedData(@RequestParam String query, @RequestParam List<String> columns)
+    {
+    	log.debug("Rest request to fetch grouped data by query :=>"+query+"and columns:"+columns.size());
+    	//Query queryStr = em.createQuery(query.trim());
+    	Query queryBuilt = em.createQuery(query);//write here
+    	List<Object[]> list = queryBuilt.getResultList();
+    	log.info("printing output"+list);
+    	log.info("fetched list size is :"+list.size());
+    	List<HashMap> hashMap=new ArrayList<HashMap>(); 
+    	for(int i = 0;i<list.size();i++)
+    	{
+    		log.info("list 1st item:"+list.get(i)[0]);
+    		log.info("list 2nd item:"+list.get(i)[1]);
+    		Object[] objects = list.get(i);
+    		HashMap map = new HashMap();
+    		map.put("amount",objects[0]);
+    		for(int col = 1; col<objects.length;col++)
+    		{
+    			if(columns.get(col-1).toLowerCase().contains("month"))
+    			{
+    				map.put("month", objects[col]);
+    			}
+    			else
+    			{
+    				map.put(columns.get(col-1), objects[col]);
+    			}
+    			
+    		}
+    		hashMap.add(map);
+    	}
+    
+    	return hashMap;
+    
+    }
+    
+    
+    /**
+     * author-ravali
+     * @param status
+     * @param startDate
+     * @param endDate
+     * @return
+     * @throws ClassNotFoundException
+     */
+   // @GetMapping("/fetchSchedulersList")
+  //  @Timed
+   /* public List<HashMap> getSchedulersList(@RequestParam(value="status",required=false) String status,@RequestParam(value="startDate",required=false) String startDate,@RequestParam(value="endDate",required=false) String endDate,@RequestParam(value="page",required=false) Integer page,@RequestParam(value="size",required=false)  Integer size,HttpServletResponse response) throws ClassNotFoundException {
+
+    	log.info("Rest Request to fetch jobs and job actions ");
+    	log.info("status :"+status);
+    	log.info("startDate :"+startDate);
+    	log.info("endDate"+endDate);
+    	//Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+
+    	//String DB_URL = props.getProperty("url");
+    //	String USER = props.getProperty("user");
+    //	String PASS = props.getProperty("pswd");
+
+    	Connection conn =null;
+    	Statement stmt = null;
+    	Statement stmt2=null;
+    	
+    	String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+
+    	
+    	
+    	List<HashMap> mapList=new ArrayList<HashMap>();
+    	try{
+    		Class.forName("com.mysql.jdbc.Driver");
+    		conn = DriverManager.getConnection(dbUrl, userName, password);
+    		log.info("Connected database successfully...");
+    		stmt = conn.createStatement();
+    		stmt2=conn.createStatement();
+
+    		//result2=stmt.executeQuery("select * from oozie_schema.COORD_JOBS j,  oozie_schema.COORD_ACTIONS A where j.id = A.job_id and j.status='"+status+"'and j.start_time between '"+startDate+"' and '"+endDate+"'");
+
+
+
+    		ResultSet result2;
+    		if(status!=null && startDate!=null && endDate!=null && page!=null && size!=null)
+    			result2=stmt.executeQuery("select * from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id and j.status='"+status+"'and j.start_time between '"+startDate+"' and '"+endDate+"' order by A.last_modified_time desc Limit "+(page-1) * size+", "+size);
+    		else if(startDate!=null && endDate!=null && page!=null && size!=null)
+    			result2=stmt.executeQuery("select * from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id and j.status='"+status+"'and j.start_time between '"+startDate+"' and '"+endDate+"' order by A.last_modified_time desc Limit "+(page-1) * size+", "+size);
+    		else if(page!=null && size!=null)
+    			result2=stmt.executeQuery("select * from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id order by A.last_modified_time desc Limit "+(page-1) * size+", "+size);
+    		else
+    			result2=stmt.executeQuery("select * from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id order by A.last_modified_time desc");
+    		ResultSet rs=stmt.getResultSet();
+
+    		log.info("result set");
+
+    		ResultSet count;
+    		if(status!=null && startDate!=null && endDate!=null)
+    			count=stmt2.executeQuery("select count(*) from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id and j.status='"+status+"'and j.start_time between '"+startDate+"' and '"+endDate+"' order by A.last_modified_time desc");
+    		else if(startDate!=null && endDate!=null)
+    			count=stmt2.executeQuery("select count(*) from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id and j.status='"+status+"'and j.start_time between '"+startDate+"' and '"+endDate+"' order by A.last_modified_time desc");
+    		else
+    			count=stmt2.executeQuery("select count(*) from COORD_JOBS j,  COORD_ACTIONS A where j.id = A.job_id order by A.last_modified_time desc");
+
+    		count.next();
+    		int ct = count.getInt(1);
+    		log.info("ct :"+ct);
+    		
+    		//adding count of records to response header
+    		response.addIntHeader("X-COUNT", ct);
+
+    
+    		ResultSetMetaData rsmd = rs.getMetaData();
+
+    		int columnsNumber = rsmd.getColumnCount();
+
+    		while(rs.next()){
+
+
+    			HashMap map=new HashMap();
+
+    			for (int i = 1; i <= columnsNumber; i++ ){
+    				String name = rsmd.getColumnName(i); 
+
+    				if(name.equalsIgnoreCase("job_type"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("mat_throttling"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("user_name"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("external_id"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("last_action"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("frequency"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("suspended_time"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("time_unit"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("app_path"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("id"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("error_message"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("created_time"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("execution"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("last_modified_time"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("group_name"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("end_time"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("external_status"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("time_zone"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("rerun_time"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("concurrency"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("time_out"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("app_name"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("last_action_number"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("start_time"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("job_name"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("error_code"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("scheduler_name"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("action_number"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("status"))
+    				{
+    					map.put(name, rs.getString(i)); 
+    				}
+    				if(name.equalsIgnoreCase("job_id"))
+    				{
+    					SchedulerDetails schedulerDetails=schedulerDetailsRepository.findByOozieJobIdAndTenantID(rs.getString(i));
+    					if(schedulerDetails!=null)
+    					{
+    						map.put("scheduler_name", schedulerDetails.getSchedulerName());
+    						JobDetails jobDetails=jobDetailsRepository.findOne(schedulerDetails.getJobId());
+    						if(jobDetails!=null)
+    							map.put("job_name",jobDetails.getJobName());
+    					}
+    					else
+    					{
+    						map.put("scheduler_name", "");
+    						map.put("job_name","");
+    					}
+    				}
+
+
+    			}
+
+    			mapList.add(map);
+
+
+    		}
+
+    	}catch(SQLException se){
+    	}
+    	return mapList;
+    }*/
+    
+    /**Author: Swetha, Shiva
+     * Final api to getReconciliationCountAndAmount
+     * @param tenantId
+     * @param groupId
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getReconciliationCountAndAmount")
+    @Timed
+    public HashMap getReconciliationCountAndAmountNew(@RequestParam Long tenantId,@RequestParam Long groupId) throws ClassNotFoundException, SQLException{
+    	log.info("Rest api for getting reconciled unreconciled amount and count for both source and target views based on gruoup id: "+ groupId);
+    	HashMap finalMap = new HashMap();
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+    	HashMap<String, List<BigInteger>> distinctViewIdMap = reconciliationResultService.getDistinctDVIdsforRuleGrp(groupId, tenantId);
+    	List<BigInteger> distSrcIds = distinctViewIdMap.get("sourceViewIds");
+    	List<BigInteger> distTargetIds = distinctViewIdMap.get("targeViewIds");
+    	log.info("SrcViewIds: "+distSrcIds+", TargetViewIds: "+distTargetIds);
+    	
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String currencyFormat = props.getProperty("currencyFormat");
+		
+    	List<HashMap> source = new ArrayList<HashMap>();
+    	List<HashMap> target = new ArrayList<HashMap>();
+		HashMap<BigInteger, HashMap> targetMaps = new HashMap<BigInteger, HashMap>();
+		
+		String label[] = {"source", "target"};
+    	finalMap.put("label", label);
+    	finalMap.put("type", "Reconciliation");
+    	finalMap.put("id", groupId);
+    	RuleGroup rg = ruleGroupRepository.findOne(groupId);
+    	if(rg != null)
+    	{
+    		finalMap.put("groupName", rg.getName());
+    	}
+    	// Source
+    	if(distSrcIds.size()>0)
+    	{
+    		for(BigInteger sourceViewId : distSrcIds)
+    		{
+    			HashMap sourceView = new HashMap();
+    			String qualifier = reconciliationResultService.getQualifier(sourceViewId);
+    			log.info("Sourece View Id: "+ sourceViewId+", Qualifier: "+ qualifier);
+    			if(qualifier.length()>0)
+    			{
+    	   	    	List<BigInteger> viewTotalIds = reconciliationResultService.getViewIds(sourceViewId);
+    	   	    	if(viewTotalIds.size()>0)
+    	   	    	{
+            	    	//total
+            			HashMap amountCount = reconciliationResultService.getCountNAmountForDVId(sourceViewId, tenantId, qualifier,viewTotalIds);
+            			log.info("Total Count: "+amountCount.get("totalCount"));
+            			log.info("Total Amount: "+amountCount.get("totalAmount"));
+            			Map<String, List<BigInteger>> recNUnRecIds = reconciliationResultService.getSourceRecNUnRecIds(sourceViewId.longValue(), tenantId,viewTotalIds, groupId);
+            			List<BigInteger> recIds = recNUnRecIds.get("reconciled");
+            			List<BigInteger> unRecIds = recNUnRecIds.get("unReconciled");
+            			//reconciled
+        	    		String recAmount = reconciliationResultService.getAmountSumByIds(recIds, qualifier);
+        	    		
+            			//unreconciled
+        	    		String unRecAmount = reconciliationResultService.getAmountSumByIds(unRecIds, qualifier);
+        	    		log.info("Source View Id: "+ sourceViewId+ ", Reconciled: "+recIds.size()+", Un-Reconciled: "+unRecIds.size());
+        	    		log.info("Rec Amount: "+ recAmount+", Un-Rec Amount: "+ unRecAmount);
+        	    		HashMap total = new HashMap();
+        	    		HashMap recon = new HashMap();
+        	    		HashMap unRecon = new HashMap();
+        	    		
+        	    		total.put("amount", reconciliationResultService.getAmountInFormat(amountCount.get("totalAmount").toString(),currencyFormat));
+        	    		total.put("count", amountCount.get("totalCount"));
+        	    		recon.put("amount",reconciliationResultService.getAmountInFormat(recAmount,currencyFormat));
+        	    		recon.put("count", recIds.size());
+        	    		unRecon.put("amount", reconciliationResultService.getAmountInFormat(unRecAmount,currencyFormat));
+        	    		unRecon.put("count", unRecIds.size());
+        	    		String viewName = reconciliationResultService.getViewNameByViewId(sourceViewId.longValue());
+        				sourceView.put("viewName", viewName);
+        				sourceView.put("viewId", sourceViewId);
+        				sourceView.put("total", total);
+        				sourceView.put("reconciled", recon);
+        				sourceView.put("unReconciled", unRecon);
+
+        				//Innert dataviews with respective source view
+        				List<HashMap> innerTaget = new ArrayList<HashMap>();
+        				List<BigInteger> innerTartgetIds = rulesRepository.fetchDistinctTargetViewIdsBySourceId(sourceViewId.longValue(), tenantId);
+        				if(innerTartgetIds.size()>0)
+        				{
+        		    		for(BigInteger innerTargetViewId: innerTartgetIds)
+        		    		{
+        		    			HashMap innerTargetView = new HashMap();
+        		    			HashMap innerTotal = new HashMap();
+        		    			HashMap innerRecon = new HashMap();
+        		    			HashMap innerUnRecon = new HashMap();
+        		    			
+        		    			String innerQualifier = reconciliationResultService.getQualifier(innerTargetViewId);
+        		    			if(innerQualifier.length()>0)
+        		    			{
+              		    			log.info("Inner Target View Id: "+ innerTargetViewId+", Inner Qualifier: "+ innerQualifier);
+            		    	    	List<BigInteger> innerViewTotalIds = reconciliationResultService.getViewIds(innerTargetViewId);
+            		    	    	if(innerViewTotalIds.size()>0)
+            		    	    	{
+                		    	    	//total
+                		    			HashMap inneramountCount = reconciliationResultService.getCountNAmountForDVId(innerTargetViewId, tenantId, innerQualifier,innerViewTotalIds);
+                		    			log.info("Inner Total Count: "+inneramountCount.get("totalCount"));
+                		    			log.info("Inner Total Amount: "+inneramountCount.get("totalAmount"));
+                		    			
+                			    		innerTotal.put("amount", reconciliationResultService.getAmountInFormat(inneramountCount.get("totalAmount").toString(),currencyFormat));
+                			    		innerTotal.put("count", inneramountCount.get("totalCount"));
+                			    		
+                			    		Map<String, List<BigInteger>> innerRecNUnRecIds = reconciliationResultService.getTargetRecNUnRecIds(innerTargetViewId.longValue(), tenantId,innerViewTotalIds, groupId);
+                		    			List<BigInteger> innerRecIds = innerRecNUnRecIds.get("reconciled");
+                		    			List<BigInteger> innerUnRecIds = innerRecNUnRecIds.get("unReconciled");
+                			    		String innerRecAmount = reconciliationResultService.getAmountSumByIds(innerRecIds, innerQualifier);
+                			    		innerRecon.put("amount", reconciliationResultService.getAmountInFormat(innerRecAmount, currencyFormat));
+                			    		innerRecon.put("count", innerRecIds.size());
+
+                			    		String innerUnRecAmount = reconciliationResultService.getAmountSumByIds(innerUnRecIds, innerQualifier);
+                			    		innerUnRecon.put("amount", reconciliationResultService.getAmountInFormat(innerUnRecAmount, currencyFormat));
+                			    		innerUnRecon.put("count", innerUnRecIds.size());
+                			    		
+                			    		String innerViewName = reconciliationResultService.getViewNameByViewId(innerTargetViewId.longValue());
+                			    		innerTargetView.put("viewName", innerViewName);
+                			    		innerTargetView.put("viewId", innerTargetViewId);
+                			    		innerTargetView.put("total", innerTotal);
+                			    		innerTargetView.put("reconciled", innerRecon);
+                			    		innerTargetView.put("unReconciled", innerUnRecon);
+                			    		innerTaget.add(innerTargetView);
+                			    		targetMaps.put(innerTargetViewId, innerTargetView);
+                			    		errorReport.setStatus("Success");
+            		    	    	}
+            		    	    	else
+            		    	    	{
+                    					errorReport.setStatus("Failed");
+                    					reasons.add("No records found for Target view id: "+ innerTargetViewId);
+            		    	    	}
+        		    			}
+        		    			else
+        		    			{
+                					errorReport.setStatus("Failed");
+                					reasons.add("No Qualifier found for Target view id: "+ innerTargetViewId);
+        		    			}
+  
+        		    		}
+        				}
+        				else
+        				{
+        					errorReport.setStatus("Failed");
+        					reasons.add("No Target data view ids found for source view id: "+ sourceViewId);
+        				}
+        				sourceView.put("target", innerTaget);
+        				source.add(sourceView);
+    	   	    	}
+    	   	    	else
+    	   	    	{
+    	   	    		errorReport.setStatus("Failed");
+    	   	    		reasons.add("There are no records found for the view id "+sourceViewId);
+    	   	    	}
+    			}
+    			else
+    			{
+    				errorReport.setStatus("Failed");
+    				reasons.add("No Qualifier defined for the source view id: "+sourceViewId);
+    			}
+ 
+    		}
+    		finalMap.put("source", source);
+    	}
+    	else
+    	{
+    		errorReport.setStatus("Failed");
+    		reasons.add("No Source View Ids Exist");
+    	}
+    	// Target
+    	if(distTargetIds.size()>0)
+    	{
+    		for(BigInteger targetViewId : distTargetIds)
+    		{
+    			if(targetMaps.containsKey(targetViewId))
+    			{
+        			HashMap targetView = targetMaps.get(targetViewId);
+        			target.add(targetView);
+    			}
+    			else
+    			{
+    				log.info("There is no target map for target data view id: "+targetViewId);
+    			}
+    		}
+	    	finalMap.put("target", target);
+    	}
+    	else
+    	{
+    		errorReport.setStatus("Failed");
+    		reasons.add("No Target View Ids Exist");
+    	}
+    	errorReport.setReasons(reasons);
+    	finalMap.put("info", errorReport);
+    	return finalMap;
+    }
+    
+    /**Author: Shiva
+     * Final api to fetching reconciliation data based on view id
+     * @param tenantId
+     * @param groupId
+     * @return
+     * @throws ClassNotFoundException
+     * @throws URISyntaxException 
+     * @throws SQLException 
+     */
+    @GetMapping("/getReconciliationDataByViewId")
+    @Timed
+    public List<HashMap> getReconciliationDataByViewId(@RequestParam(value = "tenantId", required=true) Long tenantId,@RequestParam(value = "dataViewId", required=true) Long dataViewId, @RequestParam(value = "sourceOrTarget", required=true) String sourceOrTarget, 
+    		@RequestParam(value = "status", required=false) String status, @RequestParam(value = "groupId", required=true) Long groupId,@ApiParam Pageable pageable) throws ClassNotFoundException, URISyntaxException, SQLException{
+    	log.info("Rest api to fetch reconciliation data based on viewId: "+dataViewId);
+		ErrorReporting errorReport = new ErrorReporting();
+    	List<HashMap> result = new ArrayList<HashMap>();
+		List<String> reasons = new ArrayList<String>();
+    	//PaginationUtil paginationUtil=new PaginationUtil();
+		List<BigInteger> allIds = reconciliationResultService.getViewIds(new BigInteger(dataViewId.toString()));
+		log.info("Total Ids Size for the view id "+dataViewId+" is: "+allIds.size());
+		if(allIds.size()>0)
+		{
+			/*List<String> headerColumns = reconciliationResultService.getViewColumnHeaders(dataViewId);*/
+			/*List<String> headerColumns = reconciliationResultService.getViewColumnHeadersInSequence(dataViewId, groupId, tenantId,sourceOrTarget);*/
+/*			if(headerColumns.size()>0)
+			{*/
+				/*log.info("Header columns for the view id "+dataViewId+" is: "+headerColumns);*/
+				String amtQualifier = reconciliationResultService.getQualifierColumnName(new BigInteger(dataViewId.toString()));
+				log.info("Amount qualifier column name for the view id "+dataViewId+" is : "+amtQualifier);
+				
+		    	if("source".equalsIgnoreCase(sourceOrTarget))
+		    	{
+		    		List<String> headerColumns = reconciliationResultService.getViewColumnHeadersInSequence(dataViewId, groupId, tenantId,"source");
+		    		if(headerColumns.size()>0)
+		    		{
+			    		Map<String, List<BigInteger>> recUnrecIds = reconciliationResultService.getSourceRecNUnRecIds(dataViewId, tenantId, allIds, groupId);
+			    		if("reconciled".equalsIgnoreCase(status))
+			    		{
+				    		//reconciled records
+				    		HashMap recHm = new HashMap();
+				    		HashMap recHmMain = new HashMap();
+				    		List<BigInteger> recIds = recUnrecIds.get("reconciled");
+				    		log.info("DataViewId: "+dataViewId+", Reconciled Ids Size: "+recIds.size());
+				    		List<Long> recIdsAsLong = reconciliationResultService.getBigIntegerAsLong(recIds);
+				    		List<HashMap> reconciledData = new ArrayList<HashMap>();
+				    		if(recIdsAsLong.size()>0)
+				    		{
+				    			Page<DataMaster> reconSrcIds = dataMasterRepository.findByIdIn(recIdsAsLong,pageable);
+				    			reconciledData = reconciliationResultService.fetchDataByViewIdInSequence(reconSrcIds, headerColumns, "source", tenantId, dataViewId,groupId);
+				    		}
+				    		recHm.put("totalCount", recIds.size());
+				    		recHm.put("amountQualifier", amtQualifier);
+				    		recHm.put("status", "Success");
+				    		recHmMain.put("info", recHm);
+				    		reconciledData.add(recHmMain);
+				    		return reconciledData;
+			    		}
+			    		else if("unreconciled".equalsIgnoreCase(status))
+			    		{
+				    		//unreconciled record
+				    		HashMap unRecHm = new HashMap();
+				    		HashMap unRecMain = new HashMap();
+				    		List<BigInteger> unRecIds = recUnrecIds.get("unReconciled");
+				    		List<Long> unRecIdsAsLong = reconciliationResultService.getBigIntegerAsLong(unRecIds);
+				    		List<HashMap> unReconciledData = new ArrayList<HashMap>();
+				    		if(unRecIdsAsLong.size()>0)
+				    		{
+					    		Page<DataMaster> unReconSrcIds = dataMasterRepository.findByIdIn(unRecIdsAsLong, pageable);
+					    		unReconciledData = reconciliationResultService.fetchDataByViewIdInSequence(unReconSrcIds, headerColumns, "source", tenantId,dataViewId,groupId);
+				    		}
+				    		unRecHm.put("totalCount", unRecIds.size());
+				    		unRecHm.put("amountQualifier", amtQualifier);
+				    		unRecHm.put("status", "Success");
+				    		unRecMain.put("info", unRecHm);
+				    		unReconciledData.add(unRecMain);
+				    		return unReconciledData;
+			    		}
+			    		else
+			    		{
+				    		//total records
+				    		HashMap totHm = new HashMap();
+				    		HashMap totHmMain = new HashMap();
+			    			List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+			    			List<HashMap> allRecordsData = new ArrayList<HashMap>();
+			    			if(allIdsAsLong.size()>0)
+			    			{
+			    				Page<DataMaster> dms = dataMasterRepository.findByIdIn(allIdsAsLong, pageable);
+			    				allRecordsData = reconciliationResultService.fetchDataByViewIdInSequence(dms, headerColumns, "source", tenantId,dataViewId,groupId);
+			    			}
+				    		totHm.put("totalCount", allIds.size());
+				    		totHm.put("amountQualifier", amtQualifier);
+				    		totHm.put("status", "Success");
+				    		totHmMain.put("info", totHm);
+				    		allRecordsData.add(totHmMain);
+			    			return allRecordsData;
+			    		}
+		    		}
+		    	}
+		    	if("target".equalsIgnoreCase(sourceOrTarget))
+		    	{
+		    		List<String> headerColumns = reconciliationResultService.getViewColumnHeadersInSequence(dataViewId, groupId, tenantId,"target");
+		    		if(headerColumns.size()>0)
+		    		{
+			    		Map<String, List<BigInteger>> recUnrecIds = reconciliationResultService.getTargetRecNUnRecIds(dataViewId, tenantId, allIds, groupId);
+			    		//reconciled records
+			    		if("reconciled".equalsIgnoreCase(status))
+			    		{
+				    		HashMap recHm = new HashMap();
+				    		HashMap recHmMain = new HashMap();
+				    		List<BigInteger> recIds = recUnrecIds.get("reconciled");
+				    		List<Long> recIdsAsLong = reconciliationResultService.getBigIntegerAsLong(recIds);
+				    		List<HashMap> reconciledData = new ArrayList<HashMap>();
+				    		if(recIdsAsLong.size()>0)
+				    		{
+					    		Page<DataMaster> reconSrcIds = dataMasterRepository.findByIdIn(recIdsAsLong,pageable);
+					    		reconciledData = reconciliationResultService.fetchDataByViewIdInSequence(reconSrcIds, headerColumns, "target", tenantId,dataViewId,groupId);
+				    		}
+				    		recHm.put("totalCount", recIds.size());
+				    		recHm.put("amountQualifier", amtQualifier);
+				    		recHm.put("status", "Success");
+				    		recHmMain.put("info", recHm);
+				    		reconciledData.add(recHmMain);
+				    		return reconciledData;
+			    		}
+			    		else if("unreconciled".equalsIgnoreCase(status))
+			    		{
+				    		//unreconciled record
+				    		HashMap unRecHm = new HashMap();
+				    		HashMap unRecMain = new HashMap();
+				    		List<BigInteger> unRecIds = recUnrecIds.get("unReconciled");
+				    		List<Long> unRecIdsAsLong = reconciliationResultService.getBigIntegerAsLong(unRecIds);
+				    		List<HashMap> unReconciledData = new ArrayList<HashMap>();
+				    		if(unRecIdsAsLong.size()>0)
+				    		{
+					    		Page<DataMaster> unReconSrcIds = dataMasterRepository.findByIdIn(unRecIdsAsLong,pageable);
+					    		unReconciledData = reconciliationResultService.fetchDataByViewIdInSequence(unReconSrcIds, headerColumns, "target", tenantId,dataViewId,groupId);
+				    		}
+				    		unRecHm.put("totalCount", unRecIds.size());
+				    		unRecHm.put("amountQualifier", amtQualifier);
+				    		unRecHm.put("status", "Success");
+				    		unRecMain.put("info", unRecHm);
+				    		unReconciledData.add(unRecMain);
+				    		return unReconciledData;
+			    		}
+			    		else
+			    		{
+				    		//total records
+				    		HashMap totHm = new HashMap();
+				    		HashMap totHmMain = new HashMap();
+			    			List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+			    			List<HashMap> allRecordsData = new ArrayList<HashMap>();
+			    			if(allIdsAsLong.size()>0)
+			    			{
+					    		Page<DataMaster> dms = dataMasterRepository.findByIdIn(allIdsAsLong,pageable);
+					    		allRecordsData = reconciliationResultService.fetchDataByViewIdInSequence(dms, headerColumns, "target", tenantId,dataViewId,groupId);
+			    			}
+				    		totHm.put("totalCount", allIds.size());
+				    		totHm.put("amountQualifier", amtQualifier);
+				    		totHm.put("status", "Success");
+				    		totHmMain.put("info", totHm);
+				    		allRecordsData.add(totHmMain);
+			    			return allRecordsData;
+			    		}
+		    		}
+		    	}
+		    	return null;
+			}
+			else
+			{
+				errorReport.setStatus("Failed");
+				reasons.add("No Header columns found in data views columns table for the view id:  "+dataViewId);
+				HashMap infoHM = new HashMap();
+				infoHM.put("info", errorReport);
+				result.add(infoHM);
+				return result;
+			}
+/*		}
+		else
+		{
+			errorReport.setStatus("Failed");
+			reasons.add("No records found the view id: "+dataViewId);
+			errorReport.setReasons(reasons);
+			HashMap infoHM = new HashMap();
+			infoHM.put("info", errorReport);
+			result.add(infoHM);
+			return result;
+		}*/
+		
+    }
+    
+    /**Author: Shiva
+     * Final api to fetching reconciliation data based on view id and custom filter columns
+     * @param ReconcileCustomFilter DTO
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @PostMapping("/getRecDataWithCustomFilter")
+    @Timed
+    public List<HashMap> getRecDataWithCustomFilter(@RequestBody ReconcileCustomFilter customFilter) throws ClassNotFoundException, SQLException{
+    	log.info("Rest api for fetching reconciliation data with custom filter"+ customFilter.getViewId());
+    	ErrorReporting errorReport = new ErrorReporting();
+    	List<String> reasons = new ArrayList<String>();
+    	List<Long> viewIds = new ArrayList<Long>();
+    	viewIds.add(customFilter.getViewId());
+		List<HashMap> result = new ArrayList<HashMap>();
+    	//Setting Default Page Number and Page Size
+    	if(customFilter.getPage() == null || customFilter.getPage() == 0)
+    	{
+    		customFilter.setPage(0);
+    	}
+    	if(customFilter.getLimit() == null || customFilter.getLimit() == 0)
+    	{
+    		customFilter.setLimit(25);
+    	}
+    	int pageNumber = customFilter.getPage();
+    	int pageSize = customFilter.getLimit();
+    	// Getting Column Headers for the Data View
+    	/*List<String> headerColumns = reconciliationResultService.getViewColumnHeaders(customFilter.getViewId());*/
+/*    	if(headerColumns.size()>0)
+    	{*/
+        	/*log.info("View Id:" + customFilter.getViewId() + "Header Columns: "+ headerColumns);*/
+        	List<FilterColumns> filterCols = customFilter.getFilterColumns();
+        	String whereString = reconciliationResultService.buildCustomQuery(filterCols, customFilter.getViewId());
+        	String amtQualifier = reconciliationResultService.getQualifierColumnName(new BigInteger(customFilter.getViewId().toString()));
+        	log.info("Where String: " + whereString);
+        	if(whereString.length()>0)
+        	{
+        		List<BigInteger> allIds = reconciliationResultService.getViewIds(new BigInteger(customFilter.getViewId().toString()));
+        		if(allIds.size()>0)
+        		{
+            		List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+            		String allIdsAsString = reconciliationResultService.getListAsString(allIdsAsLong);
+            		log.info("ids size: "+ allIds.size());
+            		if("source".equalsIgnoreCase(customFilter.getSourceOrTarget()))
+            		{
+            			List<String> headerColumns = reconciliationResultService.getViewColumnHeadersInSequence(customFilter.getViewId(), customFilter.getGroupId(), customFilter.getTenantId(),"source");
+            			if(headerColumns.size()>0)
+            			{
+            				log.info("View Id:" + customFilter.getViewId() + "Header Columns: "+ headerColumns);
+            	    		Map<String, List<BigInteger>> recUnrecIds = reconciliationResultService.getSourceRecNUnRecIds(customFilter.getViewId(), customFilter.getTenantId(),allIds, customFilter.getGroupId());
+            	    		//total records
+            	    		List totalRecords = new ArrayList<DataMaster>();
+            	    		List<HashMap> totFinalData = new ArrayList<HashMap>();
+            	    		List<HashMap> recFinalData = new ArrayList<HashMap>();
+            	    		List<HashMap> unRecFinalData = new ArrayList<HashMap>();
+            	    		//reconciled records
+            	    		if("reconciled".equalsIgnoreCase(customFilter.getStatus()))
+            	    		{
+            		    		List<BigInteger> recIds = recUnrecIds.get("reconciled");
+            		    		if(recIds.size()>0)
+            		    		{
+                		    		List<Long> recIdsAsLong = reconciliationResultService.getBigIntegerAsLong(recIds);
+                		    		String recIdsAsString = reconciliationResultService.getListAsString(recIdsAsLong);
+                		    		List recRecords = new ArrayList<DataMaster>();
+                		    		List<DataMaster> recRecordsCount = new ArrayList<DataMaster>();
+                		    		
+                			    	List<FilterColumns>  filColsList = customFilter.getFilterColumns();
+                			    	String reconRefs = "";
+                			    	List<String> recRefIds = new ArrayList<String>();
+                			    	if(filColsList.size()>0)			// Custom filter with Recon_Reference_Id
+                			    	{
+                			    		for(FilterColumns fc : filColsList)
+                			    		{
+                			    			if("Recon_Ref_Id".equalsIgnoreCase(fc.getColumnName()))
+                			    			{
+                			    				whereString="";
+                			    				reconRefs = reconRefs + fc.getColumnValue();
+                			    				String[] recRefArray = reconRefs.split("\\,");
+                			    				if(recRefArray.length>0)
+                			    				{
+                			    					for(int b=0;b<recRefArray.length;b++){
+                			    						recRefIds.add(recRefArray[b].trim());
+                			    					}
+                			    				}
+                			    			}
+                			    		}
+                			    		log.info("recRefIds after split"+recRefIds);
+                			    		log.info("Recon Reference Ids : "+recRefIds.size());
+                			    		if(recRefIds.size()>0)
+                			    		{
+                        			    	List<Long> originalTargetIds = reconciliationResultRepository.fetchByReconSourceRefIdsAndTenantId(recRefIds, customFilter.getTenantId(),customFilter.getViewId());
+                        			    	originalTargetIds.remove(null);
+                        			    	log.info("final originalTargetIds"+originalTargetIds);
+                        			    	if(originalTargetIds.size()>0)
+                        			    	{
+                        			    		String dvIdsFromRecRef=reconciliationResultService.getListAsString(originalTargetIds);
+                        			    		recIdsAsString=dvIdsFromRecRef;
+                        			    	}
+                			    		}
+                			    	}
+                			    	log.info("final whereString: "+whereString);
+                		    		try{
+                    			    	Query queryRec = em.createQuery("FROM DataMaster where id in ("+recIdsAsString+")"+whereString);
+                    			    	
+                    			    	Query queryRecCount = em.createQuery("FROM DataMaster where id in ("+recIdsAsString+")"+whereString);
+                    			    	log.info("Wher String: > "+whereString);
+                    			    	recRecordsCount = queryRecCount.getResultList();
+                    			    	queryRec.setFirstResult(((pageNumber+1)-1) * pageSize);
+                    			    	queryRec.setMaxResults(pageSize);
+                    			    	recRecords = queryRec.getResultList();
+                    			    	List<DataMaster> recDm = reconciliationResultService.getObjectsAsDataMaster(recRecords);
+                    			    	/*recFinalData = reconciliationResultService.fetchDataByViewId(recDm, headerColumns, "source", customFilter.getTenantId(), customFilter.getViewId());*/
+                    			    	recFinalData = reconciliationResultService.fetchDataByViewIdInSequence(recDm, headerColumns, "source", customFilter.getTenantId(), customFilter.getViewId(), customFilter.getGroupId());
+                    			    	if(recRecordsCount.size()>0)
+                    			    	{
+                    				   		HashMap recHm = new HashMap();
+                    				    	HashMap recHmMain = new HashMap();
+                    				    	recHm.put("totalCount", recRecordsCount.size());
+                    				    	recHm.put("amountQualifier", amtQualifier);
+                    				    	recHm.put("status", "Success");
+                    				    	recHmMain.put("info", recHm);
+                    				    	recFinalData.add(recHmMain);
+                    			    	}	
+                		    		}
+                		    		catch(Exception e)
+                		    		{
+                		    			log.info("Invalid Data type found for the columns. wherestring: "+whereString+e);
+                		    		}
+            		    		}
+            		    		else
+            		    		{
+            		    			log.info("There are no reconciled records");
+            		    		}
+            			    	return recFinalData;
+            	    		}
+            	    		else if("unreconciled".equalsIgnoreCase(customFilter.getStatus()))
+            	    		{
+            		    		//unreconciled record
+            		    		List<BigInteger> unRecIds = recUnrecIds.get("unReconciled");
+            		    		if(unRecIds.size()>0)
+            		    		{
+                		    		List<Long> unRecIdsAsLong = reconciliationResultService.getBigIntegerAsLong(unRecIds);
+                		    		String unRecIdsAsString = reconciliationResultService.getListAsString(unRecIdsAsLong);
+                		    		List unRecRecords = new ArrayList<DataMaster>();
+                		    		List<DataMaster> unRecRecordsCount = new ArrayList<DataMaster>();
+                		    		try{
+                    			    	Query queryUnRec = em.createQuery("FROM DataMaster where id in ("+unRecIdsAsString+")"+whereString);
+                    			    	Query queryUnRecCount = em.createQuery("FROM DataMaster where id in ("+unRecIdsAsString+")"+whereString);
+                    			    	unRecRecordsCount = queryUnRecCount.getResultList();
+                    			    	queryUnRec.setFirstResult(((pageNumber+1)-1) * pageSize);
+                    			    	queryUnRec.setMaxResults(pageSize);
+                    			    	unRecRecords = queryUnRec.getResultList();
+                    			    	List<DataMaster> unRecDm = reconciliationResultService.getObjectsAsDataMaster(unRecRecords);
+                    			    	/*unRecFinalData = reconciliationResultService.fetchDataByViewId(unRecDm, headerColumns, "source", customFilter.getTenantId(),customFilter.getViewId());*/
+                    			    	unRecFinalData = reconciliationResultService.fetchDataByViewIdInSequence(unRecDm, headerColumns, "source", customFilter.getTenantId(), customFilter.getViewId(),customFilter.getGroupId());
+                    			    	if(unRecRecordsCount.size()>0)
+                    			    	{
+                    				   		HashMap unRecHm = new HashMap();
+                    				   		HashMap unRecMain = new HashMap();
+                    				   		unRecHm.put("totalCount", unRecRecordsCount.size());
+                    				   		unRecHm.put("amountQualifier", amtQualifier);
+                    				   		unRecHm.put("status", "Success");
+                    				   		unRecMain.put("info", unRecHm);
+                    				   		unRecFinalData.add(unRecMain);
+                    			    	}
+                		    		}
+                		    		catch(Exception e)
+                		    		{
+                		    			log.info("Invalid Data type found for the columns. wherestring: "+whereString+e);
+                		    		}
+            		    		}
+            		    		else
+            		    		{
+            		    			log.info("There are no un-reconciled records");
+            		    		}
+            		    		return unRecFinalData;
+            	    		}
+            	    		else
+            	    		{
+            		    		List<DataMaster> totalCount = new ArrayList<DataMaster>();
+            		    		try{
+                			    	Query queryTotal = em.createQuery("FROM DataMaster where id in ("+allIdsAsString+")"+whereString);
+                			    	Query queryTotalCount = em.createQuery("FROM DataMaster where id in ("+allIdsAsString+")"+whereString);
+                			    	queryTotal.setFirstResult(((pageNumber+1)-1) * pageSize);
+                			    	queryTotal.setMaxResults(pageSize);
+                			    	totalRecords = queryTotal.getResultList();
+                			    	totalCount = queryTotalCount.getResultList();
+                			    	log.info("Result Size: "+ totalRecords.size());
+                			    	List<DataMaster> totDm = reconciliationResultService.getObjectsAsDataMaster(totalRecords);
+                			    	/*totFinalData = reconciliationResultService.fetchDataByViewId(totDm, headerColumns, "source", customFilter.getTenantId(),customFilter.getViewId());*/
+                			    	totFinalData = reconciliationResultService.fetchDataByViewIdInSequence(totDm, headerColumns, "source", customFilter.getTenantId(), customFilter.getViewId(),customFilter.getGroupId());
+                			    	if(totalCount.size()>0)
+                			    	{
+                				   		HashMap totHm = new HashMap();
+                				   		HashMap totHmMain = new HashMap();
+                				   		totHm.put("totalCount", totalCount.size());
+                				   		totHm.put("amountQualifier", amtQualifier);
+                				   		totHm.put("status", "Success");
+                				   		totHmMain.put("info", totHm);
+                				   		totFinalData.add(totHmMain);
+                			    	}
+            		    		}
+            		    		catch(Exception e)
+            		    		{
+            		    			log.info("Invalid Data type found for the columns. wherestring: "+whereString+e);
+            		    		}
+
+            			    	return totFinalData;
+            	    		}
+            			}
+            			else
+            			{
+            				return null;
+            			}
+            		}
+            		else if("target".equalsIgnoreCase(customFilter.getSourceOrTarget()))
+            		{
+            			List<String> headerColumns = reconciliationResultService.getViewColumnHeadersInSequence(customFilter.getViewId(), customFilter.getGroupId(), customFilter.getTenantId(),"target");
+            			if(headerColumns.size()>0)
+            			{
+                			Map<String, List<BigInteger>> recUnrecIds = reconciliationResultService.getTargetRecNUnRecIds(customFilter.getViewId(), customFilter.getTenantId(),allIds, customFilter.getGroupId());
+                    		//total records
+                    		List totalRecords = new ArrayList<DataMaster>();
+                    		List<HashMap> totFinalData = new ArrayList<HashMap>();
+                    		List<HashMap> recFinalData = new ArrayList<HashMap>();
+                    		List<HashMap> unRecFinalData = new ArrayList<HashMap>();
+            	    		//reconciled records
+            	    		if("reconciled".equalsIgnoreCase(customFilter.getStatus()))
+            	    		{
+            		    		//Map<String, List<BigInteger>> recMap = recUnrecIds.get(0);
+            		    		List<BigInteger> recIds = recUnrecIds.get("reconciled");
+            		    		if(recIds.size()>0)
+            		    		{
+                		    		List<Long> recIdsAsLong = reconciliationResultService.getBigIntegerAsLong(recIds);
+                		    		String recIdsAsString = reconciliationResultService.getListAsString(recIdsAsLong);
+                		    		List recRecords = new ArrayList<DataMaster>();
+                		    		List<DataMaster> recRecordsCount = new ArrayList<DataMaster>();
+                		    		log.info("recIdsAsString "+ recIdsAsString+" whereString"+whereString);
+                			    	List<FilterColumns>  filColsList = customFilter.getFilterColumns();
+                			    	String reconRefs = "";
+                			    	List<String> recRefIds = new ArrayList<String>();
+                			    	if(filColsList.size()>0)			// Custom filter with Recon_Reference_Id
+                			    	{
+                			    		for(FilterColumns fc : filColsList)
+                			    		{
+                			    			if("Recon_Ref_Id".equalsIgnoreCase(fc.getColumnName()))
+                			    			{
+                			    				whereString="";
+                			    				reconRefs = reconRefs + fc.getColumnValue();
+                			    				String[] recRefArray = reconRefs.split("\\,");
+                			    				if(recRefArray.length>0)
+                			    				{
+                			    					for(int b=0;b<recRefArray.length;b++){
+                			    						recRefIds.add(recRefArray[b].trim());
+                			    					}
+                			    				}
+                			    			}
+                			    		}
+                			    		log.info("recRefIds after split"+recRefIds);
+                			    		log.info("Recon Reference Ids : "+recRefIds.size());
+                			    		if(recRefIds.size()>0)
+                			    		{
+                        			    	List<Long> originalTargetIds = reconciliationResultRepository.fetchByTargetReconRefIdsAndTenantId(recRefIds, customFilter.getTenantId(),customFilter.getViewId());
+                        			    	originalTargetIds.remove(null);
+                        			    	log.info("final originalTargetIds"+originalTargetIds);
+                        			    	if(originalTargetIds.size()>0)
+                        			    	{
+                        			    		String dvIdsFromRecRef=reconciliationResultService.getListAsString(originalTargetIds);
+                        			    		recIdsAsString=dvIdsFromRecRef;
+                        			    	}
+                			    		}
+                			    	}
+                			    	log.info("final whereString: "+whereString);
+                			    	try{
+                    			    	Query queryRec = em.createQuery("FROM DataMaster where id in ("+recIdsAsString+")"+whereString);
+                    			    	log.info("whereString aftr recREfCol: "+whereString);
+                    			    	Query queryRecCount = em.createQuery("FROM DataMaster where id in ("+recIdsAsString+")"+whereString);
+                    			    	recRecordsCount = queryRecCount.getResultList();
+                    			    	queryRec.setFirstResult(((pageNumber+1)-1) * pageSize);
+                    			    	queryRec.setMaxResults(pageSize);
+                    			    	recRecords = queryRec.getResultList();
+                    			    	List<DataMaster> recDm = reconciliationResultService.getObjectsAsDataMaster(recRecords);
+                    			    	/*recFinalData = reconciliationResultService.fetchDataByViewId(recDm, headerColumns, "source", customFilter.getTenantId(),customFilter.getViewId());*/
+                    			    	recFinalData = reconciliationResultService.fetchDataByViewIdInSequence(recDm, headerColumns, "target", customFilter.getTenantId(), customFilter.getViewId(),customFilter.getGroupId());
+                    			    	if(recRecordsCount.size()>0)
+                    			    	{
+                    				    	HashMap recHm = new HashMap();
+                    				    	HashMap recHmMain = new HashMap();
+                    				    	recHm.put("totalCount", recRecordsCount.size());
+                    				    	recHm.put("amountQualifier", amtQualifier);
+                    				    	recHm.put("status", "Success");
+                    				    	recHmMain.put("info", recHm);
+                    				    	recFinalData.add(recHmMain);
+                    			    	}
+                			    	}
+                			    	catch(Exception e)
+                			    	{
+                			    		log.info("Invalid Data type found for the columns. wherestring: "+whereString+e);
+                			    	}
+            		    		}
+            		    		else
+            		    		{
+            		    			log.info("There are no reconciled ids found");
+            		    		}
+
+            		    		return recFinalData;
+            	    		}
+            	    		else if("unreconciled".equalsIgnoreCase(customFilter.getStatus()))
+            	    		{
+            		    		//unreconciled record
+            		    		List<BigInteger> unRecIds = recUnrecIds.get("unReconciled");
+            		    		if(unRecIds.size()>0)
+            		    		{
+                		    		List<Long> unRecIdsAsLong = reconciliationResultService.getBigIntegerAsLong(unRecIds);
+                		    		String unRecIdsAsString = reconciliationResultService.getListAsString(unRecIdsAsLong);
+                		    		List unRecRecords = new ArrayList<DataMaster>();
+                		    		List<DataMaster> unRecRecordsCount = new ArrayList<DataMaster>();
+                		    		try{
+                    			    	Query queryUnRec = em.createQuery("FROM DataMaster where id in ("+unRecIdsAsString+")"+whereString);
+                    			    	Query queryUnRecCount = em.createQuery("FROM DataMaster where id in ("+unRecIdsAsString+")"+whereString);
+                    			    	unRecRecordsCount = queryUnRecCount.getResultList();
+                    			    	queryUnRec.setFirstResult(((pageNumber+1)-1) * pageSize);
+                    			    	queryUnRec.setMaxResults(pageSize);
+                    			    	unRecRecords = queryUnRec.getResultList();
+                    			    	List<DataMaster> unRecDm = reconciliationResultService.getObjectsAsDataMaster(unRecRecords);
+                    			    	/*unRecFinalData = reconciliationResultService.fetchDataByViewId(unRecDm, headerColumns, "source", customFilter.getTenantId(),customFilter.getViewId());*/
+                    			    	unRecFinalData = reconciliationResultService.fetchDataByViewIdInSequence(unRecDm, headerColumns, "target", customFilter.getTenantId(), customFilter.getViewId(),customFilter.getGroupId());
+                    			    	if(unRecRecordsCount.size()>0)
+                    			    	{
+                    				   		HashMap unRecHm = new HashMap();
+                    				   		HashMap unRecMain = new HashMap();
+                    				   		unRecHm.put("totalCount", unRecRecordsCount.size());
+                    				   		unRecHm.put("amountQualifier", amtQualifier);
+                    				   		unRecHm.put("status", "Success");
+                    				   		unRecMain.put("info", unRecHm);
+                    				   		unRecFinalData.add(unRecMain);
+                    			    	}
+                		    		}
+                		    		catch(Exception e)
+                		    		{
+                		    			log.info("Invalid Data type found for the columns. wherestring: "+whereString+e);
+                		    		}
+            		    		}
+            		    		else
+            		    		{
+            		    			log.info("There are no un-reconciled ids found");
+            		    		}
+            		    		return unRecFinalData;
+            	    		}
+            	    		else
+            	    		{
+            	        		List<DataMaster> totalCount = new ArrayList<DataMaster>();
+            	        		try{
+                   	            	Query queryTotal = em.createQuery("FROM DataMaster where id in ("+allIdsAsString+")"+whereString);
+                	            	Query queryTotalCount = em.createQuery("FROM DataMaster where id in ("+allIdsAsString+")"+whereString);
+                	            	totalCount = queryTotalCount.getResultList();
+                	    	    	queryTotal.setFirstResult(((pageNumber+1)-1) * pageSize);
+                	    	    	queryTotal.setMaxResults(pageSize);
+                	    	    	totalRecords = queryTotal.getResultList();
+                	            	List<DataMaster> totDm = reconciliationResultService.getObjectsAsDataMaster(totalRecords);
+                	            	/*totFinalData = reconciliationResultService.fetchDataByViewId(totDm, headerColumns, "target", customFilter.getTenantId(),customFilter.getViewId());*/
+                	            	totFinalData = reconciliationResultService.fetchDataByViewIdInSequence(totDm, headerColumns, "target", customFilter.getTenantId(), customFilter.getViewId(),customFilter.getGroupId());
+                	    	    	if(totalCount.size()>0)
+                	    	    	{
+                	    		    	HashMap totHm = new HashMap();
+                	    		    	HashMap totHmMain = new HashMap();
+                		            	totHm.put("totalCount", totalCount.size());
+                		    	    	totHm.put("amountQualifier", amtQualifier);
+                		    	    	totHm.put("status", "Success");
+                		    	    	totHmMain.put("info", totHm);	
+                		    	    	totFinalData.add(totHmMain);
+                	    	    	}
+            	        		}
+            	        		catch(Exception e)
+            	        		{
+            	        			log.info("Invalid Data type found for the columns. wherestring: "+whereString+e);
+            	        		}
+            	    			return totFinalData;
+            	    		}
+            			}
+            			else
+            			{
+            				return null;
+            			}
+            		}
+            		else
+            		{
+            			return null;
+            		}
+        		}
+        		else
+        		{
+            		HashMap hm = new HashMap();
+            		hm.put("status", "Failed");
+            		reasons.add("No records found for the view id : "+ customFilter.getViewId());
+            		hm.put("reasons", reasons);
+            		HashMap hmResult = new HashMap();
+            		hmResult.put("info", hm);
+            		result.add(hmResult);
+            		return result;
+        		}
+        	}
+        	else
+        	{
+        		HashMap hm = new HashMap();
+        		hm.put("status", "Failed");
+        		reasons.add("Unable to build the custom query");
+        		hm.put("reasons", reasons);
+        		HashMap hmResult = new HashMap();
+        		hmResult.put("info", hm);
+        		result.add(hmResult);
+        		return result;
+        	}
+
+/*    	}
+    	else
+    	{
+    		HashMap hm = new HashMap();
+    		hm.put("status", "Failed");
+    		reasons.add("No header columns found for the view id: "+ customFilter.getViewId());
+    		hm.put("reasons", reasons);
+    		HashMap hmResult = new HashMap();
+    		hmResult.put("info", hm);
+    		result.add(hmResult);
+    		return result;
+    	}*/
+    }
+    
+    /**
+     * Author: Shiva
+     * Description: API to fetch Reconciliation data view sequence columns with valuesset
+     * @param tenantId, viewId, groupId
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getReconViewColumnValueSet")
+    @Timed
+    public List<HashMap> getReconViewColumnValueSet(@RequestParam(value = "tenantId", required=true) Long tenantId, @RequestParam(value = "viewId", required=true) Long viewId, @RequestParam(value = "groupId", required=true) Long groupId,
+    		@RequestParam(value = "sourceOrTarget", required=true) String sourceOrTarget, @RequestParam(value = "status", required=false) String status) throws ClassNotFoundException, SQLException {
+    	log.info("Rest api to get data view sequence columns values set for the view id: "+ viewId);
+    	// Getting total ids
+    	List<BigInteger> totalIds = reconciliationResultService.getViewIds(new BigInteger(viewId.toString()));
+    	log.info(totalIds.size()+" records for the view id "+viewId);
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	
+    	String idStr=totalIds.toString();
+    	idStr=idStr.replace("[", "");
+    	idStr=idStr.replace("]", "");
+    	if(totalIds.size()>0)
+    	{
+    		if("source".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			Map<String, List<BigInteger>> recUnrecIds = reconciliationResultService.getSourceRecNUnRecIds(viewId, tenantId, totalIds, groupId);
+    			if("reconciled".equalsIgnoreCase(status))
+    			{
+    				List<BigInteger> recIds = recUnrecIds.get("reconciled");
+    				if(recIds.size()>0)
+    				{
+        				finalMap = reconciliationResultService.getViewColumnSetWithStatus("source",viewId, groupId, tenantId, recIds);	
+    				}
+    			}
+    			else if("unReconciled".equalsIgnoreCase(status))
+    			{
+    				List<BigInteger> unRecIds = recUnrecIds.get("unReconciled");
+    				if(unRecIds.size()>0)
+    				{
+    					finalMap = reconciliationResultService.getViewColumnSetWithStatus("source",viewId, groupId, tenantId, unRecIds);
+    				}
+    			}
+    			else
+    			{
+    				finalMap = reconciliationResultService.getViewColumnSetWithStatus("source",viewId, groupId, tenantId, totalIds);
+    			}
+    		}
+    		else if("target".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			Map<String, List<BigInteger>> recUnrecIds = reconciliationResultService.getTargetRecNUnRecIds(viewId, tenantId, totalIds, groupId);
+    			if("reconciled".equalsIgnoreCase(status))
+    			{
+    				List<BigInteger> recIds = recUnrecIds.get("reconciled");
+    				if(recIds.size()>0)
+    				{
+    					finalMap = reconciliationResultService.getViewColumnSetWithStatus("target",viewId, groupId, tenantId, recIds);
+    				}
+    			}
+    			else if("unReconciled".equalsIgnoreCase(status))
+    			{
+    				List<BigInteger> unRecIds = recUnrecIds.get("unReconciled");
+    				if(unRecIds.size()>0)
+    				{
+        				finalMap = reconciliationResultService.getViewColumnSetWithStatus("target",viewId, groupId, tenantId, unRecIds);		
+    				}
+    			}
+    			else
+    			{
+    				finalMap = reconciliationResultService.getViewColumnSetWithStatus("target",viewId, groupId, tenantId, totalIds);
+    			}
+    		}
+    	}
+    	return finalMap;  	
+   }
+
+
+        
+    /**
+     * Author: Shiva
+     * @param tenantId, groupId, viewId
+     * Description: Gettring reconciliation data in sequence order
+     * @return HashMap with sequence order of data view columns
+     * @throws SQLException 
+     * @throws ClassNotFoundException 
+     */
+    @GetMapping("/getReconcileDataInSequence")
+    @Timed
+    public List<HashMap> getReconcileDataInSequence(@RequestParam Long tenantId, @RequestParam Long groupId, @RequestParam Long viewId,@RequestParam String sourceOrTarget, @ApiParam Pageable pageable) throws ClassNotFoundException, SQLException{
+    	log.info("Rest request to fetching reconciliation data in sequnce order for the group "+ groupId+", data view id "+ viewId);
+    	List<HashMap> finalData = new ArrayList<HashMap>();
+    	List<BigInteger> allIds = reconciliationResultService.getViewIds(new BigInteger(viewId.toString()));
+    	List<String> headerColumns = reconciliationResultService.getViewColumnHeadersInSequence(viewId, groupId, tenantId,sourceOrTarget);
+    	log.info("Column Headers : "+ headerColumns);
+    	List<HashMap> allRecordsData = new ArrayList<HashMap>();
+    	if(allIds.size()>0)
+    	{
+    		if("source".equalsIgnoreCase(sourceOrTarget))
+    		{
+            	List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+            	
+				Page<DataMaster> dms = dataMasterRepository.findByIdIn(allIdsAsLong, pageable);
+				log.info("dms.getSize(): "+dms.getSize());
+				allRecordsData = reconciliationResultService.fetchDataByViewIdInSequence(dms, headerColumns, "source", tenantId,viewId,groupId);
+    		}
+    		else if("target".equalsIgnoreCase(sourceOrTarget))
+    		{
+    			List<Long> allIdsAsLong = reconciliationResultService.getBigIntegerAsLong(allIds);
+    			Page<DataMaster> dms = dataMasterRepository.findByIdIn(allIdsAsLong,pageable);
+    			log.info("dms.getSize(): "+dms.getSize());
+    			allRecordsData = reconciliationResultService.fetchDataByViewIdInSequence(dms, headerColumns, "target", tenantId,viewId,groupId);
+    		}
+    	}
+    	return allRecordsData;
+    }
+    
+    /**
+     * Author: Shiva
+     * Description: Api to fetch columns Aligns
+     * @param viewName
+     * @return
+     * @throws ClassNotFoundException
+     * @throws SQLException 
+     */
+    @GetMapping("/getReconColumnAlignmentInfo")
+    @Timed
+    public HashMap getReconColumnAlignmentInfo(@RequestParam Long tenantId, @RequestParam Long groupId, @RequestParam Long viewId, @RequestParam String sourceOrTarget) throws ClassNotFoundException, SQLException {
+    	log.info("Rest api to fetching Recon view columns alignments details for the view id: "+viewId);
+    	HashMap finalMap = new HashMap();
+    	finalMap.put("viewId", viewId);
+    	List<HashMap> cols = new ArrayList<HashMap>();
+    	if("source".equalsIgnoreCase(sourceOrTarget))
+    	{
+    		cols = reconciliationResultService.getRecColsAlignInfo(viewId, groupId, tenantId, "source");
+    	}
+    	else if("target".equalsIgnoreCase(sourceOrTarget))
+    	{
+    		cols = reconciliationResultService.getRecColsAlignInfo(viewId, groupId, tenantId, "target");
+    	}
+    	finalMap.put("columns", cols);
+    	return finalMap;
+	}
+}

@@ -1,0 +1,234 @@
+package com.nspl.app.web.rest.dto;
+
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.List;
+
+public class AccountingRuleDTO {
+	
+	private String Id;
+	private String name;
+	private String rulePurpose;
+	private String meaning;
+	private ZonedDateTime startDate;
+	private ZonedDateTime endDate;
+	private Boolean enableFlag;
+	private Boolean adhocRuleCreation;
+	private String reconciliationGroupId;
+	private String reconciliationGroupName;
+	private Long tenantId ;
+	private Long createdBy;
+	private Long appGroupId;
+	private String appGroupName;
+	private Long lastUpdatedBy;
+	private String apprRuleGrpId;
+	private Boolean activityBased;
+	private Boolean multiCurrency;
+	private Boolean crossCurrency;
+	private Long fxRateId;
+	private String conversionDate;
+	private String controlAccount;
+	private String realizedGainLossAccount;
+	private String fxGainAccount;
+	private String fxLossAccount;
+	private ZonedDateTime creationDate;
+	private ZonedDateTime lastUpdatedDate;
+	private String accountingTypeCode;
+	private String accountingTypeMeaning;
+	private List<RulesAndLineItems> rules;
+	private Boolean enabledFlag;
+	
+	
+	public String getAppGroupName() {
+		return appGroupName;
+	}
+	public void setAppGroupName(String appGroupName) {
+		this.appGroupName = appGroupName;
+	}
+	public Long getLastUpdatedBy() {
+		return lastUpdatedBy;
+	}
+	public void setLastUpdatedBy(Long lastUpdatedBy) {
+		this.lastUpdatedBy = lastUpdatedBy;
+	}
+	public String getMeaning() {
+		return meaning;
+	}
+	public void setMeaning(String meaning) {
+		this.meaning = meaning;
+	}
+	public String getId() {
+		return Id;
+	}
+	public void setId(String id) {
+		Id = id;
+	}
+	public String getName() {
+		return name;
+	}
+	public void setName(String name) {
+		this.name = name;
+	}
+	public String getRulePurpose() {
+		return rulePurpose;
+	}
+	public void setRulePurpose(String rulePurpose) {
+		this.rulePurpose = rulePurpose;
+	}
+	public ZonedDateTime getStartDate() {
+		return startDate;
+	}
+	public void setStartDate(ZonedDateTime startDate) {
+		this.startDate = startDate;
+	}
+	public ZonedDateTime getEndDate() {
+		return endDate;
+	}
+	public void setEndDate(ZonedDateTime endDate) {
+		this.endDate = endDate;
+	}
+	
+	public Boolean getEnableFlag() {
+		return enableFlag;
+	}
+	public void setEnableFlag(Boolean enableFlag) {
+		this.enableFlag = enableFlag;
+	}
+	public Long getAppGroupId() {
+		return appGroupId;
+	}
+	public void setAppGroupId(Long appGroupId) {
+		this.appGroupId = appGroupId;
+	}
+	public String getReconciliationGroupId() {
+		return reconciliationGroupId;
+	}
+	public void setReconciliationGroupId(String reconciliationGroupId) {
+		this.reconciliationGroupId = reconciliationGroupId;
+	}
+	public List<RulesAndLineItems> getRules() {
+		return rules;
+	}
+	public void setRules(List<RulesAndLineItems> rules) {
+		this.rules = rules;
+	}
+	public Long getTenantId() {
+		return tenantId;
+	}
+	public void setTenantId(Long tenantId) {
+		this.tenantId = tenantId;
+	}
+	public Long getCreatedBy() {
+		return createdBy;
+	}
+	public void setCreatedBy(Long createdBy) {
+		this.createdBy = createdBy;
+	}
+	public String getAccountingTypeCode() {
+		return accountingTypeCode;
+	}
+	public void setAccountingTypeCode(String accountingTypeCode) {
+		this.accountingTypeCode = accountingTypeCode;
+	}
+	public String getAccountingTypeMeaning() {
+		return accountingTypeMeaning;
+	}
+	public void setAccountingTypeMeaning(String accountingTypeMeaning) {
+		this.accountingTypeMeaning = accountingTypeMeaning;
+	}
+	public ZonedDateTime getCreationDate() {
+		return creationDate;
+	}
+	public void setCreationDate(ZonedDateTime creationDate) {
+		this.creationDate = creationDate;
+	}
+	public ZonedDateTime getLastUpdatedDate() {
+		return lastUpdatedDate;
+	}
+	public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+		this.lastUpdatedDate = lastUpdatedDate;
+	}
+	public String getReconciliationGroupName() {
+		return reconciliationGroupName;
+	}
+	public void setReconciliationGroupName(String reconciliationGroupName) {
+		this.reconciliationGroupName = reconciliationGroupName;
+	}
+	public String getApprRuleGrpId() {
+		return apprRuleGrpId;
+	}
+	public void setApprRuleGrpId(String apprRuleGrpId) {
+		this.apprRuleGrpId = apprRuleGrpId;
+	}
+	public Boolean getActivityBased() {
+		return activityBased;
+	}
+	public void setActivityBased(Boolean activityBased) {
+		this.activityBased = activityBased;
+	}
+	public Boolean getMultiCurrency() {
+		return multiCurrency;
+	}
+	public void setMultiCurrency(Boolean multiCurrency) {
+		this.multiCurrency = multiCurrency;
+	}
+	
+	public Long getFxRateId() {
+		return fxRateId;
+	}
+	public void setFxRateId(Long fxRateId) {
+		this.fxRateId = fxRateId;
+	}
+	public Boolean getCrossCurrency() {
+		return crossCurrency;
+	}
+	public void setCrossCurrency(Boolean crossCurrency) {
+		this.crossCurrency = crossCurrency;
+	}
+	public String getConversionDate() {
+		return conversionDate;
+	}
+	public void setConversionDate(String conversionDate) {
+		this.conversionDate = conversionDate;
+	}
+	public String getControlAccount() {
+		return controlAccount;
+	}
+	public void setControlAccount(String controlAccount) {
+		this.controlAccount = controlAccount;
+	}
+	public String getRealizedGainLossAccount() {
+		return realizedGainLossAccount;
+	}
+	public void setRealizedGainLossAccount(String realizedGainLossAccount) {
+		this.realizedGainLossAccount = realizedGainLossAccount;
+	}
+	public String getFxGainAccount() {
+		return fxGainAccount;
+	}
+	public void setFxGainAccount(String fxGainAccount) {
+		this.fxGainAccount = fxGainAccount;
+	}
+	public String getFxLossAccount() {
+		return fxLossAccount;
+	}
+	public void setFxLossAccount(String fxLossAccount) {
+		this.fxLossAccount = fxLossAccount;
+	}
+	public Boolean getEnabledFlag() {
+		return enabledFlag;
+	}
+	public void setEnabledFlag(Boolean enabledFlag) {
+		this.enabledFlag = enabledFlag;
+	}
+	public Boolean getAdhocRuleCreation() {
+		return adhocRuleCreation;
+	}
+	public void setAdhocRuleCreation(Boolean adhocRuleCreation) {
+		this.adhocRuleCreation = adhocRuleCreation;
+	}
+	
+	
+	
+
+}

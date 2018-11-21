@@ -1,0 +1,750 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.google.gson.Gson;
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataStaging;
+import com.nspl.app.repository.DataMasterRepository;
+import com.nspl.app.repository.DataStagingRepository;
+import com.nspl.app.repository.search.DataMasterSearchRepository;
+import com.nspl.app.repository.search.DataStagingSearchRepository;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletResponse;
+
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+/**
+ * REST controller for managing DataMaster.
+ */
+@RestController
+@RequestMapping("/api")
+public class DataMasterResource {
+
+    private final Logger log = LoggerFactory.getLogger(DataMasterResource.class);
+
+    private static final String ENTITY_NAME = "dataMaster";
+        
+    private final DataMasterRepository dataMasterRepository;
+
+    private final DataMasterSearchRepository dataMasterSearchRepository;
+    
+    @Inject
+    DataStagingResource dataStagingResource;
+    
+    @Inject
+    DataStagingRepository dataStagingRepository;
+    
+    @Inject
+    DataStagingSearchRepository dataStagingSearchRepository;
+
+    public DataMasterResource(DataMasterRepository dataMasterRepository, DataMasterSearchRepository dataMasterSearchRepository) {
+        this.dataMasterRepository = dataMasterRepository;
+        this.dataMasterSearchRepository = dataMasterSearchRepository;
+    }
+
+    /**
+     * POST  /data-masters : Create a new dataMaster.
+     *
+     * @param dataMaster the dataMaster to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new dataMaster, or with status 400 (Bad Request) if the dataMaster has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/data-masters")
+    @Timed
+    public ResponseEntity<DataMaster> createDataMaster(@RequestBody DataMaster dataMaster) throws URISyntaxException {
+        log.debug("REST request to save DataMaster : {}", dataMaster);
+        if (dataMaster.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new dataMaster cannot already have an ID")).body(null);
+        }
+        DataMaster result = dataMasterRepository.save(dataMaster);
+        dataMasterSearchRepository.save(result);
+        return ResponseEntity.created(new URI("/api/data-masters/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /data-masters : Updates an existing dataMaster.
+     *
+     * @param dataMaster the dataMaster to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated dataMaster,
+     * or with status 400 (Bad Request) if the dataMaster is not valid,
+     * or with status 500 (Internal Server Error) if the dataMaster couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/data-masters")
+    @Timed
+    public ResponseEntity<DataMaster> updateDataMaster(@RequestBody DataMaster dataMaster) throws URISyntaxException {
+        log.debug("REST request to update DataMaster : {}", dataMaster);
+        if (dataMaster.getId() == null) {
+            return createDataMaster(dataMaster);
+        }
+        DataMaster result = dataMasterRepository.save(dataMaster);
+        dataMasterSearchRepository.save(result);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, dataMaster.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /data-masters : get all the dataMasters.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of dataMasters in body
+     */
+    @GetMapping("/data-masters")
+    @Timed
+    public ResponseEntity<List<DataMaster>> getAllDataMasters(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of DataMasters");
+        Page<DataMaster> page = dataMasterRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/data-masters");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /data-masters/:id : get the "id" dataMaster.
+     *
+     * @param id the id of the dataMaster to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the dataMaster, or with status 404 (Not Found)
+     */
+    @GetMapping("/data-masters/{id}")
+    @Timed
+    public ResponseEntity<DataMaster> getDataMaster(@PathVariable Long id) {
+        log.debug("REST request to get DataMaster : {}", id);
+        DataMaster dataMaster = dataMasterRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(dataMaster));
+    }
+
+    /**
+     * DELETE  /data-masters/:id : delete the "id" dataMaster.
+     *
+     * @param id the id of the dataMaster to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/data-masters/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteDataMaster(@PathVariable Long id) {
+        log.debug("REST request to delete DataMaster : {}", id);
+        dataMasterRepository.delete(id);
+        dataMasterSearchRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+
+    /**
+     * SEARCH  /_search/data-masters?query=:query : search for the dataMaster corresponding
+     * to the query.
+     *
+     * @param query the query of the dataMaster search 
+     * @param pageable the pagination information
+     * @return the result of the search
+     */
+    @GetMapping("/_search/data-masters")
+    @Timed
+    public ResponseEntity<List<DataMaster>> searchDataMasters(@RequestParam Long tenantId, @RequestParam(value="filterValue",required=false) String filterValue, @ApiParam Pageable pageable) {
+    	log.info("Rest api for fetching data master data from elasticsearch repository for the tenant_id: "+tenantId);
+    	String query = "";
+    	query = query + " tenantId: \""+tenantId+"\" ";		// Filtering with tenant id	
+	   	if(filterValue != null)
+	   	{
+	   		query = query + " AND \""+filterValue+"\"";
+	   	}
+        Page<DataMaster> page = dataMasterSearchRepository.search(queryStringQuery(query), pageable);
+        HttpHeaders headers = PaginationUtil.generateSearchPaginationHttpHeaders(query, page, "/api/_search/data-masters");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+    
+    
+    
+    /**
+     * author:ravali
+     * @param tenantId
+     * @param userId
+     * Desc: moving data from staging table to master table
+     */
+    
+    @GetMapping("/movingDataFromStagingToMaster")
+    @Timed
+    public void moveData(@RequestParam Long tenantId,@RequestParam Long userId)
+    {
+    	log.info("Rest request to move data fron staging table to master data of tenantId:"+tenantId);
+    	List<DataStaging> dataStatingList=dataStagingRepository.findByTenantId(tenantId);
+    	List<DataMaster> dataMasterlist=new ArrayList<DataMaster>();
+    	for(DataStaging dataStating:dataStatingList)
+    	{
+    		DataMaster master=new DataMaster();
+    		master.setTenantId(tenantId);
+    		if(dataStating.getProfileId()!=null)
+    		master.setProfileId(dataStating.getProfileId());
+    		if(dataStating.getTemplateId()!=null)
+    		master.setTemplateId(dataStating.getTemplateId());
+    		if(dataStating.getFileName()!=null && !dataStating.getFileName().isEmpty())
+    		master.setFileName(dataStating.getFileName());
+    		if(dataStating.getFileDate()!=null)
+    		master.setFileDate(dataStating.getFileDate());
+    		if(dataStating.getLineContent()!=null &&dataStating.getLineContent().isEmpty())
+    		master.lineContent(dataStating.getLineContent());
+    		//master.setReconFlag();
+    		//master.setReconciledDate();
+    		//master.setAccountedFlag();
+    		master.setCreatedBy(userId);
+    		master.setCreatedDate(ZonedDateTime.now());
+    		master.setLastUpdatedBy(userId);
+    		master.setLastUpdatedDate(ZonedDateTime.now());
+    		if(dataStating.getField01()!=null && !dataStating.getField01().isEmpty())
+    		master.setField01(dataStating.getField01()); 
+    		if(dataStating.getField02()!=null && !dataStating.getField02().isEmpty())
+    		master.setField02(dataStating.getField02()); 
+    		if(dataStating.getField03()!=null && !dataStating.getField03().isEmpty())
+    		master.setField03(dataStating.getField03()); 
+    		if(dataStating.getField04()!=null && !dataStating.getField04().isEmpty())
+    		master.setField04(dataStating.getField04()); 
+    		if(dataStating.getField05()!=null && !dataStating.getField05().isEmpty())
+    		master.setField05(dataStating.getField05()); 
+    		if(dataStating.getField06()!=null && !dataStating.getField06().isEmpty())
+    		master.setField06(dataStating.getField06()); 
+    		if(dataStating.getField07()!=null && !dataStating.getField07().isEmpty())
+    		master.setField07(dataStating.getField07()); 
+    		if(dataStating.getField08()!=null && !dataStating.getField08().isEmpty())
+    		master.setField08(dataStating.getField08()); 
+    		if(dataStating.getField09()!=null && !dataStating.getField09().isEmpty())
+    		master.setField09(dataStating.getField09()); 
+    		if(dataStating.getField10()!=null && !dataStating.getField10().isEmpty())
+    		master.setField10(dataStating.getField10()); 
+    		if(dataStating.getField11()!=null && !dataStating.getField11().isEmpty())
+    		master.setField11(dataStating.getField11()); 
+    		if(dataStating.getField12()!=null && !dataStating.getField12().isEmpty())
+    		master.setField12(dataStating.getField12()); 
+    		if(dataStating.getField13()!=null && !dataStating.getField13().isEmpty())
+    		master.setField13(dataStating.getField13()); 
+    		if(dataStating.getField14()!=null && !dataStating.getField14().isEmpty())
+    		master.setField14(dataStating.getField14()); 
+    		if(dataStating.getField15()!=null && !dataStating.getField15().isEmpty())
+    		master.setField15(dataStating.getField15()); 
+    		if(dataStating.getField16()!=null && !dataStating.getField16().isEmpty())
+    		master.setField16(dataStating.getField16()); 
+    		if(dataStating.getField17()!=null && !dataStating.getField17().isEmpty())
+    		master.setField17(dataStating.getField17()); 
+    		if(dataStating.getField18()!=null && !dataStating.getField18().isEmpty())
+    		master.setField18(dataStating.getField18()); 
+    		if(dataStating.getField19()!=null && !dataStating.getField19().isEmpty())
+    		master.setField19(dataStating.getField19()); 
+    		if(dataStating.getField20()!=null && !dataStating.getField20().isEmpty())
+    		master.setField20(dataStating.getField20());
+    		if(dataStating.getField21()!=null && !dataStating.getField21().isEmpty())
+    		master.setField21(dataStating.getField21()); 
+    		if(dataStating.getField22()!=null && !dataStating.getField22().isEmpty())
+    		master.setField22(dataStating.getField22()); 
+    		if(dataStating.getField23()!=null && !dataStating.getField23().isEmpty())
+    		master.setField23(dataStating.getField23()); 
+    		if(dataStating.getField24()!=null && !dataStating.getField24().isEmpty())
+    		master.setField24(dataStating.getField24()); 
+    		if(dataStating.getField25()!=null && !dataStating.getField25().isEmpty())
+    		master.setField25(dataStating.getField25()); 
+    		if(dataStating.getField26()!=null && !dataStating.getField26().isEmpty())
+    		master.setField26(dataStating.getField26()); 
+    		if(dataStating.getField27()!=null && !dataStating.getField27().isEmpty())
+    		master.setField27(dataStating.getField27()); 
+    		if(dataStating.getField28()!=null && !dataStating.getField28().isEmpty())
+    		master.setField28(dataStating.getField28()); 
+    		if(dataStating.getField29()!=null && !dataStating.getField29().isEmpty())
+    		master.setField29(dataStating.getField29()); 
+    		if(dataStating.getField30()!=null && !dataStating.getField30().isEmpty())
+    		master.setField30(dataStating.getField30()); 
+    		if(dataStating.getField31()!=null && !dataStating.getField31().isEmpty())
+    		master.setField31(dataStating.getField31()); 
+    		if(dataStating.getField32()!=null && !dataStating.getField32().isEmpty())
+    		master.setField32(dataStating.getField32()); 
+    		if(dataStating.getField33()!=null && !dataStating.getField33().isEmpty())
+    		master.setField33(dataStating.getField33()); 
+    		if(dataStating.getField34()!=null && !dataStating.getField34().isEmpty())
+    		master.setField34(dataStating.getField34()); 
+    		if(dataStating.getField35()!=null && !dataStating.getField35().isEmpty())
+    		master.setField35(dataStating.getField35()); 
+    		if(dataStating.getField36()!=null && !dataStating.getField36().isEmpty())
+    		master.setField36(dataStating.getField36()); 
+    		if(dataStating.getField37()!=null && !dataStating.getField37().isEmpty())
+    		master.setField37(dataStating.getField37());
+    		if(dataStating.getField38()!=null && !dataStating.getField38().isEmpty())
+    		master.setField38(dataStating.getField38()); 
+    		if(dataStating.getField39()!=null && !dataStating.getField39().isEmpty())
+    		master.setField39(dataStating.getField39()); 
+    		if(dataStating.getField40()!=null && !dataStating.getField40().isEmpty())
+    		master.setField40(dataStating.getField40()); 
+    		if(dataStating.getField41()!=null && !dataStating.getField41().isEmpty())
+    		master.setField41(dataStating.getField41()); 
+    		if(dataStating.getField42()!=null && !dataStating.getField42().isEmpty())
+    		master.setField42(dataStating.getField42());
+    		if(dataStating.getField43()!=null && !dataStating.getField43().isEmpty())
+    		master.setField43(dataStating.getField43()); 
+    		if(dataStating.getField44()!=null && !dataStating.getField44().isEmpty())
+    		master.setField44(dataStating.getField44()); 
+    		if(dataStating.getField45()!=null && !dataStating.getField45().isEmpty())
+    		master.setField45(dataStating.getField45()); 
+    		if(dataStating.getField46()!=null && !dataStating.getField46().isEmpty())
+    		master.setField46(dataStating.getField46()); 
+    		if(dataStating.getField47()!=null && !dataStating.getField47().isEmpty())
+    		master.setField47(dataStating.getField47()); 
+    		if(dataStating.getField48()!=null && !dataStating.getField48().isEmpty())
+    		master.setField48(dataStating.getField48()); 
+    		if(dataStating.getField49()!=null && !dataStating.getField49().isEmpty())
+    		master.setField49(dataStating.getField49()); 
+    		if(dataStating.getField50()!=null && !dataStating.getField50().isEmpty())
+    		master.setField50(dataStating.getField50()); 
+    		if(dataStating.getField51()!=null && !dataStating.getField51().isEmpty())
+    		master.setField51(dataStating.getField51()); 
+    		if(dataStating.getField52()!=null && !dataStating.getField52().isEmpty())
+    		master.setField52(dataStating.getField52());
+    		if(dataStating.getField53()!=null && !dataStating.getField53().isEmpty())
+    		master.setField53(dataStating.getField53());
+    		if(dataStating.getField54()!=null && !dataStating.getField54().isEmpty())
+    		master.setField54(dataStating.getField54()); 
+    		if(dataStating.getField55()!=null && !dataStating.getField55().isEmpty())
+    		master.setField55(dataStating.getField55()); 
+    		if(dataStating.getField56()!=null && !dataStating.getField56().isEmpty())
+    		master.setField56(dataStating.getField56()); 
+    		if(dataStating.getField57()!=null && !dataStating.getField57().isEmpty())
+    		master.setField57(dataStating.getField57()); 
+    		if(dataStating.getField58()!=null && !dataStating.getField58().isEmpty())
+    		master.setField58(dataStating.getField58());
+    		if(dataStating.getField59()!=null && !dataStating.getField59().isEmpty())
+    		master.setField59(dataStating.getField59()); 
+    		if(dataStating.getField60()!=null && !dataStating.getField60().isEmpty())
+    		master.setField60(dataStating.getField60()); 
+    		if(dataStating.getField61()!=null && !dataStating.getField61().isEmpty())
+    		master.setField61(dataStating.getField61()); 
+    		if(dataStating.getField62()!=null && !dataStating.getField62().isEmpty())
+    		master.setField62(dataStating.getField62()); 
+    		if(dataStating.getField63()!=null && !dataStating.getField63().isEmpty())
+    		master.setField63(dataStating.getField63()); 
+    		if(dataStating.getField64()!=null && !dataStating.getField64().isEmpty())
+    		master.setField64(dataStating.getField64()); 
+    		if(dataStating.getField65()!=null && !dataStating.getField65().isEmpty())
+    		master.setField65(dataStating.getField65()); 
+    		if(dataStating.getField66()!=null && !dataStating.getField66().isEmpty())
+    		master.setField66(dataStating.getField66()); 
+    		if(dataStating.getField67()!=null && !dataStating.getField67().isEmpty())
+    		master.setField67(dataStating.getField67());
+    		if(dataStating.getField68()!=null && !dataStating.getField68().isEmpty())
+    		master.setField68(dataStating.getField68()); 
+    		if(dataStating.getField69()!=null && !dataStating.getField69().isEmpty())
+    		master.setField69(dataStating.getField69()); 
+    		if(dataStating.getField70()!=null && !dataStating.getField70().isEmpty())
+    		master.setField70(dataStating.getField70()); 
+    		if(dataStating.getField71()!=null && !dataStating.getField71().isEmpty())
+    		master.setField71(dataStating.getField71()); 
+    		if(dataStating.getField72()!=null && !dataStating.getField72().isEmpty())
+    		master.setField72(dataStating.getField72());
+    		if(dataStating.getField73()!=null && !dataStating.getField73().isEmpty())
+    		master.setField73(dataStating.getField73());
+    		if(dataStating.getField74()!=null && !dataStating.getField74().isEmpty())
+    		master.setField74(dataStating.getField74()); 
+    		if(dataStating.getField75()!=null && !dataStating.getField75().isEmpty())
+    		master.setField75(dataStating.getField75()); 
+    		if(dataStating.getField76()!=null && !dataStating.getField76().isEmpty())
+    		master.setField76(dataStating.getField76()); 
+    		if(dataStating.getField77()!=null && !dataStating.getField77().isEmpty())
+    		master.setField77(dataStating.getField77());
+    		if(dataStating.getField78()!=null && !dataStating.getField78().isEmpty())
+    		master.setField78(dataStating.getField78()); 
+    		if(dataStating.getField79()!=null && !dataStating.getField79().isEmpty())
+    		master.setField79(dataStating.getField79()); 
+    		if(dataStating.getField80()!=null && !dataStating.getField80().isEmpty())
+    		master.setField80(dataStating.getField80()); 
+    		if(dataStating.getField81()!=null && !dataStating.getField81().isEmpty())
+    		master.setField81(dataStating.getField81()); 
+    		if(dataStating.getField82()!=null && !dataStating.getField82().isEmpty())
+    		master.setField82(dataStating.getField82()); 
+    		if(dataStating.getField83()!=null && !dataStating.getField83().isEmpty())
+    		master.setField83(dataStating.getField83()); 
+    		if(dataStating.getField84()!=null && !dataStating.getField84().isEmpty())
+    		master.setField84(dataStating.getField84()); 
+    		if(dataStating.getField85()!=null && !dataStating.getField85().isEmpty())
+    		master.setField85(dataStating.getField85()); 
+    		if(dataStating.getField86()!=null && !dataStating.getField84().isEmpty())
+    		master.setField86(dataStating.getField86()); 
+    		if(dataStating.getField87()!=null && !dataStating.getField87().isEmpty())
+    		master.setField87(dataStating.getField87()); 
+    		if(dataStating.getField88()!=null && !dataStating.getField88().isEmpty())
+    		master.setField88(dataStating.getField88()); 
+    		if(dataStating.getField89()!=null && !dataStating.getField89().isEmpty())
+    		master.setField89(dataStating.getField89()); 
+    		if(dataStating.getField90()!=null && !dataStating.getField90().isEmpty())
+    		master.setField90(dataStating.getField90()); 
+    		if(dataStating.getField91()!=null && !dataStating.getField91().isEmpty())
+    		master.setField91(dataStating.getField91()); 
+    		if(dataStating.getField92()!=null && !dataStating.getField92().isEmpty())
+    		master.setField92(dataStating.getField92()); 
+    		if(dataStating.getField93()!=null && !dataStating.getField93().isEmpty())
+    		master.setField93(dataStating.getField93()); 
+    		if(dataStating.getField94()!=null && !dataStating.getField94().isEmpty())
+    		master.setField94(dataStating.getField94()); 
+    		if(dataStating.getField95()!=null && !dataStating.getField95().isEmpty())
+    		master.setField95(dataStating.getField95()); 
+    		if(dataStating.getField96()!=null && !dataStating.getField96().isEmpty())
+    		master.setField96(dataStating.getField96());
+    		if(dataStating.getField97()!=null && !dataStating.getField97().isEmpty())
+    		master.setField97(dataStating.getField97()); 
+    		if(dataStating.getField98()!=null && !dataStating.getField98().isEmpty())
+    		master.setField98(dataStating.getField98()); 
+    		if(dataStating.getField99()!=null && !dataStating.getField99().isEmpty())
+    		master.setField99(dataStating.getField99()); 
+    		if(dataStating.getField100()!=null && !dataStating.getField100().isEmpty())
+    		master.setField100(dataStating.getField100());
+    		if(master!=null)
+    			dataMasterlist.add(master);
+    		//dataMasterRepository.save(master);
+    	}
+    	List<DataMaster> dtMaster=dataMasterRepository.save(dataMasterlist);
+    	//dataMasterSearchRepository.save(dtMaster);
+    	if(dataStatingList.size()==dtMaster.size())
+    	{
+    		dataStagingRepository.delete(dataStatingList);
+    		//dataStagingSearchRepository.delete(dataStatingList);
+    	}
+    }
+    
+ /*   @GetMapping("/linesBySrcFileInb")
+    @Timed
+    public ErrorReport fetchLinesBySrcFileInb(@RequestParam Long sourceProfileId, @RequestParam Long templateId, @RequestParam Long srcFileHistInbId) {
+    log.debug("Rest request to fetch lines by srcInb with:"+srcFileHistInbId);	
+    ErrorReport errorReportForSrcInbExistence = new ErrorReport();
+    errorReportForSrcInbExistence.setTaskName("Source File Inb Id as input");
+    if(srcFileHistInbId != null)
+    {
+    	 ErrorReport errorReportForLines = new ErrorReport();
+    	    errorReportForLines.setTaskName("Lines By SrcInb Id");
+    	List<DataMaster> dataMasterLines = new ArrayList<DataMaster>();
+    	dataMasterLines = dataMasterRepository.findBySrcFileInbId(srcFileHistInbId);
+    	List<ErrorReport> subTasks = new ArrayList<ErrorReport>();
+    	if(dataMasterLines.size() > 0)
+    	{
+    		log.info("dataMasterLines >0");
+    		errorReportForSrcInbExistence.setTaskStatus("success");
+    		
+    		errorReportForLines.setTaskStatus("Success");
+    		Gson gson = new Gson();
+    		String json = gson.toJson(dataMasterLines);
+    		errorReportForLines.setResp(json);
+    		subTasks.add(errorReportForLines);
+    		
+    	}
+    	else
+    	{
+    		//check in staging
+    		log.info("dataMasterLines <=0");
+    		List<DataStaging> dataStagingLines = new ArrayList<DataStaging>();
+    		dataStagingLines = dataStagingRepository.findBySrcFileInbId(srcFileHistInbId);
+    		if(dataStagingLines.size() > 0)
+    		{
+    			log.info("dataStagingLines >0");
+    			errorReportForLines.setTaskStatus("Success");
+    			Gson gson = new Gson();
+        		String json = gson.toJson(dataStagingLines);
+    			errorReportForLines.setResp(json);
+    		}
+    		else
+    		{
+    			log.info("dataStagingLines <=0");
+    			errorReportForLines.setTaskStatus("Failed");
+        		errorReportForLines.setDetails("Lines doesnot exist");
+    		}
+    		subTasks.add(errorReportForLines);
+    		
+    	}
+    	errorReportForSrcInbExistence.setSubTasksList(subTasks);
+    }
+    else
+    {
+    	errorReportForSrcInbExistence.setTaskStatus("Failed");
+    	errorReportForSrcInbExistence.setDetails("Src Inb Id is null");
+    }
+    return errorReportForSrcInbExistence;
+    }
+    */
+   /**
+    * Author : Shobha
+    * @param offset
+    * @param limit
+    * @param response
+    * @param sourceProfileId
+    * @param templateId
+    * @param srcFileHistInbId
+    * @return
+    * @throws URISyntaxException
+    */
+    @GetMapping("/dataMasterLinesBySrcFileInb")
+    @Timed
+    public ResponseEntity<List<DataMaster>>  fetchLinesBySrcFileInb(
+    		@RequestParam(value = "page" , required = false) Integer offset,@RequestParam(value = "per_page", required = false) Integer limit,HttpServletResponse response,
+    		@RequestParam Long sourceProfileId,@RequestParam ( required=false)Long intermediateId, @RequestParam Long srcFileHistInbId, @RequestParam(required = false) String sortColName, @RequestParam(required = false) String sortOrder) throws URISyntaxException {
+    	log.debug("Rest request to fetch lines by srcInb with:"+srcFileHistInbId+"intermediateId"+intermediateId);	
+    	List<DataMaster> dataMasterLines = new ArrayList<DataMaster>();
+    	PaginationUtil paginationUtil=new PaginationUtil();
+    	int maxlmt=paginationUtil.MAX_LIMIT;
+		int minlmt=paginationUtil.MIN_OFFSET;
+		Page<DataMaster> page = null;
+		HttpHeaders headers = null;
+		
+		if(sortOrder==null)
+			sortOrder="Descending";
+		if(sortColName==null)
+			sortColName="id";
+		
+    	if(limit==null || limit<minlmt){
+    		if(intermediateId == null)
+    		{
+    			dataMasterLines = dataMasterRepository.findBySrcFileInbId(srcFileHistInbId);
+    		}
+    		else
+    		{
+    			dataMasterLines = dataMasterRepository.findBySrcFileInbIdAndIntermediateId(srcFileHistInbId,intermediateId);
+    		}	
+    		
+			limit = dataMasterLines.size();
+		}
+		if(limit == 0 )
+    	{
+    		limit = paginationUtil.DEFAULT_LIMIT;
+    	}
+    	if(offset == null || offset == 0)
+    	{
+    		offset = paginationUtil.DEFAULT_OFFSET;
+    	}
+    	if(limit>maxlmt)
+		{
+			log.info("input limit exceeds maxlimit");
+			if(intermediateId == null)
+			{
+				page =  dataMasterRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit, sortOrder, sortColName));
+//				 page =  dataMasterRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequest2(offset, limit));
+			}
+			else
+			{
+				page =  dataMasterRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit, sortOrder, sortColName));
+//				 page =  dataMasterRepository.findBySrcFileInbIdAndIntermediateId(intermediateId,srcFileHistInbId,PaginationUtil.generatePageRequest2(offset, limit));
+			}
+			headers = PaginationUtil.generatePaginationHttpHeaders2(page, "/api/dataMasterLinesBySrcFileInb",offset, limit);
+		}
+		else{
+			log.info("input limit is within maxlimit");
+			if(intermediateId == null)
+			{
+				page = dataMasterRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit, sortOrder, sortColName));
+//				page = dataMasterRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequest(offset, limit));	
+			}
+			else
+			{
+				page = dataMasterRepository.findBySrcFileInbId(srcFileHistInbId,PaginationUtil.generatePageRequestWithSortColumn(offset, limit, sortOrder, sortColName));
+//				page = dataMasterRepository.findBySrcFileInbIdAndIntermediateId(srcFileHistInbId,intermediateId,PaginationUtil.generatePageRequest(offset, limit));
+			}
+			
+			headers = PaginationUtil.generatePaginationHttpHeaderss(page, "/api/dataMasterLinesBySrcFileInb", offset, limit);
+		}
+    	int count = 0;
+		count = dataMasterRepository.findBySrcFileInbId(srcFileHistInbId).size();
+		response.addIntHeader("X-COUNT",count);
+    	return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+    /**
+     * Author : Shobha
+     * @param dataMasters
+     * @return
+     * @throws URISyntaxException
+     */
+    @PutMapping("/updateDataMasterRecords")
+    @Timed
+    public ErrorReport updateDataMasterrecords(@RequestBody List<DataMaster> dataMasters) throws URISyntaxException {
+    	ErrorReport errorReportToUpdateRecords = new ErrorReport();
+    	dataMasterRepository.save(dataMasters);
+    	errorReportToUpdateRecords.setTaskName("Update DataMaster Lines");
+    	errorReportToUpdateRecords.setTaskStatus("success");
+    	return errorReportToUpdateRecords;
+    }
+    
+    
+    /**
+     * Author Kiran
+     * @param srcFileInbId
+     * @param searchWord
+     * @return
+     */
+    @GetMapping("/textSearchDataMasterLinesBySrcFileInb")
+	@Timed
+	public List<DataMaster>  textSearchDataMasterLinesBySrcFileInb(@RequestParam Long srcFileInbId, @RequestParam String searchWord)
+	{
+		log.info("Api to search in dataMaster, srcFileInbId: "+srcFileInbId+" and searchKeyword: "+searchWord);
+		String dataMasterQuery=dataStagingResource.getColumnNamesAsString(searchWord,"t_data_master");
+		
+		dataMasterQuery="Select * from t_data_master where src_file_inb_id ="+srcFileInbId+" "+dataMasterQuery;
+		log.info("dataMasterQuery: "+dataMasterQuery);
+		Connection dbconn = dataStagingResource.getDbConnection();
+		List<DataMaster> searchResults=getDataMasterRecords(dbconn, dataMasterQuery);
+		//log.info("searchResults:- "+searchResults);
+		return searchResults;
+
+	}
+    
+    
+    public List<DataMaster> getDataMasterRecords(Connection conn,String query)
+	{
+		List<DataMaster> dataMasterRecords = new ArrayList<DataMaster>();
+		Statement stmt = null;
+		ResultSet result = null;
+
+		try{
+			stmt = conn.createStatement();
+			result=stmt.executeQuery(query);
+			ResultSet rs=stmt.getResultSet();
+
+			while(rs.next())
+			{
+				DataMaster dMRecords = new DataMaster();
+				//dMRecords.setId(rs.getLong("id"));
+				//dMRecords.setTenantId(rs.getLong("tenant_id"));
+				//dMRecords.setProfileId(rs.getLong("profile_id"));
+				//dMRecords.setTemplateId(rs.getLong("template_id"));
+				dMRecords.setFileName(rs.getString("file_name"));
+//				dMRecords.setLineContent(rs.getString("line_content"));
+				dMRecords.setField01(rs.getString("field_01"));
+				dMRecords.setField02(rs.getString("field_02"));
+				dMRecords.setField03(rs.getString("field_03"));
+				dMRecords.setField04(rs.getString("field_04"));
+				dMRecords.setField05(rs.getString("field_05"));
+				dMRecords.setField06(rs.getString("field_06"));
+				dMRecords.setField07(rs.getString("field_07"));
+				dMRecords.setField08(rs.getString("field_08"));
+				dMRecords.setField09(rs.getString("field_09"));
+				dMRecords.setField10(rs.getString("field_10"));
+				dMRecords.setField11(rs.getString("field_11"));
+				dMRecords.setField12(rs.getString("field_12"));
+				dMRecords.setField13(rs.getString("field_13"));
+				dMRecords.setField14(rs.getString("field_14"));
+				dMRecords.setField15(rs.getString("field_15"));
+				dMRecords.setField16(rs.getString("field_16"));
+				dMRecords.setField17(rs.getString("field_17"));
+				dMRecords.setField18(rs.getString("field_18"));
+				dMRecords.setField19(rs.getString("field_19"));
+				dMRecords.setField20(rs.getString("field_20"));
+				dMRecords.setField21(rs.getString("field_21"));
+				dMRecords.setField22(rs.getString("field_22"));
+				dMRecords.setField23(rs.getString("field_23"));
+				dMRecords.setField24(rs.getString("field_24"));
+				dMRecords.setField25(rs.getString("field_25"));
+				dMRecords.setField26(rs.getString("field_26"));
+				dMRecords.setField27(rs.getString("field_27"));
+				dMRecords.setField28(rs.getString("field_28"));
+				dMRecords.setField29(rs.getString("field_29"));
+				dMRecords.setField30(rs.getString("field_30"));
+				dMRecords.setField31(rs.getString("field_31"));
+				dMRecords.setField32(rs.getString("field_32"));
+				dMRecords.setField33(rs.getString("field_33"));
+				dMRecords.setField34(rs.getString("field_34"));
+				dMRecords.setField35(rs.getString("field_35"));
+				dMRecords.setField36(rs.getString("field_36"));
+				dMRecords.setField37(rs.getString("field_37"));
+				dMRecords.setField38(rs.getString("field_38"));
+				dMRecords.setField39(rs.getString("field_39"));
+				dMRecords.setField40(rs.getString("field_40"));
+				dMRecords.setField41(rs.getString("field_41"));
+				dMRecords.setField42(rs.getString("field_42"));
+				dMRecords.setField43(rs.getString("field_43"));
+				dMRecords.setField44(rs.getString("field_44"));
+				dMRecords.setField45(rs.getString("field_45"));
+				dMRecords.setField46(rs.getString("field_46"));
+				dMRecords.setField47(rs.getString("field_47"));
+				dMRecords.setField48(rs.getString("field_48"));
+				dMRecords.setField49(rs.getString("field_49"));
+				dMRecords.setField50(rs.getString("field_50"));
+				dMRecords.setField51(rs.getString("field_51"));
+				dMRecords.setField52(rs.getString("field_52"));
+				dMRecords.setField53(rs.getString("field_53"));
+				dMRecords.setField54(rs.getString("field_54"));
+				dMRecords.setField55(rs.getString("field_55"));
+				dMRecords.setField56(rs.getString("field_56"));
+				dMRecords.setField57(rs.getString("field_57"));
+				dMRecords.setField58(rs.getString("field_58"));
+				dMRecords.setField59(rs.getString("field_59"));
+				dMRecords.setField60(rs.getString("field_60"));
+				dMRecords.setField61(rs.getString("field_61"));
+				dMRecords.setField62(rs.getString("field_62"));
+				dMRecords.setField63(rs.getString("field_63"));
+				dMRecords.setField64(rs.getString("field_64"));
+				dMRecords.setField65(rs.getString("field_65"));
+				dMRecords.setField66(rs.getString("field_66"));
+				dMRecords.setField67(rs.getString("field_67"));
+				dMRecords.setField68(rs.getString("field_68"));
+				dMRecords.setField69(rs.getString("field_69"));
+				dMRecords.setField70(rs.getString("field_70"));
+				dMRecords.setField71(rs.getString("field_71"));
+				dMRecords.setField72(rs.getString("field_72"));
+				dMRecords.setField73(rs.getString("field_73"));
+				dMRecords.setField74(rs.getString("field_74"));
+				dMRecords.setField75(rs.getString("field_75"));
+				dMRecords.setField76(rs.getString("field_76"));
+				dMRecords.setField77(rs.getString("field_77"));
+				dMRecords.setField78(rs.getString("field_78"));
+				dMRecords.setField79(rs.getString("field_79"));
+				dMRecords.setField80(rs.getString("field_80"));
+				dMRecords.setField81(rs.getString("field_81"));
+				dMRecords.setField82(rs.getString("field_82"));
+				dMRecords.setField83(rs.getString("field_83"));
+				dMRecords.setField84(rs.getString("field_84"));
+				dMRecords.setField85(rs.getString("field_85"));
+				dMRecords.setField86(rs.getString("field_86"));
+				dMRecords.setField87(rs.getString("field_87"));
+				dMRecords.setField88(rs.getString("field_88"));
+				dMRecords.setField89(rs.getString("field_89"));
+				dMRecords.setField90(rs.getString("field_90"));
+				dMRecords.setField91(rs.getString("field_91"));
+				dMRecords.setField92(rs.getString("field_92"));
+				dMRecords.setField93(rs.getString("field_93"));
+				dMRecords.setField94(rs.getString("field_94"));
+				dMRecords.setField95(rs.getString("field_95"));
+				dMRecords.setField96(rs.getString("field_96"));
+				dMRecords.setField97(rs.getString("field_97"));
+				dMRecords.setField98(rs.getString("field_98"));
+				dMRecords.setField99(rs.getString("field_99"));
+				dMRecords.setField100(rs.getString("field_100"));
+
+				dataMasterRecords.add(dMRecords);
+			}
+		}
+		catch(SQLException se)
+		{
+			log.info("Connection Failed while gettig data Master Records details "+se);
+		}
+
+		log.info("data Master Records size: "+dataMasterRecords.size());
+		return dataMasterRecords;
+	}
+
+}

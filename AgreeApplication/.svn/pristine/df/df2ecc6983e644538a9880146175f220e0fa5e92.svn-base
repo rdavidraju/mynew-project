@@ -1,0 +1,51 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.ReconciliationResult;
+
+/**
+ * Spring Data JPA repository for the ReconciliationResult entity.
+ */
+@SuppressWarnings("unused")
+public interface ReconciliationResultRepository extends JpaRepository<ReconciliationResult,Long> {
+	
+	//shiva source
+	@Query(value =  "SELECT original_row_id FROM t_reconciliation_result where tenant_id =:tenantId and (reconciliation_rule_id in (:ruleIds) or reconciliation_rule_id is null) and original_view_id = :originalViewId and target_view_id is null and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsByTenantIdAndRuleIdsAndSourceViewId(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("originalViewId") Long originalViewId, @Param("groupId") Long groupId);
+
+	//shiva target
+	@Query(value =  "SELECT target_row_id FROM t_reconciliation_result where tenant_id =:tenantId and (reconciliation_rule_id in (:ruleIds) or reconciliation_rule_id is null) and target_view_id =:targetViewId and original_view_id is null and reconciliation_rule_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchOriginalRowIdsByTenantIdAndRuleIdsAndTargetViewId(@Param("tenantId") Long tenantId, @Param("ruleIds") List<Long> ruleIds, @Param("targetViewId") Long targetViewId, @Param("groupId") Long groupId);
+
+	//shiva get max recon reference id
+	//SELECT max(CAST(recon_reference as unsigned integer)) from t_reconciliation_result where tenant_id =4;
+	@Query(value =  "SELECT max(CAST(recon_reference as unsigned integer)) from t_reconciliation_result where tenant_id =:tenantId",nativeQuery=true)
+	Long fetchMaxReconReference(@Param("tenantId") Long tenantId);
+	
+	//shiva
+	@Query(value =  "SELECT id from t_reconciliation_result where tenant_id =:tenantId and recon_reference in(:reconReferenceIds)",nativeQuery=true)
+	List<BigInteger> fetchIdsByReconReferenceIds(@Param("reconReferenceIds") List<String> reconReferenceIds,@Param("tenantId") Long tenantId);
+	
+	ReconciliationResult findByOriginalRowIdAndTenantIdAndOriginalViewIdAndReconciliationRuleGroupId(Long originalRowId, Long tenantId, Long originalViewId, Long groupId);
+	
+	ReconciliationResult findByTargetRowIdAndTenantIdAndTargetViewIdAndReconciliationRuleGroupId(Long targetRowId, Long tenantId, Long targetViewId, Long groupId);
+	
+	//source
+	ReconciliationResult findByOriginalRowIdAndOriginalViewIdAndTenantId(Long orginalRowId,Long orginalViewId,Long tenantId);
+
+	//target
+	ReconciliationResult findByTargetRowIdAndTargetViewIdAndTenantId(Long targetRowId,Long targetViewId,Long tenantId);
+	
+	@Query(value =  "SELECT distinct(target_row_id) from t_reconciliation_result where tenant_id =:tenantId and recon_reference in(:reconReferenceIds) and target_view_id = (:targetViewId)",nativeQuery=true)
+	List<Long> fetchByTargetReconRefIdsAndTenantId(@Param("reconReferenceIds") List<String> reconReferenceIds,@Param("tenantId") Long tenantId, @Param("targetViewId") Long targetViewId);
+	
+	@Query(value =  "SELECT distinct(original_row_id) from t_reconciliation_result where tenant_id =:tenantId and recon_reference in(:reconReferenceIds) and original_view_id = (:originalViewId)",nativeQuery=true)
+	List<Long> fetchByReconSourceRefIdsAndTenantId(@Param("reconReferenceIds") List<String> reconReferenceIds,@Param("tenantId") Long tenantId, @Param("originalViewId") Long originalViewId);
+
+}

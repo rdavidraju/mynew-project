@@ -1,0 +1,473 @@
+package com.nspl.app.service;
+
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.http.ResponseEntity;
+import org.springframework.stereotype.Service;
+
+import com.nspl.app.domain.FileTemplates;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.domain.RuleGroupDetails;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.repository.DataStagingRepository;
+import com.nspl.app.repository.DataViewsSrcMappingsRepository;
+import com.nspl.app.repository.RuleGroupDetailsRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.repository.search.RuleGroupSearchRepository;
+import com.nspl.app.security.IDORUtils;
+import com.nspl.app.web.rest.dto.ErrorReport;
+import com.nspl.app.web.rest.dto.RuleGroupDTO;
+import com.nspl.app.web.rest.dto.RulesDTO;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.math.BigInteger;
+import java.net.URI;
+import java.security.PrivilegedAction;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IOUtils;
+import org.apache.hadoop.security.UserGroupInformation;
+
+import scala.util.control.Exception;
+
+
+@Service
+public class RuleGroupService {
+	private final Logger log = LoggerFactory.getLogger(FileService.class);
+	
+	
+	@Inject
+	RuleGroupRepository ruleGroupRepository;
+	
+	@Inject 
+	RuleGroupDetailsRepository ruleGroupDetailsRepository;
+	
+	@Inject
+	RuleService ruleService;
+	
+	 @Inject
+	OozieService oozieService;
+	 
+	 @Inject
+	 private Environment env;
+	 
+	 @Inject
+	 RulesRepository rulesRepository;
+	 
+	 @Inject
+	 DataStagingRepository dataStagingRepository;
+	 
+	 @Inject
+	 DataViewsSrcMappingsRepository dataViewsSrcMappingsRepository;
+	 
+	 @Inject
+	 RuleGroupSearchRepository ruleGroupSearchRepository;
+	
+	public List<ErrorReport> postRulegroup(RuleGroupDTO ruleGroupDTO) throws ClassNotFoundException, SQLException, IOException
+	{
+		Long tenantId = ruleGroupDTO.getTenantId();
+    	Long userId = 0L;
+    	List<ErrorReport> errorReport=new ArrayList<ErrorReport>();
+		RuleGroup ruleGroup=new RuleGroup();
+    	if(ruleGroupDTO.getId() != null)
+    	{
+    		log.info("group already exists so edit");
+    		
+    		if(ruleGroupDTO.getId() !=null)
+			{
+    			log.info("ruleGroupDTO.getId()"+ruleGroupDTO.getId());
+				RuleGroup rg = ruleGroupRepository.findByIdForDisplayAndTenantId(ruleGroupDTO.getId(), tenantId);
+				if(rg != null && rg.getId() != null)
+				{
+					log.info("rg is not null and display value is"+rg.getIdForDisplay());
+					ruleGroup.setId(rg.getId());
+					ruleGroup.setIdForDisplay(ruleGroupDTO.getId());
+				}
+				else
+				{
+					log.info("rg is null ooops");
+				}
+				
+			}
+    	}
+    	else
+    	{
+
+    	}
+    	if(ruleGroupDTO.getName()!=null && !ruleGroupDTO.getName().isEmpty())
+    		ruleGroup.setName(ruleGroupDTO.getName());
+    	if(ruleGroupDTO.getRulePurpose() != null && !ruleGroupDTO.getRulePurpose().isEmpty())
+    		ruleGroup.setRulePurpose(ruleGroupDTO.getRulePurpose());
+    	if(ruleGroupDTO.getStartDate()!=null)
+    		ruleGroup.setStartDate(ruleGroupDTO.getStartDate());
+    	if(ruleGroupDTO.getEndDate()!=null)
+    		ruleGroup.setEndDate(ruleGroupDTO.getEndDate());
+    	ruleGroup.setEnabledFlag(ruleGroupDTO.getEnableFlag());
+    	if(ruleGroupDTO != null && ruleGroupDTO.getTenantId() != null)
+    	{
+    		tenantId = ruleGroupDTO.getTenantId();
+    	}
+    	if(ruleGroupDTO != null && ruleGroupDTO.getCreatedBy() != null)
+    	{
+    		userId = ruleGroupDTO.getCreatedBy();
+    	}
+    	if(ruleGroupDTO.getId() == null || ruleGroupDTO.getId().equals(""))
+    	{
+    	
+    		ruleGroup.setCreationDate(ZonedDateTime.now());
+    	}
+    	else
+    		ruleGroup.setCreationDate(ruleGroupDTO.getCreationDate());
+    	ruleGroup.setCreatedBy(ruleGroupDTO.getCreatedBy());
+    	ruleGroup.setLastUpdatedBy(ruleGroupDTO.getCreatedBy());
+    	ruleGroup.setLastUpdatedDate(ZonedDateTime.now());
+    	ruleGroup.setTenantId(tenantId);
+    	RuleGroup newGrp=new RuleGroup();
+    		newGrp=ruleGroupRepository.save(ruleGroup);
+    		
+    		log.info("newGrp has id for disp as"+newGrp.getIdForDisplay());
+    		String idForDisplay ="";
+    		if(ruleGroupDTO.getId() == null)
+    		{
+    			 idForDisplay = IDORUtils.computeFrontEndIdentifier(newGrp.getId().toString());
+    			 log.info("setting id for display"+idForDisplay);
+    			 newGrp.setIdForDisplay(idForDisplay);
+    			 newGrp = ruleGroupRepository.save(ruleGroup);
+        		
+    		}
+    		//ruleGroupSearchRepository.save(newGrp);
+    	
+    	if(newGrp!=null && newGrp.getId()!=null)
+    	{
+    		errorReport=ruleService.postRules(ruleGroupDTO.getRules(), newGrp);
+			//As adhoc rule will be only one 
+			//check if the got rule list has adhoc rule
+			//if yes=> call next process after creation
+    		/**
+    		 * find out for adhoc rule
+    		 */
+    		if( ruleGroupDTO.isAdhocRuleCreation())
+    		{
+    			Long id = 0L;
+        		id = rulesRepository.findIdOfAdhocRule(newGrp.getId());
+        		if(id>0)
+        		{
+        			HashMap parameterSet = new HashMap<>();
+    				parameterSet.put("param1",ruleGroupDTO.getId());
+    				parameterSet.put("param2",id);
+    				log.info("ruleGroupDTO.getLastUpdatedby() :"+ruleGroupDTO.getLastUpdatedBy());
+    				ResponseEntity response= oozieService.jobIntiateForAcctAndRec(ruleGroupDTO.getTenantId(), ruleGroupDTO.getLastUpdatedBy(), "Reconciliation", parameterSet,"ADHOC");
+    				ErrorReport jobInitiation=new ErrorReport();
+    				jobInitiation.setTaskName("Job Initiation");
+
+    				log.info("response.getBody() :"+response.getBody());
+    				String status=response.getBody().toString().substring(8).replaceAll("\\}", "");
+    				log.info("status :"+status);
+    				log.info("response.getstatusValue :"+response.getStatusCodeValue());
+    				jobInitiation.setTaskStatus(status);
+    				if(!errorReport.contains(jobInitiation));
+    				errorReport.add(jobInitiation);
+        		}
+    		}
+    		else
+    		{
+    			log.info("doesnot contain adhoc :");
+    		}
+    		/*if(ruleGroupDTO.getId() == null && !ruleGroupDTO.isAdhocRuleCreation())
+    		{
+    			log.info("no adhoc rule");
+    			*//**
+    			 * call file write to HDFS 
+    			 *//*
+				ErrorReport reportForFilewriteToHDFS = new ErrorReport();
+				reportForFilewriteToHDFS.setTaskName("File write to HDFS");
+				if(ruleGroupDTO.getId() == null)
+				{
+					String builtPath = "";
+					builtPath = buildPath(newGrp.getId());
+					reportForFilewriteToHDFS.setDetails(builtPath);
+					errorReport.add(reportForFilewriteToHDFS);
+				}
+				*//**
+				 * end file write to HDFS 
+				 *//*
+    		}*/
+    			
+    		/*
+			for(int i =0;i<ruleGroupDTO.getRules().size();i++)
+			{
+				RulesDTO ruleDTO = new RulesDTO();
+				ruleDTO = ruleGroupDTO.getRules().get(i);
+				log.info("ruleDTO getId :"+ruleDTO.getRule().getId());
+				if(ruleDTO.getRule().getId()==null || ruleDTO.getRule().getId()==0 )
+				{
+					log.info("ruleDTO getId in if:"+ruleDTO.getRule().getId());
+
+					if(ruleDTO.getRule() != null && ruleDTO.getRule().getRuleType() != null && ruleDTO.getRule().getRuleType().contains("ADHOC"))//should modify to get latest record from rules
+					{
+						//fetch error report of adhoc rule for id
+						Long ruleId = 0L; 
+						if(errorReport.get(0).getTaskName().contains("Rule Group Save"))
+						{
+							log.info("errorReport.get(0).getSubTasksList().size() :"+errorReport.get(0).getSubTasksList().size());
+							if(errorReport.get(0).getSubTasksList().size() > 0)
+							{
+								if(errorReport.get(0).getSubTasksList().get(0).getTaskName().contains("Save Rule"))
+								{
+									ruleId =Long.valueOf( errorReport.get(0).getSubTasksList().get(errorReport.get(0).getSubTasksList().size()-1).getDetails());
+									log.info("got rule id with"+ruleId);
+									//call next process
+									HashMap parameterSet = new HashMap<>();
+									parameterSet.put("param1",ruleGroupDTO.getId());
+									parameterSet.put("param2",ruleId);
+									log.info("ruleGroupDTO.getLastUpdatedby() :"+ruleGroupDTO.getLastUpdatedBy());
+									ResponseEntity response= oozieService.jobIntiateForAcctAndRec(ruleGroupDTO.getTenantId(), ruleGroupDTO.getLastUpdatedBy(), "Reconciliation", parameterSet,"ADHOC");
+									ErrorReport jobInitiation=new ErrorReport();
+									jobInitiation.setTaskName("Job Initiation");
+
+									log.info("response.getBody() :"+response.getBody());
+									String status=response.getBody().toString().substring(8).replaceAll("\\}", "");
+									log.info("status :"+status);
+									log.info("response.getstatusValue :"+response.getStatusCodeValue());
+
+
+									jobInitiation.setTaskStatus(status);
+									if(!errorReport.contains(jobInitiation));
+									errorReport.add(jobInitiation);
+
+								}
+								else
+								{
+									log.info("Save Rule doesnt exist");
+								}
+							}
+							else
+							{
+								log.info("getSubTasksList is empty");
+							}
+						}
+						else
+						{
+							log.info("Rule Group Save doesnt exist");
+						}
+
+					}
+					else
+					{
+						log.info("no adhoc rule");
+						*//**
+						 * call file write to HDFS
+						 *//*
+						ErrorReport reportForFilewriteToHDFS = new ErrorReport();
+						reportForFilewriteToHDFS.setTaskName("File write to HDFS");
+						if(ruleGroupDTO.getId() == null)
+						{
+							String builtPath = "";
+							builtPath = buildPath(newGrp.getId());
+							reportForFilewriteToHDFS.setDetails(builtPath);
+							errorReport.add(reportForFilewriteToHDFS);
+						}
+						*//**
+						 * End file write to HDFS
+						 *//*
+					}
+				}
+				else
+				{
+					//log.info("no adhoc rule");
+				}
+			}*/
+    	}
+		return errorReport;
+    	
+    	
+
+	}
+	public String buildPath(Long ruleGroupId) throws ClassNotFoundException, SQLException, IOException
+	{
+		String pathBuilt = "";
+		String fileNames = "";
+		String ruleIds ="";
+		String dataViewIds = "";
+		/**
+		 * fetch file names
+		 */
+		
+		
+		/**
+		 * DB cred's
+		 */
+	    String dbUrl=env.getProperty("spring.datasource.url");
+	    String schemaName= env.getProperty("spring.datasource.databaseName");
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+		String host = env.getProperty("spring.datasource.serverName");
+		Connection conn = null;
+		RuleGroup ruleGrp= ruleGroupRepository.findOne(ruleGroupId);
+		
+		
+		List<BigInteger> ruleIdsList= ruleGroupDetailsRepository.fetchRuleIdsByGroupAndTenantId(ruleGroupId,ruleGrp.getTenantId());
+		List<Long> dataViewIdsList = new ArrayList<Long>();
+		
+		if(ruleIdsList.size() > 0)
+		{
+			for(int i = 0;i<ruleIdsList.size();i++)
+			{
+				Rules rule = new Rules();
+				rule =  rulesRepository.findById(Long.valueOf(ruleIdsList.get(i)+""));
+				dataViewIdsList.add(rule.getSourceDataViewId());
+				dataViewIdsList.add(rule.getTargetDataViewId());
+				if(i==0)
+					dataViewIds =  rule.getSourceDataViewId() +","+rule.getTargetDataViewId();
+				else
+				dataViewIds = ","+rule.getSourceDataViewId() +","+rule.getTargetDataViewId();
+				
+				if(i == 0)
+				{
+					ruleIds = ruleIdsList.get(i)+"";
+				}
+				else {
+					ruleIds = ruleIds  +","+ ruleIdsList.get(i);
+				}
+				
+			}
+			
+		}
+		log.info("ruleIds built is:"+ruleIds);
+		
+		/**
+		 * fetch file names based on dataview ids
+		 */
+		List<Object[]> fileNamesList = 	dataStagingRepository.findFileNamesByDataviewIds(dataViewIdsList);
+		for(int i =0; i<fileNamesList.size() ; i++)
+		{
+			log.info("file name print:"+fileNamesList.get(i));
+			if(i==0)
+				fileNames = fileNamesList.get(i)+"";
+			else
+				fileNames = fileNames +","+fileNamesList.get(i)+"";
+		}
+		pathBuilt = fileNames +"|" +ruleGrp.getTenantId()+"|"+host+"|"+schemaName+"|"+userName+"|"+password+"|"+ruleGroupId+"|"+ruleIds+"|"+ruleGrp.getCreatedBy()+"|"+""
+						+dataViewIds;
+		fileWriteToHDFS(pathBuilt,ruleGrp.getName());
+		return pathBuilt;
+	}
+	public void fileWriteToHDFS(String path, String ruleGroupName) throws IOException
+	{
+		log.info("entered to HDFS");
+		BufferedWriter bw = null;
+		FileWriter fw = null;
+		String dir="//home//nspl//HDFS test//";
+		ruleGroupName = ruleGroupName.trim();
+		final String FILENAME = dir+ruleGroupName+".txt";//trim spaces
+		//String s = "File_name1|Pinterest|192.168.0.44|agree_application_2909|root|Welcome|\"\"|1|11|\"\"|DataView1";
+		/**
+		 * param1 - empty
+		 * param2- tenant id
+		 * 3 - host
+		 * 4-db name
+		 * 5-db username
+		 * 6-db pwd
+		 * 7-RG id
+		 * 8-rules(comma separated)
+		 * 9-crnt user id
+		 * 10-empty
+		 * 11-dv id's (comma separated)
+		 * 
+		 * 
+		 */
+		fw = new FileWriter(FILENAME);
+		bw = new BufferedWriter(fw);
+		bw.write(path); 
+		 UserGroupInformation ugi
+         = UserGroupInformation.createRemoteUser("hdsingle");
+		 
+		 ugi.doAs(new PrivilegedAction<Void>() {
+
+			@Override
+			public Void run(){
+				// TODO Auto-generated method stub
+				Configuration conf = new Configuration();
+				conf.set("fs.default.name", "hdfs://qat.nspl.com:9000/recon/");
+				conf.set("hadoop.job.ugi", "hdsingle");
+			
+				FileSystem file = null;
+				try {
+					file = FileSystem.get(conf);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				File[] sourceFiles = new File(dir).listFiles();
+				if(sourceFiles != null) {
+					for(File f: sourceFiles) {
+						//we can filter files if needed here
+						 try {
+							 log.info("copying to HDFS");
+							file.copyFromLocalFile(true, true, new Path(f.getPath()), new Path("hdfs://qat.nspl.com:9000/recon"));
+						} catch (IllegalArgumentException | IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+				}
+				log.info("copied to HDFS");
+				return null;
+			}
+		});
+		 
+		 
+		 
+		// ugi.doAs(new PrivilegedAction<Void>() {
+			/*Configuration conf = new Configuration();
+			conf.set("fs.default.name", "hdfs://qat.nspl.com:9000/recon/");
+			conf.set("hadoop.job.ugi", "hdsingle");
+		
+			FileSystem file = FileSystem.get(conf);
+	
+					File[] sourceFiles = new File(dir).listFiles();
+					            if(sourceFiles != null) {
+					                for(File f: sourceFiles) {
+					                    //we can filter files if needed here
+					                    file.copyFromLocalFile(true, true, new Path(f.getPath()), new Path("hdfs://qat.nspl.com:9000/recon"));
+					                }
+					            }
+			System.out.println("copied to HDFS");*/
+	//		return null;
+	//	 });
+		if (bw != null)
+			bw.close();
+
+		if (fw != null)
+			fw.close();
+	}
+	
+	
+	
+	
+
+}

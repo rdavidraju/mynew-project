@@ -1,0 +1,565 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.RuleConditions;
+import com.nspl.app.repository.RuleConditionsRepository;
+import com.nspl.app.repository.search.RuleConditionsSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the RuleConditionsResource REST controller.
+ *
+ * @see RuleConditionsResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class RuleConditionsResourceIntTest {
+
+    private static final Long DEFAULT_RULE_ID = 1L;
+    private static final Long UPDATED_RULE_ID = 2L;
+
+    private static final String DEFAULT_OPEN_BRACKET = "AAAAAAAAAA";
+    private static final String UPDATED_OPEN_BRACKET = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_S_COLUMN_ID = 1L;
+    private static final Long UPDATED_S_COLUMN_ID = 2L;
+
+    private static final String DEFAULT_S_FORMULA = "AAAAAAAAAA";
+    private static final String UPDATED_S_FORMULA = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_TOLERANCE_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_S_TOLERANCE_TYPE = "BBBBBBBBBB";
+
+    private static final Boolean DEFAULT_S_MANY = false;
+    private static final Boolean UPDATED_S_MANY = true;
+
+    private static final Long DEFAULT_T_COLUMN_ID = 1L;
+    private static final Long UPDATED_T_COLUMN_ID = 2L;
+
+    private static final String DEFAULT_T_FORMULA = "AAAAAAAAAA";
+    private static final String UPDATED_T_FORMULA = "BBBBBBBBBB";
+
+    private static final Boolean DEFAULT_T_MANY = false;
+    private static final Boolean UPDATED_T_MANY = true;
+
+    private static final String DEFAULT_T_TOLERANCE_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_T_TOLERANCE_TYPE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_CLOSE_BRACKET = "AAAAAAAAAA";
+    private static final String UPDATED_CLOSE_BRACKET = "BBBBBBBBBB";
+
+    private static final String DEFAULT_LOGICAL_OPERATOR = "AAAAAAAAAA";
+    private static final String UPDATED_LOGICAL_OPERATOR = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final String DEFAULT_S_COLUMN_FIELD_NAME = "AAAAAAAAAA";
+    private static final String UPDATED_S_COLUMN_FIELD_NAME = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_TOLERANCE_OPERATOR_FROM = "AAAAAAAAAA";
+    private static final String UPDATED_S_TOLERANCE_OPERATOR_FROM = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_TOLERANCE_VALUE_FROM = "AAAAAAAAAA";
+    private static final String UPDATED_S_TOLERANCE_VALUE_FROM = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_TOLERANCE_OPERATOR_TO = "AAAAAAAAAA";
+    private static final String UPDATED_S_TOLERANCE_OPERATOR_TO = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_TOLERANCE_VALUE_TO = "AAAAAAAAAA";
+    private static final String UPDATED_S_TOLERANCE_VALUE_TO = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_TOLERANCE_OPERATOR_FROM = "AAAAAAAAAA";
+    private static final String UPDATED_T_TOLERANCE_OPERATOR_FROM = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_TOLERANCE_VALUE_FROM = "AAAAAAAAAA";
+    private static final String UPDATED_T_TOLERANCE_VALUE_FROM = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_TOLERANCE_OPERATOR_TO = "AAAAAAAAAA";
+    private static final String UPDATED_T_TOLERANCE_OPERATOR_TO = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_TOLERANCE_VALUE_TO = "AAAAAAAAAA";
+    private static final String UPDATED_T_TOLERANCE_VALUE_TO = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_VALUE_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_S_VALUE_TYPE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_OPERATOR = "AAAAAAAAAA";
+    private static final String UPDATED_S_OPERATOR = "BBBBBBBBBB";
+
+    private static final String DEFAULT_S_VALUE = "AAAAAAAAAA";
+    private static final String UPDATED_S_VALUE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_VALUE_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_T_VALUE_TYPE = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_OPERATOR = "AAAAAAAAAA";
+    private static final String UPDATED_T_OPERATOR = "BBBBBBBBBB";
+
+    private static final String DEFAULT_T_VALUE = "AAAAAAAAAA";
+    private static final String UPDATED_T_VALUE = "BBBBBBBBBB";
+
+    @Autowired
+    private RuleConditionsRepository ruleConditionsRepository;
+
+    @Autowired
+    private RuleConditionsSearchRepository ruleConditionsSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restRuleConditionsMockMvc;
+
+    private RuleConditions ruleConditions;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        RuleConditionsResource ruleConditionsResource = new RuleConditionsResource(ruleConditionsRepository, ruleConditionsSearchRepository);
+        this.restRuleConditionsMockMvc = MockMvcBuilders.standaloneSetup(ruleConditionsResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static RuleConditions createEntity(EntityManager em) {
+        RuleConditions ruleConditions = new RuleConditions()
+            .ruleId(DEFAULT_RULE_ID)
+            .openBracket(DEFAULT_OPEN_BRACKET)
+            .sColumnId(DEFAULT_S_COLUMN_ID)
+            .sFormula(DEFAULT_S_FORMULA)
+            .sToleranceType(DEFAULT_S_TOLERANCE_TYPE)
+            .sMany(DEFAULT_S_MANY)
+            .tColumnId(DEFAULT_T_COLUMN_ID)
+            .tFormula(DEFAULT_T_FORMULA)
+            .tMany(DEFAULT_T_MANY)
+            .tToleranceType(DEFAULT_T_TOLERANCE_TYPE)
+            .closeBracket(DEFAULT_CLOSE_BRACKET)
+            .logicalOperator(DEFAULT_LOGICAL_OPERATOR)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE)
+            .sColumnFieldName(DEFAULT_S_COLUMN_FIELD_NAME)
+            .sToleranceOperatorFrom(DEFAULT_S_TOLERANCE_OPERATOR_FROM)
+            .sToleranceValueFrom(DEFAULT_S_TOLERANCE_VALUE_FROM)
+            .sToleranceOperatorTo(DEFAULT_S_TOLERANCE_OPERATOR_TO)
+            .sToleranceValueTo(DEFAULT_S_TOLERANCE_VALUE_TO)
+            .tToleranceOperatorFrom(DEFAULT_T_TOLERANCE_OPERATOR_FROM)
+            .tToleranceValueFrom(DEFAULT_T_TOLERANCE_VALUE_FROM)
+            .tToleranceOperatorTo(DEFAULT_T_TOLERANCE_OPERATOR_TO)
+            .tToleranceValueTo(DEFAULT_T_TOLERANCE_VALUE_TO)
+            .sValueType(DEFAULT_S_VALUE_TYPE)
+            .sOperator(DEFAULT_S_OPERATOR)
+            .sValue(DEFAULT_S_VALUE)
+            .tValueType(DEFAULT_T_VALUE_TYPE)
+            .tOperator(DEFAULT_T_OPERATOR)
+            .tValue(DEFAULT_T_VALUE);
+        return ruleConditions;
+    }
+
+    @Before
+    public void initTest() {
+        ruleConditionsSearchRepository.deleteAll();
+        ruleConditions = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createRuleConditions() throws Exception {
+        int databaseSizeBeforeCreate = ruleConditionsRepository.findAll().size();
+
+        // Create the RuleConditions
+        restRuleConditionsMockMvc.perform(post("/api/rule-conditions")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(ruleConditions)))
+            .andExpect(status().isCreated());
+
+        // Validate the RuleConditions in the database
+        List<RuleConditions> ruleConditionsList = ruleConditionsRepository.findAll();
+        assertThat(ruleConditionsList).hasSize(databaseSizeBeforeCreate + 1);
+        RuleConditions testRuleConditions = ruleConditionsList.get(ruleConditionsList.size() - 1);
+        assertThat(testRuleConditions.getRuleId()).isEqualTo(DEFAULT_RULE_ID);
+        assertThat(testRuleConditions.getOpenBracket()).isEqualTo(DEFAULT_OPEN_BRACKET);
+        assertThat(testRuleConditions.getsColumnId()).isEqualTo(DEFAULT_S_COLUMN_ID);
+        assertThat(testRuleConditions.getsFormula()).isEqualTo(DEFAULT_S_FORMULA);
+        assertThat(testRuleConditions.getsToleranceType()).isEqualTo(DEFAULT_S_TOLERANCE_TYPE);
+        assertThat(testRuleConditions.issMany()).isEqualTo(DEFAULT_S_MANY);
+        assertThat(testRuleConditions.gettColumnId()).isEqualTo(DEFAULT_T_COLUMN_ID);
+        assertThat(testRuleConditions.gettFormula()).isEqualTo(DEFAULT_T_FORMULA);
+        assertThat(testRuleConditions.istMany()).isEqualTo(DEFAULT_T_MANY);
+        assertThat(testRuleConditions.gettToleranceType()).isEqualTo(DEFAULT_T_TOLERANCE_TYPE);
+        assertThat(testRuleConditions.getCloseBracket()).isEqualTo(DEFAULT_CLOSE_BRACKET);
+        assertThat(testRuleConditions.getLogicalOperator()).isEqualTo(DEFAULT_LOGICAL_OPERATOR);
+        assertThat(testRuleConditions.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testRuleConditions.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testRuleConditions.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testRuleConditions.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+        assertThat(testRuleConditions.getsColumnFieldName()).isEqualTo(DEFAULT_S_COLUMN_FIELD_NAME);
+        assertThat(testRuleConditions.getsToleranceOperatorFrom()).isEqualTo(DEFAULT_S_TOLERANCE_OPERATOR_FROM);
+        assertThat(testRuleConditions.getsToleranceValueFrom()).isEqualTo(DEFAULT_S_TOLERANCE_VALUE_FROM);
+        assertThat(testRuleConditions.getsToleranceOperatorTo()).isEqualTo(DEFAULT_S_TOLERANCE_OPERATOR_TO);
+        assertThat(testRuleConditions.getsToleranceValueTo()).isEqualTo(DEFAULT_S_TOLERANCE_VALUE_TO);
+        assertThat(testRuleConditions.gettToleranceOperatorFrom()).isEqualTo(DEFAULT_T_TOLERANCE_OPERATOR_FROM);
+        assertThat(testRuleConditions.gettToleranceValueFrom()).isEqualTo(DEFAULT_T_TOLERANCE_VALUE_FROM);
+        assertThat(testRuleConditions.gettToleranceOperatorTo()).isEqualTo(DEFAULT_T_TOLERANCE_OPERATOR_TO);
+        assertThat(testRuleConditions.gettToleranceValueTo()).isEqualTo(DEFAULT_T_TOLERANCE_VALUE_TO);
+        assertThat(testRuleConditions.getsValueType()).isEqualTo(DEFAULT_S_VALUE_TYPE);
+        assertThat(testRuleConditions.getsOperator()).isEqualTo(DEFAULT_S_OPERATOR);
+        assertThat(testRuleConditions.getsValue()).isEqualTo(DEFAULT_S_VALUE);
+        assertThat(testRuleConditions.gettValueType()).isEqualTo(DEFAULT_T_VALUE_TYPE);
+        assertThat(testRuleConditions.gettOperator()).isEqualTo(DEFAULT_T_OPERATOR);
+        assertThat(testRuleConditions.gettValue()).isEqualTo(DEFAULT_T_VALUE);
+
+        // Validate the RuleConditions in Elasticsearch
+        RuleConditions ruleConditionsEs = ruleConditionsSearchRepository.findOne(testRuleConditions.getId());
+        assertThat(ruleConditionsEs).isEqualToComparingFieldByField(testRuleConditions);
+    }
+
+    @Test
+    @Transactional
+    public void createRuleConditionsWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = ruleConditionsRepository.findAll().size();
+
+        // Create the RuleConditions with an existing ID
+        ruleConditions.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restRuleConditionsMockMvc.perform(post("/api/rule-conditions")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(ruleConditions)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<RuleConditions> ruleConditionsList = ruleConditionsRepository.findAll();
+        assertThat(ruleConditionsList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllRuleConditions() throws Exception {
+        // Initialize the database
+        ruleConditionsRepository.saveAndFlush(ruleConditions);
+
+        // Get all the ruleConditionsList
+        restRuleConditionsMockMvc.perform(get("/api/rule-conditions?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(ruleConditions.getId().intValue())))
+            .andExpect(jsonPath("$.[*].ruleId").value(hasItem(DEFAULT_RULE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].openBracket").value(hasItem(DEFAULT_OPEN_BRACKET.toString())))
+            .andExpect(jsonPath("$.[*].sColumnId").value(hasItem(DEFAULT_S_COLUMN_ID.intValue())))
+            .andExpect(jsonPath("$.[*].sFormula").value(hasItem(DEFAULT_S_FORMULA.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceType").value(hasItem(DEFAULT_S_TOLERANCE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].sMany").value(hasItem(DEFAULT_S_MANY.booleanValue())))
+            .andExpect(jsonPath("$.[*].tColumnId").value(hasItem(DEFAULT_T_COLUMN_ID.intValue())))
+            .andExpect(jsonPath("$.[*].tFormula").value(hasItem(DEFAULT_T_FORMULA.toString())))
+            .andExpect(jsonPath("$.[*].tMany").value(hasItem(DEFAULT_T_MANY.booleanValue())))
+            .andExpect(jsonPath("$.[*].tToleranceType").value(hasItem(DEFAULT_T_TOLERANCE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].closeBracket").value(hasItem(DEFAULT_CLOSE_BRACKET.toString())))
+            .andExpect(jsonPath("$.[*].logicalOperator").value(hasItem(DEFAULT_LOGICAL_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))))
+            .andExpect(jsonPath("$.[*].sColumnFieldName").value(hasItem(DEFAULT_S_COLUMN_FIELD_NAME.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceOperatorFrom").value(hasItem(DEFAULT_S_TOLERANCE_OPERATOR_FROM.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceValueFrom").value(hasItem(DEFAULT_S_TOLERANCE_VALUE_FROM.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceOperatorTo").value(hasItem(DEFAULT_S_TOLERANCE_OPERATOR_TO.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceValueTo").value(hasItem(DEFAULT_S_TOLERANCE_VALUE_TO.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceOperatorFrom").value(hasItem(DEFAULT_T_TOLERANCE_OPERATOR_FROM.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceValueFrom").value(hasItem(DEFAULT_T_TOLERANCE_VALUE_FROM.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceOperatorTo").value(hasItem(DEFAULT_T_TOLERANCE_OPERATOR_TO.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceValueTo").value(hasItem(DEFAULT_T_TOLERANCE_VALUE_TO.toString())))
+            .andExpect(jsonPath("$.[*].sValueType").value(hasItem(DEFAULT_S_VALUE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].sOperator").value(hasItem(DEFAULT_S_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].sValue").value(hasItem(DEFAULT_S_VALUE.toString())))
+            .andExpect(jsonPath("$.[*].tValueType").value(hasItem(DEFAULT_T_VALUE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].tOperator").value(hasItem(DEFAULT_T_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].tValue").value(hasItem(DEFAULT_T_VALUE.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void getRuleConditions() throws Exception {
+        // Initialize the database
+        ruleConditionsRepository.saveAndFlush(ruleConditions);
+
+        // Get the ruleConditions
+        restRuleConditionsMockMvc.perform(get("/api/rule-conditions/{id}", ruleConditions.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(ruleConditions.getId().intValue()))
+            .andExpect(jsonPath("$.ruleId").value(DEFAULT_RULE_ID.intValue()))
+            .andExpect(jsonPath("$.openBracket").value(DEFAULT_OPEN_BRACKET.toString()))
+            .andExpect(jsonPath("$.sColumnId").value(DEFAULT_S_COLUMN_ID.intValue()))
+            .andExpect(jsonPath("$.sFormula").value(DEFAULT_S_FORMULA.toString()))
+            .andExpect(jsonPath("$.sToleranceType").value(DEFAULT_S_TOLERANCE_TYPE.toString()))
+            .andExpect(jsonPath("$.sMany").value(DEFAULT_S_MANY.booleanValue()))
+            .andExpect(jsonPath("$.tColumnId").value(DEFAULT_T_COLUMN_ID.intValue()))
+            .andExpect(jsonPath("$.tFormula").value(DEFAULT_T_FORMULA.toString()))
+            .andExpect(jsonPath("$.tMany").value(DEFAULT_T_MANY.booleanValue()))
+            .andExpect(jsonPath("$.tToleranceType").value(DEFAULT_T_TOLERANCE_TYPE.toString()))
+            .andExpect(jsonPath("$.closeBracket").value(DEFAULT_CLOSE_BRACKET.toString()))
+            .andExpect(jsonPath("$.logicalOperator").value(DEFAULT_LOGICAL_OPERATOR.toString()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)))
+            .andExpect(jsonPath("$.sColumnFieldName").value(DEFAULT_S_COLUMN_FIELD_NAME.toString()))
+            .andExpect(jsonPath("$.sToleranceOperatorFrom").value(DEFAULT_S_TOLERANCE_OPERATOR_FROM.toString()))
+            .andExpect(jsonPath("$.sToleranceValueFrom").value(DEFAULT_S_TOLERANCE_VALUE_FROM.toString()))
+            .andExpect(jsonPath("$.sToleranceOperatorTo").value(DEFAULT_S_TOLERANCE_OPERATOR_TO.toString()))
+            .andExpect(jsonPath("$.sToleranceValueTo").value(DEFAULT_S_TOLERANCE_VALUE_TO.toString()))
+            .andExpect(jsonPath("$.tToleranceOperatorFrom").value(DEFAULT_T_TOLERANCE_OPERATOR_FROM.toString()))
+            .andExpect(jsonPath("$.tToleranceValueFrom").value(DEFAULT_T_TOLERANCE_VALUE_FROM.toString()))
+            .andExpect(jsonPath("$.tToleranceOperatorTo").value(DEFAULT_T_TOLERANCE_OPERATOR_TO.toString()))
+            .andExpect(jsonPath("$.tToleranceValueTo").value(DEFAULT_T_TOLERANCE_VALUE_TO.toString()))
+            .andExpect(jsonPath("$.sValueType").value(DEFAULT_S_VALUE_TYPE.toString()))
+            .andExpect(jsonPath("$.sOperator").value(DEFAULT_S_OPERATOR.toString()))
+            .andExpect(jsonPath("$.sValue").value(DEFAULT_S_VALUE.toString()))
+            .andExpect(jsonPath("$.tValueType").value(DEFAULT_T_VALUE_TYPE.toString()))
+            .andExpect(jsonPath("$.tOperator").value(DEFAULT_T_OPERATOR.toString()))
+            .andExpect(jsonPath("$.tValue").value(DEFAULT_T_VALUE.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingRuleConditions() throws Exception {
+        // Get the ruleConditions
+        restRuleConditionsMockMvc.perform(get("/api/rule-conditions/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateRuleConditions() throws Exception {
+        // Initialize the database
+        ruleConditionsRepository.saveAndFlush(ruleConditions);
+        ruleConditionsSearchRepository.save(ruleConditions);
+        int databaseSizeBeforeUpdate = ruleConditionsRepository.findAll().size();
+
+        // Update the ruleConditions
+        RuleConditions updatedRuleConditions = ruleConditionsRepository.findOne(ruleConditions.getId());
+        updatedRuleConditions
+            .ruleId(UPDATED_RULE_ID)
+            .openBracket(UPDATED_OPEN_BRACKET)
+            .sColumnId(UPDATED_S_COLUMN_ID)
+            .sFormula(UPDATED_S_FORMULA)
+            .sToleranceType(UPDATED_S_TOLERANCE_TYPE)
+            .sMany(UPDATED_S_MANY)
+            .tColumnId(UPDATED_T_COLUMN_ID)
+            .tFormula(UPDATED_T_FORMULA)
+            .tMany(UPDATED_T_MANY)
+            .tToleranceType(UPDATED_T_TOLERANCE_TYPE)
+            .closeBracket(UPDATED_CLOSE_BRACKET)
+            .logicalOperator(UPDATED_LOGICAL_OPERATOR)
+            .createdBy(UPDATED_CREATED_BY)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE)
+            .sColumnFieldName(UPDATED_S_COLUMN_FIELD_NAME)
+            .sToleranceOperatorFrom(UPDATED_S_TOLERANCE_OPERATOR_FROM)
+            .sToleranceValueFrom(UPDATED_S_TOLERANCE_VALUE_FROM)
+            .sToleranceOperatorTo(UPDATED_S_TOLERANCE_OPERATOR_TO)
+            .sToleranceValueTo(UPDATED_S_TOLERANCE_VALUE_TO)
+            .tToleranceOperatorFrom(UPDATED_T_TOLERANCE_OPERATOR_FROM)
+            .tToleranceValueFrom(UPDATED_T_TOLERANCE_VALUE_FROM)
+            .tToleranceOperatorTo(UPDATED_T_TOLERANCE_OPERATOR_TO)
+            .tToleranceValueTo(UPDATED_T_TOLERANCE_VALUE_TO)
+            .sValueType(UPDATED_S_VALUE_TYPE)
+            .sOperator(UPDATED_S_OPERATOR)
+            .sValue(UPDATED_S_VALUE)
+            .tValueType(UPDATED_T_VALUE_TYPE)
+            .tOperator(UPDATED_T_OPERATOR)
+            .tValue(UPDATED_T_VALUE);
+
+        restRuleConditionsMockMvc.perform(put("/api/rule-conditions")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedRuleConditions)))
+            .andExpect(status().isOk());
+
+        // Validate the RuleConditions in the database
+        List<RuleConditions> ruleConditionsList = ruleConditionsRepository.findAll();
+        assertThat(ruleConditionsList).hasSize(databaseSizeBeforeUpdate);
+        RuleConditions testRuleConditions = ruleConditionsList.get(ruleConditionsList.size() - 1);
+        assertThat(testRuleConditions.getRuleId()).isEqualTo(UPDATED_RULE_ID);
+        assertThat(testRuleConditions.getOpenBracket()).isEqualTo(UPDATED_OPEN_BRACKET);
+        assertThat(testRuleConditions.getsColumnId()).isEqualTo(UPDATED_S_COLUMN_ID);
+        assertThat(testRuleConditions.getsFormula()).isEqualTo(UPDATED_S_FORMULA);
+        assertThat(testRuleConditions.getsToleranceType()).isEqualTo(UPDATED_S_TOLERANCE_TYPE);
+        assertThat(testRuleConditions.issMany()).isEqualTo(UPDATED_S_MANY);
+        assertThat(testRuleConditions.gettColumnId()).isEqualTo(UPDATED_T_COLUMN_ID);
+        assertThat(testRuleConditions.gettFormula()).isEqualTo(UPDATED_T_FORMULA);
+        assertThat(testRuleConditions.istMany()).isEqualTo(UPDATED_T_MANY);
+        assertThat(testRuleConditions.gettToleranceType()).isEqualTo(UPDATED_T_TOLERANCE_TYPE);
+        assertThat(testRuleConditions.getCloseBracket()).isEqualTo(UPDATED_CLOSE_BRACKET);
+        assertThat(testRuleConditions.getLogicalOperator()).isEqualTo(UPDATED_LOGICAL_OPERATOR);
+        assertThat(testRuleConditions.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testRuleConditions.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testRuleConditions.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testRuleConditions.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+        assertThat(testRuleConditions.getsColumnFieldName()).isEqualTo(UPDATED_S_COLUMN_FIELD_NAME);
+        assertThat(testRuleConditions.getsToleranceOperatorFrom()).isEqualTo(UPDATED_S_TOLERANCE_OPERATOR_FROM);
+        assertThat(testRuleConditions.getsToleranceValueFrom()).isEqualTo(UPDATED_S_TOLERANCE_VALUE_FROM);
+        assertThat(testRuleConditions.getsToleranceOperatorTo()).isEqualTo(UPDATED_S_TOLERANCE_OPERATOR_TO);
+        assertThat(testRuleConditions.getsToleranceValueTo()).isEqualTo(UPDATED_S_TOLERANCE_VALUE_TO);
+        assertThat(testRuleConditions.gettToleranceOperatorFrom()).isEqualTo(UPDATED_T_TOLERANCE_OPERATOR_FROM);
+        assertThat(testRuleConditions.gettToleranceValueFrom()).isEqualTo(UPDATED_T_TOLERANCE_VALUE_FROM);
+        assertThat(testRuleConditions.gettToleranceOperatorTo()).isEqualTo(UPDATED_T_TOLERANCE_OPERATOR_TO);
+        assertThat(testRuleConditions.gettToleranceValueTo()).isEqualTo(UPDATED_T_TOLERANCE_VALUE_TO);
+        assertThat(testRuleConditions.getsValueType()).isEqualTo(UPDATED_S_VALUE_TYPE);
+        assertThat(testRuleConditions.getsOperator()).isEqualTo(UPDATED_S_OPERATOR);
+        assertThat(testRuleConditions.getsValue()).isEqualTo(UPDATED_S_VALUE);
+        assertThat(testRuleConditions.gettValueType()).isEqualTo(UPDATED_T_VALUE_TYPE);
+        assertThat(testRuleConditions.gettOperator()).isEqualTo(UPDATED_T_OPERATOR);
+        assertThat(testRuleConditions.gettValue()).isEqualTo(UPDATED_T_VALUE);
+
+        // Validate the RuleConditions in Elasticsearch
+        RuleConditions ruleConditionsEs = ruleConditionsSearchRepository.findOne(testRuleConditions.getId());
+        assertThat(ruleConditionsEs).isEqualToComparingFieldByField(testRuleConditions);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingRuleConditions() throws Exception {
+        int databaseSizeBeforeUpdate = ruleConditionsRepository.findAll().size();
+
+        // Create the RuleConditions
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restRuleConditionsMockMvc.perform(put("/api/rule-conditions")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(ruleConditions)))
+            .andExpect(status().isCreated());
+
+        // Validate the RuleConditions in the database
+        List<RuleConditions> ruleConditionsList = ruleConditionsRepository.findAll();
+        assertThat(ruleConditionsList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteRuleConditions() throws Exception {
+        // Initialize the database
+        ruleConditionsRepository.saveAndFlush(ruleConditions);
+        ruleConditionsSearchRepository.save(ruleConditions);
+        int databaseSizeBeforeDelete = ruleConditionsRepository.findAll().size();
+
+        // Get the ruleConditions
+        restRuleConditionsMockMvc.perform(delete("/api/rule-conditions/{id}", ruleConditions.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean ruleConditionsExistsInEs = ruleConditionsSearchRepository.exists(ruleConditions.getId());
+        assertThat(ruleConditionsExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<RuleConditions> ruleConditionsList = ruleConditionsRepository.findAll();
+        assertThat(ruleConditionsList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchRuleConditions() throws Exception {
+        // Initialize the database
+        ruleConditionsRepository.saveAndFlush(ruleConditions);
+        ruleConditionsSearchRepository.save(ruleConditions);
+
+        // Search the ruleConditions
+        restRuleConditionsMockMvc.perform(get("/api/_search/rule-conditions?query=id:" + ruleConditions.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(ruleConditions.getId().intValue())))
+            .andExpect(jsonPath("$.[*].ruleId").value(hasItem(DEFAULT_RULE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].openBracket").value(hasItem(DEFAULT_OPEN_BRACKET.toString())))
+            .andExpect(jsonPath("$.[*].sColumnId").value(hasItem(DEFAULT_S_COLUMN_ID.intValue())))
+            .andExpect(jsonPath("$.[*].sFormula").value(hasItem(DEFAULT_S_FORMULA.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceType").value(hasItem(DEFAULT_S_TOLERANCE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].sMany").value(hasItem(DEFAULT_S_MANY.booleanValue())))
+            .andExpect(jsonPath("$.[*].tColumnId").value(hasItem(DEFAULT_T_COLUMN_ID.intValue())))
+            .andExpect(jsonPath("$.[*].tFormula").value(hasItem(DEFAULT_T_FORMULA.toString())))
+            .andExpect(jsonPath("$.[*].tMany").value(hasItem(DEFAULT_T_MANY.booleanValue())))
+            .andExpect(jsonPath("$.[*].tToleranceType").value(hasItem(DEFAULT_T_TOLERANCE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].closeBracket").value(hasItem(DEFAULT_CLOSE_BRACKET.toString())))
+            .andExpect(jsonPath("$.[*].logicalOperator").value(hasItem(DEFAULT_LOGICAL_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))))
+            .andExpect(jsonPath("$.[*].sColumnFieldName").value(hasItem(DEFAULT_S_COLUMN_FIELD_NAME.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceOperatorFrom").value(hasItem(DEFAULT_S_TOLERANCE_OPERATOR_FROM.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceValueFrom").value(hasItem(DEFAULT_S_TOLERANCE_VALUE_FROM.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceOperatorTo").value(hasItem(DEFAULT_S_TOLERANCE_OPERATOR_TO.toString())))
+            .andExpect(jsonPath("$.[*].sToleranceValueTo").value(hasItem(DEFAULT_S_TOLERANCE_VALUE_TO.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceOperatorFrom").value(hasItem(DEFAULT_T_TOLERANCE_OPERATOR_FROM.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceValueFrom").value(hasItem(DEFAULT_T_TOLERANCE_VALUE_FROM.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceOperatorTo").value(hasItem(DEFAULT_T_TOLERANCE_OPERATOR_TO.toString())))
+            .andExpect(jsonPath("$.[*].tToleranceValueTo").value(hasItem(DEFAULT_T_TOLERANCE_VALUE_TO.toString())))
+            .andExpect(jsonPath("$.[*].sValueType").value(hasItem(DEFAULT_S_VALUE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].sOperator").value(hasItem(DEFAULT_S_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].sValue").value(hasItem(DEFAULT_S_VALUE.toString())))
+            .andExpect(jsonPath("$.[*].tValueType").value(hasItem(DEFAULT_T_VALUE_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].tOperator").value(hasItem(DEFAULT_T_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].tValue").value(hasItem(DEFAULT_T_VALUE.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(RuleConditions.class);
+    }
+}

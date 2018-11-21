@@ -1,0 +1,387 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.ReportDefination;
+import com.nspl.app.domain.ReportParameters;
+import com.nspl.app.domain.ReportType;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.ReportDefinationRepository;
+import com.nspl.app.repository.ReportParametersRepository;
+import com.nspl.app.repository.ReportTypeRepository;
+import com.nspl.app.repository.ReportsRepository;
+import com.nspl.app.service.DataViewsService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.AnalysisException;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SQLContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+
+import javax.inject.Inject;
+
+/**
+ * REST controller for managing ReportParameters.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReportParametersResource {
+
+    private final Logger log = LoggerFactory.getLogger(ReportParametersResource.class);
+
+    private static final String ENTITY_NAME = "reportParameters";
+
+    private final ReportParametersRepository reportParametersRepository;
+    
+    @Inject
+    ReportDefinationRepository reportDefinationRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    ReportParametersRepository reportPrametersRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    ReportsRepository reportsRepository;
+    
+    @Inject
+    ReportTypeRepository reportTypeRepository;
+    
+    @Inject
+    DataViewsService dataViewsService;
+    
+    @Inject
+    private Environment env;
+
+    public ReportParametersResource(ReportParametersRepository reportParametersRepository) {
+        this.reportParametersRepository = reportParametersRepository;
+    }
+
+    /**
+     * POST  /report-parameters : Create a new reportParameters.
+     *
+     * @param reportParameters the reportParameters to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reportParameters, or with status 400 (Bad Request) if the reportParameters has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/report-parameters")
+    @Timed
+    public ResponseEntity<ReportParameters> createReportParameters(@RequestBody ReportParameters reportParameters) throws URISyntaxException {
+        log.debug("REST request to save ReportParameters : {}", reportParameters);
+        if (reportParameters.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reportParameters cannot already have an ID")).body(null);
+        }
+        ReportParameters result = reportParametersRepository.save(reportParameters);
+        return ResponseEntity.created(new URI("/api/report-parameters/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /report-parameters : Updates an existing reportParameters.
+     *
+     * @param reportParameters the reportParameters to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reportParameters,
+     * or with status 400 (Bad Request) if the reportParameters is not valid,
+     * or with status 500 (Internal Server Error) if the reportParameters couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/report-parameters")
+    @Timed
+    public ResponseEntity<ReportParameters> updateReportParameters(@RequestBody ReportParameters reportParameters) throws URISyntaxException {
+        log.debug("REST request to update ReportParameters : {}", reportParameters);
+        if (reportParameters.getId() == null) {
+            return createReportParameters(reportParameters);
+        }
+        ReportParameters result = reportParametersRepository.save(reportParameters);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reportParameters.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /report-parameters : get all the reportParameters.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reportParameters in body
+     */
+    @GetMapping("/report-parameters")
+    @Timed
+    public ResponseEntity<List<ReportParameters>> getAllReportParameters(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of ReportParameters");
+        Page<ReportParameters> page = reportParametersRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/report-parameters");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /report-parameters/:id : get the "id" reportParameters.
+     *
+     * @param id the id of the reportParameters to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reportParameters, or with status 404 (Not Found)
+     */
+    @GetMapping("/report-parameters/{id}")
+    @Timed
+    public ResponseEntity<ReportParameters> getReportParameters(@PathVariable Long id) {
+        log.debug("REST request to get ReportParameters : {}", id);
+        ReportParameters reportParameters = reportParametersRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reportParameters));
+    }
+
+    /**
+     * DELETE  /report-parameters/:id : delete the "id" reportParameters.
+     *
+     * @param id the id of the reportParameters to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/report-parameters/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReportParameters(@PathVariable Long id) {
+        log.debug("REST request to delete ReportParameters : {}", id);
+        reportParametersRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Swetha
+     * GET: Api to retrieve distinct values of all the columns of DataView Tagged to Report
+     * @param tableName
+     * @param columnList
+     * @return
+     * @throws AnalysisException
+     */
+    @GetMapping("/getReportFieldsInfo")
+    @Timed
+    public HashMap getReportFieldsInfo(@RequestParam Long tenantId, @RequestParam Long reportId) throws AnalysisException{
+        
+    	/* Report Definition Info */
+    	Reports reports=reportsRepository.findOne(reportId);
+    	List<ReportParameters> rparamList=reportPrametersRepository.findByReportId(reportId);
+    	Long repTypeId=reports.getReportTypeId();
+    	
+    	/* Src View Info */
+    	Long srcViewId=reports.getSourceViewId();
+    	DataViews dv=dataViewsRepository.findById(srcViewId);
+    	DataViewsColumns dvcQualifier=dataViewsColumnsRepository.findByDataViewIdAndQualifier(srcViewId, "DATE");
+    	String tableName=dv.getDataViewName();
+    	String repTableName="";
+    	
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	if(repType!=null){
+    		String repTypeName=repType.getType();
+    		if(repTypeName.equalsIgnoreCase("ACCOUNT_ANALYSIS_REPORT")){
+    			repTableName="t_account_analysis";
+    		}
+    		else if(repTypeName.equalsIgnoreCase("ACCOUNT_BALANCE_REPORT")){
+    			repTableName="t_balance_type";
+    		}
+    	}
+    	
+    	HashMap fieldRefMap=dataViewsService.getFieldRef(reportId,repTableName);
+    	log.info("fieldRefMap: "+fieldRefMap);
+    	
+    	SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+        JavaSparkContext sContext =  new JavaSparkContext(sConf);
+        SQLContext sqlCont = new SQLContext(sContext);
+           
+    	String dbUrl=env.getProperty("spring.datasource.url");
+		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+		String host = parts[0].split("/")[2].split(":")[0];
+		String schemaName=parts[0].split("/")[3];
+		String userName = env.getProperty("spring.datasource.username");
+		String password = env.getProperty("spring.datasource.password");
+		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+    	   
+    	   /* Loading Reporting Table Data */
+    	   Dataset<Row> repData = sqlCont.read().format("jdbc")
+                   .option("url", dbUrl)
+                   .option("user",userName)
+                   .option("password",password)
+                   .option("dbtable",repTableName).load();
+          log.info("repData.count(): "+repData.count());
+          String filter="report_id = "+reportId;
+          repData=repData.filter(filter);
+          log.info("repData.count() after filters: "+repData.count());
+        
+          /* Loading Data View Data */
+        Dataset<Row> report_data = sqlCont.read().format("jdbc")
+                .option("url", dbUrl)
+                .option("user",userName)
+                .option("password",password)
+                .option("dbtable",tableName).load();
+       log.info("report_data.count(): "+report_data.count());
+       report_data.columns();
+       
+       HashMap finalMap=new HashMap();
+       String coaCode=reports.getCoa();
+       finalMap.put("reportMode",reports.getReportMode());
+       finalMap.put("coa",coaCode);
+       finalMap.put("allowDrilldown",reports.getAllowDrillDown());
+       finalMap.put("accVal",reports.getAccVal());
+       
+       List<HashMap> mapList=new ArrayList<HashMap>();
+       String columnName="";
+       Long ftlId = null;
+       List<String> colList=new ArrayList<String>();
+       List<HashMap> colMapList=new ArrayList<HashMap>();
+       
+       
+   	for(int i=0;i<rparamList.size();i++){
+   		
+   		ReportParameters rparam=rparamList.get(i);
+   		HashMap colMap=new HashMap();
+   		log.info("rparam: "+rparam);
+   		Long col=rparam.getRefColId();
+   		if(rparam.getRefTypeid().equalsIgnoreCase("DATA_VIEW")){
+   		DataViewsColumns dvc=dataViewsColumnsRepository.findOne(col);
+   		FileTemplateLines ftl=fileTemplateLinesRepository.findOne(Long.parseLong(dvc.getRefDvColumn()));
+   		columnName=ftl.getColumnAlias();
+   		//colList.add(columnName);
+   		}
+   		else if(rparam.getRefTypeid().equalsIgnoreCase("FIN_FUNCTION")){
+   			LookUpCode funLookup=lookUpCodeRepository.findOne(col);
+   			log.info("funLookup: "+funLookup);
+   			//columnName=funLookup.getLookUpCode().toLowerCase();
+   			//String disName=rparam.getDisplayName();
+   			columnName=rparam.getDisplayName();
+   			//log.info("disName: "+disName+" columnName: "+columnName);
+   		}
+   		
+   		colMap.put(rparam.getId(), columnName);
+   		colMapList.add(colMap);
+   	}
+   		
+   	log.info("final colMap: "+colMapList);
+   	String flag="false";
+    Dataset<Row> values =null;
+   	for(int k=0;k<colMapList.size();k++){
+   		List<String> valList=new ArrayList<String>();
+   		HashMap mapCol=colMapList.get(k);
+   		Long rParamId=(Long) mapCol.keySet().iterator().next();
+   		log.info("rParamId: "+rParamId);
+   		columnName=mapCol.get(rParamId).toString();
+   		ReportParameters rparam=reportParametersRepository.findOne(rParamId);
+   		if(rparam.getRefTypeid().equalsIgnoreCase("FIN_FUNCTION")){
+   			if(rparam.getSelectionType().equalsIgnoreCase("AMOUNT_RANGE")){
+   				flag="false";
+   				values=null;
+   			}
+   			else{
+   				flag="true";
+   				values=repData.select(columnName).distinct();
+   				values.show();
+   			}
+   		}
+   		else{
+   			values = report_data.select(columnName).distinct();
+   	       values.show();
+   		}
+   		if(values!=null){
+   	       List<Row> data=values.collectAsList();
+   	       log.info("data.size(): "+data.size());
+   	       for(int g=0;g<data.size();g++){
+   	    	   String val=data.get(g).mkString();
+   	    	   if(val.equalsIgnoreCase("scrIds")){
+   	    		   
+   	    	   }
+   	    	   else if(val.equalsIgnoreCase("fileDate")){
+   	    		   
+   	    	   }
+   	    	   else{
+   	    	   valList.add(val);
+   	    	   }
+   	       }
+   		}
+       if(rparam!=null){
+    	   HashMap map=new HashMap();
+    	   map.put("rParamId",rParamId);
+    	   map.put("refType",rparam.getRefTypeid());
+    	   map.put("fieldName",rparam.getDisplayName());
+    	   map.put("refColId", rparam.getRefColId());
+    	   map.put("selOperator", "");
+    	   String selectionCode=rparam.getSelectionType();
+    	   log.info("selectionCode: "+selectionCode);
+    	   LookUpCode lookupCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("FORM_CONTROLS",selectionCode, tenantId);
+    	   log.info("lookupCode: "+lookupCode);
+    	   if(lookupCode.getMeaning()!=null)
+    	   map.put("fieldType", selectionCode);
+    	   if(lookupCode.getMeaning().equalsIgnoreCase("Multi Select LOV")){
+    		   
+    	   }
+    	   map.put("fieldValuesList",valList);
+    	   map.put("selectedValue", "");
+    	   mapList.add(map);
+       }
+       }
+   		/* To Enable or Disable Period Filters */
+	   	if(dvcQualifier!=null){
+	   		
+	   		
+	   		
+	   	}
+	    if(coaCode!=null && !(coaCode.isEmpty())){
+	    LookUpCode lookupCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId("CHART_OF_ACCOUNTS",coaCode, tenantId);
+	    List<LookUpCode> COALookups=lookUpCodeRepository.findByTenantIdAndLookUpType(tenantId, coaCode);
+	    List<HashMap> segMapList=new ArrayList<HashMap>();
+	    for(int i=0;i<COALookups.size();i++){
+	    	String segment=COALookups.get(i).getMeaning();
+	    	HashMap segMap=new HashMap();
+	    	segMap.put("segment",segment);
+	    	segMap.put("from", "");
+	    	segMap.put("to", "");
+	    	segMapList.add(segMap);
+	    }
+	    finalMap.put("segments", segMapList);
+	    }
+	    
+	    finalMap.put("fields",mapList);
+       sContext.close();
+	return finalMap;
+    }
+   
+}

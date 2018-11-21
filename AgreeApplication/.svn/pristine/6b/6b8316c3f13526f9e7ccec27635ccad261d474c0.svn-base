@@ -1,0 +1,249 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.AccountingData;
+
+/**
+ * Spring Data JPA repository for the AccountingData entity.
+ */
+@SuppressWarnings("unused")
+public interface AccountingDataRepository extends JpaRepository<AccountingData,Long> {
+	
+	// Total Accounting Ids
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_view_id=:viewId and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT') group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantId(@Param("tenantId") Long tenantId,@Param("viewId") Long viewId, @Param("groupId") Long groupId);
+	
+	// Partially Accounting Ids
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_view_id=:viewId and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIds(@Param("tenantId") Long tenantId, @Param("viewId") Long viewId, @Param("groupId") Long groupId);
+	
+	// Accounted Ids
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_view_id=:viewId and acct_group_id=:groupId and STATUS='ACCOUNTED' and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIds(@Param("tenantId") Long tenantId, @Param("viewId") Long viewId, @Param("groupId") Long groupId);
+
+	
+		
+	AccountingData findByTenantIdAndOriginalRowIdAndLineTypeAndOriginalViewIdAndAcctGroupIdAndJobReference(Long tenantId, Long originalRowId, String lineType, Long viewId, Long groupId, String jobReference);
+	
+	List<AccountingData> findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(Long tenantId, Long originalRowId, Long viewId, Long groupId);
+	
+	List<AccountingData> findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupIdAndJobReference(Long tenantId, Long originalRowId, Long viewId, Long groupId, String jobReference);
+	
+	@Query(value =  "SELECT id from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchIdsByOriginalRowIdsAndTenantidAndViewIdAndGroupId(@Param("orignalRowIds") List<Long> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId);
+
+	@Query(value =  "SELECT * from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId",nativeQuery=true)
+	List<AccountingData> fetchRecordsByOriginalRowIdsAndTenantidAndViewIdAndGroupId(@Param("orignalRowIds") List<Long> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId);
+
+	@Query(value =  "SELECT * from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId and acct_rule_id = :ruleId",nativeQuery=true)
+	List<AccountingData> fetchRecordsByOriginalRowIdsAndTenantidAndViewIdAndGroupIdNRuleId(@Param("orignalRowIds") List<Long> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId, @Param("ruleId") Long ruleId);
+	
+	List<AccountingData> findByTenantIdAndOriginalViewId(Long tenantId, Long orignalViewId);
+		
+	//AWQ New Form Queries
+	
+	// Total Accounting Ids With Job
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference = :jobReference and line_type in ('CREDIT','DEBIT') group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantIdWithJob(@Param("tenantId") Long tenantId,@Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference);
+	
+	// Partially Accounting Ids With Job
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference = :jobReference and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIdsWithJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference);
+	
+	// Accounted Ids With Job
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference = :jobReference and STATUS='ACCOUNTED' and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIdsWithJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference);
+
+
+	// Total Accounting Ids Without Job
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT') group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantIdWithoutJob(@Param("tenantId") Long tenantId,@Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId);
+	
+	// Partially Accounting Ids Without Job
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIdsWithoutJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId);
+	
+	// Accounted Ids Without Job
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and STATUS='ACCOUNTED' and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIdsWithoutJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId);
+
+	//Rules
+	
+	// Total Accounting Ids With Job
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference = :jobReference and line_type in ('CREDIT','DEBIT') and acct_rule_id in (:ruleIds) group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantIdAndRulesWithJob(@Param("tenantId") Long tenantId,@Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference, @Param("ruleIds") List<BigInteger> ruleIds);
+	
+	// Partially Accounting Ids With Job
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference = :jobReference and line_type in ('CREDIT','DEBIT') and acct_rule_id in (:ruleIds) group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIdsByRulesWithJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference, @Param("ruleIds") List<BigInteger> ruleIds);
+	
+	// Accounted Ids With Job
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference = :jobReference and STATUS='ACCOUNTED' and acct_rule_id in (:ruleIds) and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIdsByRulesWithJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("jobReference") String jobReference, @Param("ruleIds") List<BigInteger> ruleIds);
+
+
+	// Total Accounting Ids Without Job
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT') and acct_rule_id in (:ruleIds) group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantIdAndRulesWithoutJob(@Param("tenantId") Long tenantId,@Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("ruleIds") List<BigInteger> ruleIds);
+	
+	// Partially Accounting Ids Without Job
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and line_type in ('CREDIT','DEBIT') and acct_rule_id in (:ruleIds) group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIdsAndRulesWithoutJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("ruleIds") List<BigInteger> ruleIds);
+	
+	// Accounted Ids Without Job
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and acct_rule_id in (:ruleIds) and STATUS='ACCOUNTED' and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIdsAndRulesWithoutJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("ruleIds") List<BigInteger> ruleIds);
+	
+	@Query(value =  "SELECT distinct(acct_rule_id) FROM t_accounting_data where tenant_id = :tenantId and acct_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchRuleIdsByGroupIdAndTenantId(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId);
+		
+	@Query(value =  "SELECT id from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId and acct_rule_id in(:ruleIds)",nativeQuery=true)
+	List<BigInteger> fetchIdsByRules(@Param("orignalRowIds") List<BigInteger> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId, @Param("ruleIds") List<Long> ruleIds);
+
+	@Query(value =  "SELECT * from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId and acct_rule_id = :ruleId",nativeQuery=true)
+	List<AccountingData> fetchRecordsByRuleId(@Param("orignalRowIds") List<BigInteger> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId, @Param("ruleId") Long ruleId);
+	
+	@Query(value =  "SELECT id from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId and job_reference in(:jobReference)",nativeQuery=true)
+	List<BigInteger> fetchIdsByBatch(@Param("orignalRowIds") List<BigInteger> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId, @Param("jobReference") List<String> jobReference);
+
+	@Query(value =  "SELECT * from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId and job_reference in(:jobReference) and acct_rule_id = :ruleId",nativeQuery=true)
+	List<AccountingData> fetchRecordsByBatchNRuleId(@Param("orignalRowIds") List<BigInteger> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId, @Param("jobReference") List<String> jobReference, @Param("ruleId") Long ruleId);
+	
+	@Query(value =  "SELECT id from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and original_view_id = :dataViewId and acct_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> fetchIdsByOriginalRowIds(@Param("orignalRowIds") List<BigInteger> orignalRowIds, @Param("tenantId") Long tenantId, @Param("dataViewId") Long dataViewId, @Param("groupId") Long groupId);
+
+	@Query(value =  "SELECT distinct(job_reference) FROM t_accounting_data where tenant_id=:tenantId and acct_group_id = :groupId",nativeQuery=true)
+	List<String> fetchDistinctBatches(@Param("tenantId") Long tenantId, @Param("groupId") Long groupId);
+	
+	
+	//Batches
+	// Total Accounting Ids With Job
+	@Query(value =  "SELECT TEMP.original_row_id from (select distinct(original_row_id) as original_row_id ,Count(*), case"+ 
+	        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+        
+	        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+	        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference in (:batches) and line_type in ('CREDIT','DEBIT') group by original_row_id ,STATUS) as TEMP",nativeQuery=true)
+	        List<BigInteger> fetchIdsByOriginalRowIdAndTenantIdAndBathchesWithJob(@Param("tenantId") Long tenantId,@Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId,@Param("batches") List<String> batches);
+	
+	// Partially Accounting Ids With Job
+	@Query(value = "SELECT TEMP.original_row_id FROM (select distinct(original_row_id) AS original_row_id,CASE"+       
+					" WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+					" WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED' end AS STATUS,CASE"+
+					" when count(*)=2 AND STATUS = 'ACCOUNTED' then 0"+ 
+					" end as COUNT from  t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference in (:batches) and line_type in ('CREDIT','DEBIT') group by original_row_id ,STATUS HAVING COUNT IS NULL) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchPartiallyAccountedIdsByBathchesWithJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("batches") List<String> batches);
+	
+	// Accounted Ids With Job
+	@Query(value = "SELECT TEMP.original_row_id from (select distinct(original_row_id) ,Count(*), case"+ 
+			        " when count(*)>1 AND STATUS='ACCOUNTED' then 'ACCOUNTED'"+       
+			        " WHEN count(*)=1 AND STATUS='ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " WHEN STATUS='PARTIALLY_ACCOUNTED' THEN 'PARTIALLY_ACCOUNTED'"+
+			        " end as STATUS  from t_accounting_data where tenant_id=:tenantId and original_row_id in(:originalRowIds) and acct_group_id=:groupId and job_reference in (:batches) and STATUS='ACCOUNTED' and line_type in ('CREDIT','DEBIT')  group by original_row_id ,STATUS having count(*)>1) AS TEMP",nativeQuery=true)
+	List<BigInteger> fetchAccountedIdsByBathchesWithJob(@Param("tenantId") Long tenantId, @Param("originalRowIds") List<BigInteger> originalRowIds, @Param("groupId") Long groupId, @Param("batches") List<String> batches);
+	
+	@Query(value =  "SELECT distinct original_row_id FROM t_accounting_data where id in (:ids)",nativeQuery=true)
+	List<BigInteger> fetchByIds(@Param("ids") List<Long> ids);
+
+	List<AccountingData> findByTenantIdAndOriginalRowIdInAndOriginalViewIdAndAcctGroupId(
+			Long tenantId, List<Long> rowIdsList, Long viewId, Long groupId);
+
+	List<AccountingData> findByTenantIdAndOriginalViewIdAndOriginalRowIdAndJobReference(
+			Long tenantId, Long viewId, Long rowId, String jobReference);
+	
+	@Query(value =  "SELECT distinct(coa_ref) from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and acct_group_id = :groupId",nativeQuery=true)
+	List<Long> findDistinctCoaRefByTenantIdAndOriginalRowIdInAndAcctGroupId(
+			@Param("tenantId") Long tenantId,@Param("orignalRowIds") List<Long> orignalRowIds,@Param("groupId") Long groupId);
+	
+	
+	@Query(value =  "SELECT distinct(coa_ref) from t_accounting_data where tenant_id =:tenantId and original_row_id in(:orignalRowIds) and acct_group_id = :groupId and original_view_id =:viewId",nativeQuery=true)
+	List<Long> findDistinctCoaRefByTenantIdAndOriginalRowIdInAndAcctGroupIdAndViewId(
+			@Param("tenantId") Long tenantId,@Param("orignalRowIds") List<BigInteger> orignalRowIds,@Param("groupId") Long groupId,@Param("viewId") Long viewId);
+	
+	@Query(value =  "SELECT distinct(original_row_id) FROM t_accounting_data where acct_group_id = :groupId and original_view_id =:viewId and final_status='APPROVED'",nativeQuery=true)
+	List<BigInteger> fetchDistinctApprovedRowIds( @Param("groupId") Long groupId, @Param("viewId") Long viewId);
+
+	@Query(value =  "SELECT original_view_id,acct_rule_id FROM t_accounting_data where acct_group_id = :groupId and id in (:recIdsList) group by original_view_id,acct_rule_id",nativeQuery=true)
+	List<Object[]> fetchDistinctRuleIdAndViewIdByRuleGroupId(@Param("groupId") Long groupId,
+			@Param("recIdsList") List<Long> recIdsList);
+
+	@Query(value =  "SELECT distinct original_view_id FROM t_accounting_data where acct_group_id = :groupId",nativeQuery=true)
+	List<BigInteger> findDistinctOrginalViewIdByAcctGroupId(@Param("groupId") Long groupId);
+	
+	@Query(value =  "select distinct coa_ref from t_accounting_data where original_view_id=:viewId",nativeQuery=true)
+	List<String> findCoaForViewId(@Param("viewId") Long viewId);
+
+	List<AccountingData> findByTenantIdAndAccountedSummaryId(Long tenantId,
+			Long id);
+	
+	@Query(value =  "SELECT original_row_id FROM t_accounting_data where acct_group_id = :groupId and original_view_id =:viewId and acct_rule_id =:ruleId and id in (:id) and original_row_id in (select id from t_data_master where tenant_id =:tenantId and Date(file_date)=:fmDate) group by original_row_id",nativeQuery=true)
+	List<BigInteger> fetchActApprovedCount(@Param("id") List<Long> id,@Param("groupId") Long groupId,@Param("ruleId") Long ruleId, @Param("viewId") Long viewId, @Param("fmDate") LocalDate fmDate,@Param("tenantId") Long tenantId);
+
+}

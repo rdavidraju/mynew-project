@@ -1,0 +1,1084 @@
+package com.nspl.app.service;
+
+import java.math.BigInteger;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.inject.Inject;
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
+import javax.persistence.Query;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.nspl.app.domain.AccountingData;
+import com.nspl.app.domain.DataMaster;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.Rules;
+import com.nspl.app.repository.AccountingDataRepository;
+import com.nspl.app.repository.AccountingLineTypesRepository;
+import com.nspl.app.repository.AcctRuleConditionsRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.RulesRepository;
+import com.nspl.app.web.rest.AccountingDataResource;
+
+@Service
+@Transactional
+public class AccountingDataService {
+
+    private final Logger log = LoggerFactory.getLogger(AccountingDataResource.class);
+    
+	@Inject
+	ReconciliationResultService reconciliationResultService;
+	
+	@Inject
+	AccountingDataRepository accountingDataRepository;
+	
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    RulesRepository rulesRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    AccountingLineTypesRepository accountingLineTypesRepository;
+    
+    @Inject
+    AcctRuleConditionsRepository acctRuleConditionsRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    AccountingDataService accountingDataService;
+    
+	@PersistenceContext(unitName="default")
+	private EntityManager em;
+	
+    @Inject
+    private Environment env;
+	
+    /* Get Reconciled Map<String, List<Long>> with accounted, unaccounted and total ids */
+    public Map<String, List<BigInteger>> getAccntdUnAccntIds(Long dataViewId, Long tenantId, Long groupId) throws ClassNotFoundException, SQLException{
+    	Map<String, List<BigInteger>> accUnaccAllIds = new HashMap<String, List<BigInteger>>();
+    	//List<BigInteger> totalIds = reconciliationResultService.getViewIds(new BigInteger(dataViewId.toString()));
+    	//log.info("totaIds Size: "+ totalIds.size());
+    	DataViews dv = dataViewsRepository.findOne(dataViewId);
+    	List<BigInteger> accIds = new ArrayList<BigInteger>();
+    	List<BigInteger> parAccIds = new ArrayList<BigInteger>();
+    	List<BigInteger> unAccIds = new ArrayList<BigInteger>();
+    	List<BigInteger> allAccIds = new ArrayList<BigInteger>();
+    	if(dv != null)
+    	{
+        	//all ids for view
+        	List<BigInteger> totalIds = reconciliationResultService.getViewIds(new BigInteger(dataViewId.toString()));
+        	log.info("total ids: "+ totalIds.size());
+        	List<BigInteger> totalAccntdIds = new ArrayList<BigInteger>();
+        	//total accounted ids
+        	if(totalIds.size()>0)
+        	{
+        		totalAccntdIds =  accountingDataRepository.fetchIdsByOriginalRowIdAndTenantId(tenantId, dataViewId, groupId);
+        	}
+        	log.info("total accounted ids: "+totalAccntdIds.size());
+        	//total un accounted ids
+        	List<BigInteger> totalUnAccntdIds = new ArrayList<BigInteger>();
+        	if(totalIds.size()>0)
+        	{
+        		for(BigInteger id : totalIds)
+        		{
+        			if(!totalAccntdIds.contains(id))
+        			{
+        				totalUnAccntdIds.add(id);
+        			}
+        		}
+        	}
+        	log.info("total unaccounted ids: "+totalUnAccntdIds.size());
+        	// partially accounted ids
+        	List<BigInteger> partiallyAccntdIds = accountingDataRepository.fetchPartiallyAccountedIds(tenantId,dataViewId, groupId);
+        	log.info("partially accounted ids: " + partiallyAccntdIds.size());
+        	
+        	//accounted ids
+        	List<BigInteger> accountedIds = accountingDataRepository.fetchAccountedIds(tenantId,dataViewId, groupId);
+
+        	
+     		accUnaccAllIds.put("accounted", accountedIds);
+        	accUnaccAllIds.put("unAccounted", totalUnAccntdIds);
+        	accUnaccAllIds.put("allIds", totalIds);
+        	accUnaccAllIds.put("partiallyAccounted", partiallyAccntdIds);
+        	log.info("Final Sizes of Accounted Ids: "+ accountedIds.size() + ", Un Accounted Ids: "+ totalUnAccntdIds.size()+", Total Ids: "+ totalIds.size()+", Partially Accounted Ids: "+partiallyAccntdIds.size());
+    	}
+    	return accUnaccAllIds;
+    }
+  
+    public String getAcctColName(int colNumber)
+    {
+    	switch(colNumber)
+    	{
+    	case 1 : return "accountingRef1";
+    	case 2 : return "accountingRef2";
+    	case 3 : return "accountingRef3";
+    	case 4 : return "accountingRef4";
+    	case 5 : return "accountingRef5";
+    	case 6 : return "accountingRef6";
+    	case 7 : return "accountingRef7";
+    	case 8 : return "accountingRef8";
+    	case 9 : return "accountingRef9";
+    	case 10 : return "accountingRef10";
+    	default : return "";
+    	}
+    }
+    
+    /*fetching accounting data based on view id*/
+   public List<HashMap> fetchAccountingDataByViewId(Page<DataMaster> dms, List<String> headerColumns, Long tenantId, int parSegLength, int accSegLength, Long dataViewId, Long groupId) throws ClassNotFoundException{
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	if(dms.getSize()>0)
+		{
+    		try{
+    			for(DataMaster dm : dms)
+    			{
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				for(String key : headerColumns) // Looping Data View Columns
+    				{
+    					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+    					if(ftl != null)
+    					{
+    						String actualFieldName = reconciliationResultService.getActualFieldName(ftl.getMasterTableReferenceColumn());
+    						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+    						reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+    					}	
+    				}
+    				// Building Code Combination For Credit And Debit Columns
+    				List<String> creditList = new ArrayList<String>();
+    				List<String> debitList = new ArrayList<String>();
+    				List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId, dm.getId(), dataViewId, groupId);
+    				int segmentsSize = 0;
+    				if(accData.size()>0)
+    				{
+    					if(parSegLength>0)
+    					{
+    						segmentsSize = segmentsSize+parSegLength;
+    					}
+    					else if(accSegLength>0)
+    					{
+    						segmentsSize = segmentsSize+accSegLength;
+    					}
+    					if(segmentsSize>0)
+    					{
+    						for(int i=1; i<=segmentsSize; i++)
+    						{
+    							List<String> creditAC = new ArrayList<String>();
+    							List<String> debitAC = new ArrayList<String>();
+    							Query queryCredit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Credit'");
+    							Query queryDebit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Debit'");
+    							creditAC = queryCredit.getResultList();
+    							debitAC = queryDebit.getResultList();
+    							if(creditAC.size()>0)
+    							{
+    								if(creditAC.get(0) != null)
+    								{
+    									creditList.add(creditAC.get(0));
+    								}
+    								else
+    								{
+    									creditList.add("XXXXX");
+    								}
+    							}
+    							if(debitAC.size()>0)
+    							{
+    								if(debitAC.get(0) != null)
+    								{
+    									debitList.add(debitAC.get(0));
+    								}
+    								else
+    								{
+    									debitList.add("XXXXX");
+    								}
+    							}
+    						}
+    					}
+    					reconData.put("Credit", convertListToString(creditList));
+    					reconData.put("Debit", convertListToString(debitList));
+    				}
+    				else
+    				{
+    					reconData.put("Credit", "");
+    					reconData.put("Debit", "");
+    				}
+    				List<String> status = new ArrayList<String>();
+    				if(accData.size()>0)
+    				{
+    					for(AccountingData a : accData)
+    					{
+    						status.add(a.getStatus());
+    					}
+    					if(status.contains("PARTIALLY_ACCOUNTED"))
+    					{
+    						reconData.put("Status", "Partially-Accounted");
+    					}
+    					else
+    					{
+    						reconData.put("Status", "Accounted");
+    					}
+    				}
+    				else
+    				{
+    					reconData.put("Status", "Un-Accounted");
+    				}
+    				finalMap.add(reconData);
+    			}
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Error while fetching data from data master table."+e);
+    		}
+		}
+    	return finalMap;
+    }
+    
+    /*fetching accounting data based on view id*/
+   public List<HashMap> fetchAccountingDataByViewId(List<DataMaster> dms, List<String> headerColumns, Long tenantId, int parSegLength, int accSegLength, Long dataViewId, Long groupId) throws ClassNotFoundException{
+	   	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	if(dms.size()>0)
+		{
+    		try{
+    			for(DataMaster dm : dms)
+    			{
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				for(String key : headerColumns) // Looping Data View Columns
+    				{
+    					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+    					if(ftl != null)
+    					{
+    						String actualFieldName = reconciliationResultService.getActualFieldName(ftl.getMasterTableReferenceColumn());
+    						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+    						reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+    					}	
+    				}
+    				// Building Code Combination For Credit And Debit Columns
+    				List<String> creditList = new ArrayList<String>();
+    				List<String> debitList = new ArrayList<String>();
+    				List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId, dm.getId(), dataViewId, groupId);
+    				int segmentsSize = 0;
+    				if(accData.size()>0)
+    				{
+    					if("PARTIALLY_ACCOUNTED".equalsIgnoreCase(accData.get(0).toString()))
+    					{
+    						segmentsSize = segmentsSize+parSegLength;
+    					}
+    					else if("ACCOUNTED".equalsIgnoreCase(accData.get(0).getStatus()))
+    					{
+    						segmentsSize = segmentsSize+accSegLength;
+    					}
+    					if(segmentsSize>0)
+    					{
+    						for(int i=1; i<=segmentsSize; i++)
+    						{
+    							List<String> creditAC = new ArrayList<String>();
+    							List<String> debitAC = new ArrayList<String>();
+    							Query queryCredit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Credit'");
+    							Query queryDebit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Debit'");
+    							creditAC = queryCredit.getResultList();
+    							debitAC = queryDebit.getResultList();
+    							if(creditAC.size()>0)
+    							{
+    								if(creditAC.get(0) != null)
+    								{
+    									creditList.add(creditAC.get(0));
+    								}
+    								else
+    								{
+    									creditList.add("XXXXX");
+    								}
+    							}
+    							if(debitAC.size()>0)
+    							{
+    								if(debitAC.get(0) != null)
+    								{
+    									debitList.add(debitAC.get(0));
+    								}
+    								else
+    								{
+    									debitList.add("XXXXX");
+    								}
+    							}
+    						}
+    					}
+    					reconData.put("Credit", convertListToString(creditList));
+    					reconData.put("Debit", convertListToString(debitList));
+    				}
+    				else
+    				{
+    					reconData.put("Credit", "");
+    					reconData.put("Debit", "");
+    				}
+    				List<String> status = new ArrayList<String>();
+    				if(accData.size()>0)
+    				{
+    					for(AccountingData a : accData)
+    					{
+    						status.add(a.getStatus());
+    					}
+    					if(status.contains("PARTIALLY_ACCOUNTED"))
+    					{
+    						reconData.put("Status", "Partially-Accounted");
+    					}
+    					else
+    					{
+    						reconData.put("Status", "Accounted");
+    					}
+    				}
+    				else
+    				{
+    					reconData.put("Status", "Un-Accounted");
+    				}
+    				finalMap.add(reconData);
+    			}
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Error while fetching data from data master table."+e);
+    		}
+		}
+    	return finalMap;
+
+    }
+    
+    //Code combination building
+    public String convertListToString(List<String> stringList)
+    {
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String separator = props.getProperty("codeCombinatinSeparator");
+    	String listAsString = "";
+    	if(stringList.size()>0)
+    	{
+    		for(int i=0; i<stringList.size(); i++)
+    		{
+    			if(i == stringList.size()-1)
+    			{
+    				listAsString = listAsString + stringList.get(i);
+    			}
+    			else
+    			{
+    				listAsString = listAsString + stringList.get(i) +separator;
+    			}
+    		}
+    	}
+    	return listAsString;
+    }
+    
+    
+    public HashMap getViewStatistics(BigInteger viewId, Long tenantId, Long groupId) throws ClassNotFoundException, SQLException
+    {
+    	log.info("______________________ " + viewId);
+    	log.info("In service of getting statistics for the view id: "+viewId);
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String currencyFormat = props.getProperty("currencyFormat");
+    	HashMap viewMap = new HashMap();
+    	
+    	Map<String, List<BigInteger>> accUnaccAllIds = getAccntdUnAccntIds(viewId.longValue(), tenantId, groupId);
+    	List<BigInteger> allIds = accUnaccAllIds.get("allIds");
+    	List<BigInteger> accIds = accUnaccAllIds.get("accounted");
+    	List<BigInteger> unAccIds = accUnaccAllIds.get("unAccounted");
+    	List<BigInteger> partiallyAccntdIds = accUnaccAllIds.get("partiallyAccounted");
+    	log.info("Getting Accounting counts amounts completed");
+    	
+		String qualifier = reconciliationResultService.getQualifier(viewId);
+		log.info("View Id: "+ viewId + ", Qualifier: "+ qualifier);
+		
+		if(qualifier.length()>0)
+		{
+			//total sum of amount
+			String totalAmount = reconciliationResultService.getAmountSumByIds(allIds, qualifier);
+			String totalAmountInCurrency = reconciliationResultService.getAmountInFormat(totalAmount,currencyFormat);
+			log.info("View Id: "+ viewId+", Total Count: "+ allIds.size()+", Total Amount: "+totalAmountInCurrency);
+			
+			//accounted sum amount
+			String accAmount = reconciliationResultService.getAmountSumByIds(accIds, qualifier);
+			String accAmountInCurrency = reconciliationResultService.getAmountInFormat(accAmount,currencyFormat);
+			log.info("View Id: "+ viewId+", Accounting Count: "+ accIds.size()+", Accounting Amount: "+accAmountInCurrency);
+			
+			//unaccounted sum amount
+			String unAccAmount = reconciliationResultService.getAmountSumByIds(unAccIds, qualifier);
+			String unAccAmountInCurrency = reconciliationResultService.getAmountInFormat(unAccAmount,currencyFormat);
+			log.info("View Id: "+ viewId+", Un-Accounting Count: "+ unAccIds.size()+", Un-Accounting Amount: "+unAccAmountInCurrency);
+			
+			//partially accounted sum amount
+			String parAmount = reconciliationResultService.getAmountSumByIds(partiallyAccntdIds, qualifier);
+			String parAmountInCurrency = reconciliationResultService.getAmountInFormat(parAmount,currencyFormat);
+			log.info("View Id: "+ viewId+", Par-Accounting Count: "+ partiallyAccntdIds.size()+", Par-Accounting Amount: "+parAmountInCurrency);
+	    	viewMap.put("viewId", viewId);
+	    	DataViews dv = dataViewsRepository.findOne(viewId.longValue());
+	    	if(dv != null)
+	    	{
+	    		viewMap.put("viewName", dv.getDataViewName());
+	    	}
+	    	
+	    	HashMap total = new HashMap();
+	    	total.put("count", allIds.size());
+	    	total.put("amount", totalAmountInCurrency);
+	    	
+	    	HashMap acc = new HashMap();
+	    	acc.put("count", accIds.size());
+	    	acc.put("amount", accAmountInCurrency);
+	    	
+	    	HashMap unAcc = new HashMap();
+	    	unAcc.put("count", unAccIds.size());
+	    	unAcc.put("amount", unAccAmountInCurrency);
+	    	
+	    	HashMap parAcc = new HashMap();
+	    	parAcc.put("count", partiallyAccntdIds.size());
+	    	parAcc.put("amount", parAmountInCurrency);
+
+	    	viewMap.put("total", total);
+	    	viewMap.put("accounted", acc);
+	    	viewMap.put("unAccounted", unAcc);
+	    	viewMap.put("partiallyAccounted", parAcc);
+	    	log.info("______________________ " + viewId);
+	    	return viewMap;
+		}
+		else
+		{
+			HashMap statusMap = new HashMap();
+			statusMap.put("status", "No qualifier found for the view id: "+ viewId);
+			return statusMap;
+		}
+    }
+    
+/*    public int getSegmentsLength(BigInteger accRuleId, Long tenantId, Long dataViewId, Long groupId)
+    {
+    	int segmentsLength = 0;
+   		log.info("First Partially Accounted ID: "+ accRuleId);
+    		List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId, accRuleId.longValue(), dataViewId, groupId);
+    		if(accData.size()>0)
+    		{
+        		AccountingData ad = accountingDataRepository.findOne(accData.get(0).getId());
+        		if(ad != null)
+        		{
+        			log.info("Acct Rule Id: "+ ad.getAcctRuleId());
+        			Long ruleId = ad.getAcctRuleId();
+        			Rules rule = rulesRepository.findOne(ruleId);
+        			if(rule != null)
+        			{
+        				log.info("COA Name: " + rule.getCOA());
+        				List<LookUpCode> lookUp = lookUpCodeRepository.findByTenantAndLookUpTypeAndActiveState(tenantId, rule.getCOA());
+        				segmentsLength = segmentsLength + lookUp.size();
+        			}
+        		}
+    		}
+    	return segmentsLength;
+    }*/
+    
+    public int getSegmentsLengthWithCoaRef(Long tenantId, String coaName)
+    {
+    	int segmentsLength = 0;
+        List<LookUpCode> lookUp = lookUpCodeRepository.findByTenantAndLookUpTypeAndActiveState(tenantId, coaName);
+        segmentsLength = segmentsLength + lookUp.size();
+    	return segmentsLength;
+    }
+    
+    /*Getting header columns sequence order*/
+    public List<String> getViewColumnHeadersInSequence(Long dataViewId, Long tenantId, Long groupId)
+    {
+    	log.info("In service for getting column headers in sequence order");
+    	List<String> colNames = new ArrayList<String>();
+    	List<String> sysColumns = new ArrayList<String>();
+    	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+    	colNames.add("Coa_Reference");
+    	sysColumns.add("Debit");
+    	sysColumns.add("Credit");
+    	sysColumns.add("COA");
+    	sysColumns.add("Status");
+    	List<BigInteger> ruleIds = accountingLineTypesRepository.fetchRuleIdsByTenantIdAndRuleId(tenantId, groupId, dataViewId);
+    	log.info("Rule Ids: "+ ruleIds);
+    	if(ruleIds.size()>0 && !ruleIds.contains(null))
+    	{
+    		List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+    		log.info("Source View Column Ids: "+sViewColumnIds);
+    		if(sViewColumnIds.size()>0)
+    		{
+    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(sViewColumnIds);
+    			List<String> seqColumns = new ArrayList<String>();
+    	    	if(dvc.size()>0)
+    	    	{
+    	    		List<Long> idsAsLong = new ArrayList<Long>();
+    	    		for(String idString : dvc)
+    	    		{
+    	    			idsAsLong.add(Long.parseLong(idString));
+    	    		}
+    	    		seqColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	    		log.info("Sequence Columns "+ seqColumns);
+    	    		colNames.addAll(seqColumns);
+    	    	}
+    		}
+    		colNames.addAll(sysColumns);
+    		log.info("System Columns "+ sysColumns);
+    		List<BigInteger> allViewColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(dataViewId);
+    		log.info("All View Ids: "+allViewColIds);
+    		if(allViewColIds.size()>0)
+    		{
+    			for(BigInteger id : allViewColIds)
+    			{
+    				if(!sViewColumnIds.contains(id))
+    				{
+    					remainingSequence.add(id);
+    				}
+    			}
+    		}
+    		log.info("Remaining Sequnce Ids: "+remainingSequence);
+			List<String> remainingColumns = new ArrayList<String>();
+    		if(remainingSequence.size()>0)
+    		{
+    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(remainingSequence);
+    	    	if(dvc.size()>0)
+    	    	{
+    	    		List<Long> idsAsLong = new ArrayList<Long>();
+    	    		for(String idString : dvc)
+    	    		{
+    	    			idsAsLong.add(Long.parseLong(idString));
+    	    		}
+    	    		remainingColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+    	    		log.info("Sequence Columns "+ remainingColumns);
+    	    		colNames.addAll(remainingColumns);
+    	    	}
+    		}
+    		log.info("Remaining Sequnce Columns: "+remainingColumns);
+    	}
+    	return colNames;
+    }
+    
+    /*fetching accounting data based on view id*/
+   public List<HashMap> fetchAccDataInSequence(Page<DataMaster> dms, List<String> headerColumns, Long tenantId,Long dataViewId, Long groupId) throws ClassNotFoundException{
+    	List<HashMap> finalMap = new ArrayList<HashMap>();
+    	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+		String currencyFormat = props.getProperty("currencyFormat");
+    	if(dms.getSize()>0)
+		{
+    		try{
+    			for(DataMaster dm : dms)
+    			{
+    				List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId, dm.getId(), dataViewId, groupId);
+    				int segmentsSize = 0;
+    				if(accData.size()>0)
+    				{
+    					segmentsSize = segmentsSize + accountingDataService.getSegmentsLengthWithCoaRef(tenantId, accData.get(0).getCoaRef());
+    				}
+    				//log.info("Segments Size: " +segmentsSize);
+    				LinkedHashMap reconData = new LinkedHashMap();
+    				reconData.put("Id", dm.getId());
+    				// Building Code Combination For Credit And Debit Columns
+    				List<String> creditList = new ArrayList<String>();
+    				List<String> debitList = new ArrayList<String>();
+    				for(String key : headerColumns) // Looping Data View Columns
+    				{
+    					if("Credit".equalsIgnoreCase(key))
+    					{
+    	    				if(accData.size()>0)
+    	    				{
+    	    					if(segmentsSize>0)
+    	    					{
+    	    						for(int i=1; i<=segmentsSize; i++)
+    	    						{
+    	    							List<String> creditAC = new ArrayList<String>();
+    	    							Query queryCredit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Credit' AND originalViewId = "+dataViewId + " AND acctGroupId = "+groupId);
+    	    							creditAC = queryCredit.getResultList();
+    	    							if(creditAC.size()>0)
+    	    							{
+    	    								if(creditAC.get(0) != null)
+    	    								{
+    	    									creditList.add(creditAC.get(0));
+    	    								}
+    	    								else
+    	    								{
+    	    									creditList.add("XXXXX");
+    	    								}
+    	    							}
+    	    						}
+    	    					}
+    	    					reconData.put("Credit", convertListToString(creditList));
+    	    				}
+    	    				else
+    	    				{
+    	    					reconData.put("Credit", "");
+    	    				}
+    					}
+    					else if("Debit".equalsIgnoreCase(key))
+    					{
+    	    				if(accData.size()>0)
+    	    				{
+    	    					if(segmentsSize>0)
+    	    					{
+    	    						for(int i=1; i<=segmentsSize; i++)
+    	    						{
+    	    							List<String> debitAC = new ArrayList<String>();
+    	    							Query queryDebit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Debit' AND originalViewId = "+dataViewId + " AND acctGroupId = "+groupId);
+    	    							debitAC = queryDebit.getResultList();
+    	    							if(debitAC.size()>0)
+    	    							{
+    	    								if(debitAC.get(0) != null)
+    	    								{
+    	    									debitList.add(debitAC.get(0));
+    	    								}
+    	    								else
+    	    								{
+    	    									debitList.add("XXXXX");
+    	    								}
+    	    							}
+    	    						}
+    	    					}
+    	    					reconData.put("Debit", convertListToString(debitList));
+    	    				}
+    	    				else
+    	    				{
+    	    					reconData.put("Debit", "");
+    	    				}
+    					}
+    					else if("Status".equalsIgnoreCase(key))
+    					{
+    	      				List<String> status = new ArrayList<String>();
+    	    				if(accData.size()>0)
+    	    				{
+    	    					for(AccountingData a : accData)
+    	    					{
+    	    						status.add(a.getStatus());
+    	    					}
+    	    					if(status.contains("PARTIALLY_ACCOUNTED"))
+    	    					{
+    	    						reconData.put("Status", "Partially-Accounted");
+    	    					}
+    	    					else if(accData.size() == 1)
+    	    					{
+    	    						reconData.put("Status", "Partially-Accounted");
+    	    					} 
+    	    					else 
+    	    					{
+    	    						reconData.put("Status", "Accounted");
+    	    					}
+    	    				}
+    	    				else
+    	    				{
+    	    					reconData.put("Status", "Un-Accounted");
+    	    				}
+    					}
+    					else if("Coa_Reference".equalsIgnoreCase(key))
+    					{
+    						List<AccountingData> ad = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId,dm.getId(), dataViewId, groupId);
+    						if(ad.size()>0)
+    						{
+    							reconData.put("Coa_Reference", ad.get(0).getCoaRef());
+    						}
+    					}
+    					else if("COA".equalsIgnoreCase(key))
+    					{
+    						if(accData.size()>0)
+    	    				{
+    							LookUpCode luc = lookUpCodeRepository.findByTenantIdAndLookUpCode(tenantId, accData.get(0).getCoaRef());
+    							if(luc != null)
+    								reconData.put("COA",luc.getMeaning());
+    	    				}
+    					}
+    					else
+    					{
+        					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+        					if(ftl != null)
+        					{
+        						String actualFieldName = reconciliationResultService.getActualFieldName(ftl.getMasterTableReferenceColumn());
+        						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+        						DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndRefDvColumn(dataViewId, ftl.getId().toString());
+        						if(dvc != null)
+        						{
+        							if("DECIMAL".equalsIgnoreCase(dvc.getColDataType()))
+        							{
+        								String amountInCurrency = reconciliationResultService.getAmountInFormat(entity.get(0).toString().replace(",", ""),currencyFormat);
+        								reconData.put(ftl.getColumnHeader(), amountInCurrency);
+        							}
+        							else
+        							{
+        								reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+        							}
+        						}
+        					}	
+    					}
+    				}
+      				finalMap.add(reconData);
+    			}
+    		}
+    		catch(Exception e)
+    		{
+    			log.info("Error while fetching data from data master table."+e);
+    		}
+		}
+    	return finalMap;
+    }
+   
+   
+   /*fetching accounting data based on view id*/
+  public List<HashMap> fetchAccDataInSequence(List<DataMaster> dms, List<String> headerColumns, Long tenantId, Long dataViewId, Long groupId) throws ClassNotFoundException{
+   	List<HashMap> finalMap = new ArrayList<HashMap>();
+	Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+	String currencyFormat = props.getProperty("currencyFormat");
+   	if(dms.size()>0)
+		{
+   		try{
+   			for(DataMaster dm : dms)
+   			{
+   				List<AccountingData> accData = accountingDataRepository.findByTenantIdAndOriginalRowIdAndOriginalViewIdAndAcctGroupId(tenantId, dm.getId(), dataViewId, groupId);
+   				int segmentsSize = 0;
+   				if(accData.size()>0)
+   				{
+   					segmentsSize = segmentsSize + accountingDataService.getSegmentsLengthWithCoaRef(tenantId, accData.get(0).getCoaRef());
+   				}
+   				//log.info("Segments Size: " +segmentsSize);
+   				LinkedHashMap reconData = new LinkedHashMap();
+   				reconData.put("Id", dm.getId());
+   				
+   				// Building Code Combination For Credit And Debit Columns
+   				List<String> creditList = new ArrayList<String>();
+   				List<String> debitList = new ArrayList<String>();
+   				for(String key : headerColumns) // Looping Data View Columns
+   				{
+   					if("Credit".equalsIgnoreCase(key))
+   					{
+   	    				if(accData.size()>0)
+   	    				{
+   	    					if(segmentsSize>0)
+   	    					{
+   	    						for(int i=1; i<=segmentsSize; i++)
+   	    						{
+   	    							List<String> creditAC = new ArrayList<String>();
+   	    							Query queryCredit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Credit' AND originalViewId = "+dataViewId + " AND acctGroupId = "+groupId);
+   	    							creditAC = queryCredit.getResultList();
+   	    							if(creditAC.size()>0)
+   	    							{
+   	    								if(creditAC.get(0) != null)
+   	    								{
+   	    									creditList.add(creditAC.get(0));
+   	    								}
+   	    								else
+   	    								{
+   	    									creditList.add("XXXXX");
+   	    								}
+   	    							}
+   	    						}
+   	    					}
+   	    					reconData.put("Credit", convertListToString(creditList));
+   	    				}
+   	    				else
+   	    				{
+   	    					reconData.put("Credit", "");
+   	    				}
+   					}
+   					else if("Debit".equalsIgnoreCase(key))
+   					{
+   	    				if(accData.size()>0)
+   	    				{
+   	    					if(segmentsSize>0)
+   	    					{
+   	    						for(int i=1; i<=segmentsSize; i++)
+   	    						{
+   	    							List<String> debitAC = new ArrayList<String>();
+   	    							Query queryDebit = em.createQuery("SELECT "+getAcctColName(i)+" FROM AccountingData where tenantId = "+tenantId+" AND "+ "originalRowId = "+ dm.getId()+ " AND lineType"+"= 'Debit' AND originalViewId = "+dataViewId + " AND acctGroupId = "+groupId);
+   	    							debitAC = queryDebit.getResultList();
+   	    							if(debitAC.size()>0)
+   	    							{
+   	    								if(debitAC.get(0) != null)
+   	    								{
+   	    									debitList.add(debitAC.get(0));
+   	    								}
+   	    								else
+   	    								{
+   	    									debitList.add("XXXXX");
+   	    								}
+   	    							}
+   	    						}
+   	    					}
+   	    					reconData.put("Debit", convertListToString(debitList));
+   	    				}
+   	    				else
+   	    				{
+   	    					reconData.put("Debit", "");
+   	    				}
+   					}
+   					else if("Status".equalsIgnoreCase(key))
+   					{
+   	      				List<String> status = new ArrayList<String>();
+   	    				if(accData.size()>0)
+   	    				{
+   	    					for(AccountingData a : accData)
+   	    					{
+   	    						status.add(a.getStatus());
+   	    					}
+   	    					if(status.contains("PARTIALLY_ACCOUNTED"))
+   	    					{
+   	    						reconData.put("Status", "Partially-Accounted");
+   	    					}
+   	    					else
+   	    					{
+   	    						reconData.put("Status", "Accounted");
+   	    					}
+   	    				}
+   	    				else
+   	    				{
+   	    					reconData.put("Status", "Un-Accounted");
+   	    				}
+   					}
+   					else
+   					{
+       					FileTemplateLines ftl = fileTemplateLinesRepository.findByTemplateIdAndColumnAlias(dm.getTemplateId(), key);
+       					if(ftl != null)
+       					{
+       						String actualFieldName = reconciliationResultService.getActualFieldName(ftl.getMasterTableReferenceColumn());
+       						List entity = em.createQuery("SELECT "+actualFieldName +" FROM DataMaster where id = "+dm.getId()).getResultList();
+    						if(entity.size()>0 && entity.get(0) != null)
+    						{
+           						/*reconData.put(ftl.getColumnHeader(), entity.get(0).toString());*/
+        						DataViewsColumns dvc = dataViewsColumnsRepository.findByDataViewIdAndRefDvColumn(dataViewId, ftl.getId().toString());
+        						if(dvc != null)
+        						{
+        							if("DECIMAL".equalsIgnoreCase(dvc.getColDataType()))
+        							{
+        								String amountInCurrency = reconciliationResultService.getAmountInFormat(entity.get(0).toString().replace(",", ""),currencyFormat);
+        								reconData.put(ftl.getColumnHeader(), amountInCurrency);
+        							}
+        							else
+        							{
+        								reconData.put(ftl.getColumnHeader(), entity.get(0).toString());
+        							}
+        						}
+    						}
+       					}	
+   					}
+   				}
+
+     				finalMap.add(reconData);
+   			}
+   		}
+   		catch(Exception e)
+   		{
+   			log.info("Error while fetching data from data master table."+e);
+   		}
+		}
+   	return finalMap;
+   }
+
+   
+   
+   public HashMap<BigInteger, String> getSequenceColumns(Long tenantId, Long groupId, Long dataViewId)
+   {
+   	HashMap<BigInteger, String> seqCols = new HashMap<BigInteger, String>();
+   	List<BigInteger> ruleIds = accountingLineTypesRepository.fetchRuleIdsByTenantIdAndRuleId(tenantId, groupId, dataViewId);
+   	log.info("Rule Ids: "+ ruleIds);
+   	if(ruleIds.size()>0 && !ruleIds.contains(null))
+   	{
+   		List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+   		log.info("Source View Column Ids: "+sViewColumnIds);
+   		if(sViewColumnIds.size()>0 && !sViewColumnIds.contains(null))
+   		{
+   			for(BigInteger id : sViewColumnIds)
+   			{
+   				DataViewsColumns dc = dataViewsColumnsRepository.findOne(id.longValue());
+   				if(dc != null)
+   				{
+       				seqCols.put(id, dc.getColumnName());	
+   				}
+   			}
+/*    			List<String> dvc = dataViewsColumnsRepository.fetchFileTemplateLineIdsByIds(sViewColumnIds);
+   	    	if(dvc.size()>0)
+   	    	{
+   	    		List<Long> idsAsLong = new ArrayList<Long>();
+   	    		for(String idString : dvc)
+   	    		{
+   	    			idsAsLong.add(Long.parseLong(idString));
+   	    		}
+   	    		seqColumns = fileTemplateLinesRepository.fetchColumnAliasByIds(idsAsLong);
+   	    		log.info("Sequence Columns "+ seqColumns);
+   	    	}*/
+   		}
+   	}
+   	return seqCols;
+   }
+   
+   public String getColFieldName(BigInteger viewColId)
+   {
+	   String fieldName = "";
+	   DataViewsColumns dvc = dataViewsColumnsRepository.findOne(viewColId.longValue());
+	   if(dvc != null)
+	   {
+		   String mastTableCol = fileTemplateLinesRepository.fetchMasterTableRefColById(Long.parseLong(dvc.getRefDvColumn()));
+		   if(mastTableCol != null)
+		   {
+			   fieldName = reconciliationResultService.getActualFieldName(mastTableCol);
+		   }
+	   }
+	   return fieldName;
+   }
+   
+   //Accounting column set info
+   public List<HashMap> getAccViewColumnSetInfo(List<BigInteger> ids, Long tenantId, Long groupId, Long viewId)
+   {
+	   	List<HashMap> finalMap = new ArrayList<HashMap>();
+	   	if(ids.size()>0)
+	   	{
+	       	log.info(ids.size()+" records for the view id "+viewId);
+	       	String idStr=ids.toString();
+	       	idStr=idStr.replace("[", "");
+	       	idStr=idStr.replace("]", "");
+	       	// Getting Sequence Cidsolumns Ids
+	       	HashMap<BigInteger, String> seqCols = accountingDataService.getSequenceColumns(tenantId, groupId, viewId);
+	       	if(seqCols.size()>0)
+	       	{
+	       		for (Map.Entry<BigInteger, String> entry : seqCols.entrySet())
+	       		{
+	       			log.info("Id: " + entry.getKey()+", Column Name: " + entry.getValue());
+	       			String colFieldName = accountingDataService.getColFieldName(entry.getKey());
+	       			List<HashMap> colValuesMap = new ArrayList<HashMap>();
+	       			if(colFieldName.length()>0)
+	       			{
+	           			log.info("Column Field Name: "+ colFieldName);
+	           			List<String> entity = em.createQuery("SELECT distinct("+colFieldName+") FROM DataMaster where id in ("+idStr+")").getResultList();
+	           			if(entity.size()<=15)
+	           			{
+	               			HashMap colMap = new HashMap();
+	               			colMap.put("id", entry.getKey());
+	               			colMap.put("columnName", entry.getValue());
+	               			log.info("Distinct Values Size: "+entity.size() +", Column "+ colFieldName);
+	               			log.info("Distinct Values: "+entity);
+	           				for(String colValue : entity)
+	           				{
+	           					HashMap colValueMp = new HashMap();
+	           					List<Long> count = em.createQuery("SELECT id FROM DataMaster where id in ("+idStr+") and "+colFieldName+" = '"+colValue+"'").getResultList();
+	           					colValueMp.put("name", colValue);
+	           					colValueMp.put("count", count.size());
+	           					colValuesMap.add(colValueMp);
+	           				}
+	               			colMap.put("columnValuesSet", colValuesMap);
+	               			finalMap.add(colMap);
+	           			}
+	           			else
+	           			{
+	           				log.info("Column "+ colFieldName +" has "+entity.size()+" size");
+	           			}
+	       			}
+	       			else
+	       			{
+	       				log.info("Invalid Column Field");
+	       			}
+	       		}
+	       	}
+	       	else
+	       	{
+	       		log.info("No Sequence Columns Ids found for the view id: "+ viewId);
+	       	}
+	   	}
+	   	return finalMap;
+		}
+   
+   public List<HashMap> getAccColsAlignInfo(Long viewId, Long groupId, Long tenantId)
+   {
+	   log.info("In service for getting accounting data view columns alignment info for the view: "+ viewId);
+	   	List<BigInteger> remainingSequence = new ArrayList<BigInteger>();
+		List<HashMap> finalMap = new ArrayList<HashMap>();
+		
+   		HashMap idMp = new HashMap();
+   		idMp.put("field", "Id");
+   		idMp.put("header", "Id");
+   		idMp.put("align", "left");
+   		idMp.put("width", "150px");
+   		finalMap.add(idMp);
+   		
+/*   		HashMap coaRefMP = new HashMap();
+   		coaRefMP.put("field", "Coa_Reference");
+   		coaRefMP.put("header", "Coa_Reference");
+   		coaRefMP.put("align", "left");
+   		coaRefMP.put("width", "150px");
+   		finalMap.add(coaRefMP);*/
+	   	List<BigInteger> ruleIds = accountingLineTypesRepository.fetchRuleIdsByTenantIdAndRuleId(tenantId, groupId, viewId);
+	   	log.info("Rule Ids: "+ ruleIds);
+	   	if(ruleIds.size()>0 && !ruleIds.contains(null))
+	   	{
+	   		List<BigInteger> sViewColumnIds = acctRuleConditionsRepository.fetchRuleIdsByTenantIdAndRuleId(ruleIds);
+	   		log.info("Source View Column Ids: "+sViewColumnIds);
+	   		// sequence (rules based source view columns)
+	   		if(sViewColumnIds.size()>0)
+	   		{
+	   			finalMap.addAll(reconciliationResultService.getColAlignInfo(sViewColumnIds));
+	   		}
+	   		
+				HashMap creditMp = new HashMap();
+				HashMap debitMp = new HashMap();
+				HashMap statusMp = new HashMap();
+
+				debitMp.put("field", "Debit");
+				debitMp.put("header", "Debit");
+				debitMp.put("align", "left");
+				debitMp.put("width", "150px");
+				finalMap.add(debitMp);
+				
+				creditMp.put("field", "Credit");
+				creditMp.put("header", "Credit");
+				creditMp.put("align", "left");
+				creditMp.put("width", "150px");
+				finalMap.add(creditMp);
+				
+				HashMap coaMeanMp = new HashMap();
+				coaMeanMp.put("field", "COA");
+				coaMeanMp.put("header", "COA");
+				coaMeanMp.put("align", "left");
+				coaMeanMp.put("width", "150px");
+				finalMap.add(coaMeanMp);
+				
+				
+				statusMp.put("field", "Status");
+				statusMp.put("header", "Status");
+				statusMp.put("align", "left");
+				statusMp.put("width", "150px");
+				finalMap.add(statusMp);
+
+	   		// Remaining columns
+	   		List<BigInteger> allViewColIds = dataViewsColumnsRepository.fetchIdsByDataViewId(viewId);
+	   		log.info("All View Ids: "+allViewColIds);
+	   		if(allViewColIds.size()>0)
+	   		{
+	   			for(BigInteger id : allViewColIds)
+	   			{
+	   				if(!sViewColumnIds.contains(id))
+	   				{
+	   					remainingSequence.add(id);
+	   				}
+	   			}
+	   		}
+	   		log.info("Remaining Sequnce Ids: "+remainingSequence);
+	   		if(remainingSequence.size()>0)
+	   		{
+	   			finalMap.addAll(reconciliationResultService.getColAlignInfo(remainingSequence));
+	   		}
+	   	}
+	   	return finalMap;
+   }
+}

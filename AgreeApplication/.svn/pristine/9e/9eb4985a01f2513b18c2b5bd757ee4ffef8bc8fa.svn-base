@@ -1,0 +1,136 @@
+package com.nspl.app.web.rest.dto;
+
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.List;
+
+public class ApprovalRuleDto {
+  private String id;
+  private String name;
+  private String rulePurpose;
+  private ZonedDateTime startDate;
+  private ZonedDateTime EndDate;
+  private Long createdBy;
+  private Long lastUpdatedBy;
+  private Long tenantId;
+  private Boolean enableFlag;
+  private String apprRuleGrpId;
+  private ZonedDateTime createdDate;
+  private ZonedDateTime lastUpdatedDate;
+  private List<AppRuleCondAndActDto> rules;
+  private String apprRuleGrpName;
+  private String configuredModuleName;
+  private String configuredModuleId;
+  private Boolean enabledFlag;
+	
+  
+  
+
+public Long getTenantId() {
+	return tenantId;
+}
+public void setTenantId(Long tenantId) {
+	this.tenantId = tenantId;
+}
+
+public Boolean getEnableFlag() {
+	return enableFlag;
+}
+public void setEnableFlag(Boolean enableFlag) {
+	this.enableFlag = enableFlag;
+}
+public String getId() {
+	return id;
+}
+public void setId(String id) {
+	this.id = id;
+}
+public String getName() {
+	return name;
+}
+public void setName(String name) {
+	this.name = name;
+}
+public String getRulePurpose() {
+	return rulePurpose;
+}
+public void setRulePurpose(String rulePurpose) {
+	this.rulePurpose = rulePurpose;
+}
+public ZonedDateTime getStartDate() {
+	return startDate;
+}
+public void setStartDate(ZonedDateTime startDate) {
+	this.startDate = startDate;
+}
+public ZonedDateTime getEndDate() {
+	return EndDate;
+}
+public void setEndDate(ZonedDateTime endDate) {
+	EndDate = endDate;
+}
+public Long getCreatedBy() {
+	return createdBy;
+}
+public void setCreatedBy(Long createdBy) {
+	this.createdBy = createdBy;
+}
+public Long getLastUpdatedBy() {
+	return lastUpdatedBy;
+}
+public void setLastUpdatedBy(Long lastUpdatedBy) {
+	this.lastUpdatedBy = lastUpdatedBy;
+}
+public ZonedDateTime getCreatedDate() {
+	return createdDate;
+}
+public void setCreatedDate(ZonedDateTime createdDate) {
+	this.createdDate = createdDate;
+}
+public ZonedDateTime getLastUpdatedDate() {
+	return lastUpdatedDate;
+}
+public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+	this.lastUpdatedDate = lastUpdatedDate;
+}
+public List<AppRuleCondAndActDto> getRules() {
+	return rules;
+}
+public void setRules(List<AppRuleCondAndActDto> rules) {
+	this.rules = rules;
+}
+public String getApprRuleGrpId() {
+	return apprRuleGrpId;
+}
+public void setApprRuleGrpId(String apprRuleGrpId) {
+	this.apprRuleGrpId = apprRuleGrpId;
+}
+public String getApprRuleGrpName() {
+	return apprRuleGrpName;
+}
+public void setApprRuleGrpName(String apprRuleGrpName) {
+	this.apprRuleGrpName = apprRuleGrpName;
+}
+public String getConfiguredModuleName() {
+	return configuredModuleName;
+}
+public void setConfiguredModuleName(String configuredModuleName) {
+	this.configuredModuleName = configuredModuleName;
+}
+public Boolean getEnabledFlag() {
+	return enabledFlag;
+}
+public void setEnabledFlag(Boolean enabledFlag) {
+	this.enabledFlag = enabledFlag;
+}
+public String getConfiguredModuleId() {
+	return configuredModuleId;
+}
+public void setConfiguredModuleId(String configuredModuleId) {
+	this.configuredModuleId = configuredModuleId;
+}
+	
+	
+	
+
+}

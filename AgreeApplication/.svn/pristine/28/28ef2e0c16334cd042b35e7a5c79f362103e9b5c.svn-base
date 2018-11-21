@@ -1,0 +1,2861 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.jcraft.jsch.Channel;
+import com.nspl.app.domain.ApplicationPrograms;
+import com.nspl.app.domain.DataViews;
+import com.nspl.app.domain.DataViewsColumns;
+import com.nspl.app.domain.FileTemplateLines;
+import com.nspl.app.domain.LookUpCode;
+import com.nspl.app.domain.ReportDefination;
+import com.nspl.app.domain.ReportParameters;
+import com.nspl.app.domain.ReportRequests;
+import com.nspl.app.domain.ReportType;
+import com.nspl.app.domain.Reports;
+import com.nspl.app.repository.ApplicationProgramsRepository;
+import com.nspl.app.repository.DataViewsColumnsRepository;
+import com.nspl.app.repository.DataViewsRepository;
+import com.nspl.app.repository.FileTemplateLinesRepository;
+import com.nspl.app.repository.LookUpCodeRepository;
+import com.nspl.app.repository.ReportDefinationRepository;
+import com.nspl.app.repository.ReportParametersRepository;
+import com.nspl.app.repository.ReportRequestsRepository;
+import com.nspl.app.repository.ReportTypeRepository;
+import com.nspl.app.repository.ReportsRepository;
+import com.nspl.app.service.DataViewsService;
+import com.nspl.app.service.FileService;
+import com.nspl.app.service.PropertiesUtilService;
+import com.nspl.app.service.ReportsService;
+import com.nspl.app.service.SFTPUtilService;
+import com.nspl.app.service.SourceConnectionDetailsService;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.dto.ReportsDTO;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+import org.apache.commons.io.FileUtils;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.sql.AnalysisException;
+import org.apache.spark.sql.Column;
+import org.apache.spark.sql.DataFrameReader;
+import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.RelationalGroupedDataset;
+import org.apache.spark.sql.Row;
+import org.apache.spark.sql.SQLContext;
+import org.dom4j.DocumentException;
+import org.joda.time.LocalDate;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.json.CDL;
+import org.json.JSONException;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.actuate.endpoint.AutoConfigurationReportEndpoint.Report;
+import org.springframework.core.SpringProperties;
+import org.springframework.core.env.Environment;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.SimpleDateFormat;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
+
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.activation.FileDataSource;
+import javax.inject.Inject;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Multipart;
+import javax.mail.PasswordAuthentication;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.AddressException;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.servlet.http.HttpServletResponse;
+
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.io.IOUtils;
+
+
+/**
+ * REST controller for managing Reports.
+ */
+@RestController
+@RequestMapping("/api")
+public class ReportsResource {
+
+    private final Logger log = LoggerFactory.getLogger(ReportsResource.class);
+
+    private static final String ENTITY_NAME = "reports";
+    
+    private final ReportsRepository reportsRepository;
+    
+    @Inject
+    ReportDefinationRepository reportDefinationRepository;
+    
+    @Inject
+    DataViewsRepository dataViewsRepository;
+    
+    @Inject
+    PropertiesUtilService propertiesUtilService;
+    
+    @Inject
+    DataViewsService dataViewsService;
+    
+    @Inject
+    FileTemplateLinesRepository fileTemplateLinesRepository;
+    
+    @Inject
+    DataViewsColumnsRepository dataViewsColumnsRepository;
+    
+    @Inject
+    ReportParametersRepository reportParametersRepository;
+
+    @Inject
+    ReportTypeRepository reportTypeRepository;
+    
+    @Inject
+    LookUpCodeRepository lookUpCodeRepository;
+    
+    @Inject
+    private Environment env;
+    
+    @Inject
+    ReportsService reportsService;
+    
+    @Inject
+	SFTPUtilService sftpService;
+    
+    @Autowired
+	org.apache.hadoop.conf.Configuration hadoopConfiguration;
+    
+    @Autowired
+    ApplicationProgramsRepository applicationProgramsRepository;
+    
+    @Inject
+    ReportRequestsRepository reportRequestsRepository;
+    
+    @Inject
+    UserJdbcService userJdbcService;
+    
+    
+    @Inject
+    FileService fileService;
+    
+    public ReportsResource(ReportsRepository reportsRepository) {
+        this.reportsRepository = reportsRepository;
+    }
+
+    /**
+     * POST  /reports : Create a new reports.
+     *
+     * @param reports the reports to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new reports, or with status 400 (Bad Request) if the reports has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/reports")
+    @Timed
+    public ResponseEntity<Reports> createReports(@RequestBody Reports reports) throws URISyntaxException {
+        log.debug("REST request to save Reports : {}", reports);
+        if (reports.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new reports cannot already have an ID")).body(null);
+        }
+        Reports result = reportsRepository.save(reports);
+        return ResponseEntity.created(new URI("/api/reports/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /reports : Updates an existing reports.
+     *
+     * @param reports the reports to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated reports,
+     * or with status 400 (Bad Request) if the reports is not valid,
+     * or with status 500 (Internal Server Error) if the reports couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/reports")
+    @Timed
+    public ResponseEntity<Reports> updateReports(@RequestBody Reports reports) throws URISyntaxException {
+        log.debug("REST request to update Reports : {}", reports);
+        if (reports.getId() == null) {
+            return createReports(reports);
+        }
+        Reports result = reportsRepository.save(reports);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, reports.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /reports : get all the reports.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of reports in body
+     */
+    @GetMapping("/reports")
+    @Timed
+    public ResponseEntity<List<Reports>> getAllReports(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of Reports");
+        Page<Reports> page = reportsRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/reports");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /reports/:id : get the "id" reports.
+     *
+     * @param id the id of the reports to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the reports, or with status 404 (Not Found)
+     */
+    @GetMapping("/reports/{id}")
+    @Timed
+    public ResponseEntity<Reports> getReports(@PathVariable Long id) {
+        log.debug("REST request to get Reports : {}", id);
+        Reports reports = reportsRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(reports));
+    }
+
+    /**
+     * DELETE  /reports/:id : delete the "id" reports.
+     *
+     * @param id the id of the reports to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/reports/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteReports(@PathVariable Long id) {
+        log.debug("REST request to delete Reports : {}", id);
+        reportsRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Swetha
+     * GET: /getReportsByTenant - Api to fetch list of Reports tagged for a Tenant
+     * @param tenantId
+     * @return
+     * @throws URISyntaxException 
+     * @throws SQLException 
+     * @throws ClassNotFoundException 
+     */
+    /*@GetMapping("/getReportsByTenant")
+    @Timed
+    public List<Reports> getReportsByTenant(@RequestParam Long tenantId){
+    	log.debug("REST request to getReportsByTenant by tenantId: "+tenantId);
+    	List<Reports> reportsList=reportsRepository.fectchActiveReportsByTenantId(tenantId);
+		return reportsList;
+    	
+    }*/
+    
+    
+   /* @GetMapping("/getReportsByTenant")
+    @Timed
+    public List<ReportsDTO> getReportsByTenant(@RequestParam Long tenantId,HttpServletResponse response,@RequestParam(value = "page" , required = false) Integer pageNumber,
+			@RequestParam(value = "per_page", required = false) Integer pageSize, @RequestParam(required=false) String reportType,@RequestParam(required = false) String sortDirection,@RequestParam(required = false) String sortCol) 
+					throws URISyntaxException, ClassNotFoundException, SQLException{
+    	log.debug("REST request to getReportsByTenant by tenantId: "+tenantId+"reportType: "+reportType+"sortCol: "+sortCol);
+    	//return object
+    	List<ReportsDTO> repDtoList=new ArrayList<ReportsDTO>();
+    	HashMap<Long, ReportType> reportTypeList=reportsService.getReportTypes(tenantId);
+    	HashMap<Long, String> reportTypeNameList=reportsService.getReportTypesLivy(tenantId);
+    	HashMap<String,Long> reportTypeRevList=(HashMap<String, Long>) MapUtils.invertMap(reportTypeNameList);
+    	Long reportTypeId=reportTypeRevList.get(reportType);
+    	log.info("reportTypeId: "+reportTypeId);
+    	List<BigInteger> reportIdList=new ArrayList<BigInteger>();
+    	List<Long> reportIdLongList=new ArrayList<Long>();
+    	if(reportTypeId!=null){
+    		reportIdList=reportsRepository.fectchActiveReportsByTenantIdAndReportTypeId(tenantId,reportTypeId);
+    	}
+    	else{
+    		reportIdList=reportsRepository.fectchActiveReportsByTenantId(tenantId);
+    	}
+    	//log.info("reportIdList: "+reportIdList);
+    	for(int i=0;i<reportIdList.size();i++){
+    		BigInteger typeId=reportIdList.get(i);
+    		Long id=typeId.longValue();
+    		reportIdLongList.add(id);
+    	}
+    	int totReportsCnt=reportIdList.size();
+    	
+    	int limit = 0;
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = totReportsCnt;
+		}
+			limit = ((pageNumber+1) * pageSize + 1)-1;
+		int startIndex=pageNumber*pageSize; 
+		
+		if(limit>totReportsCnt){
+			limit=totReportsCnt;
+		}
+		
+		log.info("Limit Starting Values : "+ limit);
+		log.info("Page Number : "+ pageNumber);
+		log.info("startIndex: "+startIndex);
+		
+		if(sortDirection==null)
+			sortDirection="Descending";
+		if(sortCol==null)
+			sortCol="Id";
+		
+		
+		if(reportIdLongList.size()>0)
+		{
+		Page<Reports> reportsList=reportsRepository.findByTenantIdAndIdIn(tenantId, reportIdLongList, PaginationUtil.generatePageRequestWithSortColumn(pageNumber+1, limit,sortDirection,sortCol));
+		log.info("reportsList :"+reportsList);
+		List<LinkedHashMap> maps = new ArrayList<LinkedHashMap>();
+		
+		
+		Iterator itr=reportsList.iterator();
+    	while(itr.hasNext()){
+    		Reports reports= (Reports) itr.next();
+    		ReportsDTO reportsDto=new ReportsDTO();
+    		log.info("reports.getId() :"+reports.getId());
+    		reportsDto.setId(reports.getId());
+    		reportsDto.setAccVal(reports.getAccVal());
+    		reportsDto.setAllowDrillDown(reports.getAllowDrillDown());
+    		reportsDto.setCreatedBy(reports.getCreatedBy());
+    		reportsDto.setCreationDate(reports.getCreationDate());
+    		reportsDto.setDescription(reports.getDescription());
+    		reportsDto.setEnableFlag(reports.isEnableFlag());
+    		reportsDto.setEndDate(reports.getEndDate());
+    		reportsDto.setLastUpdatedBy(reports.getLastUpdatedBy());
+    		reportsDto.setLastUpdatedDate(reports.getLastUpdatedDate());
+    		reportsDto.setRecVal(reports.getRecVal());
+    		reportsDto.setReportMode(reports.getReportMode());
+    		reportsDto.setReportName(reports.getReportName());
+    		Long repTypeId=reports.getReportTypeId();
+    		ReportType repType=reportTypeList.get(repTypeId);
+    		reportsDto.setReportTypeId(repTypeId);
+    		if(repType!=null){
+    			reportsDto.setReportTypeCode(repType.getType());
+    			reportsDto.setReportTypeName(repType.getDisplayName());
+    		}
+    		reportsDto.setReportVal01(reports.getReportVal01());
+    		reportsDto.setReportVal02(reports.getReportVal02());
+    		reportsDto.setReportViewType(reports.getReportViewType());
+    		reportsDto.setSourceViewId(reports.getSourceViewId());
+    		reportsDto.setStartDate(reports.getStartDate());
+    		reportsDto.setTenantId(reports.getTenantId());
+    		
+    		//Added Request Information
+    		Page<ReportRequests> repRequests=reportRequestsRepository.findByReportIdAndStatusOrderByGeneratedTimeDesc(reports.getId(), "SUCCEEDED",PaginationUtil.generatePageRequestWithSortColumn(pageNumber+1, limit,sortDirection,sortCol));
+    		if(repRequests!=null && repRequests.getContent().size()>0){
+    		ReportRequests req=repRequests.getContent().get(0);
+    		reportsDto.setRequestId(req.getId());
+    		reportsDto.setRequestName(req.getReqName());
+    		reportsDto.setLastRun(req.getGeneratedTime());
+    		HashMap map=userJdbcService.getUserInfo(req.getCreatedBy());
+    		if(map!=null)
+    		reportsDto.setLastRunBy(map.get("assigneeName").toString());
+    		}
+    		
+    	
+    		repDtoList.add(reportsDto);
+    	}
+    }
+    	response.addIntHeader("X-COUNT", totReportsCnt);
+    	return repDtoList;
+    	
+    }*/
+    
+    
+    
+    /**Added condition for datetime while sorting**/
+    
+    @GetMapping("/getReportsByTenant")
+   @Timed
+   public List<JSONObject>  getReportsByTenant(@RequestParam Long tenantId,HttpServletResponse response,@RequestParam(value = "page" , required = false) Integer pageNumber,
+			@RequestParam(value = "per_page", required = false) Integer pageSize, @RequestParam(required=false) String reportType,@RequestParam(required = false) String sortDirection,@RequestParam(required = false) String sortCol) 
+					throws URISyntaxException, ClassNotFoundException, SQLException, ParseException{
+    	log.debug("REST request to getReportsByTenant by tenantId: "+tenantId+"reportType: "+reportType+"sortCol: "+sortCol);
+    	//return object
+    	List<JSONObject> repDtoList=new ArrayList<JSONObject>();
+    	HashMap<Long, ReportType> reportTypeList=reportsService.getReportTypes(tenantId);
+    	HashMap<Long, String> reportTypeNameList=reportsService.getReportTypesLivy(tenantId);
+    	HashMap<String,Long> reportTypeRevList=(HashMap<String, Long>) MapUtils.invertMap(reportTypeNameList);
+    	Long reportTypeId=reportTypeRevList.get(reportType);
+    	log.info("reportTypeId: "+reportTypeId);
+    	List<BigInteger> reportIdList=new ArrayList<BigInteger>();
+    	List<Long> reportIdLongList=new ArrayList<Long>();
+    	if(sortDirection==null)
+    		sortDirection="Descending";
+    	if(sortCol==null)
+    		sortCol="Id";
+
+    	if(reportTypeId!=null){
+    		reportIdList=reportsRepository.fectchActiveReportsByTenantIdAndReportTypeId(tenantId,reportTypeId);
+    	}
+    	else{
+    		reportIdList=reportsRepository.fectchActiveReportsByTenantId(tenantId);
+    	}
+    	//log.info("reportIdList: "+reportIdList);
+    	for(int i=0;i<reportIdList.size();i++){
+    		BigInteger typeId=reportIdList.get(i);
+    		Long id=typeId.longValue();
+    		reportIdLongList.add(id);
+    	}
+    	int totReportsCnt=reportIdList.size();
+
+    	int limit = 0;
+    	if(pageNumber == null || pageNumber == 0)
+    	{
+    		pageNumber = 0;
+    	}
+    	if(pageSize == null || pageSize == 0)
+    	{
+    		pageSize = totReportsCnt;
+    	}
+    	limit = ((pageNumber+1) * pageSize + 1)-1;
+    	int startIndex=pageNumber*pageSize; 
+
+    	if(limit>totReportsCnt){
+    		limit=totReportsCnt;
+    	}
+
+    	log.info("Limit Starting Values : "+ limit);
+    	log.info("Page Number : "+ pageNumber);
+    	log.info("startIndex: "+startIndex);
+
+
+
+    	if(reportIdLongList.size()>0)
+    	{
+    		Page<Reports> reportsList=reportsRepository.findByTenantIdAndIdIn(tenantId, reportIdLongList, PaginationUtil.generatePageRequestWithSortColumn(pageNumber+1, limit,sortDirection,"id"));
+    		log.info("reportsList :"+reportsList);
+    		List<LinkedHashMap> maps = new ArrayList<LinkedHashMap>();
+
+
+    		Iterator itr=reportsList.iterator();
+    		while(itr.hasNext()){
+    			Reports reports= (Reports) itr.next();
+    			LinkedHashMap reportsDto=new LinkedHashMap();
+
+
+
+    			reportsDto.put("id",reports.getId().toString());
+    			reportsDto.put("accVal",reports.getAccVal());
+    			if(reports.getAllowDrillDown()!=null)
+    				reportsDto.put("allowDrillDown",reports.getAllowDrillDown().toString());
+    			else
+    				reportsDto.put("allowDrillDown",null);
+    			if(reports.getCreatedBy()!=null)
+    				reportsDto.put("createdBy",reports.getCreatedBy().toString());
+    			else
+    				reportsDto.put("createdBy","");
+    			if(reports.getCreationDate()!=null)
+    				reportsDto.put("creationDate",reports.getCreationDate());
+    			else
+    				reportsDto.put("creationDate",null);
+    			reportsDto.put("description",reports.getDescription());
+    			if(reports.isEnableFlag()!=null)
+    				reportsDto.put("enableFlag",reports.isEnableFlag().toString());
+    			else
+    				reportsDto.put("enableFlag",null);
+    			if(reports.getEndDate()!=null)
+    				reportsDto.put("endDate",reports.getEndDate().toString());
+    			else
+    				reportsDto.put("endDate",null);
+    			if(reports.getLastUpdatedBy()!=null)
+    				reportsDto.put("lastUpdatedBy",reports.getLastUpdatedBy().toString());
+    			else
+    				reportsDto.put("lastUpdatedBy",null);
+    			if(reports.getLastUpdatedDate()!=null)
+    				reportsDto.put("lastUpdatedDate",reports.getLastUpdatedDate());
+    			else
+    				reportsDto.put("lastUpdatedDate",null);
+    			reportsDto.put("recVal",reports.getRecVal());
+    			reportsDto.put("reportMode",reports.getReportMode());
+    			reportsDto.put("reportName",reports.getReportName());
+    			Long repTypeId=reports.getReportTypeId();
+    			ReportType repType=reportTypeList.get(repTypeId);
+    			if(repTypeId!=null)
+    				reportsDto.put("reportTypeId",repTypeId.toString());
+    			else
+    				reportsDto.put("reportTypeId",null);
+    			if(repType!=null){
+    				reportsDto.put("reportTypeCode",repType.getType());
+    				reportsDto.put("reportTypeName",repType.getDisplayName());
+    			}
+    			reportsDto.put("reportVal01",reports.getReportVal01());
+    			reportsDto.put("reportVal02",reports.getReportVal02());
+    			reportsDto.put("reportViewType",reports.getReportViewType());
+    			if(reports.getSourceViewId()!=null)
+    				reportsDto.put("sourceViewId",reports.getSourceViewId().toString());
+    			else
+    				reportsDto.put("sourceViewId",null);
+    			if(reports.getStartDate()!=null)
+    				reportsDto.put("startDate",reports.getStartDate().toString());
+    			else
+    				reportsDto.put("startDate",null);
+    			if(reports.getTenantId()!=null)
+    				reportsDto.put("tenantId",reports.getTenantId().toString());
+    			else
+    				reportsDto.put("tenantId",null);
+
+
+
+
+    			//Added Request Information
+    			List<ReportRequests> repRequests=reportRequestsRepository.findByReportIdAndStatusOrderByGeneratedTimeDesc(reports.getId(), "SUCCEEDED");
+    			if(repRequests!=null && repRequests.size()>0){
+    				ReportRequests req=repRequests.get(0);
+    				reportsDto.put("requestId",req.getId().toString());
+    				reportsDto.put("requestName",req.getReqName());
+    				reportsDto.put("lastRun",req.getGeneratedTime());
+    				HashMap map=userJdbcService.getUserInfo(req.getCreatedBy());
+    				if(map!=null)
+    					reportsDto.put("lastRunBy",map.get("assigneeName").toString());
+    			}
+    			JSONObject jsonValue =new JSONObject();
+    			JSONObject obj=new JSONObject();
+    			obj.putAll(reportsDto);
+    			/*String paramVal=obj.toJSONString();
+    	JSONParser parser = new JSONParser();
+    	 jsonValue = (JSONObject) parser.parse(paramVal);*/
+
+    			repDtoList.add(obj);
+    		}
+    	}
+
+    	//log.info("repDtoList :"+repDtoList);
+    	String sortColumn=sortCol;
+    	String sortDir=sortDirection;
+    	if(sortColumn.equalsIgnoreCase("lastRun"))
+    	{
+    		Collections.sort(repDtoList, new Comparator<JSONObject>() {
+    			  public int compare(JSONObject a, JSONObject b) {
+    				if (a.get("lastRun") == null || b.get("lastRun") == null)
+    				        return 0;
+    			  
+    				  ZonedDateTime aDate=ZonedDateTime.parse(a.get("lastRun").toString());
+    				  ZonedDateTime bDate=ZonedDateTime.parse(b.get("lastRun").toString());
+    				  
+    			      return aDate.compareTo(bDate);
+    			  }
+    			});
+    	}
+    	else if(!sortColumn.equalsIgnoreCase("lastRun"))
+    	{
+    	Collections.sort( repDtoList, new Comparator<JSONObject>() { 
+
+
+    		@Override
+    		public int compare(JSONObject a, JSONObject b) {
+    			String valA = new String();
+    			String valB = new String();
+
+    			valA = (String) a.get(sortColumn);
+    			valB = (String) b.get(sortColumn);
+    			if(valA!=null && valB!=null)
+    				return 0;
+    			if (valA == null)
+    				return 1;
+    			else if (valB == null)
+    				return -1;
+    			if(sortDir!=null && sortDir.equalsIgnoreCase("ascending"))
+    				return valA.compareTo(valB);
+    			else
+    				return -valA.compareTo(valB);
+
+
+
+    		}
+    	});
+    	}
+    	response.addIntHeader("X-COUNT", totReportsCnt);
+
+
+log.info("***end of API**** "+ZonedDateTime.now());
+    	return repDtoList;
+
+    }
+    
+    
+    /**
+     * Author: Swetha
+     * Api to validate duplication of ReportName
+     * @param tenantId
+     * @param reportName
+     * @return
+     */
+    @GetMapping("/validateReportName")
+    @Timed
+    public Long validateReportName(@RequestParam Long tenantId, @RequestParam String reportName){
+    	
+    	log.info("Rest Request to validateReportName with tenantId: "+tenantId+" and reportName: "+reportName);
+    	Long result=0l;
+    	Long count=reportsRepository.fetchReportNameCount(tenantId, reportName);
+    	log.info("count of reportName: "+reportName+" is: "+count);
+    	if(count>1){
+    		
+    	}
+    	else if(count==1){
+    		Reports reports=reportsRepository.findByTenantIdAndReportName(tenantId, reportName);
+    		result=reports.getId();
+    	}
+		return result;
+    }
+    
+    /**
+     * Author: Swetha
+     * Api for Report Generation using Spark Sql
+     * @param reportId
+     * @param tenanatId
+     * @param filtersMap
+     * @return
+     * @throws ClassNotFoundException
+     */
+    @PostMapping("/generateReport")
+    @Timed
+    public List<LinkedHashMap> generateReport(@RequestParam Long reportId, @RequestParam Long tenanatId, @RequestBody(required=false) HashMap filtersMap){
+    	
+    	log.info("Rest Request to retrieve generateReport3 for reportId: "+reportId+" and tenanatId: "+tenanatId);
+    	
+    	Reports reports=reportsRepository.findOne(reportId);
+    	Long tenantId=reports.getTenantId();
+    	Long repTypeId=reports.getReportTypeId();
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	String tableName="";
+    	String repTypeName="";
+    	if(repType!=null){
+    		repTypeName=repType.getType();
+    		if(repTypeName.equalsIgnoreCase("ACCOUNT_ANALYSIS_REPORT")){
+    			tableName="t_account_analysis";
+    		}
+    		else if(repTypeName.equalsIgnoreCase("ACCOUNT_BALANCE_REPORT")){
+    			tableName="t_balance_type";
+    		}
+    	}
+    	
+    	/* Report Defination Columns */
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	log.info("repDefList: "+repDefList);
+        
+    	
+    	LinkedHashMap fieldRefMap=dataViewsService.getFieldRef(reportId, tableName);
+    	log.info("fieldRefMap: "+fieldRefMap);
+    	
+    	LinkedHashMap<String, String> reversedHashMap = new LinkedHashMap<String, String>();
+    	Set<String> keySet=fieldRefMap.keySet();
+		for (String key : keySet){
+		    reversedHashMap.put(fieldRefMap.get(key).toString(), key);
+		}
+    	
+    	 SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+         JavaSparkContext sContext =  new JavaSparkContext(sConf);
+         SQLContext sqlCont = new SQLContext(sContext);
+         
+         long startTime = System.currentTimeMillis();   //gives the start time of a process
+         long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+         
+    //     Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+     	
+    // 	String jdbcDriver = props.getProperty("jdbcDriver");  
+    //    String schemaName = props.getProperty("schemaName");  
+    // 	String dbUrl = props.getProperty("dbUrl")+schemaName;  
+     	
+    // 	   String userName = props.getProperty("userName"); 
+    // 	   String password = props.getProperty("password"); 
+         
+ 		String dbUrl=env.getProperty("spring.datasource.url");
+ 		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+ 		String host = parts[0].split("/")[2].split(":")[0];
+ 		String schemaName=parts[0].split("/")[3];
+ 		String userName = env.getProperty("spring.datasource.username");
+ 		String password = env.getProperty("spring.datasource.password");
+ 		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+        
+         Dataset<Row> reports_data = sqlCont.read().format("jdbc")
+                 .option("url", dbUrl)
+                 .option("user",userName)
+                 .option("password",password)
+                 .option("dbtable",tableName).load();
+         
+        log.info("reports_data.count(): "+reports_data.count());
+       
+        reports_data.show();
+        
+        String filter="report_id = "+reportId;
+        String finQuery="";
+        
+        log.info("filtersMap: "+filtersMap);
+		if(filtersMap!=null){
+		
+			String conQuery=" where ";
+	        String conSubQueryFin="";
+			if(filtersMap!=null){
+				log.info("filters exists");
+	        	if(filtersMap.containsKey("fields")){
+	        		List<HashMap> filtersList=(List<HashMap>) filtersMap.get("fields");
+	        		log.info("fields exists with sz: "+filtersList.size());
+	        		for(int i=0;i<filtersList.size();i++){
+	        			HashMap filterMap=filtersList.get(i);
+	        			log.info("filterMap: "+filterMap);
+	        			String conSubQuery="";
+	        			String colName=filterMap.get("fieldName").toString();
+	        			log.info("colName: "+colName);
+	        			if(filterMap.get("refType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+	        				Long refColId=Long.parseLong(filterMap.get("refColId").toString());
+	        				LookUpCode finFunCode=lookUpCodeRepository.findOne(refColId);
+	        				log.info("finFunCode: "+finFunCode);
+	        				colName=finFunCode.getLookUpCode().toLowerCase();
+	        				//log.info("colName from lookups: "+colName);
+	        			}
+	        			else {
+	        				//log.info("colName in else b4: "+colName);
+	        				colName=fieldRefMap.get(colName).toString();
+	        				//log.info("colName in else after: "+colName);
+	        			}
+	        			String selType=filterMap.get("fieldType").toString();
+	        			log.info("selType: "+selType);
+	        			if(selType.equalsIgnoreCase("MULTI_SELECT_LOV") || selType.equalsIgnoreCase("SINGLE_SELECT_LOV")  || selType.equalsIgnoreCase("SINGLE_SELECTION") || selType.equalsIgnoreCase("TEXT")){
+	        				String selValData="";
+	        				String selValVar=filterMap.get("selectedValue").toString();
+	        				log.info("selValVar: "+selValVar);
+	        				selValVar=selValVar.replace("[", "");
+	        				selValVar=selValVar.replace("]", "");
+	        				List<String> selValList = new ArrayList<String>(Arrays.asList(selValVar.split(",")));
+	        				for(int k=0;k<selValList.size();k++){
+	        					String selVal=selValList.get(k);
+	        					selVal=selVal.trim();
+	        					selValData=selValData+"'"+selVal+"'";
+	        					if(k>=0 && k<selValList.size()-1){
+	        						selValData=selValData+",";
+	        					}
+	        				}
+	        				if(selValData!=null && !(selValData.isEmpty())){
+	        					if(selValData.endsWith(",")){
+	        						int indx=selValData.lastIndexOf(",");
+	        						selValData=selValData.substring(0,indx);
+	        						log.info("selValData after removing comma: "+selValData);
+	        					}
+	        					conSubQuery=conSubQuery+colName+" in ("+selValData+") ";
+	        					log.info("conSubQuery: "+conSubQuery);
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AUTO_COMPLETE")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+		        				conSubQuery=conSubQuery+colName+" in ('"+selVal+"') ";
+		        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("BOOLEAN_SELECTION")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+	        					if(conSubQuery.equalsIgnoreCase(" where ")){
+	        	        			
+	        	        		}
+	        					else conSubQuery=" and ";
+	        				conSubQuery=conSubQuery+colName+" is "+selVal;
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AMOUNT_RANGE")){
+	        				String map=filterMap.get("selectedValue").toString();
+	        				if(map!=null && !(map.isEmpty())){
+	        				log.info("map: "+map);
+	        				//String map="selectedValue={fromValue=1036873.4, toValue=1377186}";
+	        				map=map.replace("{fromValue=", ""); //1036873.4, toValue=1377186}"
+	        				map=map.replace("toValue=", ""); //1036873.4,1377186}
+	        				log.info("map aftr replace: "+map);
+	        				String arr[]=map.split(",");
+	        				log.info(" arr[0]: "+arr[0]);
+	        				log.info("arr[1]: "+arr[1]);
+	        				arr[1]=arr[1].replace("}", "");
+	        				System.out.println("arr[1]: "+arr[1]+" arr[0]: "+arr[0]);
+	        				String fromValue=arr[0].trim();
+	        				String toValue=arr[1].trim();
+	        				conSubQuery=conSubQuery+colName+" between "+fromValue+" and "+toValue;	
+	        				}
+	        			}
+	        		log.info("conSubQuery: "+conSubQuery);
+	        		if(conSubQuery.length()>1){
+	        			conSubQuery=conSubQuery+" and ";
+	        		}
+	        		conSubQueryFin=conSubQuery;
+	        		if(conSubQuery.equalsIgnoreCase(" where ")){
+	        			
+	        		}
+	        		else{
+	        			finQuery=finQuery+conSubQuery;
+	        		}
+	        			log.info("finQuery after conQuery: "+finQuery);
+	        		}
+	        		
+	        	}
+	        }
+			else{
+				log.info("filters doesnt exist");
+			}
+	        log.info("finQuery after filters: "+finQuery);
+	        log.info("conSubQueryFin: "+conSubQueryFin);
+		}
+		else{
+			
+		}
+		if(finQuery.endsWith("and ")){
+        	int indx=finQuery.lastIndexOf("and");
+        	finQuery=finQuery.substring(0,indx);
+        }
+		if(finQuery!=null && !(finQuery.isEmpty())){
+			
+			finQuery=finQuery+" and "+filter;
+		}
+		else {
+
+			log.info("filter: "+filter);
+			finQuery=filter;
+			log.info("finQuery:" +finQuery);
+		}
+        
+        log.info("finQuery: "+finQuery);
+        Dataset<Row> dt = reports_data.filter(finQuery);
+    
+        List<Row> data=dt.collectAsList();
+        String[] columnsList=dt.columns();
+        
+        log.info("data.size(): "+data.size()+" columnsList.length: "+columnsList.length);
+        List<LinkedHashMap> maps=new ArrayList<LinkedHashMap>();
+        for(int j=0;j<data.size();j++){
+        	LinkedHashMap map=new LinkedHashMap();
+            for(int s=0;s<(columnsList.length);s++){
+            	String tabColName=columnsList[s];
+            	log.info("tabColName: "+tabColName);
+            	log.info("reversedHashMap: "+reversedHashMap);
+            	if(data.get(j).get(s)!=null && !(data.get(j).get(s).toString().isEmpty())){
+            		log.info("reversedHashMap.containsKey(tabColName): "+reversedHashMap.containsKey(tabColName));
+            	if(reversedHashMap.containsKey(tabColName) && reversedHashMap.get(tabColName)!=null){
+            		log.info("reversedHashMap.get(tabColName): "+reversedHashMap.get(tabColName));
+            		String val=reversedHashMap.get(tabColName).toString();
+            		log.info("val: "+val);
+            		tabColName=val;
+            	}
+            	else{
+            		log.info("repTypeName: "+repTypeName);
+            		LookUpCode lCode=lookUpCodeRepository.findByLookUpTypeAndLookUpCodeAndTenantId(repTypeName,tabColName.toUpperCase() , tenantId);
+            		log.info("lCode: "+lCode);
+            		if(lCode!=null){
+            			Long lId=lCode.getId();
+            			ReportDefination repDef=reportDefinationRepository.findByReportIdAndRefTypeIdAndRefColId(reportId,"FIN_FUNCTION",lId);
+            			if(repDef!=null)
+            				tabColName=repDef.getDisplayName();
+            		}
+            	}
+            	
+            	log.info("final tabColName: "+tabColName);
+            	for(int p=0;p<repDefList.size();p++){
+            	if(repDefList.get(p).getDisplayName().equalsIgnoreCase(tabColName)){
+            		map.put(tabColName,data.get(j).get(s));
+            	}
+            	else{
+            		
+            	}
+            	}
+             	
+             	 log.info("map b47 adding: "+map);
+            	}
+            }
+            maps.add(map);
+        }
+                sContext.close();
+               log.info("Total Time taken: "+(System.currentTimeMillis()-startTime)+"ms");  //gives the overall time taken by the proces
+                return maps; 
+        
+    }
+
+    
+    @PostMapping("/generateReport2")
+    @Timed
+    public List<LinkedHashMap> generateReport2(@RequestParam Long reportId, @RequestParam Long tenanatId, @RequestBody(required=false) HashMap filtersMap){
+    	
+    	log.info("Rest Request to retrieve generateReport3 for reportId: "+reportId+" and tenanatId: "+tenanatId);
+    	
+    	Reports reports=reportsRepository.findOne(reportId);
+    	Long tenantId=reports.getTenantId();
+    	Long repTypeId=reports.getReportTypeId();
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	String tableName="";
+    	String repTypeName="";
+    	if(repType!=null){
+    		repTypeName=repType.getType();
+    		if(repTypeName.equalsIgnoreCase("ACCOUNT_ANALYSIS_REPORT")){
+    			tableName="t_account_analysis";
+    		}
+    		else if(repTypeName.equalsIgnoreCase("ACCOUNT_BALANCE_REPORT")){
+    			tableName="t_balance_type";
+    		}
+    	}
+    	
+    	/* Report Defination Columns */
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	log.info("repDefList: "+repDefList);
+        
+    	
+    	LinkedHashMap fieldRefMap=dataViewsService.getFieldRef(reportId, tableName);
+    	log.info("fieldRefMap: "+fieldRefMap);
+    	
+    	LinkedHashMap<String, String> reversedHashMap = new LinkedHashMap<String, String>();
+    	Set<String> keySet=fieldRefMap.keySet();
+		for (String key : keySet){
+		    reversedHashMap.put(fieldRefMap.get(key).toString(), key);
+		}
+    	
+    	 SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+         JavaSparkContext sContext =  new JavaSparkContext(sConf);
+         SQLContext sqlCont = new SQLContext(sContext);
+         
+         long startTime = System.currentTimeMillis();   //gives the start time of a process
+         long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+         
+     //    Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+     	
+    // 	String jdbcDriver = props.getProperty("jdbcDriver");  
+    //    String schemaName = props.getProperty("schemaName");  
+    // 	String dbUrl = props.getProperty("dbUrl")+schemaName;  
+     	
+    // 	   String userName = props.getProperty("userName"); 
+    // 	   String password = props.getProperty("password"); 
+         
+ 		String dbUrl=env.getProperty("spring.datasource.url");
+ 		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+ 		String host = parts[0].split("/")[2].split(":")[0];
+ 		String schemaName=parts[0].split("/")[3];
+ 		String userName = env.getProperty("spring.datasource.username");
+ 		String password = env.getProperty("spring.datasource.password");
+ 		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+        
+         Dataset<Row> reports_data = sqlCont.read().format("jdbc")
+                 .option("url", dbUrl)
+                 .option("user",userName)
+                 .option("password",password)
+                 .option("dbtable",tableName).load();
+         
+        log.info("reports_data.count(): "+reports_data.count());
+       
+        reports_data.show();
+        
+        String filter="report_id = "+reportId;
+        String finQuery="";
+        
+        log.info("filtersMap: "+filtersMap);
+		if(filtersMap!=null){
+		
+			String conQuery=" where ";
+	        String conSubQueryFin="";
+			if(filtersMap!=null){
+				log.info("filters exists");
+	        	if(filtersMap.containsKey("fields")){
+	        		List<HashMap> filtersList=(List<HashMap>) filtersMap.get("fields");
+	        		log.info("fields exists with sz: "+filtersList.size());
+	        		for(int i=0;i<filtersList.size();i++){
+	        			HashMap filterMap=filtersList.get(i);
+	        			log.info("filterMap: "+filterMap);
+	        			String conSubQuery="";
+	        			String colName=filterMap.get("fieldName").toString();
+	        			log.info("colName: "+colName);
+	        			if(filterMap.get("refType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+	        				Long refColId=Long.parseLong(filterMap.get("refColId").toString());
+	        				LookUpCode finFunCode=lookUpCodeRepository.findOne(refColId);
+	        				log.info("finFunCode: "+finFunCode);
+	        				colName=finFunCode.getLookUpCode().toLowerCase();
+	        				//log.info("colName from lookups: "+colName);
+	        			}
+	        			else {
+	        				//log.info("colName in else b4: "+colName);
+	        				colName=fieldRefMap.get(colName).toString();
+	        				//log.info("colName in else after: "+colName);
+	        			}
+	        			String selType=filterMap.get("fieldType").toString();
+	        			log.info("selType: "+selType);
+	        			if(selType.equalsIgnoreCase("MULTI_SELECT_LOV") || selType.equalsIgnoreCase("SINGLE_SELECT_LOV")  || selType.equalsIgnoreCase("SINGLE_SELECTION") || selType.equalsIgnoreCase("TEXT")){
+	        				String selValData="";
+	        				String selValVar=filterMap.get("selectedValue").toString();
+	        				log.info("selValVar: "+selValVar);
+	        				selValVar=selValVar.replace("[", "");
+	        				selValVar=selValVar.replace("]", "");
+	        				List<String> selValList = new ArrayList<String>(Arrays.asList(selValVar.split(",")));
+	        				for(int k=0;k<selValList.size();k++){
+	        					String selVal=selValList.get(k);
+	        					selVal=selVal.trim();
+	        					selValData=selValData+"'"+selVal+"'";
+	        					if(k>=0 && k<selValList.size()-1){
+	        						selValData=selValData+",";
+	        					}
+	        				}
+	        				if(selValData!=null && !(selValData.isEmpty())){
+	        					if(selValData.endsWith(",")){
+	        						int indx=selValData.lastIndexOf(",");
+	        						selValData=selValData.substring(0,indx);
+	        						log.info("selValData after removing comma: "+selValData);
+	        					}
+	        					conSubQuery=conSubQuery+colName+" in ("+selValData+") ";
+	        					log.info("conSubQuery: "+conSubQuery);
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AUTO_COMPLETE")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+		        				conSubQuery=conSubQuery+colName+" in ('"+selVal+"') ";
+		        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("BOOLEAN_SELECTION")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+	        					if(conSubQuery.equalsIgnoreCase(" where ")){
+	        	        			
+	        	        		}
+	        					else conSubQuery=" and ";
+	        				conSubQuery=conSubQuery+colName+" is "+selVal;
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AMOUNT_RANGE")){
+	        				String map=filterMap.get("selectedValue").toString();
+	        				if(map!=null && !(map.isEmpty())){
+	        				log.info("map: "+map);
+	        				//String map="selectedValue={fromValue=1036873.4, toValue=1377186}";
+	        				map=map.replace("{fromValue=", ""); //1036873.4, toValue=1377186}"
+	        				map=map.replace("toValue=", ""); //1036873.4,1377186}
+	        				log.info("map aftr replace: "+map);
+	        				String arr[]=map.split(",");
+	        				log.info(" arr[0]: "+arr[0]);
+	        				log.info("arr[1]: "+arr[1]);
+	        				arr[1]=arr[1].replace("}", "");
+	        				System.out.println("arr[1]: "+arr[1]+" arr[0]: "+arr[0]);
+	        				String fromValue=arr[0].trim();
+	        				String toValue=arr[1].trim();
+	        				conSubQuery=conSubQuery+colName+" between "+fromValue+" and "+toValue;	
+	        				}
+	        			}
+	        		log.info("conSubQuery: "+conSubQuery);
+	        		if(conSubQuery.length()>1){
+	        			conSubQuery=conSubQuery+" and ";
+	        		}
+	        		conSubQueryFin=conSubQuery;
+	        		if(conSubQuery.equalsIgnoreCase(" where ")){
+	        			
+	        		}
+	        		else{
+	        			finQuery=finQuery+conSubQuery;
+	        		}
+	        			log.info("finQuery after conQuery: "+finQuery);
+	        		}
+	        		
+	        	}
+	        }
+			else{
+				log.info("filters doesnt exist");
+			}
+	        log.info("finQuery after filters: "+finQuery);
+	        log.info("conSubQueryFin: "+conSubQueryFin);
+		}
+		else{
+			
+		}
+		if(finQuery.endsWith("and ")){
+        	int indx=finQuery.lastIndexOf("and");
+        	finQuery=finQuery.substring(0,indx);
+        }
+		if(finQuery!=null && !(finQuery.isEmpty())){
+			
+			finQuery=finQuery+" and "+filter;
+		}
+		else {
+
+			log.info("filter: "+filter);
+			finQuery=filter;
+			log.info("finQuery:" +finQuery);
+		}
+        
+        log.info("finQuery: "+finQuery);
+		return null;
+        
+       /* String Query="SELECT record_type, processor_name , currency_code,transaction_date, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 30 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date";
+        log.info("Query: "+Query);
+        sqlCont.sql("")*/
+        //sqlCont().sql(weekWiseQuery);
+    }
+
+
+    @PostMapping("/testSql")
+    @Timed
+    public List<LinkedHashMap> testSql(@RequestParam Long reportId, @RequestParam Long tenanatId, @RequestBody(required=false) HashMap filtersMap){
+    	
+    	log.info("Rest Request to retrieve generateReport3 for reportId: "+reportId+" and tenanatId: "+tenanatId);
+    	
+    	Reports reports=reportsRepository.findOne(reportId);
+    	Long tenantId=reports.getTenantId();
+    	Long repTypeId=reports.getReportTypeId();
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	String tableName="";
+    	String repTypeName="";
+    	if(repType!=null){
+    		repTypeName=repType.getType();
+    		if(repTypeName.equalsIgnoreCase("ACCOUNT_ANALYSIS_REPORT")){
+    			tableName="t_account_analysis";
+    		}
+    		else if(repTypeName.equalsIgnoreCase("ACCOUNT_BALANCE_REPORT")){
+    			tableName="t_balance_type";
+    		}
+    	}
+    	
+    	/* Report Defination Columns */
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	log.info("repDefList: "+repDefList);
+        
+    	 SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+         JavaSparkContext sContext =  new JavaSparkContext(sConf);
+         SQLContext sqlCont = new SQLContext(sContext);
+         
+         long startTime = System.currentTimeMillis();   //gives the start time of a process
+         long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+         
+    //     Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+     	
+   //  	String jdbcDriver = props.getProperty("jdbcDriver");  
+    //    String schemaName = props.getProperty("schemaName");  
+   //  	String dbUrl = props.getProperty("dbUrl")+schemaName;  
+     	
+    // 	   String userName = props.getProperty("userName"); 
+     //	   String password = props.getProperty("password"); 
+         
+  		String dbUrl=env.getProperty("spring.datasource.url");
+  		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+  		String host = parts[0].split("/")[2].split(":")[0];
+  		String schemaName=parts[0].split("/")[3];
+  		String userName = env.getProperty("spring.datasource.username");
+  		String password = env.getProperty("spring.datasource.password");
+  		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+        
+     	  DataFrameReader reports_data = sqlCont.read().format("jdbc")
+                 .option("url", dbUrl)
+                 .option("user",userName)
+                 .option("password",password)
+                 .option("dbtable","t_reports");
+         
+         Dataset<Row> data1 = reports_data.load();
+         
+         data1.registerTempTable("reports_data");
+         
+         log.info("reports_data.count(): ");
+         
+         //log.info("reports_data.count(): "+reports_data.count());
+         
+         DataFrameReader reports_data1 = sqlCont.read().format("jdbc")
+                 .option("url", dbUrl)
+                 .option("user",userName)
+                 .option("password",password)
+                 .option("dbtable","t_report_type");
+         
+         Dataset<Row> data2 = reports_data1.load();
+         
+         data2.registerTempTable("reports_data1");
+         
+       // log.info("reports_data.count()1: "+reports_data1.count());
+       
+        //reports_data.show();
+        
+        String Query="select ds1.type, ds1.allow_drill_down,ds0.id, ds0.report_name, ds0.source_view_id  from (t_reports ) as ds0,"+
+        			 "(t_report_type)  as ds1 where  ds1.id=ds0.report_type_id";
+        log.info("Query: "+Query);
+        Dataset<Row> finData=sqlCont.sql(Query);
+        log.info("data sz after sql finData: "+finData);
+        //sqlCont().sql(weekWiseQuery);
+        sContext.close();
+		return null;
+    }
+    
+    
+    @PostMapping("/agingReportTest")
+    @Timed
+    public void agingReportTest(@RequestParam(value="listColumn", required = false) String listColumn, @RequestParam(value="type", required = false) String type, @RequestParam String pivotCol,  @RequestParam(value = "filerColumn", required = false) String filerColumn, @RequestParam(value = "filterValues", required = false) String filterValues) throws AnalysisException{
+    SparkConf sConf =  new SparkConf().setAppName("Pivot").setMaster("yarn-cluster").setMaster("local[*]");
+    
+    sConf.set("spark.driver.allowMultipleContexts", "true");
+    
+      JavaSparkContext sContext =  new JavaSparkContext(sConf);
+       SQLContext sqlCont = new SQLContext(sContext);
+    
+        long startTime = System.currentTimeMillis();   //gives the start time of a process
+        long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+       
+        DataFrameReader recon_data1 = sqlCont.read().format("jdbc")
+                .option("url", "jdbc:mysql://192.168.0.44:3306/reports")
+                .option("user","root")
+                .option("password","Welcome789$")
+                .option("dbtable","reconcile2");
+        
+        Dataset<Row> recon_data = recon_data1.load();
+        
+       recon_data.registerTempTable("recon_data1");
+       
+    
+       DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-03-31");
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+      // String weekWiseQuery="SELECT record_type, processor_name , currency_code,transaction_date,WEEKOFYEAR(transaction_date) , SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,WEEKOFYEAR(transaction_date)";
+      // String weekWiseQuery="SELECT record_type, processor_name , currency_code  FROM recon_data1";
+       String weekWiseQuery="SELECT * FROM recon_data1 as ds";
+       log.info("weekWiseQuery: "+weekWiseQuery);
+       Dataset<Row> weekWisedata = recon_data1.table("recon_data1").sqlContext().sql(weekWiseQuery).sort("record_type");
+      // Dataset<Row> weekWisedataPivot=weekWisedata.groupBy("record_type","processor_name").pivot("WEEKOFYEAR(transaction_date)").sum("amount");
+       int sz4=weekWisedata.collectAsList().size();
+       log.info("sz4: "+sz4);
+       //weekWisedata.show(sz4);
+   
+       weekWisedata.show(100);
+       sContext.close();
+    }
+    
+    
+    @PostMapping("/agingReportPOC")
+    @Timed
+    public void agingReportPOC(@RequestParam(value="listColumn", required = false) String listColumn, @RequestParam(value="type", required = false) String type, @RequestParam String pivotCol,  @RequestParam(value = "filerColumn", required = false) String filerColumn, @RequestParam(value = "filterValues", required = false) String filterValues) throws AnalysisException{
+    SparkConf sConf =  new SparkConf().setAppName("Pivot").setMaster("yarn-cluster").setMaster("local[*]");
+    
+    sConf.set("spark.driver.allowMultipleContexts", "true");
+    
+      JavaSparkContext sContext =  new JavaSparkContext(sConf);
+       SQLContext sqlCont = new SQLContext(sContext);
+    
+        long startTime = System.currentTimeMillis();   //gives the start time of a process
+        long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+       
+        DataFrameReader recon_data1 = sqlCont.read().format("jdbc")
+                .option("url", "jdbc:mysql://192.168.0.44:3306/reports")
+                .option("user","root")
+                .option("password","Welcome789$")
+                .option("dbtable","reconcile2");
+        
+        Dataset<Row> recon_data = recon_data1.load();
+        
+       recon_data.registerTempTable("recon_data1");
+        
+       // recon_data1.table("recon_data1").sqlContext().sql("select * from recon_data1 where record_type='PSP to GL' and processor_name='ADYEN' and currency_code='AED'").show();
+       // sql("select * from reconcile2 where record_type='PSP to GL' and processor_name='ADYEN' and currency_code='AED'").show();
+      // Dataset<Row> yeardata = recon_data1.table("recon_data1").sqlContext().sql("SELECT Year(transaction_date), Month(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY Year(transaction_date), Month(transaction_date)");
+       
+       /* Year wise Pivot */
+       /*Dataset<Row> yeardata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), Month(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), Month(transaction_date)").sort("record_type");
+       //Dataset<Row> yeardata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), Monthname(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), Month(transaction_date)").sort("record_type");
+       Dataset<Row> yeardataPivot=yeardata.groupBy("record_type","processor_name").pivot("year(transaction_date)").sum("amount");
+       int sz=yeardataPivot.collectAsList().size();
+       yeardataPivot.show(sz);*/
+       
+       
+      /* Dataset<Row> mnthdata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), monthname(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), monthname(transaction_date)").sort("record_type");
+       mnthdata.groupBy("record_type","processor_name").pivot("monthname(transaction_date)").sum("amount").show();*/
+       
+       /* Month wise Pivot */
+      /* Dataset<Row> mnthdata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), Month(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), Month(transaction_date)").sort("record_type");
+       Dataset<Row> mnthdataPivot=mnthdata.groupBy("record_type","processor_name").pivot("month(transaction_date)").sum("amount");
+       int sz1=mnthdataPivot.collectAsList().size();
+       mnthdataPivot.show(sz1);*/
+       
+       /* Day wise Pivot */
+       /*DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-01-10");
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+       String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) , SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,day(transaction_date)";
+       log.info("query: "+query);
+       Dataset<Row> daydata = recon_data1.table("recon_data1").sqlContext().sql(query).sort("record_type");
+       Dataset<Row> daydataPivot=daydata.groupBy("record_type","processor_name").pivot("dayofmonth(transaction_date)").sum("amount");
+       int sz3=daydataPivot.collectAsList().size();
+       daydataPivot.show(sz3);*/
+       
+       /* week wise reports */
+       /*DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-03-31");
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+       String weekWiseQuery="SELECT record_type, processor_name , currency_code,transaction_date,WEEKOFYEAR(transaction_date) , SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,WEEKOFYEAR(transaction_date)";
+       log.info("weekWiseQuery: "+weekWiseQuery);
+       Dataset<Row> weekWisedata = recon_data1.table("recon_data1").sqlContext().sql(weekWiseQuery).sort("record_type");
+       Dataset<Row> weekWisedataPivot=weekWisedata.groupBy("record_type","processor_name").pivot("WEEKOFYEAR(transaction_date)").sum("amount");
+       int sz4=weekWisedataPivot.collectAsList().size();
+       weekWisedataPivot.show(sz4);*/
+       
+       DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-03-31");
+       int intreval=30;
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+       String weekWiseQuery="SELECT record_type, processor_name , currency_code,transaction_date, WEEKOFYEAR(transaction_date), SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 30 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date";
+       log.info("weekWiseQuery: "+weekWiseQuery);
+       Dataset<Row> weekWisedata = recon_data1.table("recon_data1").sqlContext().sql(weekWiseQuery).sort("record_type");
+       Dataset<Row> weekWisedataPivot=weekWisedata.groupBy("record_type","processor_name").pivot("WEEKOFYEAR(transaction_date)").sum("amount");
+       int sz4=weekWisedataPivot.collectAsList().size();
+       weekWisedataPivot.show(100);
+       
+       sContext.close();
+       /*Dataset<Row> weekdata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), monthname(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), monthname(transaction_date)").sort("record_type");
+       mnthdata.groupBy("record_type","processor_name").pivot("monthname(transaction_date)").sum("amount").show();*/
+    }
+    
+    @PostMapping("/agingReport")
+    @Timed
+    public void agingReport(@RequestParam(value="listColumn", required = false) String listColumn, @RequestParam(value="type", required = false) String type, @RequestParam String pivotCol,  @RequestParam(value = "filerColumn", required = false) String filerColumn, @RequestParam(value = "filterValues", required = false) String filterValues) throws AnalysisException{
+    SparkConf sConf =  new SparkConf().setAppName("Pivot").setMaster("yarn-cluster").setMaster("local[*]");
+    
+    sConf.set("spark.driver.allowMultipleContexts", "true");
+    
+      JavaSparkContext sContext =  new JavaSparkContext(sConf);
+       SQLContext sqlCont = new SQLContext(sContext);
+    
+        long startTime = System.currentTimeMillis();   //gives the start time of a process
+        long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+       
+        DataFrameReader recon_data1 = sqlCont.read().format("jdbc")
+                .option("url", "jdbc:mysql://localhost:3306/applicationjagan")
+                .option("user","root")
+                .option("password","welcome")
+                .option("dbtable","testtrimcomma");
+        
+        Dataset<Row> recon_data = recon_data1.load();
+        
+       recon_data.registerTempTable("recon_data1");
+        
+       // recon_data1.table("recon_data1").sqlContext().sql("select * from recon_data1 where record_type='PSP to GL' and processor_name='ADYEN' and currency_code='AED'").show();
+       // sql("select * from reconcile2 where record_type='PSP to GL' and processor_name='ADYEN' and currency_code='AED'").show();
+      // Dataset<Row> yeardata = recon_data1.table("recon_data1").sqlContext().sql("SELECT Year(transaction_date), Month(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY Year(transaction_date), Month(transaction_date)");
+       
+       /* Year wise Pivot */
+       /*Dataset<Row> yeardata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), Month(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), Month(transaction_date)").sort("record_type");
+       //Dataset<Row> yeardata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), Monthname(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), Month(transaction_date)").sort("record_type");
+       Dataset<Row> yeardataPivot=yeardata.groupBy("record_type","processor_name").pivot("year(transaction_date)").sum("amount");
+       int sz=yeardataPivot.collectAsList().size();
+       yeardataPivot.show(sz);*/
+       
+       
+      /* Dataset<Row> mnthdata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), monthname(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), monthname(transaction_date)").sort("record_type");
+       mnthdata.groupBy("record_type","processor_name").pivot("monthname(transaction_date)").sum("amount").show();*/
+       
+       /* Month wise Pivot */
+      /* Dataset<Row> mnthdata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), Month(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), Month(transaction_date)").sort("record_type");
+       Dataset<Row> mnthdataPivot=mnthdata.groupBy("record_type","processor_name").pivot("month(transaction_date)").sum("amount");
+       int sz1=mnthdataPivot.collectAsList().size();
+       mnthdataPivot.show(sz1);*/
+       
+       /* Day wise Pivot */
+       /*DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-01-10");
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+       String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) , SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,day(transaction_date)";
+       log.info("query: "+query);
+       Dataset<Row> daydata = recon_data1.table("recon_data1").sqlContext().sql(query).sort("record_type");
+       Dataset<Row> daydataPivot=daydata.groupBy("record_type","processor_name").pivot("dayofmonth(transaction_date)").sum("amount");
+       int sz3=daydataPivot.collectAsList().size();
+       daydataPivot.show(sz3);*/
+       
+       /* week wise reports */
+       /*DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-03-31");
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+       String weekWiseQuery="SELECT record_type, processor_name , currency_code,transaction_date,WEEKOFYEAR(transaction_date) , SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <= current_date() - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,WEEKOFYEAR(transaction_date)";
+       log.info("weekWiseQuery: "+weekWiseQuery);
+       Dataset<Row> weekWisedata = recon_data1.table("recon_data1").sqlContext().sql(weekWiseQuery).sort("record_type");
+       Dataset<Row> weekWisedataPivot=weekWisedata.groupBy("record_type","processor_name").pivot("WEEKOFYEAR(transaction_date)").sum("amount");
+       int sz4=weekWisedataPivot.collectAsList().size();
+       weekWisedataPivot.show(sz4);*/
+       
+       DateTimeFormatter dtf = DateTimeFormat.forPattern("yyyy-MM-dd");
+       LocalDate curDate = dtf.parseLocalDate("2017-07-04");
+       LocalDate startDate = dtf.parseLocalDate("2013-01-01");
+       LocalDate endDate = dtf.parseLocalDate("2013-03-31");
+       int intreval=30;
+       log.info("curDate: "+curDate+" startDate: "+startDate+" endDate: "+endDate);
+       //String query="SELECT record_type, processor_name , currency_code,transaction_date,day(transaction_date) AS period, SUM(amount) AS amount FROM recon_data1 WHERE transaction_date <='"+ curDate+"' - INTERVAL 1 day  and transaction_date between '"+startDate+"' and '"+endDate+"' GROUP BY record_type, processor_name , currency_code,transaction_date,period";
+       String weekWiseQuery="";
+       log.info("weekWiseQuery: "+weekWiseQuery);
+       Dataset<Row> weekWisedata = recon_data1.table("recon_data1").sqlContext().sql(weekWiseQuery).sort("currency_code");
+       Dataset<Row> weekWisedataPivot=weekWisedata.groupBy("card_type").pivot("WEEKOFYEAR(transaction_date)").sum("amount");
+       int sz4=weekWisedataPivot.collectAsList().size();
+       weekWisedataPivot.show(sz4);
+       
+       sContext.close();
+       /*Dataset<Row> weekdata = recon_data1.table("recon_data1").sqlContext().sql("SELECT record_type, processor_name , currency_code, amount, year(transaction_date), monthname(transaction_date), Count(*) As Total_Rows FROM recon_data1 GROUP BY record_type, processor_name , currency_code,amount,Year(transaction_date), monthname(transaction_date)").sort("record_type");
+       mnthdata.groupBy("record_type","processor_name").pivot("monthname(transaction_date)").sum("amount").show();*/
+    }
+    
+    @PostMapping("/generatePivot")
+    @Timed
+    public List<LinkedHashMap> generatePivot(@RequestParam Long reportId, @RequestParam Long tenanatId, @RequestBody(required=false) HashMap filtersMap){
+    	
+    	log.info("Rest Request to retrieve generateReport3 for reportId: "+reportId+" and tenanatId: "+tenanatId);
+    	
+    	String outputType="";
+    	if(filtersMap.containsKey("outputType")){
+    		outputType=filtersMap.get("outputType").toString();
+    	}
+    	
+    	Reports reports=reportsRepository.findOne(reportId);
+    	Long tenantId=reports.getTenantId();
+    	Long repTypeId=reports.getReportTypeId();
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	String tableName="";
+    	String repTypeName="";
+    	if(repType!=null){
+    		repTypeName=repType.getType();
+    		if(repTypeName.equalsIgnoreCase("ACCOUNT_ANALYSIS_REPORT")){
+    			tableName="t_account_analysis";
+    		}
+    		else if(repTypeName.equalsIgnoreCase("ACCOUNT_BALANCE_REPORT")){
+    			tableName="t_balance_type";
+    		}
+    	}
+    	
+    	/* Report Defination Columns */
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	log.info("repDefList: "+repDefList);
+        
+    	
+    	LinkedHashMap fieldRefMap=dataViewsService.getFieldRef(reportId, tableName);
+    	log.info("fieldRefMap: "+fieldRefMap);
+    	
+    	LinkedHashMap<String, String> reversedHashMap = new LinkedHashMap<String, String>();
+    	Set<String> keySet=fieldRefMap.keySet();
+		for (String key : keySet){
+		    reversedHashMap.put(fieldRefMap.get(key).toString(), key);
+		}
+    	
+    	 SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+         JavaSparkContext sContext =  new JavaSparkContext(sConf);
+         SQLContext sqlCont = new SQLContext(sContext);
+         
+         long startTime = System.currentTimeMillis();   //gives the start time of a process
+         long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+         
+  //       Properties props = propertiesUtilService.getPropertiesFromClasspath("File.properties");
+     	
+   //  	String jdbcDriver = props.getProperty("jdbcDriver");  
+   //     String schemaName = props.getProperty("schemaName");  
+   //  	String dbUrl = props.getProperty("dbUrl")+schemaName;  
+     	
+   //  	   String userName = props.getProperty("userName"); 
+   //  	   String password = props.getProperty("password"); 
+         
+  		String dbUrl=env.getProperty("spring.datasource.url");
+  		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+  		String host = parts[0].split("/")[2].split(":")[0];
+  		String schemaName=parts[0].split("/")[3];
+  		String userName = env.getProperty("spring.datasource.username");
+  		String password = env.getProperty("spring.datasource.password");
+  		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+        
+         Dataset<Row> reports_data = sqlCont.read().format("jdbc")
+                 .option("url", dbUrl)
+                 .option("user",userName)
+                 .option("password",password)
+                 .option("dbtable",tableName).load();
+         
+        log.info("reports_data.count(): "+reports_data.count());
+       
+        reports_data.show();
+        
+        RelationalGroupedDataset grpData = null;
+        
+        Dataset<Row> data2 = null;
+        
+        String filter="report_id = "+reportId;
+        String finQuery="";
+        
+        log.info("filtersMap: "+filtersMap);
+        
+        /* Report Filters */
+        
+		if(filtersMap!=null){
+		
+			String conQuery=" where ";
+	        String conSubQueryFin="";
+			if(filtersMap!=null){
+				log.info("filters exists");
+	        	if(filtersMap.containsKey("fields")){
+	        		List<HashMap> filtersList=(List<HashMap>) filtersMap.get("fields");
+	        		log.info("fields exists with sz: "+filtersList.size());
+	        		for(int i=0;i<filtersList.size();i++){
+	        			HashMap filterMap=filtersList.get(i);
+	        			log.info("filterMap: "+filterMap);
+	        			String conSubQuery="";
+	        			String colName=filterMap.get("fieldName").toString();
+	        			log.info("colName: "+colName);
+	        			if(filterMap.get("refType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+	        				Long refColId=Long.parseLong(filterMap.get("refColId").toString());
+	        				LookUpCode finFunCode=lookUpCodeRepository.findOne(refColId);
+	        				log.info("finFunCode: "+finFunCode);
+	        				colName=finFunCode.getLookUpCode().toLowerCase();
+	        			}
+	        			else {
+	        				colName=fieldRefMap.get(colName).toString();
+	        			}
+	        			String selType=filterMap.get("fieldType").toString();
+	        			log.info("selType: "+selType);
+	        			if(selType.equalsIgnoreCase("MULTI_SELECT_LOV") || selType.equalsIgnoreCase("SINGLE_SELECT_LOV")  || selType.equalsIgnoreCase("SINGLE_SELECTION") || selType.equalsIgnoreCase("TEXT")){
+	        				String selValData="";
+	        				String selValVar=filterMap.get("selectedValue").toString();
+	        				log.info("selValVar: "+selValVar);
+	        				selValVar=selValVar.replace("[", "");
+	        				selValVar=selValVar.replace("]", "");
+	        				List<String> selValList = new ArrayList<String>(Arrays.asList(selValVar.split(",")));
+	        				for(int k=0;k<selValList.size();k++){
+	        					String selVal=selValList.get(k);
+	        					selVal=selVal.trim();
+	        					selValData=selValData+"'"+selVal+"'";
+	        					if(k>=0 && k<selValList.size()-1){
+	        						selValData=selValData+",";
+	        					}
+	        				}
+	        				if(selValData!=null && !(selValData.isEmpty())){
+	        					if(selValData.endsWith(",")){
+	        						int indx=selValData.lastIndexOf(",");
+	        						selValData=selValData.substring(0,indx);
+	        						log.info("selValData after removing comma: "+selValData);
+	        					}
+	        					conSubQuery=conSubQuery+colName+" in ("+selValData+") ";
+	        					log.info("conSubQuery: "+conSubQuery);
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AUTO_COMPLETE")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+		        				conSubQuery=conSubQuery+colName+" in ('"+selVal+"') ";
+		        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("BOOLEAN_SELECTION")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+	        					if(conSubQuery.equalsIgnoreCase(" where ")){
+	        	        			
+	        	        		}
+	        					else conSubQuery=" and ";
+	        				conSubQuery=conSubQuery+colName+" is "+selVal;
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AMOUNT_RANGE")){
+	        				String map=filterMap.get("selectedValue").toString();
+	        				if(map!=null && !(map.isEmpty())){
+	        				log.info("map: "+map);
+	        				//String map="selectedValue={fromValue=1036873.4, toValue=1377186}";
+	        				map=map.replace("{fromValue=", ""); //1036873.4, toValue=1377186}"
+	        				map=map.replace("toValue=", ""); //1036873.4,1377186}
+	        				log.info("map aftr replace: "+map);
+	        				String arr[]=map.split(",");
+	        				log.info(" arr[0]: "+arr[0]);
+	        				log.info("arr[1]: "+arr[1]);
+	        				arr[1]=arr[1].replace("}", "");
+	        				System.out.println("arr[1]: "+arr[1]+" arr[0]: "+arr[0]);
+	        				String fromValue=arr[0].trim();
+	        				String toValue=arr[1].trim();
+	        				conSubQuery=conSubQuery+colName+" between "+fromValue+" and "+toValue;	
+	        				}
+	        			}
+	        		log.info("conSubQuery: "+conSubQuery);
+	        		if(conSubQuery.length()>1){
+	        			conSubQuery=conSubQuery+" and ";
+	        		}
+	        		conSubQueryFin=conSubQuery;
+	        		if(conSubQuery.equalsIgnoreCase(" where ")){
+	        			
+	        		}
+	        		else{
+	        			finQuery=finQuery+conSubQuery;
+	        		}
+	        			log.info("finQuery after conQuery: "+finQuery);
+	        		}
+	        		
+	        	}
+	        }
+			else{
+				log.info("filters doesnt exist");
+			}
+	        log.info("finQuery after filters: "+finQuery);
+	        log.info("conSubQueryFin: "+conSubQueryFin);
+		}
+		else{
+			
+		}
+		if(finQuery.endsWith("and ")){
+        	int indx=finQuery.lastIndexOf("and");
+        	finQuery=finQuery.substring(0,indx);
+        }
+		if(finQuery!=null && !(finQuery.isEmpty())){
+			
+			finQuery=finQuery+" and "+filter;
+		}
+		else {
+
+			log.info("filter: "+filter);
+			finQuery=filter;
+			log.info("finQuery:" +finQuery);
+		}
+        
+        log.info("finQuery: "+finQuery);
+        Dataset<Row> dt = reports_data.filter(finQuery);
+        reports_data=dt;
+        
+        int sz=0;
+        String pivotCol="";
+        String refPivotCol="";
+        List grpColList=new ArrayList<>();
+        
+        /* Pivot Rows */
+        if(filtersMap.containsKey("groupingCols")){
+        	grpColList=(List) filtersMap.get("groupingCols");
+        log.info("grpColList: "+grpColList);
+        sz=grpColList.size();
+        log.info("sz: "+grpColList);
+        org.apache.spark.sql.Column[] col = new org.apache.spark.sql.Column[sz];
+        int h=0;
+        String refName="";
+        for(h=0;h<sz;h++){
+        	HashMap map=(HashMap) grpColList.get(h);
+        	String dpName=map.get("userDisplayColName").toString();
+        	
+        	if(map.get("columnType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+        		refName=map.get("columnDisplayName").toString();
+        		
+        	}
+        	else refName=fieldRefMap.get(dpName).toString();
+        	
+            col[h]= new Column(refName);
+            log.info("col["+h+"]: "+col[h]);
+        }
+        
+        log.info("col: "+col);
+        
+        grpData=reports_data.groupBy(col);
+        
+        log.info("grouped data count: "+grpData.count());
+        
+        
+        /* Pivot Columns */
+        if(filtersMap.containsKey("columnCols")){
+        	
+        	List pivotCols=(List) filtersMap.get("columnCols");
+        	log.info("pivotCols: "+pivotCols);
+        	HashMap pivotColObj=(HashMap) pivotCols.get(0);
+        	pivotCol=pivotColObj.get("userDisplayColName").toString();
+        	refPivotCol=fieldRefMap.get(pivotCol).toString();
+        	grpData=grpData.pivot(refPivotCol);
+        }
+        
+        log.info("pivoted data count: "+grpData.count());
+        }
+        
+        String amtCol="";
+        /* Aggregation */
+        if(filtersMap.containsKey("valueCols")){
+        	
+        	List amtColList=(List) filtersMap.get("valueCols");
+        	HashMap amtColMap=(HashMap) amtColList.get(0);
+        	log.info("amtColMap: "+amtColMap);
+        	amtCol=amtColMap.get("userDisplayColName").toString();
+        	String refAmtCol="";
+        	if(amtColMap.get("columnType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+        		refAmtCol=amtColMap.get("columnDisplayName").toString();
+        		
+        	}
+        	else refAmtCol=fieldRefMap.get(amtCol).toString();
+        	
+            
+            data2=grpData.sum(refAmtCol);
+            log.info("data2 after addng sum cnt: "+data2.count());
+            
+            data2.show();
+        	
+        }
+    
+        List<Row> data=data2.collectAsList();
+        String[] columnsList=data2.columns();
+        log.info("data.size(): "+data.size()+" columnsList.length: "+columnsList.length);
+        
+        /* Final Result set */
+        List<LinkedHashMap> maps=new ArrayList<LinkedHashMap>();
+        for(int j=0;j<data.size();j++){
+            
+            for(int s=0;s<(columnsList.length);s++){
+            	
+            	if(s+sz==columnsList.length || j+sz==columnsList.length){
+            		break;
+            	}
+            	LinkedHashMap map=new LinkedHashMap();
+             	for(int z=0;z<sz;z++){
+             		HashMap grpColMap=(HashMap) grpColList.get(z);
+             		log.info("grpColMap: "+grpColMap);
+                	map.put(grpColMap.get("userDisplayColName"),data.get(j).get(z));		
+                }
+             	
+             	if(pivotCol!=null && !(pivotCol.isEmpty())){
+             	map.put(pivotCol,columnsList[s+sz]);
+             	}
+             	
+             	if(data.get(j).get(s+sz)!=null)
+             	map.put(amtCol,data.get(j).get(s+sz));
+                maps.add(map);
+            }
+            
+        }
+        sContext.close();
+		return maps;
+    }
+    
+    @PostMapping("/generateChart")
+    @Timed
+    public LinkedHashMap generateChart(@RequestParam Long reportId, @RequestParam Long tenanatId, @RequestBody(required=false) HashMap filtersMap){
+    	
+    	log.info("Rest Request to retrieve generateReport3 for reportId: "+reportId+" and tenanatId: "+tenanatId);
+    	
+    	String outputType="";
+    	if(filtersMap.containsKey("outputType")){
+    		outputType=filtersMap.get("outputType").toString();
+    	}
+    	
+    	Reports reports=reportsRepository.findOne(reportId);
+    	Long tenantId=reports.getTenantId();
+    	Long repTypeId=reports.getReportTypeId();
+    	ReportType repType=reportTypeRepository.findOne(repTypeId);
+    	String tableName="";
+    	String repTypeName="";
+    	if(repType!=null){
+    		repTypeName=repType.getType();
+    		if(repTypeName.equalsIgnoreCase("ACCOUNT_ANALYSIS_REPORT")){
+    			tableName="t_account_analysis";
+    		}
+    		else if(repTypeName.equalsIgnoreCase("ACCOUNT_BALANCE_REPORT")){
+    			tableName="t_balance_type";
+    		}
+    	}
+    	
+    	/* Report Defination Columns */
+    	List<ReportDefination> repDefList=reportDefinationRepository.findByReportId(reportId);
+    	log.info("repDefList: "+repDefList);
+        
+    	
+    	LinkedHashMap fieldRefMap=dataViewsService.getFieldRef(reportId, tableName);
+    	log.info("fieldRefMap: "+fieldRefMap);
+    	
+    	LinkedHashMap<String, String> reversedHashMap = new LinkedHashMap<String, String>();
+    	Set<String> keySet=fieldRefMap.keySet();
+		for (String key : keySet){
+		    reversedHashMap.put(fieldRefMap.get(key).toString(), key);
+		}
+    	
+    	 SparkConf sConf =  new SparkConf().setAppName("Reports").setMaster("yarn-cluster").setMaster("local[*]");
+         JavaSparkContext sContext =  new JavaSparkContext(sConf);
+         SQLContext sqlCont = new SQLContext(sContext);
+         
+         long startTime = System.currentTimeMillis();   //gives the start time of a process
+         long pivotstartTime = System.currentTimeMillis();   //gives the start time of a pivot
+         
+  		String dbUrl=env.getProperty("spring.datasource.url");
+  		String[] parts=dbUrl.split("[\\s@&?$+-]+");
+  		String host = parts[0].split("/")[2].split(":")[0];
+  		String schemaName=parts[0].split("/")[3];
+  		String userName = env.getProperty("spring.datasource.username");
+  		String password = env.getProperty("spring.datasource.password");
+  		String jdbcDriver = env.getProperty("spring.datasource.jdbcdriver");
+  		
+  		 DataFrameReader dfr = sqlCont.read().format("jdbc")
+                 .option("url", dbUrl)
+                 .option("user",userName)
+                 .option("password",password)
+                 .option("dbtable",tableName);
+    	  
+    	Dataset<Row> reports_data = dfr.load();
+       
+    	reports_data.registerTempTable("dfr");
+         
+        log.info("reports_data.count(): "+reports_data.count());
+       
+        reports_data.show();
+        
+        String filter="report_id = "+reportId;
+        String finQuery="";
+        
+        log.info("filtersMap: "+filtersMap);
+        
+        /* Report Filters */
+        
+		if(filtersMap!=null){
+		
+			String conQuery=" where ";
+	        String conSubQueryFin="";
+			if(filtersMap!=null){
+				log.info("filters exists");
+	        	if(filtersMap.containsKey("fields")){
+	        		List<HashMap> filtersList=(List<HashMap>) filtersMap.get("fields");
+	        		log.info("fields exists with sz: "+filtersList.size());
+	        		for(int i=0;i<filtersList.size();i++){
+	        			HashMap filterMap=filtersList.get(i);
+	        			log.info("filterMap: "+filterMap);
+	        			String conSubQuery="";
+	        			String colName=filterMap.get("fieldName").toString();
+	        			log.info("colName: "+colName);
+	        			if(filterMap.get("refType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+	        				Long refColId=Long.parseLong(filterMap.get("refColId").toString());
+	        				LookUpCode finFunCode=lookUpCodeRepository.findOne(refColId);
+	        				log.info("finFunCode: "+finFunCode);
+	        				colName=finFunCode.getLookUpCode().toLowerCase();
+	        			}
+	        			else {
+	        				colName=fieldRefMap.get(colName).toString();
+	        			}
+	        			String selType=filterMap.get("fieldType").toString();
+	        			log.info("selType: "+selType);
+	        			if(selType.equalsIgnoreCase("MULTI_SELECT_LOV") || selType.equalsIgnoreCase("SINGLE_SELECT_LOV")  || selType.equalsIgnoreCase("SINGLE_SELECTION") || selType.equalsIgnoreCase("TEXT")){
+	        				String selValData="";
+	        				String selValVar=filterMap.get("selectedValue").toString();
+	        				log.info("selValVar: "+selValVar);
+	        				selValVar=selValVar.replace("[", "");
+	        				selValVar=selValVar.replace("]", "");
+	        				List<String> selValList = new ArrayList<String>(Arrays.asList(selValVar.split(",")));
+	        				for(int k=0;k<selValList.size();k++){
+	        					String selVal=selValList.get(k);
+	        					selVal=selVal.trim();
+	        					selValData=selValData+"'"+selVal+"'";
+	        					if(k>=0 && k<selValList.size()-1){
+	        						selValData=selValData+",";
+	        					}
+	        				}
+	        				if(selValData!=null && !(selValData.isEmpty())){
+	        					if(selValData.endsWith(",")){
+	        						int indx=selValData.lastIndexOf(",");
+	        						selValData=selValData.substring(0,indx);
+	        						log.info("selValData after removing comma: "+selValData);
+	        					}
+	        					conSubQuery=conSubQuery+colName+" in ("+selValData+") ";
+	        					log.info("conSubQuery: "+conSubQuery);
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AUTO_COMPLETE")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+		        				conSubQuery=conSubQuery+colName+" in ('"+selVal+"') ";
+		        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("BOOLEAN_SELECTION")){
+	        				String selVal=filterMap.get("selectedValue").toString();
+	        				if(selVal!=null && !(selVal.isEmpty())){
+	        					if(conSubQuery.equalsIgnoreCase(" where ")){
+	        	        			
+	        	        		}
+	        					else conSubQuery=" and ";
+	        				conSubQuery=conSubQuery+colName+" is "+selVal;
+	        				}
+	        			}
+	        			else if(selType.equalsIgnoreCase("AMOUNT_RANGE")){
+	        				String map=filterMap.get("selectedValue").toString();
+	        				if(map!=null && !(map.isEmpty())){
+	        				log.info("map: "+map);
+	        				//String map="selectedValue={fromValue=1036873.4, toValue=1377186}";
+	        				map=map.replace("{fromValue=", ""); //1036873.4, toValue=1377186}"
+	        				map=map.replace("toValue=", ""); //1036873.4,1377186}
+	        				log.info("map aftr replace: "+map);
+	        				String arr[]=map.split(",");
+	        				log.info(" arr[0]: "+arr[0]);
+	        				log.info("arr[1]: "+arr[1]);
+	        				arr[1]=arr[1].replace("}", "");
+	        				System.out.println("arr[1]: "+arr[1]+" arr[0]: "+arr[0]);
+	        				String fromValue=arr[0].trim();
+	        				String toValue=arr[1].trim();
+	        				conSubQuery=conSubQuery+colName+" between "+fromValue+" and "+toValue;	
+	        				}
+	        			}
+	        		log.info("conSubQuery: "+conSubQuery);
+	        		if(conSubQuery.length()>1){
+	        			conSubQuery=conSubQuery+" and ";
+	        		}
+	        		conSubQueryFin=conSubQuery;
+	        		if(conSubQuery.equalsIgnoreCase(" where ")){
+	        			
+	        		}
+	        		else{
+	        			finQuery=finQuery+conSubQuery;
+	        		}
+	        			log.info("finQuery after conQuery: "+finQuery);
+	        		}
+	        		
+	        	}
+	        }
+			else{
+				log.info("filters doesnt exist");
+			}
+	        log.info("finQuery after filters: "+finQuery);
+	        log.info("conSubQueryFin: "+conSubQueryFin);
+		}
+		else{
+			log.info("filters does't exist");
+		}
+		if(finQuery.endsWith("and ")){
+        	int indx=finQuery.lastIndexOf("and");
+        	finQuery=finQuery.substring(0,indx);
+        }
+		if(finQuery!=null && !(finQuery.isEmpty())){
+			
+			finQuery=finQuery+" and "+filter;
+		}
+		else {
+
+			log.info("filter: "+filter);
+			finQuery=filter;
+			log.info("finQuery:" +finQuery);
+		}
+        log.info("after applying filters");
+        reports_data.show();
+        
+        int grpSz=0;
+        int colSz=0;
+        String pivotCol="";
+        String refPivotCol="";
+        List grpColList=new ArrayList<>();
+        List valueColsList=new ArrayList<>();
+        
+        HashMap grpmap1=new HashMap();
+        HashMap colmap1=new HashMap();
+        String grprefName="";
+        String colrefName="";
+        /* Pivot Rows */
+        if(filtersMap.containsKey("groupingCols")){
+        	grpColList=(List) filtersMap.get("groupingCols");
+        log.info("grpColList: "+grpColList);
+        grpSz=grpColList.size();
+        log.info("sz: "+grpColList);
+        }
+        
+        if(filtersMap.containsKey("valueCols")){
+        	valueColsList=(List) filtersMap.get("valueCols");
+        log.info("valueColsList: "+valueColsList);
+       
+        log.info("valueColsList sz: "+valueColsList.size());
+        colSz=valueColsList.size();
+        }
+        log.info("valueColsList: "+valueColsList);
+        
+        HashMap refMap=new HashMap();
+        List<String> amtColList=new ArrayList<>();
+        int h1=0;
+        for(h1=0;h1<colSz;h1++){
+        	colmap1=(HashMap) valueColsList.get(h1);
+        	String dpName=colmap1.get("userDisplayColName").toString();
+        	
+
+        	if(colmap1.get("columnType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+        		colrefName=colmap1.get("columnDisplayName").toString();
+        	}
+        	else colrefName=fieldRefMap.get(dpName).toString();
+        	refMap.put(colrefName, dpName);
+        	log.info("colrefName: "+colrefName);
+        	amtColList.add(colrefName);
+        }
+        log.info("amtColList: "+amtColList);
+        org.apache.spark.sql.Column[] col = new org.apache.spark.sql.Column[grpSz];
+        
+        int h=0;
+        for(h=0;h<grpSz;h++){
+        	grpmap1=(HashMap) grpColList.get(0);
+        	String dpName=grpmap1.get("userDisplayColName").toString();
+        	
+        	if(grpmap1.get("columnType").toString().equalsIgnoreCase("FIN_FUNCTION")){
+        		grprefName=grpmap1.get("columnDisplayName").toString();
+        		
+        		
+        	}
+        	else grprefName=fieldRefMap.get(dpName).toString();
+        	 col[h]= new Column(grprefName);
+        	 log.info("col["+h+"]: "+col[h]);
+        }
+        
+        log.info("col.length: "+col.length);
+        log.info("grp col: "+col);
+        log.info("refMap: "+refMap);
+        
+        String Query="select field_02, sum(OPENING_BALANCE), sum(ADDITIONS_AMT) from dfr "+" where "+finQuery+" group by field_02 ";
+        Dataset<Row> weekWisedata = dfr.table("dfr").sqlContext().sql(Query).sort("field_02");
+        int sz4=weekWisedata.collectAsList().size();
+        weekWisedata.show(sz4);
+        List lablsList=weekWisedata.select(col[0]).distinct().collectAsList();
+        log.info("lablsList: "+lablsList);
+        List<String> finLbleList=new ArrayList<String>();
+        for(int k=0;k<lablsList.size();k++){
+        	String lable=lablsList.get(k).toString();
+        	lable=lable.replace('[', ' ');
+        	lable=lable.replace(']', ' ');
+        	lable=lable.trim();
+        	finLbleList.add(lable);
+        }
+        log.info("finLbleList: "+finLbleList);
+        List<Row> data=weekWisedata.collectAsList();
+        String[] columnsList=weekWisedata.columns();
+        
+        LinkedHashMap finMap=new LinkedHashMap();
+        finMap.put("labels", finLbleList);
+        
+        log.info("data.size(): "+data.size()+" columnsList.length: "+columnsList.length);
+        int sz=data.size();
+        List<LinkedHashMap> mapList=new ArrayList<LinkedHashMap>();
+        /* Final Result set */
+        log.info("columnsList: "+columnsList);
+        
+        List<LinkedHashMap> ListOfMap = new ArrayList<>();
+        for(int m=1;m<columnsList.length;m++)
+        {
+        	 List dataList=new ArrayList<>();
+        	LinkedHashMap map=new LinkedHashMap();
+        	log.info("m value: "+m);
+        	for(int n=0;n<data.size();n++)
+        	{
+        		log.info("N avlue: "+n);
+        		log.info(" m, n avlues: ("+n+","+m+")");
+        		
+        		
+        		log.info("columnsList[m]: "+columnsList[m]);
+        		
+        		columnsList[m]=columnsList[m].replace("sum(", "");
+        		columnsList[m]=columnsList[m].replace(")", "");
+        		if(map!=null && !(map.isEmpty())&& !(map.get("label").toString().isEmpty()) && map.get("label").toString().equalsIgnoreCase(refMap.get(columnsList[m]).toString()))
+    			{
+    				
+        			log.info("In If when n: "+n+" and m: "+m);
+    				dataList=(List) map.get("data");
+    				dataList.add(data.get(n).get(m));
+    			}
+    			else{
+    				log.info("In Else when n: "+n+" and m: "+m+" and dataList: "+dataList);
+    				dataList.add(data.get(n).get(m));
+    			}
+        	}
+        	columnsList[m]=columnsList[m].replace("sum(", "");
+    		columnsList[m]=columnsList[m].replace(")", "");
+        	map.put("label",refMap.get(columnsList[m]));
+        	map.put("data", dataList);
+        	map.put("backgroundColor", "");
+            map.put("fill",false);
+    		if(map!=null)
+    			ListOfMap.add(map);
+    		log.info("Map Values: "+map);
+        }
+        log.info("List of maps size: "+ListOfMap.size());
+        log.info("List of maps  :"+ListOfMap);
+        
+        finMap.put("datasets", ListOfMap);
+        sContext.close();
+        return finMap;
+    }
+    
+   /* @GetMapping("/jsonToCsv")
+    public void jsonToCsv(@RequestParam String reportPath) throws IOException, URISyntaxException, ParseException, JSONException{
+    	
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(reportPath);
+    	
+    	 String jsonString = cmpltOutput.toString();
+
+         JSONObject output;
+         try {
+             output = new JSONObject(jsonString);
+
+
+             JSONArray docs = output.getJSONArray("data");
+
+             String fileName="Report_";
+             File file=new File("//home/nspl/Documents/fromJSON.csv");
+             String csv = CDL.toString(docs);
+             FileUtils.writeStringToFile(file, csv);
+         } catch (JSONException e) {
+             e.printStackTrace();
+         } catch (IOException e) {
+             // TODO Auto-generated catch block
+             e.printStackTrace();
+         }        
+    }*/
+    
+    
+    /**
+     * author :ravali
+     * @param email
+     * @param filePath
+     * @param tenantId
+     * @throws AddressException
+     * @throws MessagingException
+     * @throws IOException
+     * @throws DocumentException
+     * @throws URISyntaxException
+     * @throws ParseException
+     * Desc :sharing csv through mail
+     */
+    @GetMapping("/shareReportingCSVBKP/{email:.+}")
+    @Timed
+    public void shareReportingCSVBKP(@RequestParam String email,@RequestParam String filePath,@RequestParam Long tenantId) 
+    		throws AddressException, MessagingException, IOException, DocumentException, URISyntaxException, ParseException
+    {
+    	log.info("REST API FOR SHARING SampleCSV");
+    	log.info("email :"+email);
+
+
+    	ApplicationPrograms prog=applicationProgramsRepository.findByPrgmNameAndTenantIdAndEnableIsTrue("Reporting",tenantId);
+    	String localPath=prog.getGeneratedPath();
+    	log.info("localPath :"+localPath);
+    	String finalPath=hadoopConfiguration.get("fs.defaultFS")+filePath;
+    	log.info("filePath :"+finalPath);
+
+    	Configuration configuration = new Configuration();
+    	URI uri = new URI(finalPath); //hdfs://192.168.0.155:9000/user/hdsingle/examples/apps/dev/reporting/report_parameters/Params_9_2018-01-25_12-28-21.834072.json
+    	FileSystem hdfs = FileSystem.get(uri, configuration);
+    	log.info("hdfs :"+hdfs);
+    	InputStream inputStream = null;
+    	//Connecting to remote server
+
+    	Path path = new Path(uri);
+    	log.info("path :"+path);
+    	if (hdfs.exists(path)) {
+    		System.out.println("File " + finalPath + " exists");
+    		hdfs.copyToLocalFile(false, path, new Path( localPath), true);
+    		//hdfs.copyToLocalFile(false, finalPath,new Path( "/home/nspl/temp"));
+
+    	}
+    	else
+    	{
+    		System.out.println("File " + finalPath + " does not exists");
+    		return;
+    	}
+
+    	//log.info("fileData: "+fileData);
+
+
+    	String filename = filePath.substring(filePath.lastIndexOf('/') + 1,
+    			filePath.length());
+    	log.info("filename: "+filename);
+    	//String toEmail = "nishanthteam@gmail.com";
+
+    	final String username = "carat.nspl@gmail.com";
+    	final String password = "Welcome!23";
+    	final String to = email;
+
+    	Properties prts = new Properties();
+    	prts.put("mail.smtp.auth", "true");
+    	prts.put("mail.smtp.starttls.enable", "true");
+    	prts.put("mail.smtp.host", "smtp.gmail.com");
+    	prts.put("mail.smtp.port", "587");
+    	prts.put("mail.smtp.ssl.trust", "smtp.gmail.com");
+
+    	Session session = Session.getInstance(prts,new javax.mail.Authenticator(){
+    		protected PasswordAuthentication getPasswordAuthentication() {
+    			return new PasswordAuthentication(username, password);
+    		}});
+    	try {
+    		Message message = new MimeMessage(session);
+    		message.setFrom(new InternetAddress(username));
+    		message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
+    		message.setSubject("Reporting sample Attachments");
+
+    		Multipart multipart = new MimeMultipart("mixed");
+
+    		MimeBodyPart messageBodyPart = new MimeBodyPart();
+    		String content = "Hi there! <br><br>Please find the attachments regarding Resporting";
+    		messageBodyPart.setContent(content, "text/html; charset=utf-8");
+
+    		multipart.addBodyPart(messageBodyPart);
+
+
+    		messageBodyPart = new MimeBodyPart();
+    		DataSource source = new FileDataSource(localPath+filename);
+    		messageBodyPart.setDataHandler(new DataHandler(source));
+    		messageBodyPart.setFileName(filename);
+    		multipart.addBodyPart(messageBodyPart);
+
+
+    		message.setContent(multipart);
+
+
+    		try{
+    			Transport.send(message);
+    			
+    		}
+
+    		catch(Exception e)
+    		{
+
+    			log.info(">>"+e);
+    		}
+
+
+    	} 
+    	catch (MessagingException e) 
+    	{
+    		log.info("Invalid Credentials..."+ e);
+    	}
+
+    	File file = new File(localPath+filename);
+
+		if(file.delete()){
+			System.out.println(file.getName() + " is deleted!");
+		}else{
+			System.out.println("Delete operation is failed.");
+		}
+
+    	return ;
+
+    }
+    
+    
+    
+    @GetMapping("/shareReportingCSV")
+    @Timed
+    public LinkedHashMap shareReportingCSV(@RequestParam(required=false) String emailList,@RequestParam Long requetId) 
+    		throws AddressException, MessagingException, IOException, DocumentException, URISyntaxException, ParseException
+    {
+    	log.info("REST API FOR SHARING SampleCSV");
+    	log.info("email :"+emailList);
+
+
+    	LinkedHashMap finalMap=new LinkedHashMap();
+    	finalMap.put("status", "success");
+
+    	HashMap map=reportJsonToCSV(requetId);
+    	log.info("map :"+map);
+    	String localPath=map.get("path").toString();
+    	/*ApplicationPrograms prog=applicationProgramsRepository.findByPrgmNameAndTenantIdAndEnableIsTrue("Reporting",tenantId);
+    	String localPath=prog.getGeneratedPath();*/
+    	log.info("localPath :"+localPath);
+
+    	String filename = localPath.substring(localPath.lastIndexOf('/') + 1,
+    			localPath.length());
+    	log.info("filename: "+filename);
+    	//String toEmail = "nishanthteam@gmail.com";
+    	Long send=0l;
+    	Long failed=0l;
+    	final String username = "nspl.recon@gmail.com";
+    	final String password = "Welcome!23";
+
+    	String[] emailArr=emailList.split(";");
+    	for(int i=0;i<emailArr.length;i++){
+    		//final String to = email;
+
+    		String to=emailArr[i];
+    		log.info("to: "+to);
+
+    		Properties prts = new Properties();
+    		prts.put("mail.smtp.auth", "true");
+    		prts.put("mail.smtp.starttls.enable", "true");
+    		prts.put("mail.smtp.host", "smtp.gmail.com");
+    		prts.put("mail.smtp.port", "587");
+    		prts.put("mail.smtp.ssl.trust", "smtp.gmail.com");
+
+    		Session session = Session.getInstance(prts,new javax.mail.Authenticator(){
+    			protected PasswordAuthentication getPasswordAuthentication() {
+    				return new PasswordAuthentication(username, password);
+    			}});
+    		try {
+    			Message message = new MimeMessage(session);
+    			message.setFrom(new InternetAddress(username));
+    			message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
+    			message.setSubject("Reporting sample Attachments");
+
+    			Multipart multipart = new MimeMultipart("mixed");
+
+    			MimeBodyPart messageBodyPart = new MimeBodyPart();
+    			String content = "Hi there! <br><br>Please find the attachments regarding Reporting";
+    			messageBodyPart.setContent(content, "text/html; charset=utf-8");
+
+    			multipart.addBodyPart(messageBodyPart);
+
+
+    			messageBodyPart = new MimeBodyPart();
+    			DataSource source = new FileDataSource(localPath);
+    			messageBodyPart.setDataHandler(new DataHandler(source));
+    			messageBodyPart.setFileName(filename);
+    			multipart.addBodyPart(messageBodyPart);
+
+
+    			message.setContent(multipart);
+
+
+    			try{
+    				Transport.send(message);
+    				send=send+1l;
+    			}
+
+    			catch(Exception e)
+    			{
+
+    				log.info(">>"+e);
+    				finalMap.put("status", "success");
+    				failed=failed+1l;
+    			}
+
+
+    		} 
+    		catch (MessagingException e) 
+    		{
+    			log.info("Invalid Credentials..."+ e);
+    		}
+
+
+    	}
+
+    	File file = new File(localPath);
+
+    	if(file.delete()){
+    		System.out.println(file.getName() + " is deleted!");
+    	}else{
+    		System.out.println("Delete operation is failed.");
+    	}
+    	finalMap.put("send", send);
+    	finalMap.put("failed", failed);
+
+
+    	return finalMap;
+
+
+    }
+
+    
+    
+    
+    
+    
+    
+    
+    /**
+     * author :ravali
+     * @param map
+     * @throws IOException
+     * @throws ParseException 
+     * @throws URISyntaxException 
+     */
+    @GetMapping("/reportJsonExportToCSV")
+    @Timed
+    public HashMap reportJsonToCSV(@RequestParam Long requestId) throws IOException, URISyntaxException, ParseException
+    { 
+    	
+    	HashMap finalMap=new HashMap();
+    	ReportRequests reportRequests=reportRequestsRepository.findOne(requestId);
+    	Long tenantId=reportRequests.getTenantId();
+
+
+    	Reports rep=reportsRepository.findOne(reportRequests.getReportId());
+    	ApplicationPrograms prog=applicationProgramsRepository.findByPrgmNameAndTenantIdAndEnableIsTrue("Reporting",tenantId);
+    	String localPath=prog.getGeneratedPath();
+    	log.info("localPath :"+localPath);
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(reportRequests.getOutputPath());
+    	
+    	List<HashMap> header=(List<HashMap>) cmpltOutput.get("columns");
+    	List<HashMap> values=(List<HashMap>) cmpltOutput.get("data");
+    	List<String> head=new ArrayList<String>();
+    	for(int i=0;i<header.size();i++)
+    	{
+    		head.add(header.get(i).get("field").toString());
+    	}
+
+    	log.info("head :"+head);
+
+    	Long startDate = System.currentTimeMillis() ;
+    	Long startNanoseconds = System.nanoTime() ;
+    	SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS") ;
+    	Long microSeconds = (System.nanoTime() - startNanoseconds) / 1000 ;
+    	Long date = startDate + (microSeconds/1000) ;
+		    String res= dateFormat.format(date) + String.format("%03d", microSeconds % 1000);
+		    String updRes=res.replace(' ', '_');
+		    updRes=updRes.replace(':', '-');
+		    updRes=updRes.replace('.', '-');
+    	
+    	
+    	String newFileName = localPath+rep.getReportName().replaceAll("\\s","")+"_"+requestId+"_"+updRes+".csv";
+    	log.info("newFileName1 :"+newFileName);
+    	File newFile = new File(newFileName);
+    	boolean b = false;
+        if (!newFile.exists()) {
+          b = newFile.createNewFile();
+        }
+      
+        log.info("file Created :"+b);
+    	
+    	String commaSeparated = head.stream()
+    			.collect(Collectors.joining("\",\""));
+    	
+    	try (
+
+    			BufferedWriter writer = Files.newBufferedWriter(Paths.get(newFileName));
+
+    			CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT
+    					.withHeader("\""+commaSeparated+"\""));
+    			) {
+
+    		for(int j=0;j<values.size();j++)
+    		{
+    			List<String> valuesList=new ArrayList<String>();
+    			for(String hea:head)
+    			{
+    				//log.info("hea: "+hea);
+    				if(values.get(j).containsKey(hea)){
+    					//log.info("values.get(j).get(hea): "+values.get(j).get(hea));
+    				valuesList.add(values.get(j).get(hea).toString());
+    				}
+    				else{
+    					valuesList.add("");
+    				}
+    			}
+    			
+    			commaSeparated=valuesList.stream()
+    					.collect(Collectors.joining("\",\""));
+    			
+    			csvPrinter.printRecord("\""+commaSeparated+"\"");
+    		}
+    	//	finalMap.put("path", newFileName);
+    		
+    		log.info("newFileName :"+newFileName);
+    		
+    		File file = new File(newFileName);
+        	InputStream inputStream=new FileInputStream(file);
+        	String[] destPath=fileService.fileUpload(inputStream, rep.getReportName().replaceAll("\\s","")+"_"+requestId+"_"+updRes+".csv");
+        	
+        	if(destPath[0].equalsIgnoreCase("success"))
+        	{
+        		finalMap.put("status", destPath[0]);
+        		finalMap.put("destPath", destPath[1]);
+        	}
+        	else
+        	{
+        		finalMap.put("status", "failure");
+        	}
+    		
+
+    		csvPrinter.flush();            
+    	}
+		return finalMap;
+		
+    }
+    
+    
+    @PostMapping("/sortbykey")
+    @Timed
+    public static void sortbykey(@RequestParam LinkedHashMap output)
+    {
+        // TreeMap to store values of HashMap
+    	Map<String, Integer> map = new HashMap<>();
+        TreeMap<String, Integer> sorted = new TreeMap<>();
+ 
+        // Copy all data from hashMap into TreeMap
+        sorted.putAll(map);
+ 
+        // Display the TreeMap which is naturally sorted
+        for (Map.Entry<String, Integer> entry : sorted.entrySet()) 
+            System.out.println("Key = " + entry.getKey() + 
+                         ", Value = " + entry.getValue());        
+    }
+    
+    @PostMapping("/sortingValuesInReportOutputJson")
+    @Timed
+    public JSONObject sortingValuesInJson(@RequestParam Long requestId,@RequestParam String sortColumn,@RequestParam(required=false) String sortOrder,
+    		 @RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,HttpServletResponse response) 
+    		throws IOException, JSONException, ParseException, URISyntaxException
+    {
+
+    	
+    	log.info("requestId: "+requestId);
+    	log.info("pageNumber: "+pageNumber+" & pageSize: "+pageSize);
+    	ReportRequests req=reportRequestsRepository.findOne(requestId);
+    	log.info("req.getOutputPath(): "+req.getOutputPath());
+    	JSONObject jsonValue =new JSONObject();
+    	if(req.getOutputPath()!=null)
+    	{
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(req.getOutputPath());
+    	JSONObject obj=new JSONObject();
+    	obj.putAll(cmpltOutput);
+    	String paramVal=obj.toJSONString();
+    	JSONParser parser = new JSONParser();
+    	 jsonValue = (JSONObject) parser.parse(paramVal);
+    	
+
+    	List<JSONObject> jsonValueList = (List<JSONObject>) jsonValue.get("data");
+
+    	Collections.sort( jsonValueList, new Comparator<JSONObject>() { 
+
+
+    		@Override
+    		public int compare(JSONObject a, JSONObject b) {
+    			String valA = new String();
+    			String valB = new String();
+
+    			valA = (String) a.get(sortColumn);
+    			valB = (String) b.get(sortColumn);
+
+
+    			if(sortOrder!=null && sortOrder.equalsIgnoreCase("ascending"))
+    				return valA.compareTo(valB);
+    			else
+    				return -valA.compareTo(valB);
+    			//if you want to change the sort order, simply use the following:
+    			//return -valA.compareTo(valB);
+    		}
+    	});
+    	
+    	
+    	List<JSONObject> finalObj=new ArrayList<JSONObject>();
+    	/*for (int i = 0; i < jsonValueList.size(); i++) {
+    		finalObj.add(jsonValueList.get(i));
+    	}*/
+    	int totDataCnt=Integer.parseInt(cmpltOutput.get("X-COUNT").toString());
+		log.info("totDataCnt: "+totDataCnt);
+		response.addIntHeader("X-COUNT", totDataCnt);
+    //	jsonValue.put("data", finalObj);
+    	
+    	
+    	int limit = 0;
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = totDataCnt;
+		}
+			limit = ((pageNumber+1) * pageSize + 1)-1;
+		int startIndex=pageNumber*pageSize; 
+		
+		if(limit>totDataCnt){
+			limit=totDataCnt;
+		}
+		
+		log.info("startIndex: "+startIndex+" limit: "+limit);
+		
+		for(int j=startIndex;j<limit;j++){
+			
+			JSONObject map=jsonValueList.get(j);
+			finalObj.add(map);
+			
+		}
+		
+		log.info("finalObj: "+finalObj);
+		jsonValue.put("data", finalObj);
+    	}
+    	return jsonValue;
+    }
+    
+    
+    
+    
+    @PostMapping("/SearchValuesInReportOutputJson")
+    @Timed
+    public JSONObject SearchValuesInReportOutputJson(@RequestParam Long requestId,@RequestParam String serachString,
+    		 @RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,HttpServletResponse response) 
+    		throws IOException, JSONException, ParseException, URISyntaxException
+    {
+
+    	
+    	log.info("requestId: "+requestId);
+    	log.info("pageNumber: "+pageNumber+" & pageSize: "+pageSize);
+    	ReportRequests req=reportRequestsRepository.findOne(requestId);
+    	log.info("req :"+req);
+    	JSONObject jsonValue =new JSONObject();
+    	if(req.getOutputPath()!=null)
+    	{
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(req.getOutputPath());
+    	JSONObject obj=new JSONObject();
+    	obj.putAll(cmpltOutput);
+    	String paramVal=obj.toJSONString();
+    	JSONParser parser = new JSONParser();
+    	 jsonValue = (JSONObject) parser.parse(paramVal);
+    	
+
+    	List<JSONObject> jsonValueList = (List<JSONObject>) jsonValue.get("data");
+    	List<JSONObject> searchObj=new ArrayList<JSONObject>();
+    	
+    	List<JSONObject> finalObj=new ArrayList<JSONObject>();
+    	
+    	List<HashMap> header=(List<HashMap>) cmpltOutput.get("columns");
+    //	List<HashMap> values=(List<HashMap>) cmpltOutput.get("data");
+    	List<String> headList=new ArrayList<String>();
+    	for(int i=0;i<header.size();i++)
+    	{
+    		headList.add(header.get(i).get("field").toString());
+    	}
+
+    	log.info("head :"+headList);
+    	
+    	
+    	for (int i = 0; i < jsonValueList.size(); i++) {
+    		
+    		for (String  head:headList)
+    		{
+    			
+    			
+    			if(jsonValueList.get(i).get(head).toString().toLowerCase().contains(serachString.toLowerCase()))
+    				searchObj.add(jsonValueList.get(i));
+    			/*else if(jsonValueList.get(i).get(head).toString().toUpperCase().contains(serachString))
+    				searchObj.add(jsonValueList.get(i));*/
+    		}
+    	
+	}
+    
+    	int totDataCnt= searchObj.size();
+		response.addIntHeader("X-COUNT", searchObj.size());
+    
+    	int limit = 0;
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = totDataCnt;
+		}
+		log.info("pageNumber :"+pageNumber +" pageSize :"+pageSize );
+			limit = ((pageNumber+1) * pageSize + 1)-1;
+			log.info("limit :"+limit);
+		int startIndex=pageNumber*pageSize; 
+		
+		if(limit>totDataCnt){
+			limit=totDataCnt;
+		}
+		
+		log.info("startIndex: "+startIndex+" limit: "+limit);
+		if(searchObj!=null && !searchObj.isEmpty())
+		{
+		for(int j=startIndex;j<limit;j++){
+			
+			
+			JSONObject map=searchObj.get(j);
+			finalObj.add(map);
+		
+			
+		}
+    	}
+		
+		log.info("finalObj: "+finalObj);
+		jsonValue.put("data", finalObj);
+    	}
+    	return jsonValue;
+    }
+    
+    
+    /**seraching based on key values**/
+    
+    @PostMapping("/SearchKeyValuesInReportOutputJson")
+    @Timed
+    public JSONObject SearchKeyValuesInReportOutputJson(@RequestParam(required=false) LinkedHashMap keyValues,@RequestParam Long requestId,@RequestParam String serachString,
+    		 @RequestParam(required=false) Integer pageNumber, @RequestParam(required=false) Integer pageSize,HttpServletResponse response) 
+    		throws IOException, JSONException, ParseException, URISyntaxException
+    {
+
+    	
+    	log.info("requestId: "+requestId);
+    	log.info("pageNumber: "+pageNumber+" & pageSize: "+pageSize);
+    	ReportRequests req=reportRequestsRepository.findOne(requestId);
+    	log.info("req :"+req);
+    	JSONObject jsonValue =new JSONObject();
+    	if(req.getOutputPath()!=null)
+    	{
+    	LinkedHashMap cmpltOutput=reportsService.hdfsFileReading(req.getOutputPath());
+    	JSONObject obj=new JSONObject();
+    	obj.putAll(cmpltOutput);
+    	String paramVal=obj.toJSONString();
+    	JSONParser parser = new JSONParser();
+    	 jsonValue = (JSONObject) parser.parse(paramVal);
+    	
+
+    	List<JSONObject> jsonValueList = (List<JSONObject>) jsonValue.get("data");
+    	List<JSONObject> searchObj=new ArrayList<JSONObject>();
+    	
+    	List<JSONObject> finalObj=new ArrayList<JSONObject>();
+    	
+    	List<HashMap> header=(List<HashMap>) cmpltOutput.get("columns");
+    //	List<HashMap> values=(List<HashMap>) cmpltOutput.get("data");
+    	List<String> headList=new ArrayList<String>();
+    	for(int i=0;i<header.size();i++)
+    	{
+    		headList.add(header.get(i).get("field").toString());
+    	}
+
+    	log.info("head :"+headList);
+    	
+    	
+    	for (int i = 0; i < jsonValueList.size(); i++) {
+    		
+    		if(keyValues.size()>0 && keyValues !=null)
+    		{
+    			
+    		}
+    		else
+    		{
+    		for (String  head:headList)
+    		{
+    			
+    			
+    			if(jsonValueList.get(i).get(head).toString().toLowerCase().contains(serachString.toLowerCase()))
+    				searchObj.add(jsonValueList.get(i));
+    			/*else if(jsonValueList.get(i).get(head).toString().toUpperCase().contains(serachString))
+    				searchObj.add(jsonValueList.get(i));*/
+    		}
+    	}
+    	
+	}
+    
+    	int totDataCnt= searchObj.size();
+		response.addIntHeader("X-COUNT", searchObj.size());
+    
+    	int limit = 0;
+		if(pageNumber == null || pageNumber == 0)
+		{
+			pageNumber = 0;
+		}
+		if(pageSize == null || pageSize == 0)
+		{
+			pageSize = totDataCnt;
+		}
+		log.info("pageNumber :"+pageNumber +" pageSize :"+pageSize );
+			limit = ((pageNumber+1) * pageSize + 1)-1;
+			log.info("limit :"+limit);
+		int startIndex=pageNumber*pageSize; 
+		
+		if(limit>totDataCnt){
+			limit=totDataCnt;
+		}
+		
+		log.info("startIndex: "+startIndex+" limit: "+limit);
+		if(searchObj!=null && !searchObj.isEmpty())
+		{
+		for(int j=startIndex;j<limit;j++){
+			
+			
+			JSONObject map=searchObj.get(j);
+			finalObj.add(map);
+		
+			
+		}
+    	}
+		
+		log.info("finalObj: "+finalObj);
+		jsonValue.put("data", finalObj);
+    	}
+    	return jsonValue;
+    }
+    
+    
+    /**
+     * author :ravali
+     * @param tenantId
+     * @return
+     */
+    
+    @GetMapping("/reportingSideBarAPI")
+    @Timed
+    public List<LinkedHashMap> reportingSideBarAPI(@RequestParam Long tenantId) 
+    		
+    {
+    	log.info("rest request to get reports and their counts by tenantId :"+tenantId);
+    	
+    	List<String> reportNames=reportTypeRepository.findDistinctTypeBytenantIdAndEnableFlagIsTrue(tenantId);
+    	List<LinkedHashMap> finalMapList=new ArrayList<LinkedHashMap>();
+    	for(String report:reportNames)
+    	{
+    		
+    		if(report!=null)
+    		{
+    			ReportType reportType=reportTypeRepository.findByTypeAndTenantId(report,tenantId);
+    			if(reportType!=null)
+    			{
+    			LinkedHashMap reportMap=new LinkedHashMap();
+    			reportMap.put("reportTypeName", report);
+    			int count=0;
+    			List<LinkedHashMap> reportMapLiist=new ArrayList<LinkedHashMap>();
+    			List<Reports> reportsList=reportsRepository.findByReportTypeId(reportType.getId());
+    			for(Reports reports:reportsList)
+    			{
+    				count=count+1;
+    				LinkedHashMap map=new LinkedHashMap();
+    				map.put("id", reports.getId());
+    				map.put("reportName", reports.getReportName());
+    				reportMapLiist.add(map);
+    				
+    			}
+    			reportMap.put("totalCount", count);
+    			reportMap.put("reportsList", reportMapLiist);
+    			if(reportsList.size()>0)
+    			finalMapList.add(reportMap);
+    			}
+    			
+    		}
+    	}
+		return finalMapList;
+    	
+    }
+    
+  
+}

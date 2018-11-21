@@ -1,0 +1,303 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.Reconcile;
+import com.nspl.app.repository.ReconcileRepository;
+import com.nspl.app.repository.search.ReconcileSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.math.BigDecimal;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the ReconcileResource REST controller.
+ *
+ * @see ReconcileResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class ReconcileResourceIntTest {
+
+    private static final String DEFAULT_PROCESSOR_NAME = "AAAAAAAAAA";
+    private static final String UPDATED_PROCESSOR_NAME = "BBBBBBBBBB";
+
+    private static final LocalDate DEFAULT_TRANSACTION_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate UPDATED_TRANSACTION_DATE = LocalDate.now(ZoneId.systemDefault());
+
+    private static final String DEFAULT_RECORD_TYPE = "AAAAAAAAAA";
+    private static final String UPDATED_RECORD_TYPE = "BBBBBBBBBB";
+
+    private static final BigDecimal DEFAULT_AMOUNT = new BigDecimal(1);
+    private static final BigDecimal UPDATED_AMOUNT = new BigDecimal(2);
+
+    private static final String DEFAULT_CURRENCY_CODE = "AAAAAAAAAA";
+    private static final String UPDATED_CURRENCY_CODE = "BBBBBBBBBB";
+
+    @Autowired
+    private ReconcileRepository reconcileRepository;
+
+    @Autowired
+    private ReconcileSearchRepository reconcileSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restReconcileMockMvc;
+
+    private Reconcile reconcile;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        ReconcileResource reconcileResource = new ReconcileResource(reconcileRepository, reconcileSearchRepository);
+        this.restReconcileMockMvc = MockMvcBuilders.standaloneSetup(reconcileResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static Reconcile createEntity(EntityManager em) {
+        Reconcile reconcile = new Reconcile()
+            .processorName(DEFAULT_PROCESSOR_NAME)
+            .transactionDate(DEFAULT_TRANSACTION_DATE)
+            .recordType(DEFAULT_RECORD_TYPE)
+            .amount(DEFAULT_AMOUNT)
+            .currencyCode(DEFAULT_CURRENCY_CODE);
+        return reconcile;
+    }
+
+    @Before
+    public void initTest() {
+        reconcileSearchRepository.deleteAll();
+        reconcile = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createReconcile() throws Exception {
+        int databaseSizeBeforeCreate = reconcileRepository.findAll().size();
+
+        // Create the Reconcile
+        restReconcileMockMvc.perform(post("/api/reconciles")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(reconcile)))
+            .andExpect(status().isCreated());
+
+        // Validate the Reconcile in the database
+        List<Reconcile> reconcileList = reconcileRepository.findAll();
+        assertThat(reconcileList).hasSize(databaseSizeBeforeCreate + 1);
+        Reconcile testReconcile = reconcileList.get(reconcileList.size() - 1);
+        assertThat(testReconcile.getProcessorName()).isEqualTo(DEFAULT_PROCESSOR_NAME);
+        assertThat(testReconcile.getTransactionDate()).isEqualTo(DEFAULT_TRANSACTION_DATE);
+        assertThat(testReconcile.getRecordType()).isEqualTo(DEFAULT_RECORD_TYPE);
+        assertThat(testReconcile.getAmount()).isEqualTo(DEFAULT_AMOUNT);
+        assertThat(testReconcile.getCurrencyCode()).isEqualTo(DEFAULT_CURRENCY_CODE);
+
+        // Validate the Reconcile in Elasticsearch
+        Reconcile reconcileEs = reconcileSearchRepository.findOne(testReconcile.getId());
+        assertThat(reconcileEs).isEqualToComparingFieldByField(testReconcile);
+    }
+
+    @Test
+    @Transactional
+    public void createReconcileWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = reconcileRepository.findAll().size();
+
+        // Create the Reconcile with an existing ID
+        reconcile.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restReconcileMockMvc.perform(post("/api/reconciles")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(reconcile)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<Reconcile> reconcileList = reconcileRepository.findAll();
+        assertThat(reconcileList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllReconciles() throws Exception {
+        // Initialize the database
+        reconcileRepository.saveAndFlush(reconcile);
+
+        // Get all the reconcileList
+        restReconcileMockMvc.perform(get("/api/reconciles?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(reconcile.getId().intValue())))
+            .andExpect(jsonPath("$.[*].processorName").value(hasItem(DEFAULT_PROCESSOR_NAME.toString())))
+            .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())))
+            .andExpect(jsonPath("$.[*].recordType").value(hasItem(DEFAULT_RECORD_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].amount").value(hasItem(DEFAULT_AMOUNT.intValue())))
+            .andExpect(jsonPath("$.[*].currencyCode").value(hasItem(DEFAULT_CURRENCY_CODE.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void getReconcile() throws Exception {
+        // Initialize the database
+        reconcileRepository.saveAndFlush(reconcile);
+
+        // Get the reconcile
+        restReconcileMockMvc.perform(get("/api/reconciles/{id}", reconcile.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(reconcile.getId().intValue()))
+            .andExpect(jsonPath("$.processorName").value(DEFAULT_PROCESSOR_NAME.toString()))
+            .andExpect(jsonPath("$.transactionDate").value(DEFAULT_TRANSACTION_DATE.toString()))
+            .andExpect(jsonPath("$.recordType").value(DEFAULT_RECORD_TYPE.toString()))
+            .andExpect(jsonPath("$.amount").value(DEFAULT_AMOUNT.intValue()))
+            .andExpect(jsonPath("$.currencyCode").value(DEFAULT_CURRENCY_CODE.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingReconcile() throws Exception {
+        // Get the reconcile
+        restReconcileMockMvc.perform(get("/api/reconciles/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateReconcile() throws Exception {
+        // Initialize the database
+        reconcileRepository.saveAndFlush(reconcile);
+        reconcileSearchRepository.save(reconcile);
+        int databaseSizeBeforeUpdate = reconcileRepository.findAll().size();
+
+        // Update the reconcile
+        Reconcile updatedReconcile = reconcileRepository.findOne(reconcile.getId());
+        updatedReconcile
+            .processorName(UPDATED_PROCESSOR_NAME)
+            .transactionDate(UPDATED_TRANSACTION_DATE)
+            .recordType(UPDATED_RECORD_TYPE)
+            .amount(UPDATED_AMOUNT)
+            .currencyCode(UPDATED_CURRENCY_CODE);
+
+        restReconcileMockMvc.perform(put("/api/reconciles")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedReconcile)))
+            .andExpect(status().isOk());
+
+        // Validate the Reconcile in the database
+        List<Reconcile> reconcileList = reconcileRepository.findAll();
+        assertThat(reconcileList).hasSize(databaseSizeBeforeUpdate);
+        Reconcile testReconcile = reconcileList.get(reconcileList.size() - 1);
+        assertThat(testReconcile.getProcessorName()).isEqualTo(UPDATED_PROCESSOR_NAME);
+        assertThat(testReconcile.getTransactionDate()).isEqualTo(UPDATED_TRANSACTION_DATE);
+        assertThat(testReconcile.getRecordType()).isEqualTo(UPDATED_RECORD_TYPE);
+        assertThat(testReconcile.getAmount()).isEqualTo(UPDATED_AMOUNT);
+        assertThat(testReconcile.getCurrencyCode()).isEqualTo(UPDATED_CURRENCY_CODE);
+
+        // Validate the Reconcile in Elasticsearch
+        Reconcile reconcileEs = reconcileSearchRepository.findOne(testReconcile.getId());
+        assertThat(reconcileEs).isEqualToComparingFieldByField(testReconcile);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingReconcile() throws Exception {
+        int databaseSizeBeforeUpdate = reconcileRepository.findAll().size();
+
+        // Create the Reconcile
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restReconcileMockMvc.perform(put("/api/reconciles")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(reconcile)))
+            .andExpect(status().isCreated());
+
+        // Validate the Reconcile in the database
+        List<Reconcile> reconcileList = reconcileRepository.findAll();
+        assertThat(reconcileList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteReconcile() throws Exception {
+        // Initialize the database
+        reconcileRepository.saveAndFlush(reconcile);
+        reconcileSearchRepository.save(reconcile);
+        int databaseSizeBeforeDelete = reconcileRepository.findAll().size();
+
+        // Get the reconcile
+        restReconcileMockMvc.perform(delete("/api/reconciles/{id}", reconcile.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean reconcileExistsInEs = reconcileSearchRepository.exists(reconcile.getId());
+        assertThat(reconcileExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<Reconcile> reconcileList = reconcileRepository.findAll();
+        assertThat(reconcileList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchReconcile() throws Exception {
+        // Initialize the database
+        reconcileRepository.saveAndFlush(reconcile);
+        reconcileSearchRepository.save(reconcile);
+
+        // Search the reconcile
+        restReconcileMockMvc.perform(get("/api/_search/reconciles?query=id:" + reconcile.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(reconcile.getId().intValue())))
+            .andExpect(jsonPath("$.[*].processorName").value(hasItem(DEFAULT_PROCESSOR_NAME.toString())))
+            .andExpect(jsonPath("$.[*].transactionDate").value(hasItem(DEFAULT_TRANSACTION_DATE.toString())))
+            .andExpect(jsonPath("$.[*].recordType").value(hasItem(DEFAULT_RECORD_TYPE.toString())))
+            .andExpect(jsonPath("$.[*].amount").value(hasItem(DEFAULT_AMOUNT.intValue())))
+            .andExpect(jsonPath("$.[*].currencyCode").value(hasItem(DEFAULT_CURRENCY_CODE.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(Reconcile.class);
+    }
+}
