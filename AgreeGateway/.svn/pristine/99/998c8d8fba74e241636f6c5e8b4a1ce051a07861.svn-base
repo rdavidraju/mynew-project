@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { BatchHeader } from './batch-header.model';
+import { BatchHeaderPopupService } from './batch-header-popup.service';
+import { BatchHeaderService } from './batch-header.service';
+
+@Component({
+    selector: 'jhi-batch-header-delete-dialog',
+    templateUrl: './batch-header-delete-dialog.component.html'
+})
+export class BatchHeaderDeleteDialogComponent {
+
+    batchHeader: BatchHeader;
+
+    constructor(
+        private batchHeaderService: BatchHeaderService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.batchHeaderService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'batchHeaderListModification',
+                content: 'Deleted an batchHeader'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-batch-header-delete-popup',
+    template: ''
+})
+export class BatchHeaderDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private batchHeaderPopupService: BatchHeaderPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.batchHeaderPopupService
+                .open(BatchHeaderDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

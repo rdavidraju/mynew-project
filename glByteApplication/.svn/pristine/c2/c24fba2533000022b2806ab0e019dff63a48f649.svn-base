@@ -1,0 +1,362 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+import com.nspl.app.domain.RuleGroup;
+import com.nspl.app.repository.AccountedSummaryRepository;
+import com.nspl.app.repository.ReconciliationResultRepository;
+import com.nspl.app.repository.RuleGroupRepository;
+import com.nspl.app.repository.search.RuleGroupSearchRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the RuleGroupResource REST controller.
+ *
+ * @see RuleGroupResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class RuleGroupResourceIntTest {
+
+    private static final Long DEFAULT_TENANT_ID = 1L;
+    private static final Long UPDATED_TENANT_ID = 2L;
+
+    private static final String DEFAULT_NAME = "AAAAAAAAAA";
+    private static final String UPDATED_NAME = "BBBBBBBBBB";
+
+    private static final ZonedDateTime DEFAULT_START_DATE =ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_START_DATE =ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_END_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_END_DATE =ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final Boolean DEFAULT_ENABLED_FLAG = false;
+    private static final Boolean UPDATED_ENABLED_FLAG = true;
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final String DEFAULT_RULE_PURPOSE = "AAAAAAAAAA";
+    private static final String UPDATED_RULE_PURPOSE = "BBBBBBBBBB";
+
+    @Autowired
+    private RuleGroupRepository ruleGroupRepository;
+
+    @Autowired
+    private RuleGroupSearchRepository ruleGroupSearchRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restRuleGroupMockMvc;
+
+    private RuleGroup ruleGroup;
+    
+    private AccountedSummaryRepository accountedSummaryRepository;
+    
+    private ReconciliationResultRepository reconciliationResultRepository;
+    
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        RuleGroupResource ruleGroupResource = new RuleGroupResource(ruleGroupRepository, ruleGroupSearchRepository,accountedSummaryRepository,reconciliationResultRepository);
+        this.restRuleGroupMockMvc = MockMvcBuilders.standaloneSetup(ruleGroupResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static RuleGroup createEntity(EntityManager em) {
+        RuleGroup ruleGroup = new RuleGroup()
+            .tenantId(DEFAULT_TENANT_ID)
+            .name(DEFAULT_NAME)
+            .startDate(DEFAULT_START_DATE)
+            .endDate(DEFAULT_END_DATE)
+            .enabledFlag(DEFAULT_ENABLED_FLAG)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE)
+            .rulePurpose(DEFAULT_RULE_PURPOSE);
+        return ruleGroup;
+    }
+
+    @Before
+    public void initTest() {
+        ruleGroupSearchRepository.deleteAll();
+        ruleGroup = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createRuleGroup() throws Exception {
+        int databaseSizeBeforeCreate = ruleGroupRepository.findAll().size();
+
+        // Create the RuleGroup
+        restRuleGroupMockMvc.perform(post("/api/rule-groups")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(ruleGroup)))
+            .andExpect(status().isCreated());
+
+        // Validate the RuleGroup in the database
+        List<RuleGroup> ruleGroupList = ruleGroupRepository.findAll();
+        assertThat(ruleGroupList).hasSize(databaseSizeBeforeCreate + 1);
+        RuleGroup testRuleGroup = ruleGroupList.get(ruleGroupList.size() - 1);
+        assertThat(testRuleGroup.getTenantId()).isEqualTo(DEFAULT_TENANT_ID);
+        assertThat(testRuleGroup.getName()).isEqualTo(DEFAULT_NAME);
+        assertThat(testRuleGroup.getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(testRuleGroup.getEndDate()).isEqualTo(DEFAULT_END_DATE);
+        assertThat(testRuleGroup.isEnabledFlag()).isEqualTo(DEFAULT_ENABLED_FLAG);
+        assertThat(testRuleGroup.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testRuleGroup.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testRuleGroup.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testRuleGroup.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+        assertThat(testRuleGroup.getRulePurpose()).isEqualTo(DEFAULT_RULE_PURPOSE);
+
+        // Validate the RuleGroup in Elasticsearch
+        RuleGroup ruleGroupEs = ruleGroupSearchRepository.findOne(testRuleGroup.getId());
+        assertThat(ruleGroupEs).isEqualToComparingFieldByField(testRuleGroup);
+    }
+
+    @Test
+    @Transactional
+    public void createRuleGroupWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = ruleGroupRepository.findAll().size();
+
+        // Create the RuleGroup with an existing ID
+        ruleGroup.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restRuleGroupMockMvc.perform(post("/api/rule-groups")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(ruleGroup)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<RuleGroup> ruleGroupList = ruleGroupRepository.findAll();
+        assertThat(ruleGroupList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllRuleGroups() throws Exception {
+        // Initialize the database
+        ruleGroupRepository.saveAndFlush(ruleGroup);
+
+        // Get all the ruleGroupList
+        restRuleGroupMockMvc.perform(get("/api/rule-groups?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(ruleGroup.getId().intValue())))
+            .andExpect(jsonPath("$.[*].tenantId").value(hasItem(DEFAULT_TENANT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME.toString())))
+            .andExpect(jsonPath("$.[*].startDate").value(hasItem(DEFAULT_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].endDate").value(hasItem(DEFAULT_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].enabledFlag").value(hasItem(DEFAULT_ENABLED_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))))
+            .andExpect(jsonPath("$.[*].rulePurpose").value(hasItem(DEFAULT_RULE_PURPOSE.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void getRuleGroup() throws Exception {
+        // Initialize the database
+        ruleGroupRepository.saveAndFlush(ruleGroup);
+
+        // Get the ruleGroup
+        restRuleGroupMockMvc.perform(get("/api/rule-groups/{id}", ruleGroup.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(ruleGroup.getId().intValue()))
+            .andExpect(jsonPath("$.tenantId").value(DEFAULT_TENANT_ID.intValue()))
+            .andExpect(jsonPath("$.name").value(DEFAULT_NAME.toString()))
+            .andExpect(jsonPath("$.startDate").value(DEFAULT_START_DATE.toString()))
+            .andExpect(jsonPath("$.endDate").value(DEFAULT_END_DATE.toString()))
+            .andExpect(jsonPath("$.enabledFlag").value(DEFAULT_ENABLED_FLAG.booleanValue()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)))
+            .andExpect(jsonPath("$.rulePurpose").value(DEFAULT_RULE_PURPOSE.toString()));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingRuleGroup() throws Exception {
+        // Get the ruleGroup
+        restRuleGroupMockMvc.perform(get("/api/rule-groups/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateRuleGroup() throws Exception {
+        // Initialize the database
+        ruleGroupRepository.saveAndFlush(ruleGroup);
+        ruleGroupSearchRepository.save(ruleGroup);
+        int databaseSizeBeforeUpdate = ruleGroupRepository.findAll().size();
+
+        // Update the ruleGroup
+        RuleGroup updatedRuleGroup = ruleGroupRepository.findOne(ruleGroup.getId());
+        updatedRuleGroup
+            .tenantId(UPDATED_TENANT_ID)
+            .name(UPDATED_NAME)
+            .startDate(UPDATED_START_DATE)
+            .endDate(UPDATED_END_DATE)
+            .enabledFlag(UPDATED_ENABLED_FLAG)
+            .createdBy(UPDATED_CREATED_BY)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE)
+            .rulePurpose(UPDATED_RULE_PURPOSE);
+
+        restRuleGroupMockMvc.perform(put("/api/rule-groups")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedRuleGroup)))
+            .andExpect(status().isOk());
+
+        // Validate the RuleGroup in the database
+        List<RuleGroup> ruleGroupList = ruleGroupRepository.findAll();
+        assertThat(ruleGroupList).hasSize(databaseSizeBeforeUpdate);
+        RuleGroup testRuleGroup = ruleGroupList.get(ruleGroupList.size() - 1);
+        assertThat(testRuleGroup.getTenantId()).isEqualTo(UPDATED_TENANT_ID);
+        assertThat(testRuleGroup.getName()).isEqualTo(UPDATED_NAME);
+        assertThat(testRuleGroup.getStartDate()).isEqualTo(UPDATED_START_DATE);
+        assertThat(testRuleGroup.getEndDate()).isEqualTo(UPDATED_END_DATE);
+        assertThat(testRuleGroup.isEnabledFlag()).isEqualTo(UPDATED_ENABLED_FLAG);
+        assertThat(testRuleGroup.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testRuleGroup.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testRuleGroup.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testRuleGroup.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+        assertThat(testRuleGroup.getRulePurpose()).isEqualTo(UPDATED_RULE_PURPOSE);
+
+        // Validate the RuleGroup in Elasticsearch
+        RuleGroup ruleGroupEs = ruleGroupSearchRepository.findOne(testRuleGroup.getId());
+        assertThat(ruleGroupEs).isEqualToComparingFieldByField(testRuleGroup);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingRuleGroup() throws Exception {
+        int databaseSizeBeforeUpdate = ruleGroupRepository.findAll().size();
+
+        // Create the RuleGroup
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restRuleGroupMockMvc.perform(put("/api/rule-groups")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(ruleGroup)))
+            .andExpect(status().isCreated());
+
+        // Validate the RuleGroup in the database
+        List<RuleGroup> ruleGroupList = ruleGroupRepository.findAll();
+        assertThat(ruleGroupList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteRuleGroup() throws Exception {
+        // Initialize the database
+        ruleGroupRepository.saveAndFlush(ruleGroup);
+        ruleGroupSearchRepository.save(ruleGroup);
+        int databaseSizeBeforeDelete = ruleGroupRepository.findAll().size();
+
+        // Get the ruleGroup
+        restRuleGroupMockMvc.perform(delete("/api/rule-groups/{id}", ruleGroup.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate Elasticsearch is empty
+        boolean ruleGroupExistsInEs = ruleGroupSearchRepository.exists(ruleGroup.getId());
+        assertThat(ruleGroupExistsInEs).isFalse();
+
+        // Validate the database is empty
+        List<RuleGroup> ruleGroupList = ruleGroupRepository.findAll();
+        assertThat(ruleGroupList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void searchRuleGroup() throws Exception {
+        // Initialize the database
+        ruleGroupRepository.saveAndFlush(ruleGroup);
+        ruleGroupSearchRepository.save(ruleGroup);
+
+        // Search the ruleGroup
+        restRuleGroupMockMvc.perform(get("/api/_search/rule-groups?query=id:" + ruleGroup.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(ruleGroup.getId().intValue())))
+            .andExpect(jsonPath("$.[*].tenantId").value(hasItem(DEFAULT_TENANT_ID.intValue())))
+            .andExpect(jsonPath("$.[*].name").value(hasItem(DEFAULT_NAME.toString())))
+            .andExpect(jsonPath("$.[*].startDate").value(hasItem(DEFAULT_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].endDate").value(hasItem(DEFAULT_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].enabledFlag").value(hasItem(DEFAULT_ENABLED_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))))
+            .andExpect(jsonPath("$.[*].rulePurpose").value(hasItem(DEFAULT_RULE_PURPOSE.toString())));
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(RuleGroup.class);
+    }
+}

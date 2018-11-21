@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { AccountingDataMapping } from './accounting-data-mapping.model';
+import { AccountingDataMappingPopupService } from './accounting-data-mapping-popup.service';
+import { AccountingDataMappingService } from './accounting-data-mapping.service';
+
+@Component({
+    selector: 'jhi-accounting-data-mapping-delete-dialog',
+    templateUrl: './accounting-data-mapping-delete-dialog.component.html'
+})
+export class AccountingDataMappingDeleteDialogComponent {
+
+    accountingDataMapping: AccountingDataMapping;
+
+    constructor(
+        private accountingDataMappingService: AccountingDataMappingService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.accountingDataMappingService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'accountingDataMappingListModification',
+                content: 'Deleted an accountingDataMapping'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-accounting-data-mapping-delete-popup',
+    template: ''
+})
+export class AccountingDataMappingDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private accountingDataMappingPopupService: AccountingDataMappingPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.accountingDataMappingPopupService
+                .open(AccountingDataMappingDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

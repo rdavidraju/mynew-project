@@ -1,0 +1,286 @@
+<div style="height: 100%; width: 100%">
+    <!-- <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+        <div id="sticky" class="leftpane split-pane-content-primary">
+            <calendar-side-bar></calendar-side-bar>
+        </div>
+        <div class="split-pane-content-secondary rightpane">
+            <span class="fa fa-bars hand ripple sbclose" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew"></span> -->
+            <div class="component-body">
+                <div class="botom-dotted-blue-border component-title">
+                    <div class="col-md-6 col-sm-6 col-xs-6 pageTitle" style="padding-left:0px;">
+                        <h3 *ngIf="isCreateNew">Calendar Creation:</h3>
+                        <h3 *ngIf="!isCreateNew">Calendar Details</h3>
+                    </div>
+                    <div class="col-md-6 col-sm-6 col-xs-6">
+                        <div class="row float-right">
+                            <button *ngIf="!isViewOnly && f.valid" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save"
+                                (click)="saveCalendar()">
+                                <md-icon>save</md-icon>
+                            </button>
+                            <button *ngIf="!isViewOnly && !f.valid" md-icon-button class="pull-right color-gray" aria-hidden="true" mdTooltip="Fill mandatory fields"
+                                (click)="validationMsg('calendar')">
+                                <md-icon>save</md-icon>
+                            </button>
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/calendar', {outlets: {'content': [calendar.id]+'/edit'}}]">
+                                <md-icon>mode_edit</md-icon>
+                            </button>
+                            <button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/calendar', {outlets: {'content': [calendar.id]+'/details'}}]">
+                                <md-icon>clear</md-icon>
+                            </button>
+                            <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/calendar', {outlets: {'content': ['calendar-home']}}]">
+                                <md-icon>clear</md-icon>
+                            </button>
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back" [routerLink]="['/calendar', {outlets: {'content': ['calendar-home']}}]">
+                                <md-icon>undo</md-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Form Start Here -->
+                <div>
+                    <br>
+                    <form novalidate #f="ngForm">
+                        <div class="row leftmargin-20">
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group" style="display:inline-block">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="calendar.name" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Name"
+                                        name="name" required #name="ngModel" id="name" (blur)="isNameExist(calendar.name, calendar.id)" (ngModelChange)="nameExist = ''">
+                                </md-input-container>
+                                <small class="form-text text-danger" *ngIf="nameExist">{{nameExist}}</small>
+                            </div>
+                
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="calendar.description || !isViewOnly">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="calendar.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Description"
+                                        name="description" #description="ngModel">
+                                </md-input-container>
+                            </div>
+
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [max]="calendar.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                        [(ngModel)]="calendar.startDate" name="startDate" required>
+                                    <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                    <md-datepicker #stpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="calendar.startDate && (calendar.endDate || !isViewOnly)">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="calendar.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                        [disabled]="isViewOnly" [(ngModel)]="calendar.endDate" name="endDate">
+                                    <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                    <md-datepicker #edpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                                <md-select placeholder="Calendar Type" [(ngModel)]="calendar.calendarType" name="calendarType" [disabled]="!isCreateNew" [style.width]="'100%'" required (change)="calType(calendar.calendarType)">
+                                    <md-option *ngFor="let col of calendarType" [(value)]="col.lookUpCode">{{ col.meaning }}</md-option>
+                                </md-select>
+                            </div>
+
+                            <div class="col-md-1 col-sm-6 col-xs-12 form-group" *ngIf="calendar.calendarType == 'MONTHLY' && isCreateNew">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="period" placeholder="Period" [(ngModel)]="calendar.period" name="period" required>
+                                    <md-datepicker-toggle mdSuffix [for]="period"></md-datepicker-toggle>
+                                    <md-datepicker #period></md-datepicker>
+                                </md-form-field>
+                                <!-- <md-input-container>
+                                    <input mdInput [(ngModel)]="calendar.period" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Period Type"
+                                        name="period" #period="ngModel">
+                                </md-input-container> -->
+                            </div>
+
+                            <div class="col-md-1 col-sm-6 col-xs-12 form-group" *ngIf="calendar.calendarType == 'MONTHLY' && calendar.period && isCreateNew">
+                                <button md-raised-button mdTooltip="Generate {{calendar.calendarType}} Periods" (click)="generate()" style="width:100%">Generate</button>
+                            </div>
+                
+                            <div class="col-md-1" *ngIf="isEdit" style="display:flex">
+                                <span *ngIf="calendar.enabledFlag">Active</span>
+                                <span *ngIf="!calendar.enabledFlag">Inactive</span>
+                                <md-slide-toggle class="pull right" color="primary" [disabled]="!isEdit" mdTooltip="Set Status" placeholder="Status" [(ngModel)]="calendar.enabledFlag"
+                                    name="status">
+                                </md-slide-toggle>
+                            </div>
+                            <div class="col-md-1" *ngIf="isViewOnly">
+                                <span class="badge badge-success" *ngIf="calendar.enabledFlag">Active</span>
+                                <span class="badge badge-warning" *ngIf="!calendar.enabledFlag">Inactive</span>
+                            </div>
+                        </div>
+
+                        <!-- Calendar Details -->
+                        <br>
+                        <div class="table-responsive" *ngIf="displayPeriod || !isCreateNew">
+                            <perfect-scrollbar>
+                                <table class="table tableView basicTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Period Name</th>
+                                            <th>From Date</th>
+                                            <th>To Date</th>
+                                            <th class="width100px">Period Number</th>
+                                            <th class="width100px">Quarter</th>
+                                            <th class="width100px">Year</th>
+                                            <th class="width100px">Adjustment</th>
+                                            <th *ngIf="!isCreateNew">Status</th>
+                                            <th>
+                                                <button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add Periods" (click)="addNewPeriods()">
+                                                        <md-icon>exposure_plus_1</md-icon>
+                                                </button>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr *ngFor="let col of calendar.periodList;let i = index;" id="hideIconTable">
+                                            <td class="matbasictabletd">
+                                                <md-input-container>
+                                                    <input mdInput [(ngModel)]="col.periodName" name="periodName-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                </md-input-container>
+                                            </td>
+                                            <td class="matbasictabletd">
+                                                <md-form-field>
+                                                    <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="col.fromDate" [max]="col.toDate" name="fromDate-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                    <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                                    <md-datepicker #stpicker></md-datepicker>
+                                                </md-form-field>
+                                            </td>
+                                            <td class="matbasictabletd">
+                                                <md-form-field>
+                                                    <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="col.toDate" name="toDate-{{i}}" required [min]="col.fromDate" [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                    <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                                    <md-datepicker #edpicker></md-datepicker>
+                                                </md-form-field>
+                                            </td>
+                                            <td class="matbasictabletd">
+                                                <md-input-container>
+                                                    <input mdInput type="number" [(ngModel)]="col.periodNum" name="periodNum-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                </md-input-container>
+                                            </td>
+                                            <td class="matbasictabletd">
+                                                <md-input-container>
+                                                    <input mdInput type="number" [(ngModel)]="col.quarter" name="quarter-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                </md-input-container>
+                                            </td>
+                                            <td class="matbasictabletd">
+                                                <md-input-container>
+                                                    <input mdInput type="number" [(ngModel)]="col.year" name="year-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                </md-input-container>
+                                            </td>
+                                            <td style="text-align: center">
+                                                <md-checkbox [(ngModel)]="col.adjustment" name="adjustment-{{i}}" color="primary" [disabled]="!col.columnEdit && !col.newPeriodAdj" [ngModelOptions]="{standalone: true}"></md-checkbox>
+                                            </td>
+                                            <td *ngIf="!isCreateNew">
+                                                <div *ngIf="!col.columnEdit">
+                                                    <i *ngIf="col.enabledFlag == true" style="color: darkgrey" class="material-icons">check_circle</i> 
+                                                    <i *ngIf="col.enabledFlag == false" style="color: darkgrey" class="material-icons" aria-hidden="true">error</i> 
+                                                </div>
+                                                <i *ngIf="col.newPeriodStatus" style="color: darkgrey" class="material-icons">check_circle</i>
+                                                <md-slide-toggle color="primary" *ngIf="col.columnEdit && !col.newPeriodStatus" mdTooltip="Set Status" placeholder="Status"
+                                                    [(ngModel)]="col.enabledFlag" name="enabledFlag-{{i}}" [ngModelOptions]="{standalone: true}">
+                                                </md-slide-toggle>
+                                            </td>
+                                            <td>
+                                                <div class="display-flex pull-right" id="showIcon">
+                                                    <button *ngIf="col.columnEdit && isViewOnly" md-icon-button class="color-green" style="font-size: 24px;" aria-hidden="true"
+                                                        mdTooltip="Save" (click)="updatePeriod(col, i)">
+                                                            <md-icon>save</md-icon>
+                                                    </button>
+                                                    <button *ngIf="col.columnEdit && isViewOnly" (click)="col.columnEdit = false;cancelEdit()" md-icon-button class="pull-right color-gray"
+                                                        style="font-size: 24px;" mdTooltip="Cancel">
+                                                        <md-icon>clear</md-icon>
+                                                    </button>
+                                                    <button md-icon-button mdTooltip="Edit" (click)="editPeriod(i)" *ngIf="!col.columnEdit && isViewOnly">
+                                                        <md-icon>mode_edit</md-icon>
+                                                    </button>
+                                                    <button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" (click)="deletePeriod(col)">
+                                                        <md-icon>delete</md-icon>
+                                                    </button>
+                                                    <button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew" (click)="deleteRow(i)">
+                                                        <md-icon>delete</md-icon>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </perfect-scrollbar>
+                        </div>
+                    </form>
+                </div>
+            </div>
+    <!--     </div>
+    </vertical-split-pane> -->
+</div>
+
+
+
+
+
+
+<!-- 
+<div *ngIf="calendar">
+    <h2><span jhiTranslate="agreeGatewayV1App.calendar.detail.title">Calendar</span> {{calendar.id}}</h2>
+    <hr>
+    <jhi-alert-error></jhi-alert-error>
+    <dl class="row-md jh-entity-details">
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.tenantId">Tenant Id</span></dt>
+        <dd>
+            <span>{{calendar.tenantId}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.name">Name</span></dt>
+        <dd>
+            <span>{{calendar.name}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.description">Description</span></dt>
+        <dd>
+            <span>{{calendar.description}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.calendarType">Calendar Type</span></dt>
+        <dd>
+            <span>{{calendar.calendarType}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.startDate">Start Date</span></dt>
+        <dd>
+            <span>{{calendar.startDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.endDate">End Date</span></dt>
+        <dd>
+            <span>{{calendar.endDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.enabledFlag">Enabled Flag</span></dt>
+        <dd>
+            <span>{{calendar.enabledFlag}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.createdBy">Created By</span></dt>
+        <dd>
+            <span>{{calendar.createdBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.createdDate">Created Date</span></dt>
+        <dd>
+            <span>{{calendar.createdDate | date:'medium'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.lastUpdatedBy">Last Updated By</span></dt>
+        <dd>
+            <span>{{calendar.lastUpdatedBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.calendar.lastUpdatedDate">Last Updated Date</span></dt>
+        <dd>
+            <span>{{calendar.lastUpdatedDate | date:'medium'}}</span>
+        </dd>
+    </dl>
+
+    <button type="submit"
+            (click)="previousState()"
+            class="btn btn-info">
+        <span class="fa fa-arrow-left"></span>&nbsp;<span jhiTranslate="entity.action.back"> Back</span>
+    </button>
+
+    <button type="button"
+            [routerLink]="['/', { outlets: { popup: 'calendar/'+ calendar.id + '/edit'} }]"
+            replaceUrl="true"
+            class="btn btn-primary">
+        <span class="fa fa-pencil"></span>&nbsp;<span jhiTranslate="entity.action.edit"> Edit</span>
+    </button>
+</div>
+ -->

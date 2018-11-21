@@ -1,0 +1,237 @@
+package com.nspl.app.service;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.ListIterator;
+
+import javax.inject.Inject;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.nspl.app.domain.Hierarchy;
+import com.nspl.app.domain.NotificationBatch;
+//import com.nspl.app.jbpm.service.ApprovalProcessService;
+import com.nspl.app.repository.HierarchyRepository;
+import com.nspl.app.repository.NotificationBatchRepository;
+
+@Service
+public class HierarchyService {
+	
+	private final Logger log = LoggerFactory.getLogger(HierarchyService.class);
+	
+	@Inject
+	HierarchyRepository hierarchyRepository;
+	    
+    /*@Inject
+    ApprovalProcessService approvalProcessService;*/
+    
+    @Inject
+    UserJdbcService userJdbcService;
+    
+    @Inject
+    NotificationBatchRepository notificationBatchRepository;
+
+	public List<String> getSubordinatesList(Long userId,Long tenantId) throws ClassNotFoundException, SQLException{
+	List<String> resources=new ArrayList<String>();
+	Hierarchy hierarchy = hierarchyRepository.findByTenantIdAndObjectNameAndObjectType(tenantId, userId.toString(), "RESOURCE");
+	resources.add(userId.toString());
+	ListIterator<String> iter = resources.listIterator();
+	while(iter.hasNext())
+	{
+		String value=iter.next();
+		hierarchy = hierarchyRepository.findByTenantIdAndObjectNameAndObjectType(tenantId,value, "RESOURCE");
+		if(hierarchy != null)
+		{
+			List<Hierarchy> child=new ArrayList<Hierarchy>();
+			if(hierarchy.getId() != null && tenantId != null)
+				child = hierarchyRepository.findByTenantIdAndObjectTypeAndParentId(tenantId,"RESOURCE",hierarchy.getId());
+
+			if(child.size() != 0)
+			{
+				log.info(" child size is: "+child.size());
+				for(int i=0;i<child.size();i++)
+				{
+					iter.add(child.get(i).getObjectName());
+					iter.previous();
+				}
+			}
+		}
+	}
+	log.info("resources: "+resources);
+	return resources;
+	}
+	
+	
+	
+	/**
+	 * author:ravali
+	 * @param userId
+	 * @param status
+	 * @param tenantId
+	 * @param module
+	 * @return
+	 * @throws NumberFormatException
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * Desc: get hierarchy of a user along with notification count
+	 */
+	public List<LinkedHashMap> getHierfunc(Long userId,String status,Long tenantId,String module) throws NumberFormatException, ClassNotFoundException, SQLException
+	{
+
+		List<LinkedHashMap> childMapList=new ArrayList<LinkedHashMap>();
+
+		//203,240
+		Hierarchy hie= hierarchyRepository.findByObjectName(userId.toString());
+		if(hie!=null)
+		{
+		List<Hierarchy> hierarchList = hierarchyRepository.findByParentId(Long.valueOf(hie.getObjectName()));//240(),245
+		log.info("hierarchList :"+hierarchList);
+		if(hierarchList.size()>0)
+		{
+			for(Hierarchy hierarch:hierarchList)
+			{
+				LinkedHashMap child=new LinkedHashMap();
+				child.put("userId", Long.valueOf(hierarch.getObjectName()));
+				HashMap map=userJdbcService.jdbcConnc(Long.valueOf(hierarch.getObjectName()),tenantId);
+				child.put("label", map.get("assigneeName"));
+			//	child.put("expandedIcon", "fa-folder-open");
+			//	child.put("collapsedIcon", "fa-folder");
+				child.put("data", " ");
+			 	int count=getNotificationCountForUser(Long.valueOf(hierarch.getObjectName()), status, tenantId, module);
+			 	child.put("count", count);
+				List<LinkedHashMap> subChild = getHierfunc(Long.valueOf(hierarch.getObjectName()),status, tenantId, module);
+				log.info("subChild :"+subChild);
+				if(!subChild.isEmpty())
+				{
+					child.put("expandedIcon", "fa-user");
+					child.put("collapsedIcon", "fa-user");
+					child.put("children", subChild);
+				}
+				childMapList.add(child);
+			}
+		}
+	}
+		return childMapList;
+
+
+	}
+	
+	
+	public List<LinkedHashMap> getHierfuncReverse(Long userId) throws NumberFormatException, ClassNotFoundException, SQLException
+	{
+
+		List<LinkedHashMap> childMapList=new ArrayList<LinkedHashMap>();
+
+		//203,240
+		Hierarchy hie= hierarchyRepository.findByObjectName(userId.toString());
+		if(hie!=null)
+		{
+		Hierarchy hierarch = hierarchyRepository.findByObjectName(hie.getParentId().toString());//206
+		log.info("hierarchList :"+hierarch);
+
+		if(hierarch!=null && hierarch.getId()!=null)
+		{
+			
+				LinkedHashMap child=new LinkedHashMap();
+				child.put("userId", Long.valueOf(hierarch.getObjectName()));
+				HashMap map=userJdbcService.jdbcConnc(Long.valueOf(hierarch.getObjectName()),hie.getTenantId());
+				child.put("userName", map.get("assigneeName"));
+				
+				List<LinkedHashMap> subChild = getHierfuncReverse(Long.valueOf(hierarch.getObjectName()));
+				log.info("subChild :"+subChild);
+				if(!subChild.isEmpty())
+					child.put("parentList", subChild);
+				childMapList.add(child);
+		}
+	}
+		
+		return childMapList;
+
+
+	}
+	
+	
+	public List<LinkedHashMap> getHierfuncFromHead(Long userId,Long tenantId) throws NumberFormatException, ClassNotFoundException, SQLException
+	{
+
+		List<LinkedHashMap> childMapList=new ArrayList<LinkedHashMap>();
+
+		//203,240
+	
+		List<Hierarchy> hierarchList = hierarchyRepository.findByParentId(userId);//240(),245
+		log.info("hierarchList :"+hierarchList);
+
+		if(hierarchList.size()>0)
+		{
+			for(Hierarchy hierarch:hierarchList)
+			{
+				LinkedHashMap child=new LinkedHashMap();
+				child.put("userId", Long.valueOf(hierarch.getObjectName()));
+				HashMap map=userJdbcService.jdbcConnc(Long.valueOf(hierarch.getObjectName()),tenantId);
+				child.put("userName", map.get("assigneeName"));
+				child.put("label", map.get("businessTitle"));
+				child.put("type", "person");
+				child.put("styleClass", "ui-person");
+				child.put("expanded", true);
+		    	LinkedHashMap user=new LinkedHashMap();
+		    	user.put("userName", map.get("assigneeName"));
+		    	user.put("imgUrl", map.get("imgUrl"));
+		    	child.put("data", user);
+				List<LinkedHashMap> subChild = getHierfuncFromHead(Long.valueOf(hierarch.getObjectName()),tenantId);
+				log.info("subChild :"+subChild);
+				if(!subChild.isEmpty())
+					child.put("children", subChild);
+				childMapList.add(child);
+			}
+		}
+		return childMapList;
+
+
+	}
+	
+	
+	
+	/**
+	 * author :ravali
+	 * @param userId
+	 * @param status
+	 * @param tenantId
+	 * @param module
+	 * @return int
+	 * @throws ClassNotFoundException
+	 * @throws SQLException
+	 * Desc : notification count for a user and his subordinates
+	 */
+	public int getNotificationCountForUser(Long userId,String status,Long tenantId,String module) throws ClassNotFoundException, SQLException
+	{
+	List<NotificationBatch> notBatchList=new ArrayList<NotificationBatch>();
+  	List<String> resources=getSubordinatesList(userId, tenantId);
+	List<Long> resourceList=new ArrayList<Long>();
+	
+	
+	for(int i=0;i<resources.size();i++){
+		String res=resources.get(i);
+		Long resId=Long.parseLong(res);
+		resourceList.add(resId);
+	}
+	log.info("resourceList :"+resourceList);
+	
+	List<String> moduleList=new ArrayList<String>();
+	if(module.equalsIgnoreCase("ALL")){
+		moduleList.add("RECON_APPROVALS");
+		moduleList.add("ACCOUNTING_APPROVALS");
+	}
+	else moduleList.add(module);
+	if(status!=null)
+    	notBatchList = notificationBatchRepository.fetchByTenantIdAndStatusAndModuleAndCurrentApproverInOrderByIdDesc(tenantId,status,resourceList, moduleList);
+    	else
+    		notBatchList = notificationBatchRepository.fetchByTenantIdAndModuleAndCurrentApproverInOrderByIdDesc(tenantId,resourceList, moduleList);
+    	log.info("notificationCount.size :"+notBatchList.size());
+		return notBatchList.size();
+	}
+}

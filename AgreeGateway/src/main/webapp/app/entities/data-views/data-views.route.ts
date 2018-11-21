@@ -1,0 +1,105 @@
+import { Injectable } from '@angular/core';
+import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Routes, CanActivate } from '@angular/router';
+
+import { UserRouteAccessService } from '../../shared';
+import { JhiPaginationUtil } from 'ng-jhipster';
+
+import { DataViewsComponent } from './data-views.component';
+import { DataViewsDetailComponent } from './data-views-detail.component';
+//import { DataViewsPopupComponent } from './data-views-dialog.component';
+//import { DataViewsDeletePopupComponent } from './data-views-delete-dialog.component';
+import { DataViewHomeComponent } from './data-views-home.component';
+import { DataViewsBreadCrumbTitles } from './data-views.model';
+
+import { Principal } from '../../shared';
+
+@Injectable()
+export class DataViewsResolvePagingParams implements Resolve<any> {
+
+    constructor( private paginationUtil: JhiPaginationUtil ) { }
+
+    resolve( route: ActivatedRouteSnapshot, state: RouterStateSnapshot ) {
+        let page = route.queryParams['page'] ? route.queryParams['page'] : '1';
+        let sort = route.queryParams['sort'] ? route.queryParams['sort'] : 'id,asc';
+        return {
+            page: this.paginationUtil.parsePage( page ),
+            predicate: this.paginationUtil.parsePredicate( sort ),
+            ascending: this.paginationUtil.parseAscending( sort )
+        };
+    }
+}
+
+export const dataViewsRoute: Routes = [
+    {
+        path: 'data-views',
+        component: DataViewHomeComponent,
+        data: {
+            authorities: ['ROLE_USER'],
+            pageTitle: 'agreeGatewayV1App.dataViews.home.title'
+        },
+        children: [
+            {
+                path: 'data-views-home',
+                component: DataViewsComponent,
+                resolve: {
+                    'pagingParams': DataViewsResolvePagingParams
+                },
+                data: {
+                    authorities: ['ROLE_USER'],
+                    pageTitle: 'agreeGatewayV1App.dataViews.home.title',
+                    breadcrumb: DataViewsBreadCrumbTitles.dataViews,
+                    lablesArray: ['Setups','ETL',DataViewsBreadCrumbTitles.dataViews]
+                },
+                outlet: 'content'
+            },
+            {
+                path: ':relation/list',
+                component: DataViewsComponent,
+                resolve: {
+                    'pagingParams': DataViewsResolvePagingParams
+                },
+                data: {
+                    authorities: ['ROLE_USER'],
+                    pageTitle: 'agreeGatewayV1App.dataViews.home.title',
+                    breadcrumb: DataViewsBreadCrumbTitles.dataViews,
+                    lablesArray: ['Setups','ETL',DataViewsBreadCrumbTitles.dataViews]
+                },
+                outlet: 'content'
+            },
+            {
+                path: ':id/details',
+                component: DataViewsDetailComponent,
+                data: {
+                    authorities: ['ROLE_USER'],
+                    pageTitle: 'agreeGatewayV1App.dataViews.home.title',
+                    breadcrumb: DataViewsBreadCrumbTitles.dataViewDetails,
+                    lablesArray: ['Setups','ETL',DataViewsBreadCrumbTitles.dataViewDetails]
+                },
+                outlet: 'content'
+            },
+            {
+                path: 'data-views-new',
+                component: DataViewsDetailComponent,
+                data: {
+                    authorities: ['ROLE_USER'],
+                    pageTitle: 'agreeGatewayV1App.dataViews.home.title',
+                    breadcrumb: DataViewsBreadCrumbTitles.dataViewNew,
+                    lablesArray: ['Setups','ETL',DataViewsBreadCrumbTitles.dataViewNew]
+                },
+                outlet: 'content'
+            },
+            {
+                path: ':id/edit',
+                component: DataViewsDetailComponent,
+                data: {
+                    authorities: ['ROLE_USER'],
+                    pageTitle: 'agreeGatewayV1App.dataViews.home.title',
+                    breadcrumb: DataViewsBreadCrumbTitles.dataViewEdit,
+                    lablesArray: ['Setups','ETL',DataViewsBreadCrumbTitles.dataViewEdit]
+                },
+                outlet: 'content'
+            }
+        ]
+    }
+];
+

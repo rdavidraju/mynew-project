@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { SchedulerDetails } from './scheduler-details.model';
+import { SchedulerDetailsPopupService } from './scheduler-details-popup.service';
+import { SchedulerDetailsService } from './scheduler-details.service';
+
+@Component({
+    selector: 'jhi-scheduler-details-delete-dialog',
+    templateUrl: './scheduler-details-delete-dialog.component.html'
+})
+export class SchedulerDetailsDeleteDialogComponent {
+
+    schedulerDetails: SchedulerDetails;
+
+    constructor(
+        private schedulerDetailsService: SchedulerDetailsService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.schedulerDetailsService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'schedulerDetailsListModification',
+                content: 'Deleted an schedulerDetails'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-scheduler-details-delete-popup',
+    template: ''
+})
+export class SchedulerDetailsDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private schedulerDetailsPopupService: SchedulerDetailsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.schedulerDetailsPopupService
+                .open(SchedulerDetailsDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

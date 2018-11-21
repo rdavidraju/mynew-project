@@ -1,0 +1,989 @@
+import 'jquery';
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { FileTemplates } from './file-templates.model';
+import { LineInfo } from './LineInfo.model';
+import { FileTemplatesService } from './file-templates.service';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { Subscription } from 'rxjs/Subscription';
+import { Router, NavigationEnd } from '@angular/router';
+//import { FileTemplateLinesService } from '../file-template-lines/file-template-lines.service';
+import { FileTemplateLines } from '../file-template-lines/file-template-lines.model';
+import { SourceProfileFileAssignments } from '../source-profile-file-assignments/source-profile-file-assignments.model';
+import {FileTemplatesPostingData} from './fileTemplatesPosting.model';
+import {SourceProfilesService} from '../source-profiles/source-profiles.service';
+import {SourceProfiles} from '../source-profiles/source-profiles.model';
+import { JhiDateUtils } from 'ng-jhipster';
+import {SourceProfileFileAssignmentsService} from '../source-profile-file-assignments/source-profile-file-assignments.service';
+import { FileSelectDirective, FileDropDirective, FileUploader,FileItem } from 'ng2-file-upload/ng2-file-upload';
+import {MdProgressSpinnerModule} from '@angular/material';
+import { NotificationsService } from 'angular2-notifications-lite';
+import {DialogModule} from 'primeng/primeng';
+import { SelectItem } from 'primeng/primeng';
+import { currentRoute } from '../../breadcrumb.component';
+import { CommonService } from '../common.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import { LookUpCodeService } from '../look-up-code/look-up-code.service';
+declare var $: any;
+declare var jQuery: any;
+const URL='';
+  @Component({
+  selector: 'jhi-file-templates-edit',
+  templateUrl: './file-templates-edit.component.html'
+})
+export class FileTemplatesEditComponent implements OnInit, OnDestroy {
+  rowIdentifier : any='';
+  length:number =0;
+  duplicateFileTempName : boolean= false;
+  fileTemplate = new FileTemplates();
+  fileTemplateLines :  FileTemplateLines[]=[];
+  fileTemplatesList :  FileTemplates[] ;
+  delimiterList : any = [];
+  routeSub: any;
+  isCreateNew: boolean = false;
+  isEdit: boolean = false;
+  isViewOnly: boolean = false;
+  isEditLine:boolean=false;
+  dropfile: boolean = true;
+  fileTemplatesPostingData : FileTemplatesPostingData = {};
+  fileTempId:any;
+  templateUnfrozenWidth:any;
+  expandProfiles: boolean = false;
+  fileTypes = ['Delimiter', 'Position',''];
+  screenres : any;
+delimiterCols = [
+     { field: 'recordTYpe', header: 'Type', width: '150px', align: 'left' },
+   
+    { field: 'enclosedChar', header: 'Enclosed Char', width: '100px', align: 'center' },
+    { field: 'dateFormat', header: 'Date Format', width: '100px', align: 'left' },
+    { field: 'timeFormat', header: 'Time Format', width: '100px', align: 'left' },
+    { field: 'amountFormat', header: 'Amount Format', width: '100px', align: 'left' },
+    { field: 'skipColumn', header: 'Skip Column', width: '100px', align: 'left' },
+    { field: '', header: 'Record Start Row', width: '280px', align: 'left' },
+    { field: 'constantValue', header: 'Constant', width: '150px', align: 'left' },
+    { field: 'zeroFill', header: 'Zero Fill', width: '100px', align: 'center' },
+    /*{ field: 'columnDelimeter', header: 'Column Delimiter', width: '100px', align: 'left' },*///commented as not required to display
+  /*  { field: 'formula', header: 'Translational Formula', width: '100px', align: 'left' }*/
+  ];
+positionCols = [
+     { field: 'recordTYpe', header: 'Type', width: '150px', align: 'left' },
+    { field: 'enclosedChar', header: 'Enclosed Char', width: '100px', align: 'center' },
+    { field: 'dateFormat', header: 'Date Format', width: '100px', align: 'left' },
+    { field: 'timeFormat', header: 'Time Format', width: '100px', align: 'left' },
+    { field: 'amountFormat', header: 'Amount Format', width: '100px', align: 'left' },
+    { field: 'skipColumn', header: 'Skip Column', width: '100px', align: 'left' },
+    { field: '', header: 'Record Start Row', width: '280px', align: 'left' },
+    { field: 'positionBegin', header: 'Position Begin', width: '150px', align: 'left' },
+    { field: 'positionEnd', header: 'Position End', width: '100px', align: 'center' },
+    { field: 'constantValue', header: 'Constant', width: '150px', align: 'left' },
+    { field: 'zeroFill', header: 'Zero Fill', width: '100px', align: 'left' },
+    /*{ field: 'formula', header: 'Translational Formula', width: '100px', align: 'left' }*/
+    
+  ];
+columnOptions: SelectItem[];
+mySelectedRows = [];
+
+  finalLineInfoCols = [];
+  fileName :any= '';
+  mouseOverRowNo:number=-1;
+  mouseOnRow : number = -1;
+  /**
+   * File template lines start
+   */
+    
+  fileTemplateLinesInfo : FileTemplateLines[]=[];
+  iter:any=0;
+  templateLines:FileTemplateLines[] = [];
+  enableDeleteButton:boolean=false;
+  editLine:boolean=false;
+  tempObj : FileTemplateLines = {};
+  currentEditingLine : FileTemplateLines = {} ;
+  fullScreenView:boolean = false;
+  /**
+   * File template lines end
+   */
+    
+    /**
+     * Source profile assignment start
+     */
+    profilesList:any=[];
+    frequencyList:any[];
+    sourceProfilesList:any=[];
+    sourceProfilesAdded:SourceProfileFileAssignments={};
+    selectedProfileName:any="";
+    selectedProfileId:any;
+    displaySelectedProfile:boolean=false;
+    sprofileId:any;
+    selectedFrequencyType:any="";
+    sourceProfileAssignments : any;
+        profileAssignment:boolean=false;
+    /**
+     * source profile assignment end
+     */
+    /**
+    * drop zone start
+    */
+    refreshFile : boolean = false;
+    filesAdded : FileList;
+    private uploadvar:boolean=false;
+    uploadedIcon:boolean=false;
+    uploadStatus:boolean =false;
+    public uploader:FileUploader =new FileUploader({url:URL});
+    public hasBaseDropZoneOver:boolean=false;
+    public hasAnotherDropZoneOver:boolean=false;
+    uploadingProcess :any=false;
+    files : FileList; 
+    private file: File;
+    filesFromButton : Array<File>;
+    viewAction:boolean=false;
+    active:any;
+    desc:any;
+    detailId:any ;
+    extractedFileData : any;
+    colHeaders : any ;
+    data : any =[] ;
+    extractedTemplateLine : any =[];
+    sourceData : boolean =false;
+    ftable: any;
+    presentPath : any;
+    screenheight: any;
+    screenwidth:any;
+      
+  /**
+    * drop zone end
+    */
+    lastLineNumber : any =0;    
+      enableLineInfo : boolean = false;    
+  saveSuccess : boolean = false;
+      
+      displaySampleData : boolean = false;
+  
+      functionsList : any = [];
+      mouseOverLine : boolean;
+  showFunction = [];
+  saveFunction =[];
+  constructor(
+    private config: NgbDatepickerConfig,
+    private fileTemplatesService: FileTemplatesService,
+    private router: Router,
+   // private fileTemplatesLinesService: FileTemplateLinesService,
+    private sourceProfilesService:SourceProfilesService,
+    private route: ActivatedRoute,
+    private dateUtils: JhiDateUtils,
+    private SPAService:SourceProfileFileAssignmentsService,
+    private notificationsService: NotificationsService,
+    private commonService: CommonService,
+    private sessionStorage: SessionStorageService,
+      private lookUpCodeService : LookUpCodeService
+  ) {
+    this.config.minDate = { year: 1950, month: 1, day: 1 };
+    this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    this.columnOptions = [];
+  }
+    
+  changeMinDate() {
+    this.config.minDate = this.fileTemplate.startDate;
+  }
+
+  resetMinDate() {
+    this.config.minDate = { year: 1950, month: 1, day: 1 };
+  }
+ //start - below lines are in place of 
+    // this.screenheight = (window.screen.height) +"px"
+    //  this.screenwidth = (window.screen.width) +"px"
+    //  console.log("screen height : "+ this.screenheight + " screen width : " + this.screenwidth );;
+//end 
+  ngOnInit() {
+  this.commonService.callFunction();
+ // this.commonService.callFunction();
+  this.commonService.screensize();
+        $(".split-example").css({
+          'height': 'auto',
+          'min-height': (this.commonService.screensize().height - 130) +'px'
+        });
+    this.templateUnfrozenWidth = (this.commonService.screensize().width / 2) + 'px';
+    console.log(this.templateUnfrozenWidth);
+      
+    //fetch delimiters
+      this.fileTemplatesService.fetchDelimiters().subscribe(
+              (res: any) => {
+              });
+      $('html, body').animate({scrollTop: '0px'}, 0); 
+      //this.fixedTable();
+        //console.log(this.commonService.screensize().height);
+
+
+        this.getSourceProfilesList();
+        this.routeSub = this.route.params.subscribe(params => {
+          let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+          this.presentPath = this.route.snapshot.url;
+          
+          if (this.presentPath == "filetemplate-new" ){
+              $('.component-title').removeClass('margin-left-22');
+              
+          }else {
+              $('.component-title').addClass('margin-left-22');
+          }
+          
+          //fetch delimiter lookups
+      this.lookUpCodeService.fetchLookUpsByLookUpType('DELIMITER').subscribe( (res: any) => {
+          this.delimiterList = res;
+      });
+      this.lookUpCodeService.fetchLookUpsByLookUpType('TEMPLATE_FUNCTIONS').subscribe( (res: any) => {
+          this.functionsList = res;
+      });
+      
+          if (params['id']) {
+              this.fileTemplatesService.fetchById(params['id']).subscribe(
+                  (res: FileTemplates) => {
+                      this.fileTemplate = res;
+                      if (this.fileTemplate.sampleData) {
+                          this.sourceData = false;
+                          this.data = this.fileTemplate.sampleData;
+                          this.colHeaders = this.fileTemplate.colHeaders;
+                      }
+                      if (this.fileTemplate.startDate) {
+                          this.fileTemplate.startDate.getDate() + 1;
+                      }
+                      if (this.fileTemplate.endDate) {
+                          this.fileTemplate.endDate.getDate() + 1;
+                      }
+                      this.fileTemplatesService.fetchTemplateLinesByTemplateId(params['id']).subscribe((res: any) => {
+                          this.fileTemplateLines = res;
+                          console.log('length while fetching is:' + this.fileTemplateLines.length);
+                          if (this.fileTemplateLines.length > 0) {
+                              this.rowIdentifier = this.fileTemplateLines[0].recordIdentifier;
+                          }
+
+                          if (this.fileTemplateLines.length > 0) {
+                              this.dropfile = false;
+                          }
+                          else {
+                              this.dropfile = true;
+                          }
+                          this.fetchSourceProfileAssignments(params['id']);
+                          this.isCreateNew = false;
+                          if (this.fileTemplate.status == 'Active') {
+                              this.fileTemplate.enabledFlag = true;
+                          }
+                          else {
+                              this.fileTemplate.enabledFlag = false;
+                          }
+                          if (url.endsWith('edit')) {
+                              this.isEdit = true;
+                              if (this.sessionStorage.retrieve('sourceProfileName')) {
+                                  this.expandProfiles = true;
+                                  this.fileTemplate = this.sessionStorage.retrieve('fileTemplatesInfo');
+                                  this.fileTemplateLines = this.sessionStorage.retrieve('fileTemplateLinesInfo');
+                                  this.selectedProfileName = this.sessionStorage.retrieve('sourceProfileName');
+                                  console.log(' this.selectedProfileName' + this.selectedProfileName);
+                                  this.sessionStorage.clear('sourceProfileName');
+                                  this.sessionStorage.clear('fileTemplatesInfo');
+                                  this.sessionStorage.clear('fileTemplateLinesInfo');
+                              }
+                              this.fileTemplateLines.forEach(line => {
+                                  if (line.lastLine)
+                                      this.lastLineNumber = line.lineNumber;
+                              });
+                              //this.addLinee();
+                              this.isEditLine = true;
+                              //this.lastLineNumber
+                          } else {
+                              this.isViewOnly = true;
+                          }
+                          this.selectedFileType();
+                      });
+
+
+                  }
+              );
+
+          } else {
+              this.isCreateNew = true;
+              this.isEditLine=true;
+              this.addLinee();
+              if (this.sessionStorage.retrieve('sourceProfileName')) {
+                  this.expandProfiles = true;
+                  this.fileTemplate = this.sessionStorage.retrieve('fileTemplatesInfo');
+                  this.fileTemplateLines = this.sessionStorage.retrieve('fileTemplateLinesInfo');
+                  this.selectedProfileName = this.sessionStorage.retrieve('sourceProfileName');
+                  console.log(' this.selectedProfileName'+ this.selectedProfileName);
+                  this.sessionStorage.clear('sourceProfileName');
+                  this.sessionStorage.clear('fileTemplatesInfo');
+                  this.sessionStorage.clear('fileTemplateLinesInfo');
+              }
+          }
+      });
+    
+      this.frequencyList = [
+          {
+              "id": 1,
+              "name": "Daily"
+          },
+          {
+              "id": 2,
+              "name": "Weekly"
+          },
+          {
+              "id": 3,
+              "name": "Fortnight"
+          },
+          {
+              "id": 4,
+              "name": "Monthly"
+          }
+      ];
+  };
+  getSourceProfilesList()
+  {
+      if(this.isCreateNew)
+          {
+          let sourceProfileObj = new SourceProfiles();
+          sourceProfileObj.startDate=this.fileTemplate.startDate;
+          sourceProfileObj.endDate=this.fileTemplate.endDate;
+         
+          this.sourceProfilesList =   this.sourceProfilesService.getAllSourceProfiles(sourceProfileObj).subscribe((res:any)=>{
+              this.sourceProfilesList = res;
+              this.sourceProfilesList.forEach(profile=>{
+                  let prof = {
+                          "id":profile.id,
+                          "name":profile.sourceProfileName    
+                  };
+                  this.profilesList.push(prof);
+              });
+              this.selectedProfile();
+          });
+          }
+     
+  }
+  ngOnDestroy() {
+    this.routeSub.unsubscribe();
+  }
+  selectedFileType() {
+     
+    this.finalLineInfoCols = [];
+    switch (this.fileTemplate.fileType) {
+      case 'Delimiter':
+        this.finalLineInfoCols = this.delimiterCols;
+        break;
+      case "Position":
+        this.finalLineInfoCols = this.positionCols;
+        break;
+    }
+     for (let i = 0; i < this.finalLineInfoCols.length; i++) {
+      this.columnOptions.push({ label: this.finalLineInfoCols[i].header, value: this.finalLineInfoCols[i] });
+      }
+     
+  }
+  selectedDelimiter()
+  {
+      console.log('selected delimiter '+this.fileTemplate.delimiter);
+  }
+  assignMasterTableColumnRef()
+  {
+  let lastMasterCol :any= [];
+  let MasterColName:any="";
+  var  MasterColNum:number =0;
+  
+  let   ColNum :number= 0;
+  let    ref:any = "";
+  console.log('before'+JSON.stringify(this.fileTemplateLines));
+  let FT = new FileTemplateLines();
+  this.fileTemplateLines.forEach(tempLine=>{
+      if(tempLine.lastMasterTableRefCol)
+      {
+          console.log('tempLinesrk'+JSON.stringify(tempLine));
+          lastMasterCol = tempLine.masterTableReferenceColumn.split("_");
+          MasterColName = lastMasterCol[0];
+          MasterColNum = parseInt(lastMasterCol[1]);
+          if(tempLine.lastColNumber)
+          {
+              ColNum = tempLine.columnNumber;
+              FT = tempLine;
+          }
+      }
+      else
+      {
+          console.log('one is also not true');
+          MasterColName='FIELD';
+          MasterColNum=0;
+      }
+     
+      
+  });
+  if(MasterColName)
+  {
+      if(FT.masterTableReferenceColumn)
+      {
+          lastMasterCol = FT.masterTableReferenceColumn.split("_");
+          MasterColName = lastMasterCol[0];
+          MasterColNum = parseInt(lastMasterCol[1]);
+          if(ColNum <= 0)
+          {
+              ColNum = FT.columnNumber;
+              console.log(' FT.columnNumber'+ ColNum);
+          }
+          else
+              {
+              
+              }
+      }
+  
+  }
+  let lineNo :number= 1;
+  this.fileTemplateLines.forEach(FTline=>{
+      
+      
+      console.log('MasterColNameMasterColNum'+(MasterColName+'-'+MasterColNum));
+      if(!FTline.masterTableReferenceColumn)
+      {
+          MasterColNum  += 1;
+           if(MasterColNum<10)
+      FTline.masterTableReferenceColumn = MasterColName+'_0'+MasterColNum;
+      else
+          FTline.masterTableReferenceColumn = MasterColName+'_'+MasterColNum;
+      ColNum += 1;
+      FTline.columnNumber = ColNum;
+          
+      }
+      FTline.lineNumber=lineNo;
+      lineNo=lineNo+1;
+     
+  });
+  console.log('after'+JSON.stringify(this.fileTemplateLines));
+  }
+  saveTemplate()
+  {
+                   console.log('save template with '+JSON.stringify(this.fileTemplateLines));
+      //   console.log('testing-this.fileTemplateLinesInfo '+JSON.stringify(this.fileTemplatesPostingData))
+      /**
+       * File template
+       */
+      
+      //   if( this.fileTemplate.startDate )
+      //      this.fileTemplate.startDate = this.dateUtils.convertLocalDateToServer(this.fileTemplate.startDate);
+      //   if( this.fileTemplate.endDate )if( this.fileTemplate.startDate )
+      //       this.fileTemplate.endDate = this.dateUtils.convertLocalDateToServer(this.fileTemplate.endDate);
+                   if(this.isCreateNew)
+                   {
+                   this.fileTemplate.status = 'Active';
+                   this.fileTemplate.enabledFlag=true;
+      }
+           else
+                   {
+                   if(this.fileTemplate.enabledFlag)
+                   {
+                       this.fileTemplate.status = 'Active';
+                   }
+               else
+                   {
+                       this.fileTemplate.status = ' Inactive';
+                   }
+      }
+     
+      this.fileTemplate.sampleData  = this.data;
+      if(this.fileName)
+      {
+          this.fileTemplate.sdFilename = this.fileName;
+          
+      }
+      this.fileTemplatesPostingData.fileTempDTO = this.fileTemplate;
+      /**   
+       * File template lines
+       */
+      this.assignMasterTableColumnRef();
+     // this.fileTemplateLinesInfo = this.fileTemplateLinesInfo.concat(this.fileTemplateLines);
+      this.fileTemplatesPostingData.fileTemplateLinesDTO =this.fileTemplateLines;
+      /**
+       * Source profile assignment
+       */
+      if(this.sourceProfilesAdded)
+          this.fileTemplatesPostingData.sourceProfileFileAssignmentDTO = this.sourceProfilesAdded;
+      
+      
+      this.fileTemplateLinesInfo.forEach(line=>
+      {
+          line.edit=false;   
+          line.lastLine =false; 
+          this.enableDeleteButton = false;
+      });
+      //fetch saved template
+      
+      let tempIdAfterSave:any = [];
+      //   this.fileTemplate.startDate.addDays(1);
+      //   this.fileTemplate.endDate.addDays(1);
+      if (this.fileTemplate.startDate) {
+          this.fileTemplate.startDate.getDate()+1;
+      }
+      if (this.fileTemplate.endDate){
+          this.fileTemplate.endDate.getDate()+1;
+      }
+      console.log('testing-this.fileTemplateLinesInfo '+JSON.stringify(this.fileTemplatesPostingData));
+      this.fileTemplatesService.postFileTemplates(this.fileTemplatesPostingData).subscribe( (res:Response)=>{
+          tempIdAfterSave = res;
+          if(tempIdAfterSave[0].details)
+          {
+              this.fileTempId = tempIdAfterSave[0].details;
+              this.fileTemplatesService.fetchById(this.fileTempId).subscribe(
+                      (res: FileTemplates) => {
+                          this.fileTemplate = res;
+                          //    if (this.fileTemplate.startDate) {
+                          //    this.fileTemplate.startDate = {year: this.fileTemplate.startDate.getFullYear(),
+                          //             month: this.fileTemplate.startDate.getMonth() + 1,
+                          //             day: this.fileTemplate.startDate.getDate()};
+                          //        }
+                          //   if (this.fileTemplate.endDate) {
+                          //     this.fileTemplate.endDate = {year: this.fileTemplate.endDate.getFullYear(),
+                          //             month: this.fileTemplate.endDate.getMonth() + 1,
+                          //             day: this.fileTemplate.endDate.getDate()};
+                          //      }
+                          if (this.fileTemplate.startDate) {
+                              this.fileTemplate.startDate.getDate()+1;
+                          }
+                          if (this.fileTemplate.endDate){
+                              this.fileTemplate.endDate.getDate()+1;
+                          }
+                          this.fileTemplatesService.fetchTemplateLinesByTemplateId(this.fileTempId).subscribe((res: any) => {
+                              this.fileTemplateLines = res;
+                              this.rowIdentifier=this.fileTemplateLines[0].recordIdentifier;
+                              console.log('printed row id'+ this.rowIdentifier);
+                              if( this.fileTemplateLines === [])
+                                  this.dropfile = true;
+                              else
+                                  this.dropfile = false;
+                             
+                          });
+                          this.fetchSourceProfileAssignments(this.fileTempId);
+                          if( this.fileTemplate.id )
+                          {
+                              let link :any= '';
+                              link = ['/file-templates', {outlets: {'content': this.fileTemplate.id +'/details'}}];
+                              this.router.navigate(link);
+                              this.notificationsService.success(
+                                      'Saved!',
+                                      this.fileTemplatesPostingData.fileTempDTO.templateName + ' saved successfully!' 
+                              )
+                          }
+                      });
+              this.fileTemplateLinesInfo = [];
+          }
+          
+          
+      });
+      
+      if(this.isEdit)
+      {
+          this.isEdit = false;     
+      }
+      if(this.isCreateNew)
+      {
+          this.isCreateNew = false;
+      }
+      this.isViewOnly = true;
+      
+      
+  }
+   /**
+   * File template lines start
+   */
+   addLinee()
+    {
+       
+       this.fileTemplateLines=[ ...this.fileTemplateLines, {
+               "edit":true   
+           }];
+    }   
+    setAsLastLine()
+    {
+        let lengthOfLines = this.fileTemplateLinesInfo.length;
+        this.fileTemplateLinesInfo.forEach(line=>{
+        line.lastLine=false;    
+        });
+        this.fileTemplateLinesInfo[lengthOfLines-1].lastLine= true;
+    }        
+    saveSingleLine(line:any)
+    {
+        this.fileTemplatesService.update(line).subscribe((res:any)=>{
+        });
+     }     
+    onRowSelect(event) {
+       console.log('line number for removed is'+event.data);
+    }  
+    removeLineFromExtractedLines(selectedIndex)
+    {
+            this.fileTemplateLines =  this.fileTemplateLines.filter((val,i) => i!=selectedIndex);
+            this.fileTemplateLines=  this.fileTemplateLines;
+        this.data.forEach(ele=>{
+            ele.splice(0,1);
+        });
+            console.log('this.fileTemplateLines.'+JSON.stringify(this.fileTemplateLines));
+            if( this.fileTemplateLines.length == 0)
+                {
+                    this.addLinee();
+                }
+    }
+    clearFields(i : any)
+    {
+       this.removeLineFromExtractedLines(i);
+    }
+    removeLine(line:any)
+    {
+        console.log('line number for removed'+line.lineNumber);
+        this.fileTemplateLinesInfo.splice(this.fileTemplateLinesInfo.indexOf(line),1); 
+        //sort and shift line numbers
+        
+        if(  this.fileTemplateLinesInfo.length == 0)
+        {
+            this.addLinee();
+        }    
+      //  this.sortAndShiftLineNumbers();
+    }
+    sortAndShiftLineNumbers()
+    {
+        console.log('sort and shift line numbers');
+        let numberAtLast : number = 0;
+        if(this.fileTemplateLines)
+            {
+            this.fileTemplateLines.forEach(line=>{
+                numberAtLast = numberAtLast + 1;
+                line.lineNumber = numberAtLast;
+            });
+            
+                this.fileTemplateLines = this.fileTemplateLines.sort();
+                numberAtLast =  this.fileTemplateLines[this.fileTemplateLines.length-1].lineNumber;
+            }
+       console.log('numberAtLast'+numberAtLast);
+        if(this.fileTemplateLinesInfo)
+            {
+                this.fileTemplateLinesInfo.forEach(line=>{
+                    numberAtLast = numberAtLast +1;
+                    line.lineNumber = numberAtLast;
+            });
+                this.fileTemplateLinesInfo = this.fileTemplateLinesInfo.sort();
+            }
+        else
+            {
+            this.lastLineNumber = numberAtLast;
+            }
+    }
+    clearLineData(line : any)
+    {
+        console.log('clear line data');
+        console.log('line index to be edited is'+this.fileTemplateLines.indexOf(line));
+        let index = this.fileTemplateLines.indexOf(line);
+        console.log('line after editing'+JSON.stringify(line));
+        
+        this.fileTemplatesService.findLine(line.id).subscribe((res:any)=>{
+            this.fileTemplateLines[index] =res;
+        });
+        
+        
+    }
+   /**
+   * File template lines end
+   */
+  /**
+   * Source profile assignment
+   */
+
+
+    selectedProfile() {
+        if(this.selectedProfileName == '-1')
+        {
+            let recentRoutes = this.sessionStorage.retrieve('recentRoutes');    // Get existing routes object from session storage
+            if(recentRoutes == undefined){  // If object is undefined create new object
+                recentRoutes = {};
+            }
+            Object.assign(recentRoutes,{fileTemplatesRoute: {    // Assign new item to existing routes json
+                parentRoute: currentRoute.parent.snapshot.url.map(segment => segment.path).join("/"),
+                childRoute: currentRoute.snapshot.url.map(segment => segment.path).join("/")}});
+            this.sessionStorage.store('recentRoutes',recentRoutes);  // Store object into session storage
+            let keysByIndex = Object.keys(recentRoutes);    // TO get all keys into one array
+            this.sessionStorage.store('fileTemplatesInfo',this.fileTemplate);  // Store current filled Info
+            this.sessionStorage.store('fileTemplateLinesInfo',this.fileTemplateLines);  // Store current filled Lines Info
+            this.router.navigate(['/source-profiles', {outlets: { 'content': ['source-profiles-new']}}]);
+        }
+        else if (this.selectedProfileName) {
+            
+            this.displaySelectedProfile = true;
+            console.log(this.profilesList);
+            this.profilesList.forEach(prof => {
+                if (prof.name === this.selectedProfileName) {
+                    console.log('create new1');
+                    this.sprofileId = prof.id;
+                }
+            });
+            this.sourceProfilesAdded.sourceProfileId = this.sprofileId;
+        } 
+    }
+   selectedFreqType() {
+       this.sourceProfilesAdded.frequencyType = this.selectedFrequencyType;
+   }
+   fetchSourceProfileAssignments(templateId: any) {
+       this.SPAService.fetchSPAByTempId(templateId).subscribe((res: Response) => {
+           this.sourceProfileAssignments = res;
+           if (this.sourceProfileAssignments) {
+               this.selectedProfileId = this.sourceProfileAssignments.sourceProfileId;
+           }
+       });
+
+   }
+    mouseOverRow(i:number)
+    {
+        this.mouseOnRow = i;
+    }
+        mouseOverOnRow(i:number){
+        this.mouseOverRowNo=i;
+    }
+    //drop zone
+         getFiles(event){ 
+        this.files = event.target.files; 
+        this.file = this.files[0];
+        console.log(this.file);
+        let msg:any;
+        //this.filesFromButton.push(this.file);
+        //console.log('file size in files from button arr:'+this.filesFromButton.length);
+         this.fileTemplatesService.uploadFile(this.file).subscribe(
+         (res:Response)=>{
+             msg= res.status;
+             if(msg == 'success')
+             {
+                  this.uploadStatus = true;                 
+                 }
+             }
+             );
+    } 
+  public onFileDrop(filelist: FileList): void {
+      console.log('on file drop called'+this.fileTemplate.delimiter);
+      let msg:any;
+      let fileItem : FileItem = this.uploader.queue[this.uploader.queue.length-1];
+      this.uploader.queue =[];
+        this.uploader.queue[0] = fileItem;
+      if(filelist.length > 0) {
+          
+          console.log('file list length >0');
+          this.filesAdded = filelist;
+            let file: File = filelist[0];
+          this.fileName = file.name;
+          if(!this.fileTemplate.skipRowsStart )
+       {
+       console.log('undefined start');
+        this.fileTemplate.skipRowsStart = 0;
+        }
+        if(!this.fileTemplate.skipRowsEnd)
+        {
+         console.log('undefined end');
+        this.fileTemplate.skipRowsEnd = 0;
+        }
+        this.fileTemplatesService.fileUpload(file,this.fileTemplate.skipRowsStart,this.fileTemplate.skipRowsEnd,this.rowIdentifier,this.fileTemplate.delimiter).subscribe(
+        (res:Response)=>{
+             msg= res.status;
+             if(msg == 'Success')
+             {
+                 this.extractedFileData = res;
+                 
+                 this.colHeaders = this.extractedFileData.headers;
+                 this.data = this.extractedFileData.extractedData;
+                 console.log('this.extractedFileData.data'+ JSON.stringify(  this.data));
+                 let delim :string = '';
+                 delim= this.extractedFileData.delimiter;
+                  this.fileTemplate.delimiter =delim;
+                 console.log(' this.fileTemplate.delimiter'+ this.fileTemplate.delimiter);
+                 this.fileTemplate.fileType = this.extractedFileData.fileType;
+                 this.fileTemplateLines = this.extractedFileData.templateLines;
+                 this.uploadedIcon = true;
+                 this.selectedFileType();                 
+                 this.lastLineNumber = +this.extractedFileData.lastLineNumber;
+                 console.log('this.lastLineNumber:'+this.lastLineNumber);
+                 this.fileTemplateLinesInfo=[];
+                 console.log(' this.fileTemplateLinesInfo lengthhhh'+ this.fileTemplateLinesInfo.length);
+                 this.addLinee();                 
+                 this.enableLineInfo = true;
+                 this.viewSDdata();  
+                 this.refreshFile =false;   
+                 
+             }
+             });
+          }
+  }
+    
+    logForm(event) { 
+         console.log(this.files); 
+    } 
+    
+    onChange(files) {
+    console.log('on change');
+    console.log(files);
+  }
+    public fileOverBase(file:File):void{
+        if(file)
+        this.hasBaseDropZoneOver=true;
+        console.log('hasBaseDropZoneOver'+this.hasBaseDropZoneOver);
+        console.log('uploader?.queue?.length'+this.uploader.queue.length);
+    }
+    
+    public fileOverAnother(e:any):void{
+        this.hasAnotherDropZoneOver=e;
+    }
+    close()
+    {
+         this.uploadvar = false;
+        }
+
+    uploadFile(event)
+    {
+       
+        this.uploadvar = true;
+        //this.uploader.queue[].upload();
+       let files:any[];
+        for(var i =0;i<this.uploader.queue.length;i++)
+        {
+           // console.log(i);
+            //files.push(this.uploader.queue[i]);
+            // console.log('fileslength'+files.length);
+        this.fileTemplatesService.uploadFile(this.uploader.queue[i]).subscribe(
+         
+             );
+            }
+        } 
+    //select file
+    fileChange(file : any)
+    {
+        this.onFileDrop(file.files);
+    } 
+    closeSDView() {
+        this.sourceData = false;
+        // $('#sampleSourceData').hide('1100');
+        this.dropfile = true;
+        $('.nonsdviewlong').addClass('col-md-4');
+         $('.nonsdviewlong').removeClass('col-md-6');
+         $('.sdviewswith').addClass('col-md-9');
+         $('.sdviewswith').removeClass('col-md-4');
+         $('.nonsdview').addClass('col-md-2');
+         $('.nonsdview').removeClass('col-md-3');
+        $('#sampleSourceData').addClass('closeSampleSourceData');
+        $('.sdtitle').css('display','block');
+        //$('.on-click-sdFileName').css('display','block');
+
+        
+    }  
+    viewSDdata(){
+        this.sourceData = true;
+        //$('#sampleSourceData').show('1100');
+        this.dropfile = false;
+        $('.nonsdviewlong').removeClass('col-md-4');
+        $('.nonsdviewlong').addClass('col-md-6');
+        $('.sdviewswith').removeClass('col-md-9');
+        $('.sdviewswith').addClass('col-md-4');
+        $('.nonsdview').removeClass('col-md-2');
+        $('.nonsdview').addClass('col-md-3');
+        $('.sdtitle').css('display','none');
+       // $('.on-click-sdFileName').css('display','none');
+        
+    }
+    scrolltobottom(){
+        $("html, body").animate({ scrollTop: $(document).height() }, 1000);
+    }
+     //Author : Shobha
+     refreshAndExtractCSV()
+     {
+        this.onFileDrop( this.filesAdded );
+        this.refreshFile = true;
+        this.fileTemplateLines = [];
+        this.colHeaders = [];
+        this.data =[];
+        this.fileTemplateLinesInfo = [];
+     }
+    
+    // Full screen Toggle Method 
+    toggleFullScreen(){
+        if(this.fullScreenView==true){
+            this.fullScreenView = false;
+            
+        } else {
+            this.fullScreenView = true;
+        }
+        
+    }
+        valuechange(newValue) {
+        console.log(newValue)
+      }
+        //Author : Shobha
+        checkFileTemplateName(name )
+        {
+        console.log('on change called');
+            var count = 0;
+            this.fileTemplatesService.query().subscribe((res: any) => {
+            
+            this.fileTemplatesList = res.json;
+            this. fileTemplatesList.forEach(fileTemp=>{
+                
+                  let  enteredName :string;
+                enteredName = name.toLowerCase( );
+                let existingName:string ;
+                existingName = fileTemp.templateName.toLowerCase( );
+               
+                if ( existingName == enteredName) {
+                    count++;
+                }
+            });
+            if(count > 0)
+            {
+                this.duplicateFileTempName = true;
+            }
+            else{
+                console.log('duplicateFileTempName' + this.duplicateFileTempName);
+                this.duplicateFileTempName = false;
+            }
+            });
+      
+        }
+    validationMsg(){
+        if(this.duplicateFileTempName == true){
+            this.notificationsService.error(
+                     'Warning!',
+                     'Template already exists with this name' 
+            )
+        }else{
+            this.notificationsService.error(
+                     'Warning!',
+                     'Fill Mandatory Fields' 
+            )
+        }
+        var i;
+        
+    }
+    addfunction(i)
+    {
+       if(!this.showFunction)
+           this.showFunction = [];
+       if(this.saveFunction && !this.saveFunction[i])
+       {
+            this.fileTemplateLines[i].formula='';
+           this.fileTemplateLines[i].functionName='';
+            this.fileTemplateLines[i].example='';
+       }
+          
+           
+       this.showFunction[i] =true;
+    }
+    showExcelFunction( i,examp ) {
+        this.fileTemplateLines[i].example=examp;
+    }
+    saveFunc(i)
+    {
+        if(!this.saveFunction)
+            this.saveFunction = [];
+        this.saveFunction[i] = true;
+        this.showFunction[i] =false;
+    }
+    cancelFormula(i)
+    {
+        this.fileTemplateLines[i].formula='';
+           this.fileTemplateLines[i].example='';
+         this.fileTemplateLines[i].functionName='';;
+        this.showFunction[i] =false;
+    }
+}

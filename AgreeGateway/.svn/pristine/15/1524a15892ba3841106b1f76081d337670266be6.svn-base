@@ -1,0 +1,1149 @@
+import { Component, OnInit, ViewChild, ChangeDetectionStrategy, TemplateRef } from '@angular/core';
+import { CommonService } from '../entities/common.service';
+import { NavBarService } from '../layouts/navbar/navbar.service';
+import { DashBoard4 } from './home.model';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { SessionStorageService } from 'ng2-webstorage';
+import { trigger, state, style, animate, transition } from '@angular/animations';
+import { DecimalPipe } from '@angular/common';
+import Chart from 'chart.js';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+@Component({
+    selector: 'jhi-dashboardv5',
+    templateUrl: './dashboard-v5.component.html',
+    styleUrls: ['home.scss'],
+    animations: [
+        trigger('flyInOut', [
+            state('in', style({ transform: 'translateX(0)' })),
+            transition('void => *', [
+                style({ transform: 'translateX(-100%)' }),
+                animate(500)
+            ])/* ,
+            transition('* => void', [
+                animate(900, style({ transform: 'translateX(100%)' }))
+            ]) */
+        ])
+    ]
+})
+
+export class DashboardV5Component implements OnInit {
+    unReconItemsValueKpi:any;
+    unReconItemsViolationKpi:any;
+    awaitingAppCountKpi:any;
+    selectedProcessAnalysis:any = '1 Week';
+    topTenUnReconItemData: any = [{ "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "4,73,56,578.97", "Percentage": 14.9 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "4,48,78,278.59", "Percentage": 14.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "4,18,21,781.67", "Percentage": 13.2 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "3,34,40,452.21", "Percentage": 10.5 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,84,93,171.42", "Percentage": 9.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,84,16,066.87", "Percentage": 9 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,73,33,868.12", "Percentage": 8.6 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,34,94,099.10", "Percentage": 7.4 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,16,29,831.66", "Percentage": 6.8 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,03,62,004.36", "Percentage": 6.4 }];
+    unReconItemByViolationData: any = [{ "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 415, "Sum Of Amount": "4,18,21,781.67" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 416, "Sum Of Amount": "2,84,93,171.42" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 417, "Sum Of Amount": "4,56,443.36" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 418, "Sum Of Amount": "59,69,020.66" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 419, "Sum Of Amount": "1,62,67,594.22" }];
+    awaitingForApprovalData: any = [{ "Ledger Name": "NSPL Primary Ledger", "Provider Name": "BitPay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "6,29,433.22" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "BitPay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "27,92,308" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Paytm", "Approval Status": "Awaiting for approval", "Sum Of Amount": "5,26,50,118.71" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "75,37,168.57" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "1,77,670.04" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": 148.18 }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "1,17,70,606.19" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "2,07,873.91" }];
+    tableView1: boolean = false;
+    userDetails: any;
+    processesList: any;
+    testReconWidth: any = '300';
+    testReconHeight: any = '300';
+    processFilter = new DashBoard4();
+    selectedTab: any = 0;
+    selectedAccTab: any = 0;
+    selectedAccTabActivity: any = 0;
+    currentModule: any = "Reconciliation Status";
+    currentAccModule: any = 'Accounting Status';
+    selectedViewRSAging: any = "Aging Bucket 4";
+    selectedUnReconItemsValue: any = 'Top 10 by amount';
+    selectedViolationType: any = "Days";
+    selectedViolationOperatorType: any = "Greater Than Or Equal To";
+    selectedViolationTypeValue: any = 415;
+    topTenUnReconValue: any = 26;
+    topTenUnReconValueSub: any = "26%"
+    topTenUnReconValueTitle: any = "317M"
+    topTenUnReconViolation: any = 100;
+    topTenUnReconViolationTitle: any = "5";
+    awaitingApproval: any = 100;
+    awaitingApprovalCount: any = "8";
+    selectedUnReconItemsViolationValue:any = ">= 415";
+
+    ccReconProcess: any = [ { "Date": "11-Mar", "Extraction": 80, "Transformation": 75, "Reconciliation": 40, "Accounting": 50, "Journals": 50, "Total": 59 }, { "Date": "10-Mar", "Extraction": 100, "Transformation": 90, "Reconciliation": 80, "Accounting": 100, "Journals": 83, "Total": 91 }, { "Date": "09-Mar", "Extraction": 100, "Transformation": 100, "Reconciliation": 80, "Accounting": 55, "Journals": 90, "Total": 85 }, { "Date": "08-Mar", "Extraction": 100, "Transformation": 100, "Reconciliation": 100, "Accounting": 100, "Journals": 63, "Total": 93 }, { "Date": "07-Mar", "Extraction": 100, "Transformation": 100, "Reconciliation": 100, "Accounting": 100, "Journals": 100, "Total": 100 } ];
+    
+    /* Reconciliation Status*/
+    reconColor: any = '#4285f4';/* #8ac9f3 */
+    unReconColor: any = '#F44336';/* #fda4b8 */
+    reconColorTemp: any = '#4285f4';
+    unReconColorTemp: any = '#F44336';
+    tempSelectedPostion: any = 'bottom';
+    selectedPostion: any = 'bottom';
+    reconBackgroundTemp: any = '#ffffff';
+    reconBackground: any = '#ffffff';
+
+    public pieChartReconciliation: any[];
+    public pieChartReconciliationType: string = 'pie';
+    public temppieChartReconciliationType: string = 'pie';
+    tempSelectedReconChart: any = 'pie';
+    public pieChartReconciliationLegend: boolean = true;
+    public pieChartReconciliationLabels: string[];
+    public pieChartReconciliationOptions: any = {
+        responsive: true,
+        maintainAspectRatio: false,
+        tooltips: {
+            callbacks: {
+                label: function (tooltipItems, data) {
+                    return data.labels[tooltipItems.index] + ': ' + data.datasets[0].data[tooltipItems.index] + '%';
+                }
+            }
+        },
+        legend: {
+            position: 'bottom',
+            display: false
+        },
+        plugins: {
+            datalabels: {
+                display: true,
+                color: 'black',
+                font: {
+                    weight: 'bold'
+                },
+                anchor: 'center',
+                formatter: function(value, context) {
+                    return value + '%';
+                }
+            }
+        }
+    };
+    public pieChartReconciliationColors: {}[] = [{ backgroundColor: [this.reconColor, this.unReconColor] }];
+
+    /* UN-RECONCILIED BY AGING BUCKET */
+    agingColor: any = '#F44336';/* #fda4b8 */
+    tempagingColor: any = '#F44336';
+    agingBucketBackgroundTemp: any = '#ffffff';
+    agingBucketBackground: any = '#ffffff';
+    public barChartOptions: any = {
+        scaleShowVerticalLines: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        tooltips: {
+            callbacks: {
+                label: function (tooltipItems, data) {
+                    let labelValue = new DecimalPipe('en').transform(data.datasets[0].data[tooltipItems.index])
+                    return data.labels[tooltipItems.index] + ': ' + labelValue;
+                }
+            }
+        },
+        scales: {
+            yAxes: [
+                {
+                    ticks: {
+                        callback: function (value) {
+                            // return value + "%" 
+                            if (value >= 1000000000000) {
+                                return (value / 1000000000000).toFixed(1).replace(/\.0$/, '') + 'T';
+                            }
+                            if (value >= 1000000000) {
+                                return (value / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+                            }
+                            if (value >= 1000000) {
+                                return (value / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+                            }
+                            if (value >= 1000) {
+                                return (value / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+                            }
+                            return value;    
+                        }
+                    }
+                }
+            ]
+        },
+        legend: {
+            position: 'bottom',
+            display: false
+        },
+        plugins: {
+            datalabels: {
+                display: false
+            }
+        }
+    };
+    public barChartLabels: string[] = ['0-30', '31-60', '61-90', '>90'];
+    public barChartType: string = 'bar';
+    public tempbarChartType: string = 'bar';
+    public barChartLegend: boolean = true;
+    public unReconAgingBucketColors: {}[] = [{ backgroundColor: [this.agingColor, this.agingColor, this.agingColor, this.agingColor] }];
+    public barChartData: any[] = [
+        { data: [544554, 698755, 265987, 874598], label: 'Un-Recon' }
+    ];
+
+    /* Un-Recon Items By Value */
+    unReconItemsByValueRadius: any = 85;
+    unReconItemsByValueOuterStrokeColor: any = '#F44336';
+    unReconItemsByValueInnerStrokeColor: any = '#ededed';
+    unReconItemsByValueTitleFontSize: any = 40;
+    unReconItemsByValueSubtitleFontSize: any = 18;
+    unReconItemsByValueTitleColor: any = '#444444';
+    tempunReconItemsByValueTitleColor: any = '#444444';
+    unReconItemsByValueSubTitleColor: any = '#A9A9A9';
+    tempunReconItemsByValueSubTitleColor: any = '#A9A9A9';
+    unReconItemsByValueUnitsColor: any = '#A9A9A9';
+    tempunReconItemsByValueRadius: any = 85;
+    tempunReconItemsByValueOuterStrokeColor: any = '#F44336';
+    tempunReconItemsByValueInnerStrokeColor: any = '#ededed';
+    tempunReconItemsByValueTitleFontSize: any = 40;
+    tempunReconItemsByValueSubtitleFontSize: any = 18;
+
+    /* Un-Recon Items By Violation */
+    unReconItemsByViolationRadius: any = 85;
+    unReconItemsByViolationOuterStrokeColor: any = '#9C27B0';
+    unReconItemsByViolationInnerStrokeColor: any = '#ededed';
+    unReconItemsByViolationTitleFontSize: any = 40;
+    unReconItemsByViolationSubtitleFontSize: any = 18;
+    unReconItemsByViolationTitleColor: any = '#444444';
+    tempunReconItemsByViolationTitleColor: any = '#444444';
+    unReconItemsByViolationSubTitleColor: any = '#A9A9A9';
+    tempunReconItemsByViolationSubTitleColor: any = '#A9A9A9';
+    unReconItemsByViolationUnitsColor: any = '#444444';
+    tempunReconItemsByViolationRadius: any = 85;
+    tempunReconItemsByViolationOuterStrokeColor: any = '#9C27B0';
+    tempunReconItemsByViolationInnerStrokeColor: any = '#ededed';
+    tempunReconItemsByViolationTitleFontSize: any = 40;
+    tempunReconItemsByViolationSubtitleFontSize: any = 18;
+
+    /* Awaiting For Approvals */
+    reconAwaitingForApprovalRadius: any = 85;
+    reconAwaitingForApprovalOuterStrokeColor: any = '#fd9700';
+    reconAwaitingForApprovalInnerStrokeColor: any = '#ededed';
+    reconAwaitingForApprovalTitleFontSize: any = 40;
+    reconAwaitingForApprovalTitleColor: any = '#444444';
+    tempreconAwaitingForApprovalRadius: any = 85;
+    tempreconAwaitingForApprovalOuterStrokeColor: any = '#fd9700';
+    tempreconAwaitingForApprovalInnerStrokeColor: any = '#ededed';
+    tempreconAwaitingForApprovalTitleFontSize: any = 40;
+    tempreconAwaitingForApprovalTitleColor: any = '#444444';
+
+
+
+    /* Sample JSON For Tables */
+    selectedViewRS: any = "rules";
+    selectedViewRSUnRecon: any = "currency";
+
+    selectedViewAcc: any = "rules";
+    reconciliationStatusData: any = {
+        "reconcilied": [{ "Rule Name": "Rule 1", "Ledger Name": "NSPL Primary Ledger", "Count": 687, "Amount": "3,10,82,694.65", "Percentage": 1.2 }, { "Rule Name": "Rule 2", "Ledger Name": "NSPL Global", "Count": 16, "Amount": "3,50,50,955.12", "Percentage": 1.36 }, { "Rule Name": "Rule 3", "Ledger Name": "NSPL Primary Ledger", "Count": "3,421", "Amount": "97,60,04,034.25", "Percentage": 37.78 }, { "Rule Name": "Rule 4", "Ledger Name": "NSPL Primary Ledger", "Count": 7, "Amount": "9,68,43,335.47", "Percentage": 3.75 }, { "Rule Name": "Rule 5", "Ledger Name": "NSPL Primary Ledger", "Count": 15, "Amount": "76,14,03,293.76", "Percentage": 29.47 }, { "Rule Name": "Rule 6", "Ledger Name": "NSPL Primary Ledger", "Count": 11, "Amount": "52,52,27,565.25", "Percentage": 20.33 }, { "Rule Name": "Rule 7", "Ledger Name": "NSPL Primary Ledger", "Count": 6, "Amount": "1,96,96,496.58", "Percentage": 0.76 }, { "Rule Name": "Rule 8", "Ledger Name": "NSPL Global", "Count": 13, "Amount": "8,18,13,840.04", "Percentage": 3.17 }, { "Rule Name": "Rule 9", "Ledger Name": "NSPL Primary Ledger", "Count": 6, "Amount": "5,62,37,015.66", "Percentage": 2.18 }],
+        "unReconcilied": [{ "Currency Code": "AUD", "Ledger Name": "NSPL Primary Ledger", "Count": 48, "Amount": "3,51,75,673.73", "Percentage": 7.8 }, { "Currency Code": "BRL", "Ledger Name": "NSPL Primary Ledger", "Count": 79, "Amount": "34,17,83,450.98", "Percentage": 28.03 }, { "Currency Code": "CAD", "Ledger Name": "NSPL Primary Ledger", "Count": 2, "Amount": "39,11,852.17", "Percentage": 0.32 }, { "Currency Code": "CHF", "Ledger Name": "NSPL Primary Ledger", "Count": 6, "Amount": "2,84,104.86", "Percentage": 0.02 }, { "Currency Code": "CZK", "Ledger Name": "NSPL Primary Ledger", "Count": 2, "Amount": "23,99,779.13", "Percentage": 0.2 }, { "Currency Code": "DKK", "Ledger Name": "NSPL Primary Ledger", "Count": 7, "Amount": "2,219.61", "Percentage": 0 }, { "Currency Code": "EUR", "Ledger Name": "NSPL Primary Ledger", "Count": 58, "Amount": "22,26,406.54", "Percentage": 0.18 }, { "Currency Code": "GBP", "Ledger Name": "NSPL Primary Ledger", "Count": 10, "Amount": "36,89,790.77", "Percentage": 0.3 }, { "Currency Code": "HKD", "Ledger Name": "NSPL Primary Ledger", "Count": 9, "Amount": "62,86,578.10", "Percentage": 0.52 }, { "Currency Code": "INR", "Ledger Name": "NSPL Primary Ledger", "Count": 59, "Amount": "69,37,81,715.82", "Percentage": 56.89 }]
+    };
+    unReconAgingBucketData: any = [{ "Age": "0 to 30 days", "Count": 9, "Amount": "62,86,578.10", "Percentage": 0.52 }, { "Age": "31 to 60 days", "Count": 33, "Amount": "9,75,75,542.86", "Percentage": 8 }, { "Age": "61 to 90 days", "Count": 119, "Amount": "1,46,09,563.91", "Percentage": 1.2 }, { "Age": "above 90 days", "Count": 540, "Amount": "1,10,10,76,820", "Percentage": 90.28 }];
+    /* topTenUnReconItemData: any = [{ "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "4,73,56,578.97", "Percentage": 14.9 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "4,48,78,278.59", "Percentage": 14.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "4,18,21,781.67", "Percentage": 13.2 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "3,34,40,452.21", "Percentage": 10.5 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,84,93,171.42", "Percentage": 9.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,84,16,066.87", "Percentage": 9 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,73,33,868.12", "Percentage": 8.6 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,34,94,099.10", "Percentage": 7.4 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,16,29,831.66", "Percentage": 6.8 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Sum Of Amount": "2,03,62,004.36", "Percentage": 6.4 }];
+    unReconItemByViolationData: any = [{ "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 415, "Sum Of Amount": "4,18,21,781.67" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 416, "Sum Of Amount": "2,84,93,171.42" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 417, "Sum Of Amount": "4,56,443.36" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 418, "Sum Of Amount": "59,69,020.66" }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Un-Reconcilied By Age(Days)": 419, "Sum Of Amount": "1,62,67,594.22" }];
+    awaitingForApprovalData: any = [{ "Ledger Name": "NSPL Primary Ledger", "Provider Name": "BitPay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "6,29,433.22" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "BitPay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "27,92,308" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Paytm", "Approval Status": "Awaiting for approval", "Sum Of Amount": "5,26,50,118.71" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "75,37,168.57" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "1,77,670.04" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": 148.18 }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "1,17,70,606.19" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Interpay", "Approval Status": "Awaiting for approval", "Sum Of Amount": "2,07,873.91" }]; */
+
+
+    accountingStatusData: any = {
+        "accounted": [{ "Accounting Rules": "Accounting for revenue booking", "Count Of Scr Ids": 44, "Amount": "45,62,871.63", "Percentage": 0.2 }, { "Accounting Rules": "Accounting for revenue – BRL", "Count Of Scr Ids": 109, "Amount": "38,29,46,929.92", "Percentage": 16.41 }, { "Accounting Rules": "Accounting for revenue – EUR", "Count Of Scr Ids": 300, "Amount": "7,53,06,730.73", "Percentage": 3.23 }, { "Accounting Rules": "Accounting for revenue – AUD", "Count Of Scr Ids": 96, "Amount": "15,65,19,996.38", "Percentage": 6.71 }, { "Accounting Rules": "Accounting for revenue – Others", "Count Of Scr Ids": "2,434", "Amount": "1,71,43,59,088.56", "Percentage": 73.45 }],
+        "inProcess": [{ "Accounting Rules": "Accounting for revenue booking", "Count Of Scr Ids": 29, "Amount": "44,03,184.09", "Percentage": 0.19 }, { "Accounting Rules": "Accounting for revenue – BRL", "Count Of Scr Ids": 94, "Amount": "38,27,87,242.38", "Percentage": 16.41 }, { "Accounting Rules": "Accounting for revenue – EUR", "Count Of Scr Ids": 285, "Amount": "7,51,47,043.19", "Percentage": 3.22 }, { "Accounting Rules": "Accounting for revenue – AUD", "Count Of Scr Ids": 81, "Amount": "15,63,60,308.84", "Percentage": 6.7 }, { "Accounting Rules": "Accounting for revenue – Others", "Count Of Scr Ids": 2419, "Amount": "1,71,41,99,401.02", "Percentage": 73.48 }],
+        "unAccounted": [{ "Accounting Rules": "Accounting for revenue booking", "Count Of Scr Ids": 34, "Amount": "45,40,168.65", "Percentage": 0.19 }, { "Accounting Rules": "Accounting for revenue – BRL", "Count Of Scr Ids": 99, "Amount": "38,29,24,226.94", "Percentage": 16.41 }, { "Accounting Rules": "Accounting for revenue – EUR", "Count Of Scr Ids": 290, "Amount": "7,52,84,027.75", "Percentage": 3.23 }, { "Accounting Rules": "Accounting for revenue – AUD", "Count Of Scr Ids": 86, "Amount": "15,64,97,293.40", "Percentage": 6.71 }, { "Accounting Rules": "Accounting for revenue – Others", "Count Of Scr Ids": 2424, "Amount": "1,71,43,36,385.58", "Percentage": 73.46 }]
+    };
+
+    activityBasedAcc: any = {
+        "unIdentified": [{ "Accounting Rules": "Accounting for Un-Identified Rule 3", "Count Of Scr Ids": 6, "Amount": 284104.86, "Percentage": 100 }],
+        "identified": [{ "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Cayan", "Date": "Jan 27,2017", "Currency Code": "CHF", "Description": "M Pay", "Acc No": 50003, "Amount": "10,274.77" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Cayan", "Date": "Dec 26,2017", "Currency Code": "CHF", "Description": "M Pay – 2909060", "Acc No": 50003, "Amount": "58,656.79" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Cayan", "Date": "Jan 28,2017", "Currency Code": "CHF", "Description": "M Pay – 2909060", "Acc No": 50003, "Amount": "41,508.92" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Cayan", "Date": "Jan 29,2017", "Currency Code": "CHF", "Description": "M Pay – 2909060", "Acc No": 50003, "Amount": "32,375.77" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Cayan", "Date": "Jan 26,2017", "Currency Code": "CHF", "Description": "M Pay – 2909060", "Acc No": 50003, "Amount": "27,818.34" }, { "Ledger Name": "NSPL Primary Ledger", "Provider Name": "Cayan", "Date": "Jan 27,2017", "Currency Code": "CHF", "Description": "M Pay(TX142008)", "Acc No": 50003, "Amount": "1,13,470.27" }]
+    }
+
+    unAccountedAgingBucket: any = [{ "Age": "0 to 30 days", "Count": 9, "Amount": "62,86,578.10", "Percentage": 0.52 }, { "Age": "31 to 60 days", "Count": 33, "Amount": "9,75,75,542.86", "Percentage": 8 }, { "Age": "61 to 90 days", "Count": 119, "Amount": "1,46,09,563.91", "Percentage": 1.2 }, { "Age": "above 90 days", "Count": 540, "Amount": "1,10,10,76,820", "Percentage": 90.28 }];
+
+    unAccountedAgingBucketData: any = {
+        "0-30": {"totalAmount": "62,86,578.10", "totalPercentage": "100%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "28,31,893.05", "Percentage": 45.05 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "24,48,793.20", "Percentage": 38.95 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "4,48,574.50", "Percentage": 7.14 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "3,21,165.60", "Percentage": 5.11 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "1,25,487.15", "Percentage": 2 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "52,474.65", "Percentage": 0.83 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "45,487.95", "Percentage": 0.72 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "12,154.50", "Percentage": 0.19 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": 547.5, "Percentage": 0.01 } ]},
+        "31-60": {"totalAmount": "3,25,25,180.95", "totalPercentage": "33.33%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "1,18,31,893.05", "Percentage": 12.13 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "83,56,593.65", "Percentage": 8.56 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "21,65,987.65", "Percentage": 2.22 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "19,88,956.40", "Percentage": 2.04 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "18,98,657.60", "Percentage": 1.95 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "17,98,654.00", "Percentage": 1.84 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "16,98,796.59", "Percentage": 1.74 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "13,65,698.56", "Percentage": 1.4 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "HKD", "Amount": "12,36,587.98", "Percentage": 1.27 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": "1,83,355.47", "Percentage": 0.19 } ]},
+        "61-90": {"totalAmount": "1,19,14,392.60", "totalPercentage": "81.55%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "46,31,893.05", "Percentage": 31.7 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "39,56,593.65", "Percentage": 27.08 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "9,95,987.65", "Percentage": 6.82 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "7,88,956.40", "Percentage": 5.4 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "6,98,657.60", "Percentage": 4.78 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "5,65,865.65", "Percentage": 3.87 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "99,796.59", "Percentage": 0.68 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "76,698.56", "Percentage": 0.52 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "HKD", "Amount": "56,587.98", "Percentage": 0.39 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": "43,355.47", "Percentage": 0.3 } ]},
+        ">90": {"totalAmount": "44,12,14,392.60", "totalPercentage": "40.07%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "19,78,31,893.05", "Percentage": 17.97 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "18,39,56,593.65", "Percentage": 16.71 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "1,49,95,987.65", "Percentage": 1.36 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "1,37,88,956.40", "Percentage": 1.25 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "1,36,98,657.60", "Percentage": 1.24 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "1,25,65,865.65", "Percentage": 1.14 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "11,99,796.59", "Percentage": 0.11 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "10,76,698.56", "Percentage": 0.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "HKD", "Amount": "10,56,587.98", "Percentage": 0.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": "10,43,355.47", "Percentage": 0.09 } ]}
+    };
+
+    unAccountedAgingWiseData: any = {
+        "0-30": {"totalAmount": "62,86,578.10", "totalPercentage": "100%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "28,31,893.05", "Percentage": 45.05 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "24,48,793.20", "Percentage": 38.95 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "4,48,574.50", "Percentage": 7.14 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "3,21,165.60", "Percentage": 5.11 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "1,25,487.15", "Percentage": 2 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "52,474.65", "Percentage": 0.83 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "45,487.95", "Percentage": 0.72 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "12,154.50", "Percentage": 0.19 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": 547.5, "Percentage": 0.01 } ]},
+        "31-60": {"totalAmount": "3,25,25,180.95", "totalPercentage": "33.33%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "1,18,31,893.05", "Percentage": 12.13 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "83,56,593.65", "Percentage": 8.56 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "21,65,987.65", "Percentage": 2.22 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "19,88,956.40", "Percentage": 2.04 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "18,98,657.60", "Percentage": 1.95 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "17,98,654.00", "Percentage": 1.84 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "16,98,796.59", "Percentage": 1.74 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "13,65,698.56", "Percentage": 1.4 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "HKD", "Amount": "12,36,587.98", "Percentage": 1.27 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": "1,83,355.47", "Percentage": 0.19 } ]},
+        "61-90": {"totalAmount": "1,19,14,392.60", "totalPercentage": "81.55%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "46,31,893.05", "Percentage": 31.7 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "39,56,593.65", "Percentage": 27.08 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "9,95,987.65", "Percentage": 6.82 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "7,88,956.40", "Percentage": 5.4 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "6,98,657.60", "Percentage": 4.78 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "5,65,865.65", "Percentage": 3.87 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "99,796.59", "Percentage": 0.68 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "76,698.56", "Percentage": 0.52 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "HKD", "Amount": "56,587.98", "Percentage": 0.39 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": "43,355.47", "Percentage": 0.3 } ]},
+        ">90": {"totalAmount": "44,12,14,392.60", "totalPercentage": "40.07%","data": [ { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "AUD", "Amount": "19,78,31,893.05", "Percentage": 17.97 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "BRL", "Amount": "18,39,56,593.65", "Percentage": 16.71 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CAD", "Amount": "1,49,95,987.65", "Percentage": 1.36 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CHF", "Amount": "1,37,88,956.40", "Percentage": 1.25 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "CZK", "Amount": "1,36,98,657.60", "Percentage": 1.24 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "DKK", "Amount": "1,25,65,865.65", "Percentage": 1.14 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "EUR", "Amount": "11,99,796.59", "Percentage": 0.11 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "GBP", "Amount": "10,76,698.56", "Percentage": 0.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "HKD", "Amount": "10,56,587.98", "Percentage": 0.1 }, { "Provider Name": "Cayan", "Ledger Name": "NSPL Primary Ledger", "Currency": "INR", "Amount": "10,43,355.47", "Percentage": 0.09 } ]}
+    };
+
+    selectedViewtra: any = "Transactions";
+    /* ACCOUNTING */
+    showAccountingStatus: boolean = false;
+    /* reconColor: any = '#8ac9f3';
+    unReconColor: any = '#fda4b8';
+    reconColorTemp: any = '#fda4b8';
+    unReconColorTemp: any = '#8ac9f3';
+    tempSelectedPostion: any = 'bottom';
+    selectedPostion: any = 'bottom';
+    reconBackgroundTemp: any = '#ffffff';
+    reconBackground: any = '#ffffff'; */
+
+    public pieChartAccounting: any[] = [61, 18, 21];
+    public pieChartAccountingType: string = 'pie';
+    public temppieChartAccountingType: string = 'pie';
+    public pieChartAccountingLegend: boolean = true;
+    public pieChartAccountingLabels: string[] = ['Accounted', 'In Process', 'Un-Accounted'];
+    public pieChartAccountingOptions: any = {
+        responsive: true,
+        maintainAspectRatio: false,
+        tooltips: {
+            callbacks: {
+                label: function (tooltipItems, data) {
+                    return data.labels[tooltipItems.index] + ': ' + data.datasets[0].data[tooltipItems.index] + '%';
+                }
+            }
+        },
+        legend: {
+            position: 'bottom',
+            display: false
+        },
+        plugins: {
+            datalabels: {
+                display: false,
+                color: 'white',
+                font: {
+                    weight: 'bold'
+                }
+            }
+        }
+    };
+     public pieChartAccountingColors: {}[] = [{ backgroundColor: ['#34A853', '#2196F3','#ea4335'] }]; 
+
+    /* ACTIVITY ACCOUNTING STATUS */
+    showActivityAccountingStatus: boolean = false;
+    showActivityAccounting: boolean = false;
+    /* reconColor: any = '#8ac9f3';
+    unReconColor: any = '#fda4b8';
+    reconColorTemp: any = '#fda4b8';
+    unReconColorTemp: any = '#8ac9f3';
+    tempSelectedPostion: any = 'bottom';
+    selectedPostion: any = 'bottom';
+    reconBackgroundTemp: any = '#ffffff';
+    reconBackground: any = '#ffffff'; */
+
+    public pieChartActivityAccounting: any[] = [72, 28];
+    public pieChartActivityAccountingType: string = 'pie';
+    public temppieChartActivityAccountingType: string = 'pie';
+    public pieChartActivityAccountingLegend: boolean = true;
+    public pieChartActivityAccountingLabels: string[] = ['Accounted For Un-Identified', 'Accounted For Identified'];
+    public pieChartActivityAccountingOptions: any = {
+        responsive: true,
+        maintainAspectRatio: false,
+        tooltips: {
+            callbacks: {
+                label: function (tooltipItems, data) {
+                    return data.labels[tooltipItems.index] + ': ' + data.datasets[0].data[tooltipItems.index] + '%';
+                }
+            }
+        },
+        legend: {
+            position: 'bottom',
+            display: false
+        },
+        plugins: {
+            datalabels: {
+                display: false,
+                color: 'white',
+                font: {
+                    weight: 'bold'
+                }
+            }
+        }
+    };
+    public unAccountedAgingBucketColors: {}[] = [{ backgroundColor: [this.agingColor, this.agingColor, this.agingColor, this.agingColor] }];
+    public pieChartActivityColors: {}[] = [{ backgroundColor: ['#FFBB00','#34A853'] }];
+    /* public pieChartActivityAccountingColors: {}[] = [{ backgroundColor: [this.reconColor, this.unReconColor] }]; */
+
+    /* Test Multi Axis */
+
+    /* public testDataSets: any[] = [{
+            data: [20, 50, 100, 75, 25, 0],
+            label: 'Left dataset',
+
+            // This binds the dataset to the left y axis
+            yAxisID: 'left-y-axis'
+        }, {
+            data: [0.1, 0.5, 1.0, 2.0, 1.5, 0],
+            label: 'Right dataset',
+
+            // This binds the dataset to the right y axis
+            yAxisID: 'right-y-axis',
+        }];
+    public testLabels: string[] = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+    public testOptions: any = {
+        scales: {
+            yAxes: [{
+                id: 'left-y-axis',
+                type: 'linear',
+                position: 'left'
+            }, {
+                id: 'right-y-axis',
+                type: 'linear',
+                position: 'right'
+            }]
+        }
+    }; */
+
+dayWiseSampleData: any = [{
+	"1W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar"],"dataValues":[65, 59, 80, 81, 56, 55, 40],"unReconItemsValue": 317 , "unReconItemsViolation": 5, "awaitingAppCount": 8},
+	"2W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar","02 Mar","01 Mar","28 Feb","27 Feb","26 Feb","25 Feb","24 Feb"],"dataValues":[87,78,85,59,68,75,85,65,59,80,81,56,55,40],"unReconItemsValue": 425 , "unReconItemsViolation": 17, "awaitingAppCount": 14},
+	"1M":{"labelValue":["09 Mar","07 Mar","05 Mar","03 Mar","01 Mar","27 Feb","25 Feb","23 Feb","21 Feb","19 Feb","17 Feb","15 Feb","13 Feb","11 Feb"],"dataValues":[56,98,65,45,75,48,58,75,85,65,75,85,47,78],"unReconItemsValue": 198 , "unReconItemsViolation": 16, "awaitingAppCount": 10},
+	"3M":{"labelValue":["09 Mar","03 Mar","25 Feb","19 Feb","13 Feb","07 Feb"],"dataValues":[65, 59, 80, 81, 56, 55, 40],"unReconItemsValue": 750 , "unReconItemsViolation": 34, "awaitingAppCount": 41}
+},
+{
+	"1W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar"],"dataValues":[35, 41, 20, 19, 44, 45, 60],"unReconItemsValue": 317 , "unReconItemsViolation": 5, "awaitingAppCount": 8},
+	"2W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar","02 Mar","01 Mar","28 Feb","27 Feb","26 Feb","25 Feb","24 Feb"],"dataValues":[13,22,15,41,32,25,15,35,41,20,19,44,45,60],"unReconItemsValue": 425 , "unReconItemsViolation": 17, "awaitingAppCount": 14},
+	"1M":{"labelValue":["09 Mar","07 Mar","05 Mar","03 Mar","01 Mar","27 Feb","25 Feb","23 Feb","21 Feb","19 Feb","17 Feb","15 Feb","13 Feb","11 Feb"],"dataValues":[44,2,35,55,25,52,42,25,15,35,25,15,53,22],"unReconItemsValue": 198 , "unReconItemsViolation": 16, "awaitingAppCount": 10},
+	"3M":{"labelValue":["09 Mar","03 Mar","25 Feb","19 Feb","13 Feb","07 Feb"],"dataValues":[35, 41, 20, 19, 44, 45, 60],"unReconItemsValue": 750 , "unReconItemsViolation":34, "awaitingAppCount": 41}
+}];/* [{
+	"1W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar"],"dataValues":[65, 59, 80, 81, 56, 55, 40]},
+	"2W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar","02 Mar","01 Mar","28 Feb","27 Feb","26 Feb","25 Feb","24 Feb"],"dataValues":[87,78,85,59,68,75,85,65,59,80,81,56,55,40]},
+	"1M":{"labelValue":["09 Mar","07 Mar","05 Mar","03 Mar","01 Mar","27 Feb","25 Feb","23 Feb","21 Feb","19 Feb","17 Feb","15 Feb","13 Feb","11 Feb"],"dataValues":[56,98,65,45,75,48,58,75,85,65,75,85,47,78]},
+	"3M":{"labelValue":["09 Mar","03 Mar","25 Feb","19 Feb","13 Feb","07 Feb"],"dataValues":[65, 59, 80, 81, 56, 55, 40]}
+},
+{
+	"1W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar"],"dataValues":[35, 41, 20, 19, 44, 45, 60]},
+	"2W":{"labelValue":["09 Mar","08 Mar","07 Mar","06 Mar","05 Mar","04 Mar","03 Mar","02 Mar","01 Mar","28 Feb","27 Feb","26 Feb","25 Feb","24 Feb"],"dataValues":[13,22,15,41,32,25,15,35,41,20,19,44,45,60]},
+	"1M":{"labelValue":["09 Mar","07 Mar","05 Mar","03 Mar","01 Mar","27 Feb","25 Feb","23 Feb","21 Feb","19 Feb","17 Feb","15 Feb","13 Feb","11 Feb"],"dataValues":[44,2,35,55,25,52,42,25,15,35,25,15,53,22]},
+	"3M":{"labelValue":["09 Mar","03 Mar","25 Feb","19 Feb","13 Feb","07 Feb"],"dataValues":[35, 41, 20, 19, 44, 45, 60]}
+}]; */
+public lineChartData:Array<any> = [
+    /* {data: [65, 59, 80, 81, 56, 55, 40], label: 'Series A'},
+    {data: [28, 48, 40, 19, 86, 27, 90], label: 'Series B'},
+    {data: [18, 48, 77, 9, 100, 27, 40], label: 'Series C'} */
+  ];
+public lineChartDataAcc:Array<any>=[];
+public lineChartDataJournals:Array<any>=[];
+
+  public lineChartLabels:Array<any> = ['January', 'February', 'March', 'April', 'May', 'June', 'July'];
+  public lineChartLabelsAcc:Array<any> = ['January', 'February', 'March', 'April', 'May', 'June', 'July'];
+  public lineChartLabelsJE:Array<any> = ['January', 'February', 'March', 'April', 'May', 'June', 'July'];
+  public lineChartOptions:any = {
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+        xAxes: [
+            {
+                stacked: false /* ,
+                display:true , */
+            }
+        ],
+        yAxes: [
+            {
+                stacked: false,
+                ticks: {
+                    min: 0,
+                    max: 100,
+                    callback: function (value) { return value + "%" }
+                }
+            }
+        ]
+    },
+    legend:{
+        position: 'bottom'
+    },
+    plugins: {
+            datalabels: {
+                /* aspectRatio: 4/3,
+                layout: {
+                    padding: {
+                        top: 42,
+                        right: 16,
+                        bottom: 32,
+                        left: 8
+                    }
+                }, */
+                display: true,
+                //color: 'black',
+                /* font: {
+                    weight: 'bold'
+                }, */
+                align: 'top',
+                borderWidth: 1,
+                borderRadius: 4,
+                /* offset: '5px' *//* ,*/
+                formatter: function(value, context) {
+                    return value + '%';
+                },
+                color: function(context) {
+                    console.log('context ' + context);
+                    var index = context.dataIndex;
+                    var value = context.dataset.data[index];
+                    return value < 0 ? 'red' :  // draw negative values in red
+                    context.datasetIndex == 1 ? 'red' :    // else, alternate values in blue and green
+                    'green';
+                        
+                }
+            }
+        },
+  };
+  public lineChartColors:Array<any> = [
+    { 
+        backgroundColor: 'transparent',
+        borderColor: 'rgba(52, 168, 83, 0.9)',
+        pointBackgroundColor: 'rgba(52, 168, 83, 0.5)',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgba(52, 168, 83, 0.5)'
+    },
+    { 
+        backgroundColor: 'transparent',
+        borderColor: 'rgba(234, 67, 53, 0.9)',
+        pointBackgroundColor: 'rgba(234, 67, 53, 0.5)',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgba(234, 67, 53, 0.5)'
+    }
+     
+    /* { 
+      backgroundColor: 'rgba(208, 241, 239, 0.5)',
+      borderColor: 'rgba(208, 241, 239, 0.9)',
+      pointBackgroundColor: 'rgba(208, 241, 239, 0.5)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(208, 241, 239, 0.5)'
+    },
+    { 
+      backgroundColor: 'rgba(164, 223, 219, 0.5)',
+      borderColor: 'rgba(164, 223, 219, 0.9)',
+      pointBackgroundColor: 'rgba(164, 223, 219, 0.5)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(164, 223, 219, 0.5)'
+    }  */
+  ];
+  public lineChartLegend:boolean = true;
+  public lineChartLegendAcc:boolean = true;
+  public lineChartLegendJE:boolean = true;
+  public lineChartType:string = 'line';
+
+    constructor(
+        private commonService: CommonService,
+        private navbarService: NavBarService,
+        private config: NgbDatepickerConfig,
+        private $sessionStorage: SessionStorageService,
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+        $(window).scroll(function () {
+            let offsetExt = $("#extractionDiv").offset();
+            let posExt = offsetExt.top - $(window).scrollTop();
+            let offsetTra = $("#transformationDiv").offset();
+            let posTra = offsetTra.top - $(window).scrollTop();
+            let offsetRec = $("#reconciliationAct").offset();
+            let posRecon = offsetRec.top - $(window).scrollTop();
+            let offsetAcc = $("#accountingAct").offset();
+            let posAcc = offsetAcc.top - $(window).scrollTop();
+            let offsetJe = $("#journalAct").offset();
+            let posAJe = offsetJe.top - $(window).scrollTop();
+            /* console.log('posExt ' + posExt);
+            console.log('posTra ' + posTra);
+            console.log('posRecon ' + posRecon);
+            console.log('posAcc ' + posAcc);
+            console.log('posAJe ' + posAJe);  */
+            if(posExt<124 && posTra>142 && posRecon>65 && posAcc>65 && posAJe>65 ){
+                $('.transformationStatusCls,.reconciliationStatusCls,.accountingStatusCls,.journalsStatusCls').removeClass('sideProgessActive');
+                $('.extractionStatusCls').addClass('sideProgessActive');
+            }else if(posExt<36 && posTra<125 && posRecon>128 && posAcc>128 && posAJe>128){
+                $('.extractionStatusCls, .reconciliationStatusCls,.accountingStatusCls,.journalsStatusCls').removeClass('sideProgessActive');
+                $('.transformationStatusCls').addClass('sideProgessActive');
+            }else if(posExt<20 && posTra<52 && posRecon<160 && posAcc>125 && posAJe>125){
+                $('.extractionStatusCls, .transformationStatusCls, .accountingStatusCls, .journalsStatusCls').removeClass('sideProgessActive');
+                $('.reconciliationStatusCls').addClass('sideProgessActive');
+            }else if(posExt<20 && posTra<20 && posRecon<20 && posAcc<160 && posAJe>125){
+                $('.extractionStatusCls, .transformationStatusCls, .reconciliationStatusCls, .journalsStatusCls').removeClass('sideProgessActive');
+                $('.accountingStatusCls').addClass('sideProgessActive');
+            }else if(posExt<20 && posTra<20 && posRecon<20 && posAcc<20 && posAJe<160){
+                $('.extractionStatusCls, .transformationStatusCls, .reconciliationStatusCls, .accountingStatusCls').removeClass('sideProgessActive');
+                $('.journalsStatusCls').addClass('sideProgessActive');
+            }
+            /* let offset = $("#reconciliationDiv").offset();
+            let posRecon = offset.top - $(window).scrollTop();
+            let offsetAcc = $("#accountingDiv").offset();
+            let posAcc = offset.top - $(window).scrollTop();
+            if (posAcc > -583) {
+                this.selectedModuleType = 0;
+                $('#md-tab-label-0-1').removeClass('mat-tab-label-active');
+                $('#md-tab-label-0-1').attr("tabindex", "-1");
+                $('#md-tab-label-0-1').attr("aria-selected", "false");
+                $('#md-tab-label-0-0').addClass('mat-tab-label-active');
+                $('#md-tab-label-0-0').attr("tabindex", "0");
+                $('#md-tab-label-0-0').attr("aria-selected", "true");
+                $('.mainNav .mat-ink-bar').css('left', '0px');
+            } else {
+                this.selectedModuleType = 1;
+                $('#md-tab-label-0-0').removeClass('mat-tab-label-active');
+                $('#md-tab-label-0-0').attr("tabindex", "-1");
+                $('#md-tab-label-0-0').attr("aria-selected", "false");
+                $('#md-tab-label-0-1').addClass('mat-tab-label-active');
+                $('#md-tab-label-0-1').attr("tabindex", "0");
+                $('#md-tab-label-0-1').attr("aria-selected", "true");
+                $('.mainNav .mat-ink-bar').css('left', '160px');
+            } */
+
+        });
+    }
+
+    changeMinDate() {
+        this.config.minDate = this.processFilter.startDate;
+    }
+
+    resetMinDate() {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+    }
+    selectedProcess: any;
+    showRecon: boolean = false;
+    testshow:boolean = false;
+    extractionValue:any;
+    transformationValue:any;
+    reconciliationValue:any;
+    accountingValue:any;
+    journalsValue:any;
+    selectedTabCCProcess:any;
+    ngOnInit() {
+        $(".dashboardV5").css('min-height', (this.commonService.screensize().height - 161) + 'px');
+        if (this.$sessionStorage.retrieve('userData')) {
+            this.userDetails = this.$sessionStorage.retrieve('userData');
+        }
+        this.selectedTabCCProcess = 0;
+        this.extractionValue = this.ccReconProcess[this.selectedTab].Extraction;
+        this.transformationValue = this.ccReconProcess[this.selectedTab].Transformation;
+        this.reconciliationValue = this.ccReconProcess[this.selectedTab].Reconciliation;
+        this.accountingValue = this.ccReconProcess[this.selectedTab].Accounting;
+        this.journalsValue = this.ccReconProcess[this.selectedTab].Journals;
+        /* if(this.testLabels.length>0){
+            this.testshow = true;
+        } */
+        this.processesList = [{"id":1,"processName":"Test Process"},{"id":2,"processName":"Test Process 2"},{"id":3,"processName":"Test Process 3"},{"id":4,"processName":"Test Process 4"},{"id":5,"processName":"Test Process 5"},{"id":6,"processName":"Test Process 6"},{"id":7,"processName":"Test Process 7"},{"id":8,"processName":"Test Process 8"}];
+        if(this.processesList.length>0){
+            this.selectedProcess = this.processesList[0].id;
+            this.activeItem = this.processesList[0];
+            this.selectedProcessName = this.processesList[0].processName;
+            console.log('processesList ' + JSON.stringify(this.processesList));
+        }
+        /* this.navbarService.getprocessessList(this.userDetails).subscribe((res: any) => {
+            this.processesList = res;```````````````````````````````
+            this.selectedProcess = this.processesList[0].id;
+            this.activeItem = this.processesList[0];
+            this.selectedProcessName = this.processesList[0].processName;
+            console.log('processesList ' + JSON.stringify(this.processesList));
+        }); */
+        console.log('reconStatusTest ::' + $("#reconStatusTest").width());
+        console.log('reconAgingTest ::' + $("#reconAgingTest").width());
+        /* this.testReconWidth = $("#reconStatusTest").width();
+        this.testReconHeight = $("#reconStatusTest").height(); */
+        this.pieChartReconciliationLabels = ['Reconciled', 'Un-Reconciled'];
+        this.pieChartReconciliation = [86, 14];
+        if (this.pieChartReconciliation.length > 0) {
+            this.showRecon = true;
+        }
+        if (this.pieChartAccounting.length > 0) {
+            this.showAccountingStatus = true;
+        }
+        if (this.pieChartActivityAccounting.length > 0) {
+            this.showActivityAccountingStatus = true;
+        }
+        this.lineChartData = [{ data : this.dayWiseSampleData[0]['1W'].dataValues, label: 'Reconcilied'},{ data : this.dayWiseSampleData[1]['1W'].dataValues, label: 'Un-Reconcilied'}];
+        this.lineChartDataAcc = [{ data : this.dayWiseSampleData[0]['1W'].dataValues, label: 'Accounted'},{ data : this.dayWiseSampleData[1]['1W'].dataValues, label: 'Un-Accounted'}];
+        this.lineChartDataJournals = [{ data : this.dayWiseSampleData[0]['1W'].dataValues, label: 'JE Posted'},{ data : this.dayWiseSampleData[1]['1W'].dataValues, label: 'JE Un-Posted'}];
+        this.lineChartLabels = this.dayWiseSampleData[0]['1W'].labelValue;
+        this.lineChartLabelsAcc = this.dayWiseSampleData[0]['1W'].labelValue;
+        this.lineChartLabelsJE = this.dayWiseSampleData[0]['1W'].labelValue;
+        this.unReconItemsValueKpi = this.dayWiseSampleData[0]['1W'].unReconItemsValue;
+        this.unReconItemsViolationKpi = this.dayWiseSampleData[0]['1W'].unReconItemsViolation;
+        this.awaitingAppCountKpi = this.dayWiseSampleData[0]['1W'].awaitingAppCount;
+        $('.transformationStatusCls, .reconciliationStatusCls, .accountingStatusCls, .journalsStatusCls').removeClass('sideProgessActive');
+        $('.extractionStatusCls').addClass('sideProgessActive');
+        $('.class1W').css('background-color','rgba(197, 202, 233, 0.3)');
+        $('.class3W, .class1M, .class3M').css('background-color','white');
+        this.selectedPeriod = "1 Week";
+        this.reconTabSelected('Un-Reconciled Items By Value');
+        if(this.unReconItemsValueKpi != null && this.unReconItemsViolationKpi != null && this.awaitingAppCountKpi != null){
+            $('.count').each(function () {
+                $(this).prop('Counter',0).animate({
+                    Counter: $(this).text()
+                }, {
+                    duration: 2000,
+                    easing: 'swing',
+                    step: function (now) {
+                        $(this).text(Math.ceil(now));
+                    }
+                });
+            });
+        }
+        this.getNotificationDetails();
+        this.moduleType = "All";
+        this.dayType = "7Days"
+    }
+moduleType: any;
+dayType:any;
+notificationList: any = [];
+    getNotificationDetails() {
+        console.log('this.userDetails ' + JSON.stringify(this.userDetails));
+        console.log('moduleType ' + this.moduleType + ' dayType ' + this.dayType);
+        if (this.userDetails) {
+            this.navbarService.fetchNotificationDetailsForDashBoard(this.userDetails, this.moduleType, this.dayType).subscribe((res: any) => {
+                if (this.moduleType == 'All') {
+                    $('.allNoti').addClass("allNotiactive");
+                    $('.reconNoti').removeClass("reconNotiactive");
+                    $('.accNoti').removeClass("accNotiactive");
+                    $('.jourNoti').removeClass("jourNotiactive");
+                } else if (this.moduleType == 'RECON') {
+                    $('.reconNoti').addClass("reconNotiactive");
+                    $('.allNoti').removeClass("allNotiactive");
+                    $('.accNoti').removeClass("accNotiactive");
+                    $('.jourNoti').removeClass("jourNotiactive");
+                } else if (this.moduleType == 'ACCOUNTING') {
+                    $('.accNoti').addClass("accNotiactive");
+                    $('.allNoti').removeClass("allNotiactive");
+                    $('.reconNoti').removeClass("reconNotiactive");
+                    $('.jourNoti').removeClass("jourNotiactive");
+                } else if (this.moduleType == 'JOURNAL_ENTRY') {
+                    $('.jourNoti').addClass("jourNotiactive");
+                    $('.allNoti').removeClass("allNotiactive");
+                    $('.reconNoti').removeClass("reconNotiactive");
+                    $('.accNoti').removeClass("accNotiactive");
+                }
+                this.notificationList = res;
+                console.log('this.notificationList ' + JSON.stringify(this.notificationList));
+            });
+        }
+    }
+
+    displaySelectedProcess(type){
+        console.log('selectedType :' + type);
+        if(type == 'extraction'){
+            $('.transformationStatusCls,.reconciliationStatusCls,.accountingStatusCls,.journalsStatusCls').removeClass('sideProgessActive');
+            $('.extractionStatusCls').addClass('sideProgessActive');
+            $('html, body').animate({
+                scrollTop: $("#extractionDiv").offset().top - 105
+            }, 2000);
+        }else if(type == 'transformation'){
+            $('.extractionStatusCls, .reconciliationStatusCls,.accountingStatusCls,.journalsStatusCls').removeClass('sideProgessActive');
+            $('.transformationStatusCls').addClass('sideProgessActive');
+            $('html, body').animate({
+                scrollTop: $("#transformationDiv").offset().top - 105
+            }, 2000);
+        }else if(type == 'reconciliation'){
+            $('.extractionStatusCls, .transformationStatusCls, .accountingStatusCls, .journalsStatusCls').removeClass('sideProgessActive');
+            $('.reconciliationStatusCls').addClass('sideProgessActive');
+            $('html, body').animate({
+                scrollTop: $("#reconciliationAct").offset().top - 105
+            }, 2000);
+        }else if(type == 'accounting'){
+            $('.extractionStatusCls, .transformationStatusCls, .reconciliationStatusCls, .journalsStatusCls').removeClass('sideProgessActive');
+            $('.accountingStatusCls').addClass('sideProgessActive');
+            $('html, body').animate({
+                scrollTop: $("#accountingAct").offset().top - 105
+            }, 2000);
+        }else if(type == 'journals'){
+            $('.extractionStatusCls, .transformationStatusCls, .reconciliationStatusCls, .accountingStatusCls').removeClass('sideProgessActive');
+            $('.journalsStatusCls').addClass('sideProgessActive');
+            $('html, body').animate({
+                scrollTop: $("#journalAct").offset().top - 105
+            }, 2000);
+        }
+    }
+    selectedPeriod:any;
+    selectedTabRec(type:any){
+        if(type == '1W'){
+            this.selectedPeriod = "1 Week";
+            this.selectedProcessAnalysis = "1 Week";
+            $('.class1W').css('background-color','rgba(197, 202, 233, 0.3)');
+            $('.class2W, .class1M, .class3M').css('background-color','white');
+            this.unReconItemsValueKpi = this.dayWiseSampleData[0][type].unReconItemsValue;
+            this.unReconItemsViolationKpi = this.dayWiseSampleData[0][type].unReconItemsViolation;
+            this.awaitingAppCountKpi = this.dayWiseSampleData[0][type].awaitingAppCount;
+        }else if(type == '2W'){
+            this.selectedPeriod = "2 Weeks";
+            this.selectedProcessAnalysis = "2 Weeks";
+            $('.class2W').css('background-color','rgba(197, 202, 233, 0.3)');
+            $('.class1W, .class1M, .class3M').css('background-color','white');
+            this.unReconItemsValueKpi = this.dayWiseSampleData[0][type].unReconItemsValue;
+            this.unReconItemsViolationKpi = this.dayWiseSampleData[0][type].unReconItemsViolation;
+            this.awaitingAppCountKpi = this.dayWiseSampleData[0][type].awaitingAppCount;
+        }else if(type == '1M'){
+            this.selectedPeriod = "1 Month";
+            this.selectedProcessAnalysis = "1 Month";
+            $('.class1M').css('background-color','rgba(197, 202, 233, 0.3)');
+            $('.class1W, .class2W, .class3M').css('background-color','white');
+            this.unReconItemsValueKpi = this.dayWiseSampleData[0][type].unReconItemsValue;
+            this.unReconItemsViolationKpi = this.dayWiseSampleData[0][type].unReconItemsViolation;
+            this.awaitingAppCountKpi = this.dayWiseSampleData[0][type].awaitingAppCount;
+        }else if(type == '3M'){
+            this.selectedPeriod = "3 Months";
+            this.selectedProcessAnalysis = "3 Months";
+            $('.class3M').css('background-color','rgba(197, 202, 233, 0.3)');
+            $('.class1W, .class2W, .class1M').css('background-color','white');
+            this.unReconItemsValueKpi = this.dayWiseSampleData[0][type].unReconItemsValue;
+            this.unReconItemsViolationKpi = this.dayWiseSampleData[0][type].unReconItemsViolation;
+            this.awaitingAppCountKpi = this.dayWiseSampleData[0][type].awaitingAppCount;
+        }
+        this.selectedDateRange = type;
+        console.log('selected Range ' + type);
+        $('.count').each(function () {
+            $(this).prop('Counter',0).animate({
+                Counter: $(this).text()
+            }, {
+                duration: 2000,
+                easing: 'swing',
+                step: function (now) {
+                    $(this).text(Math.ceil(now));
+                }
+            });
+        });
+        this.lineChartData = [{ data : this.dayWiseSampleData[0][this.selectedDateRange].dataValues, label: 'Reconcilied'},{ data : this.dayWiseSampleData[1][this.selectedDateRange].dataValues, label: 'Un-Reconcilied'}];
+        this.lineChartLabels = this.dayWiseSampleData[0][this.selectedDateRange].labelValue;
+    }
+    selectedDateRange:any;
+    selectedDateRangeAcc:any;
+    selectedDateRangeJe:any;
+    toggleRange(e){
+        console.log('range ' + e);
+        this.selectedDateRange = e.value;
+        console.log('selected Range ' + e.value);
+        this.lineChartData = [{ data : this.dayWiseSampleData[0][this.selectedDateRange].dataValues, label: 'Reconcilied'},{ data : this.dayWiseSampleData[1][this.selectedDateRange].dataValues, label: 'Un-Reconcilied'}];
+        this.lineChartLabels = this.dayWiseSampleData[0][this.selectedDateRange].labelValue;
+    }
+    
+    toggleRangeAcc(e){
+        console.log('range ' + e);
+        this.selectedDateRangeAcc = e.value;
+        console.log('selected Range ' + e.value);
+        this.lineChartDataAcc = [{ data : this.dayWiseSampleData[0][this.selectedDateRangeAcc].dataValues, label: 'Accounted'},{ data : this.dayWiseSampleData[1][this.selectedDateRangeAcc].dataValues, label: 'Un-Accounted'}];
+        this.lineChartLabelsAcc = this.dayWiseSampleData[0][this.selectedDateRangeAcc].labelValue;
+    }
+
+    toggleRangeJE(e){
+        console.log('range ' + e);
+        this.selectedDateRangeJe = e.value;
+        console.log('selected Range ' + e.value);
+        //this.lineChartData = [{ data : this.dayWiseSampleData[0][this.selectedDateRange].dataValues, label: 'Reconcilied'},{ data : this.dayWiseSampleData[1][this.selectedDateRange].dataValues, label: 'Un-Reconcilied'}];
+        this.lineChartDataJournals = [{ data : this.dayWiseSampleData[0][this.selectedDateRangeJe].dataValues, label: 'JE Posted'},{ data : this.dayWiseSampleData[1][this.selectedDateRangeJe].dataValues, label: 'JE Un-Posted'}];
+        this.lineChartLabelsJE = this.dayWiseSampleData[0][this.selectedDateRangeJe].labelValue;
+    }
+
+    public barChartOptions1:any = {
+        scaleShowVerticalLines: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        legend: {
+            position: 'bottom',
+            display: false
+        },
+        plugins: {
+            datalabels: {
+                display: false
+            }
+        },
+        scales: {
+            xAxes: [
+                {
+                    stacked: false /* ,
+                    display:true , */
+                }
+            ],
+            yAxes: [
+                {
+                    stacked: false,
+                    ticks: {
+                        min: 0,
+                        max: 100,
+                        callback: function (value) { return value + "%" }
+                    }
+                }
+            ]
+        }
+    };
+    public barChartLabels1:string[] = ['Dv1', 'Dv2', 'Dv3'];
+    public barChartType1:string = 'bar';
+    public barChartLegend1:boolean = true;
+    
+    public barChartData1:any[] = [
+        {data: [45, 35, 20], label: 'Un-Reconcilied'}
+    ];
+    chartClickedRecon(e){
+        console.log('e ' + e);
+        this.selectedProcessAnalysis = e.active["0"]._chart.config.data.labels[e.active["0"]._index];
+            let data = [
+                Math.round(Math.random() * 100),
+                45,
+                35,
+                20
+            ];
+            
+            let clone = JSON.parse(JSON.stringify(this.barChartData1));
+            clone[0].data = data;
+            this.barChartData1 = clone;
+
+    }
+    loadContent(e) {
+        console.log(e);
+        this.selectedTabCCProcess = e.index;
+        this.extractionValue = this.ccReconProcess[this.selectedTabCCProcess].Extraction;
+        this.transformationValue = this.ccReconProcess[this.selectedTabCCProcess].Transformation;
+        this.reconciliationValue = this.ccReconProcess[this.selectedTabCCProcess].Reconciliation;
+        this.accountingValue = this.ccReconProcess[this.selectedTabCCProcess].Accounting;
+        this.journalsValue = this.ccReconProcess[this.selectedTabCCProcess].Journals;
+        /* for
+        this.ccReconProcess.forEach(element => {
+            
+        }); */
+    }
+    activeItem: any;
+    selectedProcessName: any;
+    selectedProcessFun(col) {
+        console.log('selected process ::' + JSON.stringify(col));
+        this.activeItem = col;
+        this.selectedProcessName = col.processName;
+
+    }
+    showData(moduleName) {
+        this.currentModule = moduleName;
+        /* if(moduleName == 'reconciliation') {
+            this.moduleData = [{"name":"Recon 01","Processor":"paytm","currency":"USD","transactionDate":"19/02/18","status":"Un-Reconciled","amount":'25,315.00'},{"name":"Recon 02","Processor":"Payzapp","currency":"AUD","transactionDate":"16/03/18","status":"Un-Reconciled","amount":'25,831.00'},{"name":"Recon 03","Processor":"Cayan","currency":"INR","transactionDate":"10/04/18","status":"Un-Reconciled","amount":'26,347.00'},{"name":"Recon 04","Processor":"Paypal","currency":"EUR","transactionDate":"05/05/18","status":"Un-Reconciled","amount":'26,863.00'}];
+            
+        }else if(moduleName == 'accounting') {
+            this.moduleData = [{"name":"Account 01","Processor":"Payzapp","currency":"INR","transactionDate":"24/06/18","status":"Not-Accounted","amount":'27,895.00'},{"name":"Account 02","Processor":"Adyen","currency":"USD","transactionDate":"19/07/18","status":"Not-Accounted","amount":'28,411.00'},{"name":"Account 03","Processor":"Paypal","currency":"AUD","transactionDate":"13/08/18","status":"Not-Accounted","amount":'28,927.00'},{"name":"Account 04","Processor":"Zakpay","currency":"EUR","transactionDate":"07/09/18","status":"Not-Accounted","amount":'29,443.00'}];
+        }else {
+            this.moduleData = [{"name":"Journal 01","Processor":"Payzapp","currency":"USD","transactionDate":"16/12/18","status":"Un-Posted","amount":'31,507.00'},{"name":"Journal 02","Processor":"Paytm","currency":"AUD","transactionDate":"10/01/19","status":"Un-Posted","amount":'32,023.00'},{"name":"Journal 03","Processor":"Cayan","currency":"INR","transactionDate":"04/02/19","status":"Un-Posted","amount":'32,539.00'},{"name":"Journal 04","Processor":"Zakpay","currency":"EUR","transactionDate":"01/03/19","status":"Un-Posted","amount":'33,055.00'}];
+        } */
+    }
+
+    changeTab(event) {
+        /* if(type == 'Reconcilied'){
+            this.selectedTab = 1;
+        }else if(type == 'Un-Reconcilied'){
+            this.selectedTab = 0;
+        } */
+        this.selectedTab = event.index;
+        console.log('this.selectedTab ' + event.index);
+    }
+    visibleSidebar2;
+    openModuleSetting: any;
+
+    openSideBar(type) {
+        this.visibleSidebar2 = true;
+        this.openModuleSetting = type;
+    }
+
+    cancelReconSetting() {
+        if (this.openModuleSetting == 'Reconciliation Status') {
+            this.reconColorTemp = this.reconColor;
+            this.unReconColorTemp = this.unReconColor;
+            this.tempSelectedPostion = this.selectedPostion;
+            this.temppieChartReconciliationType = this.pieChartReconciliationType;
+            this.reconBackgroundTemp = this.reconBackground;
+            $(".reconBackgroundColor").css("background-color", this.reconBackgroundTemp);
+        } else if (this.openModuleSetting == 'Un-Reconcilied Transaction By Aging Bucket') {
+            this.tempagingColor = this.agingColor;
+            this.tempbarChartType = this.barChartType;
+            this.agingBucketBackgroundTemp = this.agingBucketBackground;
+            $(".agingBackgroundColor").css("background-color", this.agingBucketBackgroundTemp);
+            this.unReconAgingBucketColors = [{ backgroundColor: [this.tempagingColor, this.tempagingColor, this.tempagingColor, this.tempagingColor] }];
+        } else if (this.openModuleSetting == 'Un-Reconcilied Items By Value') {
+            this.tempunReconItemsByValueRadius = this.unReconItemsByValueRadius;
+            this.tempunReconItemsByValueOuterStrokeColor = this.unReconItemsByValueOuterStrokeColor;
+            this.tempunReconItemsByValueInnerStrokeColor = this.unReconItemsByValueInnerStrokeColor;
+            this.tempunReconItemsByValueTitleFontSize = this.unReconItemsByValueTitleFontSize;
+            this.tempunReconItemsByValueSubtitleFontSize = this.unReconItemsByValueSubtitleFontSize;
+            this.tempunReconItemsByValueTitleColor = this.unReconItemsByValueTitleColor;
+            this.tempunReconItemsByValueSubTitleColor = this.unReconItemsByValueSubTitleColor;
+            this.tempunReconItemsByValueSubTitleColor = this.unReconItemsByValueUnitsColor;
+        } else if (this.openModuleSetting == 'Un-Reconciliation Items By Violation') {
+            this.tempunReconItemsByViolationRadius = this.unReconItemsByViolationRadius;
+            this.tempunReconItemsByViolationOuterStrokeColor = this.unReconItemsByViolationOuterStrokeColor;
+            this.tempunReconItemsByViolationInnerStrokeColor = this.unReconItemsByViolationInnerStrokeColor;
+            this.tempunReconItemsByViolationTitleFontSize = this.unReconItemsByViolationTitleFontSize;
+            this.tempunReconItemsByViolationSubtitleFontSize = this.unReconItemsByViolationSubtitleFontSize;
+            this.tempunReconItemsByViolationTitleColor = this.unReconItemsByViolationTitleColor;
+            this.tempunReconItemsByViolationSubTitleColor = this.unReconItemsByViolationSubTitleColor;
+            this.tempunReconItemsByViolationSubTitleColor = this.unReconItemsByViolationUnitsColor;
+        } else if (this.openModuleSetting == 'Awaiting Approvals') {
+            this.tempreconAwaitingForApprovalRadius = this.reconAwaitingForApprovalRadius;
+            this.tempreconAwaitingForApprovalOuterStrokeColor = this.reconAwaitingForApprovalOuterStrokeColor;
+            this.tempreconAwaitingForApprovalInnerStrokeColor = this.reconAwaitingForApprovalInnerStrokeColor;
+            this.tempreconAwaitingForApprovalTitleFontSize = this.reconAwaitingForApprovalTitleFontSize;
+            this.tempreconAwaitingForApprovalTitleColor = this.reconAwaitingForApprovalTitleColor;
+        }
+    }
+    saveReconSetting() {
+        if (this.openModuleSetting == 'Reconciliation Status') {
+            this.reconColor = this.reconColorTemp;
+            this.unReconColor = this.unReconColorTemp;
+            /* this.selectedPostion = this.tempSelectedPostion; */
+            this.pieChartReconciliationType = this.temppieChartReconciliationType;
+            this.reconBackground = this.reconBackgroundTemp;
+            $(".reconBackgroundColor").css("background-color", this.reconBackground);
+            this.pieChartReconciliationColors = [{ backgroundColor: [this.reconColor, this.unReconColor] }];
+        } else if (this.openModuleSetting == 'Un-Reconcilied Transaction By Aging Bucket') {
+            this.agingColor = this.tempagingColor;
+            this.barChartType = this.tempbarChartType;
+            this.agingBucketBackground = this.agingBucketBackgroundTemp;
+            $(".agingBackgroundColor").css("background-color", this.agingBucketBackground);
+            this.unReconAgingBucketColors = [{ backgroundColor: [this.agingColor, this.agingColor, this.agingColor, this.agingColor] }];
+        } else if (this.openModuleSetting == 'Un-Reconcilied Items By Value') {
+            this.unReconItemsByValueRadius = this.tempunReconItemsByValueRadius;
+            this.unReconItemsByValueOuterStrokeColor = this.tempunReconItemsByValueOuterStrokeColor;
+            this.unReconItemsByValueInnerStrokeColor = this.tempunReconItemsByValueInnerStrokeColor;
+            this.unReconItemsByValueTitleFontSize = this.tempunReconItemsByValueTitleFontSize;
+            this.unReconItemsByValueSubtitleFontSize = this.tempunReconItemsByValueSubtitleFontSize;
+            this.unReconItemsByValueTitleColor = this.tempunReconItemsByValueTitleColor;
+            this.unReconItemsByValueSubTitleColor = this.tempunReconItemsByValueSubTitleColor;
+            this.unReconItemsByValueUnitsColor = this.tempunReconItemsByValueSubTitleColor;
+        } else if (this.openModuleSetting == 'Un-Reconciliation Items By Violation') {
+            this.unReconItemsByViolationRadius = this.tempunReconItemsByViolationRadius;
+            this.unReconItemsByViolationOuterStrokeColor = this.tempunReconItemsByViolationOuterStrokeColor;
+            this.unReconItemsByViolationInnerStrokeColor = this.tempunReconItemsByViolationInnerStrokeColor;
+            this.unReconItemsByViolationTitleFontSize = this.tempunReconItemsByViolationTitleFontSize;
+            this.unReconItemsByViolationSubtitleFontSize = this.tempunReconItemsByViolationSubtitleFontSize;
+            this.unReconItemsByViolationTitleColor = this.tempunReconItemsByViolationTitleColor;
+            this.unReconItemsByViolationSubTitleColor = this.tempunReconItemsByViolationSubTitleColor;
+            this.unReconItemsByViolationUnitsColor = this.tempunReconItemsByViolationSubTitleColor;
+        } else if (this.openModuleSetting == 'Awaiting Approvals') {
+            this.reconAwaitingForApprovalRadius = this.tempreconAwaitingForApprovalRadius;
+            this.reconAwaitingForApprovalOuterStrokeColor = this.tempreconAwaitingForApprovalOuterStrokeColor;
+            this.reconAwaitingForApprovalInnerStrokeColor = this.tempreconAwaitingForApprovalInnerStrokeColor;
+            this.reconAwaitingForApprovalTitleFontSize = this.tempreconAwaitingForApprovalTitleFontSize;
+            this.reconAwaitingForApprovalTitleColor = this.tempreconAwaitingForApprovalTitleColor;
+        }
+    }
+
+    /* Accounting */
+    //currentAccModule: any;
+    showAccountingData(moduleName) {
+        this.currentAccModule = moduleName;
+    }
+
+    changeAccTab(event) {
+        this.selectedAccTab = event.index;
+        console.log('this.selectedAccTab ' + event.index);
+    }
+
+    changeAccActivityTab(event) {
+        this.selectedAccTabActivity = event.index;
+        console.log('this.selectedAccTabActivity ' + event.index);
+    }
+    selectedModuleType: any = 0;
+    changeModuleType(event) {
+        /* console.log('selectedModuleType ' + this.selectedModuleType);
+        console.log('event.index ' + event.index); */
+        if (event.index == 0) {
+            $('html, body').animate({
+                scrollTop: $("#reconciliationDiv").offset().top - 105
+            }, 2000);
+        } else if (event.index == 1) {
+            $('html, body').animate({
+                scrollTop: $("#accountingDiv").offset().top - 105
+            }, 2000);
+        }
+        /* console.log('selectedModuleType ' + this.selectedModuleType);
+        console.log('event.index ' + event.index); */
+    }
+
+    fetchReconciliationStatus(e){
+        //var chartElement = e.active[0]._chart.getElementAtEvent(event);
+        
+        /* console.log('selected region ::' + e.active[0]._chart.config.data.labels[e.active[0]._index]); */
+        if(e.active.length>0){
+            let labelName = e.active[0]._chart.config.data.labels[e.active[0]._index];
+            if(labelName == 'Reconciled'){
+                this.selectedTab = 1;
+            }else if(labelName == 'Un-Reconciled'){
+                this.selectedTab = 0;
+            }
+        } 
+    }
+    unReconAgingBucketDataSelected:any;
+    showAgingFilterData:boolean = false;
+    selectedRegion:any;
+    fetchUnReconciliationAging(e){
+        /* var chartElement = e.active[0]._chart.getElementAtEvent(event); */
+        if(e.active.length>0){
+            this.showAgingFilterData = true;
+            this.selectedRegion = e.active[0]._chart.config.data.labels[e.active[0]._index];
+            if(this.selectedRegion != undefined){
+                this.unReconAgingBucketDataSelected = this.unAccountedAgingWiseData[this.selectedRegion];
+            }
+            
+        }else{
+            this.showAgingFilterData = false;
+        }
+    }
+
+    fetchAccountingStatus(e){
+        if(e.active.length>0){
+            let labelName = e.active[0]._chart.config.data.labels[e.active[0]._index];
+            if(labelName == 'Accounted'){
+                this.selectedAccTab = 2;
+            }else if(labelName == 'In Process'){
+                this.selectedAccTab = 1;
+            }else if(labelName == 'Un-Accounted'){
+                this.selectedAccTab = 0;
+            }
+        } 
+    }
+
+    fetchAccountingActivity(e){
+        if(e.active.length>0){
+            let labelName = e.active[0]._chart.config.data.labels[e.active[0]._index];
+            if(labelName == 'Accounted For Un-Identified'){
+                this.selectedAccTabActivity = 0;
+            }else if(labelName == 'Accounted For Identified'){
+                this.selectedAccTabActivity = 1;
+            }
+        } 
+    }
+
+    unAccountedAgingBucketDataSelected:any;
+    showAgingFilterDataUnAcc:boolean = false;
+    selectedUnAccRegion:any;
+    fetchAccountingAging(e){
+        /* if(e.active.length>0){
+            let labelName = e.active[0]._chart.config.data.labels[e.active[0]._index];
+             if(labelName == 'Reconciled'){
+                this.selectedTab = 1;
+            }else if(labelName == 'Un-Reconciled'){
+                this.selectedTab = 0;
+            }else if(labelName == 'Un-Reconciled'){
+                this.selectedTab = 0;
+            }else if(labelName == 'Un-Reconciled'){
+                this.selectedTab = 0;
+            } 
+        } */ 
+        if(e.active.length>0){
+            this.selectedUnAccRegion = e.active[0]._chart.config.data.labels[e.active[0]._index];
+            if(this.selectedUnAccRegion != undefined){
+                this.unAccountedAgingBucketDataSelected = this.unAccountedAgingBucketData[this.selectedUnAccRegion];
+                this.showAgingFilterDataUnAcc = true;
+            }
+            
+        }else{
+            this.showAgingFilterDataUnAcc = false;
+        }
+    }
+
+    changeReportView() {
+        this.tableView1 = this.tableView1 ? false : true;
+    }
+
+    /* Function on hover of recon detailsTab *//* 
+    reconTabHover(type){
+        if(type == 'Un-Reconciled Items By Value'){
+            $('.reconItemsValueClass').css('background','aliceblue');
+        }else if(type == 'Un-Reconciled Items By Violation'){
+            $('.reconItemsViolationClass').css('background','blanchedalmond');
+        }else if(type == 'Awaiting For Approvals'){
+            $('.reconAwaitingAppClass').css('background','lavender');
+        }
+    } */
+    
+    selectedDetailTabRec:any;
+    reconTabSelected(type){
+        this.selectedDetailTabRec = type;
+        if(type == 'Un-Reconciled Items By Value'){
+            $('.reconItemsValueClass').addClass('active');
+            $('.reconItemsViolationClass, .reconAwaitingAppClass').removeClass('active');
+        }else if(type == 'Un-Reconciled Items By Violation'){
+            $('.reconItemsViolationClass').addClass('active');
+            $('.reconItemsValueClass, .reconAwaitingAppClass').removeClass('active');
+        }else if(type == 'Awaiting For Approvals'){
+            $('.reconAwaitingAppClass').addClass('active');
+            $('.reconItemsValueClass, .reconItemsViolationClass').removeClass('active');
+        }
+    }
+}

@@ -1,0 +1,138 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { MappingSet } from './mapping-set.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+@Injectable()
+export class MappingSetService {
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private resourceUrl = 'agreeapplication/api/mapping-sets';
+    private resourceSearchUrl = 'agreeapplication/api/_search/mapping-sets';
+    private mappingSetsByTenantIdUrl = 'agreeapplication/api/mappingSetsByTenantId'; 
+    private getAllMappingSetsByTenantId = 'agreeapplication/api/getMappingSetsByTenantId?tenantId=';
+    private postingMappingSetsWithValues = 'agreeapplication/api/postingMappingSetAndValues?tenantId='+ this.UserData.tenantId +'&userId='+this.UserData.id;
+    private getMappingSetsWithValuesUrl = 'agreeapplication/api/fetchMappingSetAndValuesById?id=';
+    private updateMappingSetUrl = 'agreeapplication/api/createOrUpdateMappingSet?tenantId='+ this.UserData.tenantId +'&userId='+this.UserData.id;
+    private updateMappingSetValuesUrl = 'agreeapplication/api/createOrUpdateMappingSetValues?userId='+this.UserData.id;
+    private lookupCodesUrl = 'agreeapplication/api/lookup-codes/';
+    constructor(private http: Http, private dateUtils: JhiDateUtils,private $sessionStorage: SessionStorageService) { }
+
+    create(mappingSet: MappingSet): Observable<MappingSet> {
+        const copy = this.convert(mappingSet);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(mappingSet: MappingSet): Observable<MappingSet> {
+        const copy = this.convert(mappingSet);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<MappingSet> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.createdDate = this.dateUtils
+            .convertDateTimeFromServer(entity.createdDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(mappingSet: MappingSet): MappingSet {
+        const copy: MappingSet = Object.assign({}, mappingSet);
+
+        copy.createdDate = this.dateUtils.toDate(mappingSet.createdDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(mappingSet.lastUpdatedDate);
+        return copy;
+    }
+    getMappingSetsByTenantId(): Observable<MappingSet> {
+        return this.http.get(`${this.mappingSetsByTenantIdUrl}/${this.UserData.tenantId}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            console.log('jsonResponse'+JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    getListMappingSetsByTenantId(): Observable<any>{
+        return this.http.get(this.getAllMappingSetsByTenantId + this.UserData.tenantId).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    postMappingSetsWithValues(mappingSetsWithValues): Observable<any>{
+        return this.http.post(this.postingMappingSetsWithValues,mappingSetsWithValues).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    getMappingSetsWithValues(mappingSetId): Observable<any>{
+        return this.http.get(this.getMappingSetsWithValuesUrl+mappingSetId).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    updateMappingSet(mappingSet): Observable<any>{
+        return this.http.put(this.updateMappingSetUrl, mappingSet).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    updateMappingSetValues(mappingsetValues): Observable<any>{
+        return this.http.put(this.updateMappingSetValuesUrl, mappingsetValues).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        })
+    }
+
+    lookupCodes(lookupType): Observable<any>{
+        return this.http.get(this.lookupCodesUrl + lookupType + '/' + this.UserData.tenantId).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        })
+    }
+
+}

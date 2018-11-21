@@ -1,0 +1,592 @@
+<!-- rule-group-approvals.html ruleGroupService-->
+<div class="row leftmargin-20" style="border-bottom: 1px solid #eee;">
+	<div class="col-md-6">
+		<span>
+			<h4 style="margin-top: 6px;">
+				<b>Rules</b>
+			</h4>
+		</span>
+	</div>
+	<div class="col-md-6">
+		<!-- *ngIf="approvalRuleGRoupWithRules.rules" -->
+		<!-- <button md-icon-button class="pull-right  md-36 color-green" mdTooltip="Confirm Tagingg these rules" (click)="saveToSession()"
+		 *ngIf="!isViewOnly && f.valid">
+			*ngIf="!isViewOnly"
+			<md-icon>local_offer</md-icon>
+		</button> -->
+		<!-- <button md-icon-button class="pull-right  md-36 color-gray" mdTooltip="Fill Mandatory Fields" *ngIf="!isViewOnly && !f.valid">
+			*ngIf="!isViewOnly"
+			<md-icon>local_offer</md-icon>
+		</button> -->
+		<button md-icon-button class="pull-right  md-36" mdTooltip="New Rule" *ngIf="!isViewOnly" (click)="addNewRuleObject(ruleGroupService.approvalRuleGRoupWithRules.rules.length,0)">
+			<md-icon>add</md-icon>
+		</button>
+	</div>
+</div>
+<form novalidate #approvalForm="ngForm">
+	<div class="row sub-heading-content rule-group-accounting" id="hideIconTable">
+		<ng-template ngFor let-ruleObj [ngForOf]="ruleGroupService.approvalRuleGRoupWithRules.rules" let-i="index" ;>
+			<p-accordion [multiple]="true">
+				<p-accordionTab [selected]="true" (mouseover)="mouseOverRule = i" (mouseleave)="mouseOverRule=-1">
+					<p-header>
+						<span *ngIf="ruleObj && ruleObj.ruleCode">{{ruleObj.ruleCode}}</span>
+						<span *ngIf="!ruleObj.ruleCode">New Rule - {{i+1}}</span>
+						<!-- <button md-icon-button class="pull-right"
+		(click)="clearRuleObject(i);false"
+		*ngIf="!isViewOnly && mouseOverRule==i" mdTooltip="Clear"
+		id="showIcon">
+		<md-icon>clear</md-icon>
+	</button -->
+						<i class="fa fa-eraser pull-right" aria-hidden="true" style="margin-top:4px" (click)="clearRuleObject(i);false" mdTooltip="Clear rule" *ngIf="!isViewOnly && mouseOverRule==i && !ruleCreationInWQ && !ruleObj.ruleGroupAssignId"
+						id="showIcon"></i>
+						<button md-icon-button class="pull-right " style="top: -10px;" (click)="deleteRuleObject(i);false" *ngIf="!isViewOnly && mouseOverRule==i && (!ruleObj.ruleGroupAssignId )" mdTooltip="Delete rule"
+						 mdTooltip="Delete Rule" id="showIcon">
+							<md-icon>delete</md-icon>
+						</button>
+						<button md-icon-button class="pull-right  md-36" style="color: black !important" mdTooltip="Active" *ngIf="ruleObj.assignmentFlag && isViewOnly">
+							<md-icon>check_circle</md-icon>
+						</button>
+						<button md-icon-button class="pull-right  md-36" style="color: black !important" mdTooltip="Inactive" *ngIf="!ruleObj.assignmentFlag && isViewOnly">
+							<md-icon>error</md-icon>
+						</button>
+					</p-header>
+
+
+					<div class="accordioncontenet ">
+						<!-- Rule Details start -->
+						<div class="row">
+							<!-- <div class="col-md-1 pull-right">
+								<span class="linetext-input">{{i+1}}</span>
+							</div> -->
+							<div class="col-md-3">
+
+								<form class="form-horizontal" [formGroup]="ruleListformArray[i]" *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && ruleListformArray && ruleListformArray[i]">
+									<md-input-container class="example-full-width ">
+										<input formControlName="data" mdInput placeholder="Rule Name" auto-complete [(ngModel)]="ruleObj.ruleCode" [source]="ruleListArrays[i]"
+										 [list-formatter]="autocompleListFormatter" value-property-name="id" display-property-name="ruleCode" required (valueChanged)="setRuleObject($event,i,ruleListformArray[i].value)"
+										/>
+									</md-input-container>
+								</form>
+								<md-input-container class="example-full-width " *ngIf="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+									<input mdInput [(ngModel)]="ruleObj.ruleCode" placeholder="Rule Name" [ngClass]="{'color-black' : true}" [disabled]="true"
+									 name="ruleNameDisplay{{i}}" required #ruleNameDisplay{{i}}="ngModel"> </md-input-container>
+							</div>
+							<div class="col-md-2">
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54);padding-bottom: 3px;" *ngIf="!ruleObj.id ">
+									Select data source :</div>
+								<!-- <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" *ngIf=" ruleObj.sourceDVId && (!ruleObj.id ) && (ruleObj.sourceDVId && ruleObj.sourceDVId.length>0)">
+									Selected data source :</div> -->
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="margin-top: -5px;">
+									<angular2-multiselect [data]="sourceDataViewsAndColumns" [(ngModel)]="ruleObj.sourceDVId" [settings]="dropdownSettings" (onSelect)="fetchSrcColumns($event,i)"
+									 name="sdv{{i}}" #sdv{{i}}="ngModel" *ngIf="!ruleObj.id  && sourceDataViewsAndColumns && sourceDataViewsAndColumns.length>0">
+									</angular2-multiselect>
+									<span class="cuppa-single-selection-underline" *ngIf="(!ruleObj.id ) && sourceDataViewsAndColumns && sourceDataViewsAndColumns.length>0"></span>
+								</div>
+
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.sourceDataViewName" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Data View" name="sourceDataViewName{{i}}" required #sourceDataViewName{{i}}="ngModel">
+								</md-input-container>
+							</div>
+							<div class="col-md-2">
+								<md-form-field >
+									<input mdInput [mdDatepicker]="stpicker" placeholder="From" [ngClass]="{'color-black' : true}" [min]="today" (dateChange)="ruleGroupService.approvalRuleGRoupWithRules.rules[i].startDateChange=true;startDateChanged(ruleObj.startDate,i);" [disabled]="isViewOnly || ruleObj.id && ruleObj.id>0"
+									 [(ngModel)]="ruleObj.startDate" [max]="ruleObj.endDate" name="rulestartDate{{i}}" required>
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly && !ruleObj.id "></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field>
+								<!-- <md-form-field *ngIf="ruleObj.endDate">
+									<input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : true}" [disabled]="isViewOnly || ruleObj.id && ruleObj.id>0"
+									 [(ngModel)]="ruleObj.startDate" [max]="ruleObj.endDate" name="rulestartDate{{i}}" required [max]="ruleObj.endDate">
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field> -->
+
+								<!-- <md-form-field class="example-full-width ">
+									<input mdInput [mdDatepicker]="stpicker" placeholder="Start date" [ngClass]="{'color-black' : true}" [disabled]="isViewOnly || ruleObj.id && ruleObj.id>0"
+									 [(ngModel)]="ruleObj.startDate" name="rulestartDate{{i}}" required>
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly "></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field> -->
+							</div>
+							<div class="col-md-2">
+								<md-form-field class="example-full-width ">
+									<input mdInput [mdDatepicker]="edpicker" placeholder="To" [min]="ruleObj.startDate"  (dateChange)="ruleGroupService.approvalRuleGRoupWithRules.rules[i].endDateChange=true"[ngClass]="{'color-black' : true}"
+									 [disabled]="isViewOnly || ruleObj.id" [(ngModel)]="ruleObj.endDate" name="endDate{{i}}">
+									<md-datepicker-toggle mdSuffix [for]="edpicker"*ngIf="!isViewOnly && !ruleObj.id "></md-datepicker-toggle>
+									<md-datepicker #edpicker></md-datepicker>
+								</md-form-field>
+							</div>
+
+							<div class="col-md-1" *ngIf="isEdit && ruleObj.ruleGroupAssignId" style="top:25px;">
+								<md-slide-toggle class="pull-right" color="primary" mdTooltip="Set Status" placeholder="status" [(ngModel)]="ruleObj.assignmentFlag"
+								 name="status{{i}}" #status{{i}}="ngModel">
+								</md-slide-toggle>
+							</div>
+
+						</div>
+						<div class="row">
+							<div class="col-md-1"></div>
+
+							<!-- <div class="col-md-5">
+								<form class="form-horizontal" [formGroup]="srcDataViewformsArray[i]" *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && srcDataViewformsArray && srcDataViewformsArray[i]">
+									<md-input-container class="example-full-width ">
+										<input formControlName="data" mdInput (ngModelChange)="changeSourceDataView($event,i)" placeholder="Source DataView" auto-complete
+										 [(ngModel)]="ruleObj.sourceDataViewName" [source]="sourceDataViewsArrays[i]" [list-formatter]="autocompleteSrcDataViewListFormatter"
+										 required value-property-name="id" display-property-name="dataViewDispName" (valueChanged)="fetchSrcColumns($event,i,srcDataViewformsArray[i].value)"
+										/>
+									</md-input-container>
+								</form>
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+									<input mdInput [(ngModel)]="ruleObj.sourceDataViewName" placeholder="Data View" [ngClass]="{'color-black' : true}" [disabled]="true"
+									 name="dataView{{i}}" required #dataView{{i}}="ngModel"> </md-input-container>
+							</div> -->
+						</div>
+						<!-- Rule Details end -->
+						<!-- Line Items For Rule -->
+
+
+						<div class="row">
+							<div class="col-md-11">
+								<span>
+									<h4></h4>
+								</span>
+							</div>
+							<div class="col-md-1" *ngIf="ruleObj.lineItems && !isViewOnly ">
+								<button md-icon-button class="pull-right" mdTooltip="Add New Line Item" (click)="addNewLineItem(i,ruleObj.lineItems.length,0)">
+									<md-icon>add</md-icon>
+								</button>
+							</div>
+							<div class="col-md-2"></div>
+						</div>
+
+						<!-- starttttt -->
+
+						<!-- Mapping Criteria start -->
+						<div class="row" *ngIf="ruleObj.sourceDataViewId">
+							<div class="col-md-7">
+								<div  class="div-border-styles">
+									<p-accordionTab [selected]="true">
+										<p-header>
+											<span>Rule Conditions</span>
+										</p-header>
+										<div class="accordioncontenet">
+											<div class="row">
+												<div class="col-md-12  col-xs-12" style="position: relative; z-index: 1;"></div>
+												<table class="table" *ngIf="ruleObj.approvalConditions">
+													<thead class="text-nowrap">
+														<tr>
+															<th>Sequence</th>
+															<th>Column</th>
+															<th>Operator</th>
+															<th>Value</th>
+															<th>Logical Operator</th>
+															<th></th>
+														</tr>
+
+													</thead>
+													<tbody class="text-nowrap">
+														<tr *ngFor="let ruleCondition of ruleObj.approvalConditions;let mcIndex=index" (mouseover)="mouseOverRC = mcIndex" (mouseleave)="mouseOverRC=-1"
+														 id="hideIconTable">
+															<td>
+
+																<span style="top: 16px" class="linetext-input" *ngIf="!ruleObj.id || ruleObj.id<=0">{{mcIndex+1}}</span>
+
+																<span style="top: 1px" class="linetext-input" *ngIf="ruleObj.id && ruleObj.id>0">{{mcIndex+1}}</span>
+																<!-- 	
+																								<span class="linetext-input" *ngIf="isViewOnly || (ruleObj.id || ruleObj.id>0)"> {{mcIndex+1}} </span>
+																								<div class="col-md-1" style="top: 28px" *ngIf="!isViewOnly  &&  (!ruleObj.id  || ruleObj.id <=0)">
+																									<span class="linetext-input"> {{mcIndex+1}} </span>
+																								</div> -->
+															</td>
+
+															<td>
+																<span class="" *ngIf="isViewOnly || (ruleObj.id>0)">
+																	{{ruleCondition.columnName}} </span>
+																<md-select [(ngModel)]="ruleCondition.columnId" (change)="SelectColumn(i,mcIndex,ruleCondition.columnId)" [ngClass]="{'color-black' : true}" class="md-no-placeholder"
+																 [disabled]="isViewOnly" name="column{{i}}{{mcIndex}}" required #column{{i}}{{mcIndex}}="ngModel" 
+																 *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && columnLOV  && columnLOV[i] &&  columnLOV[i].length>0">
+																	<md-option *ngFor="let col of columnLOV[i] " [value]="col.id">
+																		{{ col.columnName}} </md-option>
+																</md-select>
+															</td>
+
+															<td>
+																<span class="" *ngIf="isViewOnly || ( ruleObj.id>0)">
+																	{{ruleCondition.operatorMeaning}} </span>
+																<md-select [(ngModel)]="ruleCondition.operator" (change)="SelectOperator()" [ngClass]="{'color-black' : true}" [disabled]="!ruleCondition.columnId" class="md-no-placeholder"
+																 name="operator{{i}}{{mcIndex}}" required #operator{{i}}{{mcIndex}}="ngModel" 
+																 *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && !ruleObj.ruleGroupAssignId &&operators && operators[i]&&operators[i][mcIndex] &&  operators[i]&&operators[i][mcIndex].length>0 ">
+																	<md-option *ngFor="let operator of operators[i][mcIndex]" [value]="operator.lookUpCode">
+																		{{ operator.meaning}}
+																	</md-option>
+																</md-select>
+															</td>
+
+															<td *ngIf="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																<span class="">
+																	{{ruleCondition.value}} </span>
+															</td>
+															<td *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0)">
+																<md-input-container class="example-full-width">
+																	<input class="inputHeight" mdInput class="md-no-placeholder" [(ngModel)]="ruleCondition.value" [ngClass]="{'color-black' : true}" [disabled]="" name="value{{i}}{{mcIndex}}"
+																	 required #value{{i}}{{mcIndex}}="ngModel"> </md-input-container>
+															</td>
+															<td>
+																<span class="" *ngIf="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																	{{ruleCondition.logicalOperatorMeaning}} </span>
+																<md-select [(ngModel)]="ruleCondition.logicalOperator" class="md-no-placeholder" (change)="SelectOperator()" [ngClass]="{'color-black' : true}" [disabled]=""
+																 name="logoperator{{i}}{{mcIndex}}" #logoperator{{i}}{{mcIndex}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0)">
+																	<md-option *ngFor="let operator of logicalOperators" [value]="operator.lookUpCode"> {{ operator.meaning}} </md-option>
+																</md-select>
+															</td>
+															<td>
+																<button md-icon-button class="" (click)="deleteRuleCondition(i,mcIndex)" mdTooltip="Delete condition" id="showIcon" *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && !ruleObj.ruleGroupAssignId">
+																	<md-icon>delete</md-icon>
+																</button>
+																<button md-icon-button class="color-yellow-green" mdTooltip="Add New Condition" (click)="addNewCondition(i,ruleObj.approvalConditions.length)"
+																 *ngIf="ruleCondition.logicalOperator && mcIndex == ruleObj.approvalConditions.length-1 && !isViewOnly && !ruleObj.ruleGroupAssignId">
+																	<md-icon>exposure_plus_1</md-icon>
+																</button>
+															</td>
+														</tr>
+													</tbody>
+												</table>
+											</div>
+
+										</div>
+									</p-accordionTab>
+								</div>
+
+							</div>
+							<div class="col-md-5">
+								<div class="div-border-styles">
+									<p-accordion [multiple]="true">
+
+										<p-accordionTab [selected]="true">
+											<p-header>
+												<span>Rule Actions</span>
+											</p-header>
+											<div class="accordioncontenet">
+												<div class="row">
+													<div class="col-md-8">
+
+														<div class="display-flex radio-sm-btn">
+
+															<md-radio-group [(ngModel)]="ruleObj.approvalActions.assigneeType" (change)="addNewActionDetails(i)" layout="row" [ngModelOptions]="{standalone: true}">
+																<md-radio-button value="user" [ngClass]="{'color-black' : ruleObj.id || !ruleObj.id}" [disabled]="isViewOnly || ruleObj.id &&  ruleObj.id>0">User(s)</md-radio-button>
+
+																<md-radio-button value="group" [ngClass]="{'color-black' : ruleObj.id || !ruleObj.id}" [disabled]="isViewOnly || ruleObj.id &&  ruleObj.id>0">Group</md-radio-button>
+															</md-radio-group>
+														</div>
+													</div>
+
+													<div class="col-md-1"></div>
+													<div class="col-md-3" *ngIf="ruleObj.approvalActions.assigneeType == 'group' && !isCreateNew && ruleObj.approvalActions.actionDetails && ruleObj.approvalActions.actionDetails.length>0">
+														<md-input-container class="example-full-width">
+															<input class="inputHeight" mdInput placeholder="Group Name" [(ngModel)]="ruleObj.approvalActions.actionDetails[0].assigneeName"
+															 [ngClass]="{'color-black' : true}" [disabled]="true" name="assigneeName{{i}}" #assigneeName{{i}}="ngModel"> </md-input-container>
+													</div>
+
+													<!-- <div class="col-md-3" *ngIf="(isViewOnly || (ruleObj.id || ruleObj.id>0) )	&& ((ruleObj.approvalActions.assigneeType == 'user' && ruleObj.approvalActions.actionDetails && ruleObj.approvalActions.actionDetails.length>0) || ruleObj.approvalActions.assigneeType == 'group')">
+														<md-input-container class="example-full-width">
+															<input class="inputHeight" mdInput [(ngModel)]="ruleObj.approvalNeededTypeMeaning" name="approvalNeededTypeMeaning{{i}}"
+															 #approvalNeededTypeMeaning{{i}}="ngModel" [ngClass]="{'color-black' : true}" placeholder="Approvers Needed"
+															 [disabled]="true"> </md-input-container>
+													</div> -->
+													<!-- <div class="col-md-3" *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && ruleObj.approvalActions.assigneeType == 'user'">
+														<md-select class="example-full-width" [(ngModel)]="ruleObj.approvalNeededType" name="approvalNeededType{{i}}" #approvalNeededType{{i}}="ngModel"
+														 required placeholder="Approvers Needed" [ngClass]="{'color-black' : true}" *ngIf="(ruleObj.approvalActions.assigneeType == 'user' && ruleObj.approvalActions.actionDetails && ruleObj.approvalActions.actionDetails.length>0) || ruleObj.approvalActions.assigneeType == 'group'">
+															<md-option *ngFor="let type of approvalType" [value]="type.lookUpCode"> {{ type.meaning}} </md-option>
+														</md-select>
+													</div> -->
+
+
+
+												</div>
+												<br>
+
+												<div class="row" style="padding-bottom:11px" *ngIf="ruleObj.approvalActions.assigneeType == 'group' && isCreateNew && ruleObj.approvalActions.actionDetails && ruleObj.approvalActions.actionDetails .length>0 && ruleObj.approvalActions.actionDetails[0] ">
+
+													<div class="col-md-5">
+														<md-select class="example-full-width" [ngClass]="{'color-black' : true}" [(ngModel)]="ruleObj.approvalActions.actionDetails[0].assigneeId"
+														 placeholder="Group Name" name="assigneeId{{i}}" #assigneeId{{i}}="ngModel" required (change)="getGroupMembers(ruleObj.approvalActions.actionDetails[0].assigneeId)">
+															<md-option *ngFor="let group of groupsList" [value]="group.id">
+																{{ group.groupName}} </md-option>
+														</md-select>
+													</div>
+													<div class="col-md-3">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)">
+															Auto App</div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 7px;">
+															<md-checkbox class="appGrpCheckBox" [(ngModel)]="ruleObj.approvalActions.actionDetails[0].autoApproval" name="autoApproval{{i}}{{0}}"
+															 #autoApproval{{i}}{{0}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[0].autoApproval" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+														</div>
+
+													</div>
+													<div class="col-md-2">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)">
+															Email </div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 7px;">
+															<md-checkbox class="appGrpCheckBox" [(ngModel)]="ruleObj.approvalActions.actionDetails[0].email" name="email{{i}}{{0}}" #email{{i}}{{0}}="ngModel"
+															 [checked]="ruleObj.approvalActions.email" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+														</div>
+
+													</div>
+													<div class="col-md-2">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)">
+															Notification </div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 7px;">
+															<md-checkbox class="appGrpCheckBox" [(ngModel)]="ruleObj.approvalActions.actionDetails[0].notification" name="notification{{i}}{{0}}"
+															 #notification{{i}}{{0}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[0].notification" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+														</div>
+
+													</div>
+												</div>
+												<div class="row" style="padding-top: 14px;" *ngIf="ruleObj.approvalActions.assigneeType && ruleObj.approvalActions.assigneeType == 'group' && groupMembers && groupMembers.length>0">
+													<!-- <div class="col-md-2">
+														<div *ngIf="!ruleObj.id" class="display-flex">
+															<div *ngFor="let appType of approvalTypeLov[i]" required class="occurnc-circle" [ngClass]="appType.value ? 'occ-active' : ''"
+															 [mdTooltip]="appType.name" (click)="selectAppType(appType,i)">{{appType.code}}</div>
+														</div>
+														<div *ngIf="ruleObj.id" class="display-flex">
+															<div *ngFor="let appType of approvalTypeLov[i]" required class="occurnc-circle" [ngClass]="appType.value ? 'occ-active' : ''"
+															 [mdTooltip]="appType.name">{{appType.code}}</div>
+														</div>
+
+													</div> -->
+													<div class="col-md-4">
+														<!-- <b><span>Group members</span></b> -->
+														<div class="div-border-styles">
+
+															<ng-template ngFor let-grpMem [ngForOf]="groupMembers" let-grpMem="index" ;>
+																<span style="font-size: 14px;color: rgba(0,0,0,.54)">
+																	{{grpMem.userName}}
+																</span>
+																<br>
+															</ng-template>
+														</div>
+													</div>
+
+												</div>
+											</div>
+											<ng-template ngFor let-actionDetail [ngForOf]="ruleObj.approvalActions.actionDetails" let-actionDetailsIndex="index" ; *ngIf="ruleObj.approvalActions.assigneeType && ruleObj.approvalActions.assigneeType == 'user'">
+												<div class="row" style="padding-bottom: 8px;">
+													<div class="col-md-4" *ngIf="!ruleObj.id">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" *ngIf="actionDetailsIndex == 0 ">
+															User Name:</div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " >
+															<angular2-multiselect [data]="usersList" [(ngModel)]="actionDetail.approverId" [settings]="userDropdownSettings" (onSelect)="setUser($event,i,actionDetailsIndex)"
+															 name="user{{i}}{{actionDetailsIndex}}" #user{{i}}{{actionDetailsIndex}}="ngModel">
+															</angular2-multiselect>
+															<span class="cuppa-single-selection-underline" *ngIf="(!ruleObj.id ) && sourceDataViewsAndColumns && sourceDataViewsAndColumns.length>0"></span>
+														</div>
+													</div>
+													<div class="col-md-4" *ngIf="ruleObj.id && ruleObj.id>0">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" *ngIf="actionDetailsIndex == 0">
+															User Name:</div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 7px;">
+															<span>
+																{{actionDetail.assigneeName}}
+															</span>
+														</div>
+													</div>
+													<div class="col-md-2">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54);    white-space: nowrap;" *ngIf="actionDetailsIndex == 0">
+															Auto App </div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 15px;">
+															<md-checkbox class="appGrpCheckBox" [(ngModel)]="actionDetail.autoApproval" *ngIf="!isViewOnly && !ruleObj.id && usersList && usersList.length>0"
+															 name="autoApproval{{i}}{{actionDetailsIndex}}" #autoApproval{{i}}{{actionDetailsIndex}}="ngModel" [checked]="actionDetail.autoApproval">
+															</md-checkbox>
+
+															<md-checkbox *ngIf="ruleObj.ruleGroupAssignId" [(ngModel)]="actionDetail.autoApproval" name="autoApproval{{i}}{{actionDetailsIndex}}"
+															 #autoApproval{{i}}{{actionDetailsIndex}}="ngModel" [checked]="actionDetail.autoApproval" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+														</div>
+													</div>
+													<div class="col-md-2">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" *ngIf="actionDetailsIndex == 0">
+															Email </div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 15px;">
+															<md-checkbox class="appGrpCheckBox" [(ngModel)]="actionDetail.email" *ngIf="!isViewOnly && !ruleObj.id && usersList && usersList.length>0"
+															 name="email{{i}}{{actionDetailsIndex}}" #email{{i}}{{actionDetailsIndex}}="ngModel" [checked]="actionDetail.email"
+															 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+															<md-checkbox *ngIf="ruleObj.ruleGroupAssignId" [(ngModel)]="actionDetail.email" name="email{{i}}{{actionDetailsIndex}}" #email{{i}}{{actionDetailsIndex}}="ngModel"
+															 [checked]="actionDetail.email" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+														</div>
+													</div>
+													<div class="col-md-2">
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" *ngIf="actionDetailsIndex == 0">
+															Notification </div>
+														<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 15px;">
+															<md-checkbox class="appGrpCheckBox" [(ngModel)]="actionDetail.notification" *ngIf="!isViewOnly && !ruleObj.id && usersList && usersList.length>0"
+															 name="notification{{i}}{{actionDetailsIndex}}" #notification{{i}}{{actionDetailsIndex}}="ngModel" [checked]="actionDetail.notification"
+															 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+															<md-checkbox *ngIf="ruleObj.ruleGroupAssignId" [(ngModel)]="actionDetail.notification" name="notification{{i}}{{actionDetailsIndex}}"
+															 #notification{{i}}{{actionDetailsIndex}}="ngModel" [checked]="actionDetail.notification" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+															</md-checkbox>
+														</div>
+													</div>
+													<div class="display-flex col-md-1" *ngIf="ruleObj.ruleGroupAssignId == null &&  (!ruleObj.id ||   ruleObj.id<=0)  && usersList && usersList.length>0"
+													 style=" font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+														<button md-icon-button class="pull-right " (click)="deleteApprover(i,actionDetailsIndex)" mdTooltip="Delete approver">
+															<md-icon>delete</md-icon>
+														</button>
+														<button md-icon-button class="color-yellow-green" mdTooltip="Add New User" (click)="addNewUser(i,actionDetailsIndex+1)" *ngIf="actionDetailsIndex == ruleObj.approvalActions.actionDetails.length-1 ">
+															<md-icon>exposure_plus_1</md-icon>
+														</button>
+													</div>
+												</div>
+											</ng-template>
+							</div>
+							<!-- <div class="row" *ngIf="ruleObj.approvalActions.assigneeType && ruleObj.approvalActions.assigneeType == 'user'">
+												<span *ngIf="!ruleObj.approvalActions.actionDetails || ruleObj.approvalActions.actionDetails.length<=0">Approvers not found</span>
+
+												<table class="table" *ngIf="ruleObj.approvalActions.actionDetails && ruleObj.approvalActions.actionDetails.length>0">
+													<thead class="text-nowrap">
+														<tr>
+															<th width="10%">S.no</th>
+															<th width="25%">User Name</th>
+															<th width="12%">Auto Approval</th>
+															<th width="12%">Email</th>
+															<th width="12%">Notification</th>
+														</tr>
+
+													</thead>
+													<tbody class="text-nowrap" *ngIf="ruleObj.approvalActions.assigneeType == 'group' &&  ruleObj.approvalActions.actionDetails&& ruleObj.approvalActions.actionDetails.length>0 &&ruleObj.approvalActions.actionDetails[0].assigneeId">
+														<tr *ngFor="let grpMem of groupMembers;let actionIndex=index">
+															<td>
+																<div class="col-md-1" style="top: 4px;">
+																	<span class="linetext-input"> {{actionIndex +1}} </span>
+																</div>
+															</td>
+															<td>{{grpMem.loginName}}</td>
+															<td>
+
+																	<md-checkbox [(ngModel)]="ruleObj.approvalActions.actionDetails[actionIndex].autoApproval" name="autoApproval{{i}}{{actionIndex}}"
+																	 #autoApproval{{i}}{{actionIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionIndex].autoApproval"
+																	 [disabled]="isViewOnly || !ruleObj.id">
+																	</md-checkbox>
+																</td>
+																<td>
+																	<md-checkbox [(ngModel)]="ruleObj.approvalActions.actionDetails[actionIndex].email" name="email{{i}}{{actionIndex}}" #email{{i}}{{actionIndex}}="ngModel"
+																	 [checked]="ruleObj.approvalActions.email" [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																	</md-checkbox>
+																</td>
+																<td>
+																	<md-checkbox [(ngModel)]="ruleObj.approvalActions.actionDetails[actionIndex].notification" name="notification{{i}}{{actionIndex}}"
+																	 #notification{{i}}{{actionIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionIndex].notification"
+																	 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																	</md-checkbox>
+																</td>
+														</tr>
+													</tbody>
+
+													<tbody *ngIf="ruleObj.approvalActions.assigneeType == 'user'">
+														<tr *ngFor="let actionDetail of ruleObj.approvalActions.actionDetails;let actionDetailsIndex = index">
+															<td>
+
+																<span style="top: 28px" class="linetext-input" *ngIf="!ruleObj.id || ruleObj.id<=0">{{actionDetailsIndex+1}}</span>
+
+																<span style="top: 1px" class="linetext-input" *ngIf="ruleObj.id && ruleObj.id>0">{{actionDetailsIndex+1}}</span>
+															
+															</td>
+															<td>
+
+																<span class="linetext-input" *ngIf="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																	{{ruleObj.approvalActions.actionDetails[actionDetailsIndex].assigneeName}}
+																</span>
+																<div class="col-md-12" *ngIf="usersList && usersList.length>0">
+
+																		<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" >
+																				 User Name:</div>
+																			<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="padding-top: 7px;">
+																				<angular2-multiselect [data]="usersList" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].approverId" [settings]="userDropdownSettings" (onSelect)="setUser($event,i,actionDetailsIndex)"
+																				 name="user{{i}}{{actionDetailsIndex}}" #user{{i}}{{actionDetailsIndex}}="ngModel" >
+																				</angular2-multiselect>
+																				<span class="cuppa-single-selection-underline" *ngIf="(!ruleObj.id ) && sourceDataViewsAndColumns && sourceDataViewsAndColumns.length>0"></span>
+																			</div>
+
+																	<form class="form-horizontal" [formGroup]="userListformArray[i][actionDetailsIndex]" *ngIf="!isViewOnly &&  (!ruleObj.id  || ruleObj.id <=0) && userListformArray && userListformArray[i] && userListformArray[i][actionDetailsIndex]">
+																		<md-input-container class="example-full-width">
+																			<input formControlName="data" mdInput auto-complete required [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].assigneeName"
+																			 [source]="userListLOV" [list-formatter]="autocompleListFormatterForUser" value-property-name="id" display-property-name="login"
+																			 (valueChanged)="setUser($event,i,actionDetailsIndex,userListformArray[i][actionDetailsIndex].value)" />
+																		</md-input-container>
+																	</form>
+																</div>
+															</td>
+															<td>
+																<md-checkbox class="approvalCheckBox" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].autoApproval"
+																 *ngIf="!isViewOnly && !ruleObj.id && usersList && usersList.length>0" name="autoApproval{{i}}{{actionDetailsIndex}}"
+																 #autoApproval{{i}}{{actionDetailsIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].autoApproval">
+																</md-checkbox>
+
+																<md-checkbox *ngIf="ruleObj.ruleGroupAssignId" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].autoApproval"
+																 name="autoApproval{{i}}{{actionDetailsIndex}}" #autoApproval{{i}}{{actionDetailsIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].autoApproval"
+																 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																</md-checkbox>
+															</td>
+															<td>
+																<md-checkbox class="approvalCheckBox" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].email" *ngIf="!isViewOnly && !ruleObj.id && usersList && usersList.length>0"
+																 name="email{{i}}{{actionDetailsIndex}}" #email{{i}}{{actionDetailsIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].email"
+																 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																</md-checkbox>
+																<md-checkbox *ngIf="ruleObj.ruleGroupAssignId" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].email"
+																 name="email{{i}}{{actionDetailsIndex}}" #email{{i}}{{actionDetailsIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].email"
+																 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																</md-checkbox>
+															</td>
+															<td>
+																<md-checkbox class="approvalCheckBox" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].notification"
+																 *ngIf="!isViewOnly && !ruleObj.id && usersList && usersList.length>0" name="notification{{i}}{{actionDetailsIndex}}"
+																 #notification{{i}}{{actionDetailsIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].notification"
+																 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																</md-checkbox>
+																<md-checkbox *ngIf="ruleObj.ruleGroupAssignId" [(ngModel)]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].notification"
+																 name="notification{{i}}{{actionDetailsIndex}}" #notification{{i}}{{actionDetailsIndex}}="ngModel" [checked]="ruleObj.approvalActions.actionDetails[actionDetailsIndex].notification"
+																 [disabled]="isViewOnly || (ruleObj.id || ruleObj.id>0)">
+																</md-checkbox>
+															</td>
+															<td>
+																<div *ngIf="actionDetailsIndex == ruleObj.approvalActions.actionDetails.length-1 && ruleObj.ruleGroupAssignId == null &&  (!ruleObj.id ||   ruleObj.id<=0)  && usersList && usersList.length>0"
+																 style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;line-height: 50px !important;">
+																	<button md-icon-button class="color-yellow-green" mdTooltip="Add New User" (click)="addNewUser(i,actionDetailsIndex+1)">
+																		<md-icon>exposure_plus_1</md-icon>
+																	</button>
+																</div>
+															</td>
+														</tr>
+													</tbody>
+
+												</table>
+											</div> -->
+						</div>
+						</p-accordionTab>
+						</p-accordion>
+
+					</div>
+
+					</div>
+	</div>
+
+
+	<!-- endddddd -->
+
+	</div>
+
+	</p-accordionTab>
+	</p-accordion>
+	</ng-template>
+
+
+
+	</div>
+
+</form>

@@ -1,0 +1,455 @@
+<div class="component-body reconcile-main">
+	<div class="row component-title botom-dotted-blue-border">
+		<div class="col-lg-11 col-md-11 col-sm-11 col-xs-11 pageTitle">
+			<h2>Reconciliation Work Queue <i style="font-size:20px;" *ngIf="!isVisibleA">({{ruleGroupName}})</i></h2>
+		</div>
+		<div class="col-lg-1 col-md-1 col-sm-1 col-xs-1">
+			<button style="font-size:16px;margin-top:20px;" class="pull-right" md-icon-button *ngIf="isVisibleA" (click)="toggleSB()"
+			 mdTooltip="Toggle Query"><i  class="material-icons">keyboard_arrow_up</i></button>
+			<button style="font-size:16px;margin-top:20px;" class="pull-right" md-icon-button *ngIf="!isVisibleA" (click)="toggleSB()"
+			 mdTooltip="Toggle Query"><i  class="material-icons">keyboard_arrow_down</i></button>
+		</div>
+	</div>
+	<div class="col-md-12">
+		<horizontal-split-pane primary-component-minsize="25" primary-component-initialratio="0.2" [primary-component-toggled-off]="!isVisibleA">
+			<div class="split-pane-content-primary">
+				<div class="upper recon-query-window row">
+					<!-- <div class="col-md-6">
+						<md-select placeholder="Project Name" class="example-full-width" required name="projectName">
+							<md-option>
+								Project Name1</md-option>
+							<md-option> Project Name2</md-option>
+						</md-select>
+					</div> -->
+					<div class="col-md-4">
+						<md-select placeholder="Rule Group Name" class="example-full-width" required name="type" [(ngModel)]="ruleGroupId" (change)="fetchCountAndAmountByRuleGroupId(ruleGroupId)">
+
+							<md-option *ngFor="let type of ruleGroups" [value]="type.id">
+								{{ type.name }} </md-option>
+						</md-select>
+					</div>
+				</div>
+			</div>
+			<div *ngIf="isReconProcess" class="split-pane-content-secondary">
+				<div class="lower">
+					<div class="recon-process-window row">
+						<div class="col-lg-6">
+							<div class="pageTitle">
+								<h4>Source Data:</h4>
+							</div>
+							<div class="table-responsive" style="max-height: 160px;height:auto;">
+								<table class="table table-bordered table-hover">
+									<thead class="tableheader" style="background-color: #f6f7f9;">
+										<tr>
+											<th>View Name</th>
+											<th colspan="2" class="text-center">Total</th>
+											<th colspan="2" class="text-center">Reconcile</th>
+											<th colspan="2" class="text-center">Un-Reconcile</th>
+										</tr>
+										<tr>
+											<th></th>
+											<th class="text-center">Count</th>
+											<th class="text-center">Amount</th>
+											<th class="text-center">Count</th>
+											<th class="text-center">Amount</th>
+											<th class="text-center">Count</th>
+											<th class="text-center">Amount</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr>
+
+										</tr>
+										<tr *ngFor="let col of sourceDataViews">
+											<td><a (click)="fetchCountAmountOnSourceSelect(col.viewId)">{{col.viewName}}</a></td>
+											<td class="text-right">{{col.total.count}}</td>
+											<td class="text-right">{{col.total.amount}}</td>
+											<td class="text-right">{{col.reconciled.count}}</td>
+											<td class="text-right">{{col.reconciled.amount}}</td>
+											<td class="text-right">{{col.unReconciled.count}}</td>
+											<td class="text-right">{{col.unReconciled.amount}}</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+						<div class="col-lg-6">
+							<!-- <span class="fa fa-bars hand ripple pull-right sbclose" (click)="toggleSB()"></span> -->
+							<div class="pageTitle">
+								<h4>Target Data:</h4>
+							</div>
+							<div class="table-responsive">
+								<perfect-scrollbar style="max-height: 160px;height:auto;">
+									<table class="table table-bordered table-hover">
+										<thead class="tableheader" style="background-color: #f6f7f9;">
+											<tr>
+												<th>View Name</th>
+												<th colspan="2" class="text-center">Total</th>
+												<th colspan="2" class="text-center">Reconcile</th>
+												<th colspan="2" class="text-center">Un-Reconcile</th>
+											</tr>
+											<tr>
+												<th></th>
+												<th class="text-center">Count</th>
+												<th class="text-center">Amount</th>
+												<th class="text-center">Count</th>
+												<th class="text-center">Amount</th>
+												<th class="text-center">Count</th>
+												<th class="text-center">Amount</th>
+											</tr>
+										</thead>
+										<tbody>
+											<tr *ngFor="let col of targetDataViews">
+												<td><a (click)="fetchRecordsOnTargetSelect(col.viewId)">{{col.viewName}}</a></td>
+												<td class="text-right">{{col.total.count}}</td>
+												<td class="text-right">{{col.total.amount}}</td>
+												<td class="text-right">{{col.reconciled.count}}</td>
+												<td class="text-right">{{col.reconciled.amount}}</td>
+												<td class="text-right">{{col.unReconciled.count}}</td>
+												<td class="text-right">{{col.unReconciled.amount}}</td>
+											</tr>
+										</tbody>
+									</table>
+								</perfect-scrollbar>
+							</div>
+						</div>
+						</div>
+					<div class="upper recon-main-actions row table-responsive" style="display:flex;">
+						<div class="col-md-2 text-center">
+							<p-chart type="pie" width="180" height="180" [data]="sourceAmounts" [options]="pieChartOptions" (onDataSelect)="selectedData($event,sourceDataViewId,'source',ruleGroupId);"></p-chart>
+						</div>
+						<div class="col-md-8">
+							<div class="col-md-12 row" style="margin:0;">
+								<div class="col-md-6 col-sm-12">
+									<button md-icon-button class="ripple color-gray pull-right" mdTooltip="Advanced Filter" aria-hidden="true" (click)="toggleSourceFilter = true;fetchDataViewColumns(sourceDataViewId,'source');">
+									<i class="fa fa-filter fa-2x" aria-hidden="true"></i>
+										</button>
+									<input class="mySearchBox pull-right" #sgb placeholder="search">
+								</div>
+								<div class="col-md-6 col-sm-12">
+									<button class="pull-left" md-raised-button (click)="onClickFindMatch();">Find
+										Match</button>
+									<button class="pull-left" md-raised-button (click)="buildRule();">Build
+										Rule</button>
+									<button class="pull-left" md-raised-button (click)="openUnReconDialog();">Un-Reconcile</button>
+								</div>
+							</div>
+							<div class="col-md-12 custom-filter">
+								<p-dialog header="Advanced Filter" [(visible)]="toggleSourceFilter">
+									<div id="custom_filter">
+										<div class="table-responsive">
+											<table id="customFilterTable" class="table">
+												<thead class="tableheader">
+													<tr>
+														<th>Column Name</th>
+														<th>Select Operation</th>
+														<th>Value</th>
+														<th></th>
+													</tr>
+												</thead>
+												<tbody class="createmode">
+													<tr *ngFor="let col of sfilterColumns;let i = index;" id="hideIconTable">
+														<td>
+															<div>
+																<md-select [(ngModel)]="col.columnName" name="columnName" #colDataType="ngModel" (change)="onSelectColumnName(i,col.columnName);">
+																	<md-option *ngFor="let columnName of sdataViewColumns" [value]="columnName" required> {{columnName}} </md-option>
+																</md-select>
+															</div>
+														</td>
+														<td>
+															<div>
+																<md-select [(ngModel)]="col.operator" name="operator_{{i}}" #operator="ngModel">
+																	<md-option *ngFor="let operator of operatorsList[i]" [value]="operator.lookUpCode"> {{ operator.meaning }} </md-option>
+																</md-select>
+															</div>
+														</td>
+														<td>
+															<div>
+																<input mdInput [(ngModel)]="col.columnValue" name="columnValue">
+															</div>
+														</td>
+														<td>
+															<div id="showIcon" class="display-flex">
+																<div *ngIf="sfilterColumns.length > 1" style="color: red; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+																	<button md-icon-button class="color-dark-red pull-right" mdTooltip="Delete Line" (click)="removeLine(i,'source');">
+																	<md-icon>delete</md-icon>
+																</button>
+																</div>
+																<div style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+																	<button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add New Line" (click)="addColumn('source');">
+																	<md-icon>exposure_plus_1</md-icon>
+																</button>
+																</div>
+															</div>
+
+														</td>
+													</tr>
+												</tbody>
+											</table>
+											<div class="pull-right">
+												<button md-raised-button class="pull-right" aria-hidden="true" (click)="fetchRecordsByCustomFilter(sourceDataViewId,'source','unreconciled');">
+															  Apply</button>
+												<button md-raised-button class="pull-right" aria-hidden="true" (click)="filterPagination = false;clearFilter('source');fetchRecordsByTypeAndStatus(sourceDataViewId,'source',ruleGroupId);">
+													Clear<!-- <i class="fa fa-filter" aria-hidden="true" style="font-size: 24px;color:grey;"></i>
+													<i class="fa fa-times" aria-hidden="true" style="font-size: 13px;color:grey;position:relative;left:-9px;top:6px;"></i> -->
+												</button>
+											</div>
+										</div>
+									</div>
+								</p-dialog>
+							</div>
+						</div>
+						<div class="col-md-2 text-center">
+							<p-chart type="pie" width="180" height="180" [data]="targetAmounts" [options]="pieChartOptions" (onDataSelect)="selectedData($event,targetDataViewId,'target',ruleGroupId)"></p-chart>
+						</div>
+					</div>
+					<div class="recon-source-tables" *ngIf="showSourceTables">
+						<vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="!isVisibleB">
+							<div id="sticky" class="leftpane split-pane-content-primary">
+								<div class="narrowpad">
+									<div class="sub-side-navbar recon-sidebar">
+										<md-radio-group class="example-radio-group customStatuses" [(ngModel)]="customFilterStatus">
+											<md-radio-button class="example-radio-button col-md-12 all" [value]="" (click)="sideBarFilteringData(sourceDataViewId, ruleGroupId)">
+												All
+											</md-radio-button>
+											<md-radio-button class="example-radio-button col-md-12 reconciled" value="reconciled" (click)="onClickRadioCheck(sourceDataViewId, ruleGroupId,'source','reconciled')">Reconciled</md-radio-button>
+  											<md-radio-button  class="example-radio-button col-md-12 unreconciled" value="unreconciled" (click)="onClickRadioCheck(sourceDataViewId, ruleGroupId,'source','unreconciled')">Un-Reconciled</md-radio-button>
+										</md-radio-group>
+										<perfect-scrollbar>
+											<p-accordion [multiple]="false" (onOpen)="onTabOpen($event)">
+												<p-accordionTab *ngFor="let filterList of sideBarFilters; let i = index" header="{{filterList.columnName}}">
+													<ul>
+														<li *ngFor="let col of sideBarFilters[i].columnValuesSet; let j = index">
+															 <p-checkbox label="{{col.name}}" [(ngModel)]="sideBarFiltersColumnValue" value="{{col.name}}"></p-checkbox>({{col.count}})
+															<!-- <md type="checkbox" class="example-margin" [(ngModel)]="sideBarFiltersColumnValue[j]" name="sideBarFiltersColumnValue{{i}}" value="col.name" #sideBarFiltersColumnValue{{i}}="ngModel"><span>{{col.name}} ({{col.count}})</span> -->
+														</li>
+													</ul>
+												</p-accordionTab>
+											</p-accordion>
+											 <!-- <p-checkbox [(ngModel)]="sideBarFiltersColumnValue" label="iceman" value="iceman"></p-checkbox>  -->
+										</perfect-scrollbar>
+										<div class="pull-right" *ngIf="isVisibleB"><button *ngIf="sideBarFiltersColumnValue.length > 0" md-raised-button (click)="fetchRecordsSidebarFilter(sourceDataViewId)">Apply</button></div>							
+									</div>
+								</div>
+							</div>
+							<div class="split-pane-content-secondary rightpane">
+								<div style="text-align:right;">
+									<span class="recon-inners-toggle fa fa-bars hand ripple Rsbclose" (click)="toggleSideBar()" mdTooltip="Toggle Sidebar"></span>
+									<p-multiSelect [options]="sourceColumnOptions" [(ngModel)]="sourceHeaderColumns"></p-multiSelect>
+								</div>
+								<div class="source-view-table table-responsive">
+									<p-dataTable [value]="sourceDataViewLines" [responsive]="true" scrollable="true" scrollHeight="500px" reorderableColumns="true"
+									 columnResizeMode="expand" resizableColumns="true" selectionMode="multiple" [(selection)]="selectedSourceLinesToReconcile"
+									 [headerCheckboxToggleAllPages]="true" [globalFilter]="sgb" #dt [rows]="10" (onRowSelect)="selectedSourceLines()"
+									 (onRowUnselect)="selectedSourceLines()">
+										<!-- <p-column *ngIf="sourceDataViewLines.length > 0" [style]="{'width':'50px','text-align':'left'}" selectionMode="multiple"></p-column> -->
+										<p-column *ngFor="let col of sourceHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+										 [sortable]="true"> </p-column>
+									</p-dataTable>
+								</div>
+								<div class="pull-right" *ngIf="sourceRecordsLength > itemsPerPage">
+									<md-paginator [length]="sourceRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page"
+									 (page)="onPaginateChange($event,'source')">
+									</md-paginator>
+								</div>
+							</div>
+						</vertical-split-pane>
+					</div>
+					<!-- </div>
+				</horizontal-split-pane> *ngIf="!enableruleBlock"-->
+					<div class="target-data">
+						<p-dialog header="Target Data" [resizable]="true" [responsive]="true" [(visible)]="display">
+							<div id="target_data_view">
+								<div *ngIf="!enableruleBlock">
+									<div class="row target-action-buttons">
+										<div class="col-md-6 target-selection">
+											<label> Select Target View :</label>
+											<md-select class="example-full-width" name="targetDataView">
+												<md-option *ngFor="let type of targetDataViews" [value]="type.viewName"> {{type.viewName}} </md-option>
+											</md-select>
+										</div>
+										<div class="col-md-6">
+											<button md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="save" (click)="postingRecordstoRecocile();">
+									<md-icon>save</md-icon>
+								</button>
+										</div>
+									</div>
+									<hr>
+									<div class="row target-filters">
+										<div class="col-md-3 col-sm-12">
+											<input class="mySearchBox" #tgb placeholder="search">
+										</div>
+										<div class="col-md-1 col-sm-12">
+											<button md-icon-button class="ripple color-gray" mdTooltip="Advanced Filter" aria-hidden="true" (click)="toggleTargetFilter = true;fetchDataViewColumns(targetDataViewId,'target')">
+									<i class="fa fa-filter fa-2x" aria-hidden="true"></i>
+								</button>
+										</div>
+										<div class="col-md-8 col-sm-12">
+											<div class="col-md-12">
+												<span class="pull-right" style="background-color: cadetblue; padding: 0 20px;">{{sourceTargetPercent}}%</span>
+												<span class="pull-right" style="padding: 0 20px;">{{selectedSourceTotal}}</span>
+												<label class="pull-right">Running Total :</label>
+											</div>
+											<div class="col-md-12  pull-right">
+												<div class="pull-right" style="padding:2px 14px;">
+													<md-checkbox mdTooltip="Reconcile with difference"></md-checkbox>
+													<!-- <span>Reconcile with difference</span> -->
+												</div>
+												<span class="pull-right" style="padding: 0 20px; background-color: chocolate;">{{selectedSourceTotal
+										- selectedTargetTotal}}</span>
+												<label class="pull-right" style="padding-right:24px;">Difference :</label>
+												<!-- <p-chips [(ngModel)]="values"></p-chips> -->
+												<!-- <input class="pull-right" name="source" required> -->
+											</div>
+										</div>
+									</div>
+									<div *ngIf="toggleTargetFilter" id="custom_filter" class="custom-filter">
+										<div class="table-responsive">
+											<table id="customFilterTable" class="table">
+												<thead class="tableheader">
+													<tr>
+														<th>Column Name</th>
+														<th>Select Operation</th>
+														<th>Value</th>
+														<th style="display: flex;width:150px">
+															<button md-icon-button class="pull-right color-green" style="font-size: 24px;" aria-hidden="true" mdTooltip="apply" (click)="fetchRecordsByCustomFilter(targetDataViewId,'target','unreconciled');">
+													<md-icon>search</md-icon>
+												</button>
+															<button md-icon-button class="pull-right color-grey" aria-hidden="true" mdTooltip="clear" (click)="filterPagination = false;clearFilter('target');fetchRecordsByTypeAndStatus(targetDataViewId,'target',ruleGroupId);">
+													<i class="fa fa-filter" aria-hidden="true" style="font-size: 24px;color:grey;"></i>
+													<i class="fa fa-times" aria-hidden="true" style="font-size: 13px;color:grey;position:relative;left:-9px;top:6px;"></i>
+												</button>
+															<button md-icon-button class="pull-right color-grey" style="font-size: 24px;" aria-hidden="true" mdTooltip="close" (click)="toggleTargetFilter = false;">
+													<md-icon>close</md-icon>
+												</button>
+
+														</th>
+
+													</tr>
+												</thead>
+												<tbody class="createmode">
+													<tr *ngFor="let col of tfilterColumns;let i = index;" id="hideIconTable">
+														<td>
+															<div>
+																<md-select [(ngModel)]="col.columnName1" name="columnName1" #colDataType="ngModel" (change)="onSelectColumnName(i,col.columnName1);">
+																	<md-option *ngFor="let columnName of tdataViewColumns" [value]="columnName" required> {{columnName}}
+																	</md-option>
+																</md-select>
+
+															</div>
+														</td>
+														<td>
+															<div>
+																<md-select [(ngModel)]="col.operator1" name="operator1_{{i}}" #operator="ngModel">
+																	<md-option *ngFor="let operator of operatorsList[i]" [value]="operator.lookUpCode"> {{ operator.meaning }} </md-option>
+																</md-select>
+															</div>
+														</td>
+														<td>
+
+															<!-- <p-chips [style]="{'width':'150px','text-align':'left'}" [(ngModel)]="col.columnValue" ngDefaultControl></p-chips> -->
+															<div>
+																<input mdInput [(ngModel)]="col.columnValue" name="columnValue">
+															</div>
+														</td>
+														<td style="width:150px;">
+															<div class="display-flex" id="showIcon">
+																<div *ngIf="tfilterColumns.length > 1" style="color: red; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+																	<button md-icon-button class="color-dark-red pull-right" mdTooltip="Delete Line" (click)="removeLine(i,'target');">
+																	<md-icon>delete</md-icon>
+																</button>
+																</div>
+																<div style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+																	<button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add New Line" (click)="addColumn('target');">
+															<md-icon>exposure_plus_1</md-icon>
+														</button>
+																</div>
+															</div>
+														</td>
+													</tr>
+												</tbody>
+											</table>
+										</div>
+									</div>
+									<div style="text-align: right">
+										<p-multiSelect [options]="targetColumnOptions" [(ngModel)]="targetHeaderColumns"></p-multiSelect>
+									</div>
+									<div class="traget-view-table table-responsive" *ngIf="showTargetTables">
+
+										<p-dataTable [value]="targetDataViewLines" scrollable="true" reorderableColumns="true" columnResizeMode="expand" resizableColumns="true"
+										 selectionMode="multiple" scrollHeight="300px" [(selection)]="selectedTargetLinesToReconcile" [headerCheckboxToggleAllPages]="true"
+										 [globalFilter]="tgb" (onRowSelect)="selectedTargetLines()" (onRowUnselect)="selectedTargetLines()" #dt [rows]="5"
+										 [paginator]="false">
+
+											<!-- <p-column [style]="{'width':'50px','text-align':'left'}" selectionMode="multiple"></p-column> -->
+											<p-column *ngFor="let col of targetHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+											 [sortable]="true"> </p-column>
+										</p-dataTable>
+										<div class="pull-right" *ngIf="targetRecordsLength > itemsPerPage">
+											<md-paginator [length]="targetRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page"
+											 (page)="onPaginateChange($event,'target')"></md-paginator>
+										</div>
+									</div>
+								</div>
+								<!-- <div *ngIf="enableruleBlock">
+									<button md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="save" (click)="postRule()">
+							<md-icon>save</md-icon>
+						</button>
+									<button md-icon-button class="pull-right color-gray" mdTooltip="Close" aria-hidden="true" (click)="enableruleBlock = false;">
+							<md-icon>clear</md-icon>
+						</button>
+									<hr>
+									<jhi-rule-group-reconciliation [accountingMode]="create"></jhi-rule-group-reconciliation>
+								</div>
+							</div> -->
+
+
+						</p-dialog>
+						<div class="acct-build-rule">
+						<p-dialog header="Build Rule" [resizable]="true" [responsive]="true" [(visible)]="reconcileService.ENABLE_RULE_BLOCK">
+							<div id="target_data_view">
+								<div *ngIf="reconcileService.ENABLE_RULE_BLOCK">
+								<!-- 	<button md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="save" (click)="postRule()">
+							<md-icon>save</md-icon>
+						</button> -->
+									<!-- <button md-icon-button class="pull-right color-gray" mdTooltip="Close" aria-hidden="true" (click)="enableruleBlock = false;">
+							<md-icon>clear</md-icon>
+						</button> -->
+									<hr>
+									<jhi-rule-group-reconciliation [accountingMode]="create"></jhi-rule-group-reconciliation>
+								</div>
+							</div>
+
+
+						</p-dialog>
+</div>					
+
+					</div>
+					<div class="un-recon">
+						<p-dialog header="Un-Reconciliation" [modal]="true" [draggable]="false" [resizable]="fasle" [responsive]="true" [(visible)]="manualUnreconciliationDialog">
+							<div class="row">	
+								<div class="col-md-12">
+										<p><b>{{unReconciledSRecordsLength}}</b>&nbsp;Record<span *ngIf="unReconciledSRecordsLength > 1">s</span> qualified in Source and <b>{{unReconciledTRecordsLength}}</b>&nbsp;Record<span *ngIf="unReconciledTRecordsLength > 1">s</span> qualified in Target</p>
+										<!-- <p>{{unReconciledTRecordsLength}}&nbsp;Record<span *ngIf="unReconciledTRecordsLength > 1">s</span> qualified in Target</p> -->
+								</div>
+								<div class="col-md-12">
+									<h5>Do you want to Un-Reconcile?</h5>
+								</div>
+							</div>
+								<p-footer>
+									<button md-raised-button (click)="manualUnreconciliationDialog = false;">
+										No
+									</button>
+									<button md-raised-button  (click)="unReconcileRecords();">
+										Yes
+									</button>
+								</p-footer>
+											
+						</p-dialog>
+					</div>
+
+				</div>
+			</div>
+		</horizontal-split-pane>
+	</div>
+</div>

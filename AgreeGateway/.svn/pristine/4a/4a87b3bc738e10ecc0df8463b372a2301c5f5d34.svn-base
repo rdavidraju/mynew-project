@@ -1,0 +1,736 @@
+<div class="container-fluid  component-body">
+
+	<div class="row botom-dotted-blue-border component-title margin-left-22">
+		<div class="col-md-6 pageTitle">
+			<h2 *ngIf="isCreateNew">Create New Template</h2>
+			<h2 *ngIf="!isCreateNew">{{fileTemplate.templateName}}</h2>
+		</div>
+		<div class="col-md-6">
+			<div class="row float-right">
+				<button md-icon-button class="pull-right color-green" *ngIf="!isViewOnly && f.valid && !duplicateFileTempName" aria-hidden="true" mdTooltip="Save Template" 
+					(click)="saveTemplate()">
+					<md-icon>save</md-icon>
+				</button>
+					<button *ngIf="!isViewOnly && !f.valid || duplicateFileTempName" md-icon-button class="pull-right color-gray" aria-hidden="true"  
+						mdTooltip="Fill mandatory fields" 
+						(click)="validationMsg()"><md-icon>save</md-icon>
+				</button>
+				<!-- <button md-icon-button class="pull-right color-green"
+					*ngIf="!isViewOnly " aria-hidden="true" mdTooltip="Fill mandatory fields"
+					(click)="validationMsg()">
+					<md-icon>save</md-icon>
+				</button> -->
+				<button md-icon-button [routerLink]="['/file-templates', {outlets: {'content': [fileTemplate.id]+'/edit'}}]" *ngIf="isViewOnly"
+				 mdTooltip="Edit">
+					<md-icon>mode_edit</md-icon>
+				</button>
+				<button md-icon-button class="pull-right color-gray" [routerLink]="['/file-templates', {outlets: {'content': [fileTemplate.id]+'/details'}}]"
+				 *ngIf="isEdit" mdTooltip="Close">
+					<md-icon>clear</md-icon>
+				</button>
+				<button md-icon-button class="pull-right color-gray" [routerLink]="['/file-templates', {outlets: {'content': ['file-templates-home']}}]"
+				 *ngIf="isCreateNew" mdTooltip="Close">
+					<md-icon>clear</md-icon>
+				</button>
+				<button md-icon-button [routerLink]="['/file-templates', {outlets: {'content': ['file-templates-home']}}]" *ngIf="isViewOnly"
+				 mdTooltip="Template List">
+					<md-icon>undo</md-icon>
+				</button>
+
+
+				<!-- <button md-icon-button [routerLink]="['/file-templates', {outlets: { 'content': ['filetemplate-new']}}]" class="pull-right  md-36" mdTooltip="Add New Template" ><md-icon>add</md-icon></button> -->
+
+	
+			</div>
+		</div>
+	</div>
+	<!-- <perfect-scrollbar style="height: auto;" class="topmargin-15"> -->
+	<form novalidate #f="ngForm">
+		<div class="row leftmargin-20 ">
+			<div class="col-md-3 col-xs-6 form-group" style="display: inline-block;">
+				<md-input-container class="example-full-width ">
+					<input mdInput [(ngModel)]="fileTemplate.templateName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Template Name"
+					(ngModelChange)="checkFileTemplateName($event)"
+					 name="templateName" required #templateName="ngModel"> </md-input-container>
+					 <span class="help-block errorFont" style="margin-left: 32px;" *ngIf="duplicateFileTempName" >Template name already exists</span>
+			</div>
+			<div class="col-md-3  col-xs-6 form-group">
+				<md-input-container class="example-full-width">
+					<input mdInput [(ngModel)]="fileTemplate.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Description"
+					 name="description"  #description="ngModel"> </md-input-container>
+			</div>
+
+			<div class="col-md-2  col-xs-6 form-group">
+
+				<md-form-field> <input
+					mdInput [mdDatepicker]="stpicker" placeholder="Start date"
+					[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 [(ngModel)]="fileTemplate.startDate" name="startDate" required>
+				<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+				<md-datepicker #stpicker></md-datepicker> </md-form-field>
+			</div>
+
+			<div class="col-md-2  col-xs-6 form-group" *ngIf="fileTemplate.startDate">
+				<md-form-field> <input
+					mdInput [mdDatepicker]="edpicker" placeholder="End date" [min]="fileTemplate.startDate"
+					[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 [(ngModel)]="fileTemplate.endDate" name="endDate" >
+				<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+				<md-datepicker #edpicker></md-datepicker> </md-form-field>
+			</div>
+			<div  class="col-md-2  col-xs-6 " *ngIf="isEdit">
+				<span *ngIf="fileTemplate.enabledFlag">Active</span> <span
+					*ngIf="!fileTemplate.enabledFlag">Inactive</span>
+				<md-slide-toggle class="pull right example-margin" color="primary" [disabled] ="!isEdit" mdTooltip="set status" placeholder="status"
+					[(ngModel)]="fileTemplate.enabledFlag" name="status">
+				</md-slide-toggle>
+				
+			</div>
+			<div class="col-md-2 col-xs-6" *ngIf="isViewOnly">
+			<span class="badge badge-success"  *ngIf="fileTemplate.enabledFlag || fileTemplate.status == 'Active'">Active</span>
+			<span class="badge badge-warning" *ngIf="!fileTemplate.enabledFlag || fileTemplate.status == 'Inactive'" >Inactive</span>
+			</div>
+		</div>
+		<div class="row leftmargin-20 ">
+			<div class=" col-md-9 ">
+				<div class="row ">
+					<div class="col-md-4 ">
+						<md-input-container class="example-full-width ">
+							<input mdInput placeholder="Source" [(ngModel)]="fileTemplate.source" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							 name="source" required #source="ngModel">
+						</md-input-container>
+					</div>
+					<div class="col-md-4 ">
+						<md-select placeholder="File Type" class="example-full-width" #fileType [(ngModel)]="fileTemplate.fileType"
+						 (change)="selectedFileType()" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"  name="fileType" #fileType="ngModel">
+							<md-option *ngFor="let type of fileTypes" [value]="type">
+								{{ type }} </md-option>
+						</md-select>
+					</div>
+					<div class="col-md-4 " *ngIf="fileTemplate.fileType == 'Delimiter'">
+						<md-select placeholder="Delimiter" class="example-full-width" #delimiter [(ngModel)]="fileTemplate.delimiter" 
+						 (change)="selectedDelimiter()" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="delimiter" #delimiter="ngModel" required *ngIf="fileTemplate.fileType">
+							<md-option *ngFor="let delimiter of delimiterList" [value]="delimiter.lookUpCode">
+								{{ delimiter.description}} </md-option>
+						</md-select>
+					</div>
+					<!-- <div class="col-md-4 " *ngIf="fileTemplate.fileType == 'Delimiter'">
+						<md-input-container class="example-full-width">
+							<input mdInput placeholder="Delimiter" [(ngModel)]="fileTemplate.delimiter" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							 name="delimiter" required #delimiter="ngModel">
+						</md-input-container>
+					</div> -->
+				</div>
+				
+				<div class="row">
+					<div class=" col-md-2 col-sm-4 col-xs-6 ">
+						<md-input-container class="example-full-width">
+							<input mdInput placeholder="Skip row start" [(ngModel)]="fileTemplate.skipRowsStart" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="isViewOnly" name="skipRowsStart" #skipRowsStart="ngModel">
+						</md-input-container>
+					</div>
+
+					<div class="nonsdview col-md-2 ">
+						<md-input-container class="example-full-width">
+							<input mdInput placeholder="Skip row end" [(ngModel)]="fileTemplate.skipRowsEnd" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="isViewOnly" name="skipRownEnd" #skipRownEnd="ngModel">
+						</md-input-container>
+					</div>
+					<div class="nonsdview col-md-2 " >
+						<md-input-container class="example-full-width">
+							<input mdInput placeholder="Row Identifier" [(ngModel)]="rowIdentifier" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="isViewOnly" name="rowIdentifier" >
+						</md-input-container>
+					</div>
+					
+					
+					<!--<div class="nonsdview col-md-2">
+					<md-input-container class="example-full-width">
+					<input mdInput placeholder="Record"
+						[(ngModel)]="fileTemplate.record"
+						[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+						name="record">
+					</md-input-container>
+				</div>-->
+				
+					<div class="nonsdview col-md-2 " *ngIf="!isViewOnly">
+					 	 <md-input-container class="example-full-width">
+							<input mdInput placeholder="Header Row no" [(ngModel)]="fileTemplate.headerRowNumber" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="isViewOnly" name="headerRowNumber" #headerRowNumber="ngModel">
+						</md-input-container> 
+					</div>
+
+				</div>
+
+			</div>
+			<div class="col-md-3 sdtitle" *ngIf="!isCreateNew">
+				<span  (click)="viewSDdata()">
+					<p class="test hand"> <i class="material-icons hand">attach_file</i> {{fileTemplate.sdFilename}}</p>
+				</span>
+			</div>
+			
+			<div class="col-md-3" *ngIf="dropfile">
+				<div class="mydiv" *ngIf="!isViewOnly" style="padding-right: 10px;">
+					<!-- <drop-zone></drop-zone> -->
+					<!-- drop zone start -->
+
+					<div>
+						<h5>Drop file</h5>
+						<div ng2FileDrop [ngClass]="{'nv-file-over': hasBaseDropZoneOver}" (fileOver)="fileOverBase($event)" (onFileDrop)="onFileDrop($event)"
+						 (click)="singleFile.click()" [uploader]="uploader" class="well my-drop-zone hand" mdTooltip="Click or Drop Files Here"
+						  style="width: 75% !important;">
+							<i class="material-icons cloudupload" *ngIf=!enableLineInfo>cloud_upload</i>
+							<i class="material-icons cloudsuccess" *ngIf=enableLineInfo>cloud_done</i>
+						</div>
+						<input type="file" ng2FileSelect [uploader]="uploader" #singleFile #file (change)="fileChange(file)" style="display: none;"
+						/>
+						<table class="table">
+							<thead>
+							</thead>
+							<tbody>
+								<tr *ngFor="let item of uploader.queue">
+									<td class="text-center"><span *ngIf="item.isSuccess">
+										<i class="glyphicon glyphicon-ok"></i>
+								</span> <span *ngIf="item.isCancel"> <i
+										class="glyphicon glyphicon-ban-circle"></i>
+								</span> <span *ngIf="item.isError"> <i
+										class="glyphicon glyphicon-remove"></i>
+								</span></td>
+									<td nowrap class="hand" (click)="viewSDdata()" mdTooltip="Click to view sample data"><strong>{{
+										item?.file?.name }}</strong></td>
+									<td><i *ngIf="!uploadedIcon" class="fa fa-spinner fa-spin" style="font-size: 24px"></i></td>
+									<td><i *ngIf="uploadedIcon" class="fa fa-check" style="font-size: 24px"></i></td>
+									<td class="text-center"></td>
+									<td class="text-center"><span *ngIf="item.isSuccess">
+										<i class="glyphicon glyphicon-ok"></i>
+								</span> <span *ngIf="item.isCancel"> </span> <span *ngIf="item.isError">
+										<i class="glyphicon glyphicon-remove"></i>
+								</span></td>
+									<td nowrap><span *ngIf="item.isSuccess">success</span></td>
+									<td></td>
+								</tr>
+							</tbody>
+						</table>
+						<div></div>
+					</div>
+					<!-- drop zone end -->
+
+				</div>
+			</div>
+			<!-- Preview and sample data start-->
+			<div class="sampleDataDilog col-md-8" *ngIf="sourceData">
+
+				<p-dialog header="Data Preview" [(visible)]="sourceData"
+					resizable="true" (onHide)="closeSDView()"> <p-header>
+				<i class="material-icons hand pull-right"
+					(click)="refreshAndExtractCSV()" mdTooltip="Refresh"
+					*ngIf="(!dropfile && sourceData && !refreshFile && isCreateNew)">sync</i>
+				<i class="fa fa-refresh fa-spin fa-3x fa-fw pull-right"
+					style="font-size: 24px" (click)="refreshAndExtractCSV()"
+					*ngIf="refreshFile "></i> </p-header> <!-- <button md-icon-button class="pull-right color-gray floatclose"
+					mdTooltip="Close this view" (click)="closeSDView()">
+					<md-icon>clear</md-icon>
+				</button> --> <perfect-scrollbar style="height: 150px; ">
+				<div id="sampleSourceData" class="col-md-12">
+					<!--<i class="fa fa-refresh fa-3x fa-fw" style="font-size: 24px" (click)="refreshAndExtractCSV()" *ngIf="!dropfile && sourceData && !refreshFile "></i>-->
+
+					<!-- <i class="material-icons float-center"   >autorenew</i> -->
+
+					<perfect-scrollbar style="height: 150px; ">
+					<table class="table sampledata">
+						<thead class="tableheader">
+							<tr>
+								<th *ngFor="let FTL of fileTemplateLines">{{FTL.columnHeader}}</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr *ngFor="let dataObj of data">
+								<td *ngFor="let obj of dataObj ">{{obj[1]}}</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+				</perfect-scrollbar> </p-dialog>
+			</div>
+
+
+			<!-- sample data end -->
+		</div>
+
+
+
+
+		<p-accordion> <p-accordionTab header="Template Lines" [selected]="enableLineInfo" >
+		<div class="accordioncontenet" style="margin-top: -50px;">
+
+			<!-- Lines start here -->
+			<br><i *ngIf="!fileTemplate.fileType"> Select file type to view lines
+			</i>
+			<div class="portlet">
+				<div class="portlet-title" style="margin-top:-47px;">
+					<div class="tools">
+					<!-- 	<a style="font-size: 1em !important;top: 11px;padding:20px;" class="fullscreen"
+							mdTooltip="Full Screen" (click)="toggleFullScreen();false"></a> -->
+							<button md-icon-button class="pull-right color-gray"
+						(click)="addLinee()" mdTooltip="Add new Line" *ngIf="isCreateNew">
+						<md-icon>exposure_plus_1</md-icon>
+					</button>
+					</div>
+					
+				</div>
+				<div class="portlet-body file-template-width">
+					<div id="sampleSourceData"  class="sampleDataView" class="col-md-12"
+						*ngIf="fullScreenView">
+						<span class="title">
+							<h5>
+								Data Preview
+								<!--<i class="fa fa-refresh fa-3x fa-fw" style="font-size: 24px" (click)="refreshAndExtractCSV()" *ngIf="!dropfile && sourceData && !refreshFile "></i>-->
+								<i class="material-icons" (click)="refreshAndExtractCSV()"
+									*ngIf="(!dropfile && sourceData && !refreshFile && !isViewOnly) || isCreateNew ">sync</i>
+								<i class="fa fa-refresh fa-spin fa-3x fa-fw"
+									style="font-size: 24px" (click)="refreshAndExtractCSV()"
+									*ngIf="refreshFile "></i>
+								<!-- <i class="material-icons float-center"   >autorenew</i> -->
+							</h5>
+						</span>
+						<perfect-scrollbar style="height: 200px; ">
+						<table class="table sampledata">
+							<thead class="tableheader">
+								<tr>
+									<th *ngFor="let FTL of fileTemplateLines">{{FTL.columnHeader}}</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr *ngFor="let dataObj of data">
+									<td *ngFor="let obj of dataObj ">{{obj[1]}}</td>
+								</tr>
+							</tbody>
+						</table>
+						</perfect-scrollbar>
+
+					</div>
+					<!-- <perfect-scrollbar style="height: 200px;" > -->
+					<hr *ngIf="fullScreenView">
+					<h4 *ngIf="fullScreenView">Template Lines</h4>
+					<div *ngIf="fileTemplateLines.length>0 && fileTemplate.fileType">
+						<div class="file-template-datatable templateLines">
+							<div style="text-align: right" >
+								<p-multiSelect [options]="columnOptions"
+									[(ngModel)]="finalLineInfoCols" [name]="finalCols"
+									#finalCols="ngModel"></p-multiSelect>
+								
+							</div>
+							<p-dataTable id="template_lines" [value]="fileTemplateLines"
+								scrollable="true" scrollHeight="500px" reorderableColumns="true"
+								columnResizeMode="expand" (onRowSelect)="onRowSelect($event)"
+								[rows]="10" [editable]="isEditLine" [responsive]="true"
+								frozenWidth="350px" >								
+								<!-- <p-column [style]="{'width':'38px'}" selectionMode="multiple" unfrozenWidth="{{templateUnfrozenWidth}}"
+                    frozen="true"></p-column>  --> <!-- <p-column [style]="{'width':'38px'}" selectionMode="multiple"></p-column> -->
+                    
+                    <p-column [style]="{'width':'100px', 'text-align':'center'}"
+								field="columnNumber" header="Column No." [sortable]="true"
+								[editable]="true" frozen="true">
+								<ng-template
+								let-row="rowData" let-i="rowIndex" pTemplate="body">
+								{{i + 1}}
+					</p-column> 
+							<p-column [style]="{'width':'250px', 'text-align':'left'}"
+								field="columnHeader" header="Column Name" [sortable]="true"
+								[editable]="true" frozen="true"></p-column> <p-column
+								*ngFor="let col of finalLineInfoCols" [field]="col.field"
+								[header]="col.header"
+								[style]="{'width':'100px','text-align':'left'}"
+								[sortable]="true" [editable]="true"></p-column>
+								
+								
+						 <p-column
+								field="formula" header="Translational Formula"
+								[style]="{'width':'100px','text-align':'left'}" > <ng-template
+								let-row="rowData" let-i="rowIndex" ng-mouseover="mouseOverLine = i" pTemplate="body">
+								<!-- function button start -->
+								<i class="hand tempActionButton" 
+									style="color: green;font-style: italic;font-family: cursive;font-weight: normal;font-size: 20px;visibility: visible;"
+									popoverTitle="Function" popoverPlacement="right"
+									*ngIf="isViewOnly && fileTemplateLines[i].formula"
+									[popoverOnHover]="true" [popoverCloseOnMouseOutside]="true"
+									popover="{{fileTemplateLines[i].formula}} ">
+										<b>fx</b>
+								</i> 
+								<!-- function button end -->
+								<!-- p-dialog start -->
+								<a class="hand tempActionButton" style="color: green;font-style: italic;font-family: cursive;font-weight: normal;font-size: 20px;visibility: visible;"
+									 ngbTooltip="{{fileTemplateLines[i].formula}}" *ngIf="fileTemplateLines[i].formula" (click)="addfunction(i)"><b>fx</b></a>
+								<a class="hand tempActionButton" style="color: green;font-style: italic;font-family: cursive;font-weight: normal;font-size: 20px;visibility: visible;"
+									 ngbTooltip="Add Function" (click)="addfunction(i)" *ngIf="!fileTemplateLines[i].formula"><b>fx</b></a>
+								<div class="ftlFunction">
+								 <p-dialog header="Add Formula For {{fileTemplateLines[i].columnHeader}} "	[resizable]="true" [responsive]="true" [(visible)] = "showFunction[i]" [modal] ="true"	>
+										<label class="control-label" style="font-size: 16px;">Select
+												Function:</label>
+											<md-select [(ngModel)]="fileTemplateLines[i].functionName"
+												style="width:230px" [ngClass]="{'color-black' : isViewOnly}"
+												name="excelexpression{{i}}"
+												#excelexpression{{i}}="ngModel"> <md-option
+												*ngFor="let excelexpression of functionsList"
+												[value]="excelexpression.lookUpCode"
+												(click)="showExcelFunction(i,excelexpression.description)">
+											{{ excelexpression.meaning }} </md-option> </md-select>
+											<div *ngIf="fileTemplateLines[i].functionName"
+											class="data-view-query-build">
+											<textarea mdInput [(ngModel)]="fileTemplateLines[i].formula"
+												name="function{{i}}" mdTooltip=""></textarea>
+										</div>
+
+										<div *ngIf="fileTemplateLines[i].functionName"
+											style="padding-top: 10px;">
+											<span>Eg: {{fileTemplateLines[i].example}}</span>
+											<button md-icon-button class="pull-right color-green ripple"
+												aria-hidden="true"
+												(click)="saveFunc(i)"
+												mdTooltip="Save">
+												<md-icon>done</md-icon>
+											</button>
+											<button md-icon-button class="pull-right color-red ripple "
+												aria-hidden="true" (click)="cancelFormula(i)"
+												mdTooltip="Clear">
+												<md-icon>delete</md-icon>
+											</button>
+										</div>
+								</p-dialog>								
+							  </div>
+								<!-- p-dialog end -->
+								
+								
+								<!-- on selection of column number, in text area, highlight that column name
+								scroll according to popover action
+								 -->								
+							</ng-template> </p-column> 
+								
+								 <p-column
+								field="" 
+								[style]="{'width':'100px','text-align':'left'}"> <ng-template
+								let-row="rowData" let-i="rowIndex" pTemplate="body">
+
+							<button md-icon-button class="pull-right line-hover-action tempActionButton" style="font-size:10px"
+								(click)="clearFields(i)"
+								*ngIf="isCreateNew && !fileTemplateLines[i].id"
+								mdTooltip="Delete Line">
+								<md-icon>delete</md-icon>
+							</button> 
+							<!-- <i class="fa fa-trash-o hand" aria-hidden="true" *ngIf="isCreateNew && !fileTemplateLines[i].id" (click)="clearFields(i)"></i> -->
+							 <!-- <a class="line-hover-action" href="javascript:void(0)"
+								*ngIf="isCreateNew && fileTemplateLines[i].id>0"
+								(click)="removeLineFromExtractedLines(i)"> <span
+								class="icon-trash"></span>
+							</a> <a class="line-hover-action"
+								*ngIf="isCreateNew && !fileTemplateLines[i].id"
+								(click)="clearFields(i)"> <span class="fa fa-times"></span>
+							</a>  --><!-- 
+                        <i class="material-icons ripple color-yellow-green  hand padding-2"	style="font-size: 24px;" *ngIf="i == fileTemplateLines.length-1" (click)="addLinee()"
+                            mdTooltip="Add New Line" mdTooltipPosition="before">exposure_plus_1</i> -->
+							</ng-template> </p-column> </p-dataTable>
+						</div>
+					</div>
+
+				</div>
+
+				<!-- 				<div class="portlet-body file-template-width">
+					<div id="sampleSourceData" class="sampleDataView" class="col-md-12"
+						*ngIf="fullScreenView">
+						<p-dialog header="Data Preview" [(visible)]="sourceData"
+							resizable="true" (onHide)="closeSDView()"> <p-header>
+						<i class="material-icons hand pull-right"
+							(click)="refreshAndExtractCSV()"
+							*ngIf="(!dropfile && sourceData && !refreshFile && isCreateNew)">sync</i>
+						<i class="fa fa-refresh fa-spin fa-3x fa-fw pull-right"
+							style="font-size: 24px" (click)="refreshAndExtractCSV()"
+							*ngIf="refreshFile "></i> </p-header>
+							<perfect-scrollbar style="height: 150px; ">
+							<div id="sampleSourceData" class="col-md-12">
+	<i class="fa fa-refresh fa-3x fa-fw" style="font-size: 24px" (click)="refreshAndExtractCSV()" *ngIf="!dropfile && sourceData && !refreshFile "></i>
+
+	<i class="material-icons float-center"   >autorenew</i>
+
+	
+	<table class="table sampledata">
+		<thead class="tableheader">
+			<tr>
+				<th *ngFor="let FTL of fileTemplateLines">{{FTL.columnHeader}}</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr *ngFor="let dataObj of data">
+				<td *ngFor="let obj of dataObj ">{{obj[1]}}</td>
+			</tr>
+		</tbody>
+	</table>
+	
+
+</div>
+				</perfect-scrollbar>			
+							 </p-dialog>
+					</div>
+					<div id="sampleSourceData" class="sampleDataView" class="col-md-12"
+						*ngIf="fullScreenView">
+						<span class="title">
+							<h5>
+								Data Preview
+								<i class="fa fa-refresh fa-3x fa-fw" style="font-size: 24px" (click)="refreshAndExtractCSV()" *ngIf="!dropfile && sourceData && !refreshFile "></i>
+								<i class="material-icons" (click)="refreshAndExtractCSV()"
+									*ngIf="(!dropfile && sourceData && !refreshFile && !isViewOnly) || isCreateNew ">sync</i>
+								<i class="fa fa-refresh fa-spin fa-3x fa-fw"
+									style="font-size: 24px" (click)="refreshAndExtractCSV()"
+									*ngIf="refreshFile "></i>
+								<i class="material-icons float-center"   >autorenew</i>
+							</h5>
+						</span>
+						<perfect-scrollbar style="height: 200px; ">
+						<table class="table sampledata">
+							<thead class="tableheader">
+								<tr>
+									<th *ngFor="let FTL of fileTemplateLines">{{FTL.columnHeader}}</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr *ngFor="let dataObj of data">
+									<td *ngFor="let obj of dataObj ">{{obj[1]}}</td>
+								</tr>
+							</tbody>
+						</table>
+						</perfect-scrollbar>
+
+					</div>
+
+
+
+					<perfect-scrollbar style="height: 200px;" >
+					<hr *ngIf="fullScreenView">
+					<h4 *ngIf="fullScreenView">Template Lines</h4>
+					<div *ngIf="fileTemplateLines.length>0 && fileTemplate.fileType">
+
+						<button md-icon-button class="pull-right"
+							style="margin-top: -66px" *ngIf="isCreateNew"
+							mdTooltip="Add new Line" (click)="addLinee()">
+							<md-icon>exposure_plus_1</md-icon>
+						</button>
+
+						<i class="material-icons float-center pull-right"
+							(click)="addLinee()" mdTooltip="Add new Line">exposure_plus_1</i>
+						<div style="text-align: right">
+							<p-multiSelect [options]="columnOptions"
+								[(ngModel)]="finalLineInfoCols" [name]="finalCols"
+								#finalCols="ngModel"></p-multiSelect>
+						</div>
+						<p-dataTable id="template_lines" [value]="fileTemplateLines"
+							scrollable="true" scrollHeight="500px" reorderableColumns="true"
+							columnResizeMode="expand" (onRowSelect)="onRowSelect($event)"
+							[rows]="10" [editable]="isEditLine" [responsive]="true"
+							frozenWidth="250px" unfrozenWidth="{{templateUnfrozenWidth}}">
+						<p-header title="Show/Hide Columns" [editable]="true">
+						</p-header> <p-column [style]="{'width':'38px'}" selectionMode="multiple"
+						frozen="true"></p-column>  <p-column [style]="{'width':'38px'}" selectionMode="multiple"></p-column>
+						<p-column [style]="{'width':'250px', 'text-align':'left'}"
+							field="columnHeader" header="Column Name" [sortable]="true"
+							[editable]="true" frozen="true"></p-column> <p-column
+							*ngFor="let col of finalLineInfoCols" [field]="col.field"
+							[header]="col.header"
+							[style]="{'width':'100px','text-align':'left'}" [sortable]="true"
+							[editable]="true"></p-column> <p-column field="" header="Actions"
+							[style]="{'width':'100px','text-align':'left'}"> <ng-template
+							let-row="rowData" let-i="rowIndex" pTemplate="body">
+						<a class="line-hover-action" href="javascript:void(0)"
+							*ngIf="isCreateNew && fileTemplateLines[i].id>0"
+							(click)="removeLineFromExtractedLines(i)"> <span
+							class="icon-trash"></span>
+						</a> <a class="line-hover-action"
+							*ngIf="isCreateNew && !fileTemplateLines[i].id"
+							(click)="clearFields(i)"> <span class="fa fa-times"></span>
+						</a> 
+							<i class="material-icons ripple color-yellow-green  hand padding-2"	style="font-size: 24px;" *ngIf="i == fileTemplateLines.length-1" (click)="addLinee()"
+								mdTooltip="Add New Line" mdTooltipPosition="before">exposure_plus_1</i>
+						</ng-template> </p-column> </p-dataTable>
+					</div>
+
+					<p-dataTable [value]="fileTemplateLines" scrollable="true" scrollHeight="500px" frozenWidth="250px"
+								[editable]="true" [responsive]="true" [globalFilter]="gb" #dt [rows]="10" [paginator]="true" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20]">
+									<p-header title="Show/Hide Columns">
+										<div style="text-align:right">
+											<p-multiSelect [options]="columnOptions" [(ngModel)]="finalLineInfoCols"></p-multiSelect>
+										</div>
+									</p-header>
+									<p-column field="recordIdentifier" header="Column Name" [style]="{'width':'250px'}" frozen="true" [editable]="true"></p-column>
+									<p-column *ngFor="let col of staticCols" [field]="col.field" [header]="col.header" [style]="{'width':'100px','text-align':'left'}"
+									 [editable]="true"></p-column>
+									<p-column *ngFor="let col of finalLineInfoCols" [field]="col.field" [header]="col.header" [style]="{'width':'100px','text-align':'left'}"
+									 [editable]="true"></p-column>
+									  <p-column field="" header="Actions" [style]="{'width':'100px','text-align':'left'}">
+										  <ng-template let-col let-row="rowData" pTemplate="body">
+											<a href="javascript:void(0)"><span class="icon-pencil"></span></a>
+											<a href="javascript:void(0)"><span class="icon-trash"></span></a>
+											<a href="javascript:void(0)"><span class="icon-close"></span></a>
+										  </ng-template>
+									  </p-column>
+								</p-dataTable> </perfect-scrollbar>
+				</div> -->
+			</div>
+			<!-- Lines start here -->
+
+
+			<!-- Lines end here -->
+		</div>
+		</p-accordionTab> <p-accordionTab header="Profiles" [selected]="expandProfiles" (click)="getSourceProfilesList()">
+		<div class="accordioncontenet" *ngIf="!isCreateNew">
+			<!-- present detail -->
+			<table class="table"
+				*ngIf=" sourceProfileAssignments && sourceProfileAssignments.sourcePRofileName">
+				<thead class="tableheader">
+					<th>Profile Name</th>
+					<th>File Format</th>
+					<th>File Description</th>
+					<th>Prefix</th>
+					<th>File Name</th>
+					<th>Postfix</th>
+					<th>File Extension</th>
+					<th>Source Directory Path</th>
+					<th>Local Directory Path</th>
+					<th>Frequency</th>
+				</thead>
+				<tbody>
+                   <tr>
+						<td>{{sourceProfileAssignments.sourcePRofileName}}</td>
+						<td>{{sourceProfileAssignments.fileNameFormat}}</td>
+						<td>{{sourceProfileAssignments.fileDescription}}</td>
+						<td>{{sourceProfileAssignments.prefix}}</td>
+						<td>{{sourceProfileAssignments.fileName}}</td>
+						<td>{{sourceProfileAssignments.postFix}}</td>
+						<td>{{sourceProfileAssignments.fileExtension}}</td>
+						<td >{{sourceProfileAssignments.sourceDirectoryPath}}</td>
+						<td >{{sourceProfileAssignments.localDirectoryPath}}</td>
+						<td>{{sourceProfileAssignments.frequency}}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<label *ngIf="isViewOnly && !selectedProfileId">No profiles
+			associated</label>
+		<div class="accordioncontenet"
+			*ngIf="(!isViewOnly && !selectedProfileId) || isCreateNew">
+			<!-- profile assignment start -->
+			<div class="row">
+					<div class="col-md-3">
+					<md-select placeholder="select profile"
+								class="example-full-width" (change)="selectedProfile()"
+								[(ngModel)]="selectedProfileName" name="selectedprofilename"
+								#selectedprofilename="ngModel"> <perfect-scrollbar
+								style="height: 200px;"> <md-option
+								*ngFor="let profile of profilesList" [value]="profile.name">
+							{{ profile.name }} </md-option> </perfect-scrollbar> <md-option class="create-connection-divider"
+								[value]="-1">Create New</md-option> </md-select>
+					</div>
+					<div class="col-md-3" *ngIf="selectedProfileName">
+					<md-input-container class="example-full-width ">
+							<input mdInput placeholder="File name format" class="inputHeight"
+								[(ngModel)]="sourceProfilesAdded.fileNameFormat"
+								name="filenameformat" required #filenameformat="ngModel">
+							</md-input-container>
+					</div>
+					<div class="col-md-3" *ngIf="selectedProfileName">
+					<md-input-container class="example-full-width ">
+							<input mdInput placeholder="File description" class="inputHeight"
+								[(ngModel)]="sourceProfilesAdded.fileDescription"
+								name="filedescription" #filedescription="ngModel" required>
+							</md-input-container>
+					</div>
+					<div class="col-md-3" *ngIf="selectedProfileName">
+					<md-input-container class="example-full-width ">
+							<input mdInput placeholder="File Extension" class="inputHeight"
+								[(ngModel)]="sourceProfilesAdded.fileExtension"
+								name="fileextension" #fileextension="ngModel" required>
+							</md-input-container>
+					</div>
+				
+			</div>
+			<div class="row">
+				<div class="col-md-3" *ngIf="selectedProfileName"></div>
+				<div class="col-md-3" *ngIf="selectedProfileName">
+					<md-input-container class="example-full-width ">
+					<input mdInput  placeholder="Source Directory Path" [(ngModel)]="sourceProfilesAdded.sourceDirectoryPath"
+						name="sourceDirectoryPath" #sourceDirectoryPath="ngModel"
+						required> </md-input-container>
+				</div>
+				<div class="col-md-3" *ngIf="selectedProfileName">
+					<md-input-container class="example-full-width ">
+					<input mdInput placeholder="Local Directory Path" class="inputHeight"
+						[(ngModel)]="sourceProfilesAdded.localDirectoryPath"
+						name="localDirectoryPath" #localDirectoryPath="ngModel"
+						required> </md-input-container>
+				</div>
+				<div class="col-md-3" *ngIf="selectedProfileName">
+					<md-select placeholder="select frequency type" class="inputHeight"
+						class="example-full-width" (change)="selectedFreqType()"
+						[(ngModel)]="selectedFrequencyType" name="selectedfrequencytype"
+						required #selectedfrequencytype="ngModel"> <md-option
+						*ngFor="let freq of frequencyList" [value]="freq.name">
+					{{ freq.name }} </md-option> </md-select>
+				</div>
+			</div>
+			<!-- <div class="row">
+				<div class="col-md-4">
+					<div class="row">
+						<div class="col-md-12">
+							<md-select placeholder="select profile"
+								class="example-full-width" (change)="selectedProfile()"
+								[(ngModel)]="selectedProfileName" name="selectedprofilename"
+								#selectedprofilename="ngModel"> <perfect-scrollbar
+								style="height: 200px;"> <md-option
+								*ngFor="let profile of profilesList" [value]="profile.name">
+							{{ profile.name }} </md-option> </perfect-scrollbar> <md-option class="create-connection-divider"
+								[value]="-1">Create New</md-option> </md-select>
+						</div>
+						<div class="col-md-6" *ngIf="displaySelectedProfile"></div>
+					</div>
+				</div>
+				<div class="col-md-8" *ngIf="selectedProfileName">
+
+					<div class="row">
+						<div class="col-md-6">
+							<md-input-container class="example-full-width ">
+							<input mdInput placeholder="File name format" class="inputHeight"
+								[(ngModel)]="sourceProfilesAdded.fileNameFormat"
+								name="filenameformat" required #filenameformat="ngModel">
+							</md-input-container>
+						</div>
+						<div class="col-md-6">
+							<md-input-container class="example-full-width ">
+							<input mdInput placeholder="File description" class="inputHeight"
+								[(ngModel)]="sourceProfilesAdded.fileDescription"
+								name="filedescription" #filedescription="ngModel" required>
+							</md-input-container>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-md-6">
+							<md-input-container class="example-full-width ">
+							<input mdInput placeholder="File Extension" class="inputHeight"
+								[(ngModel)]="sourceProfilesAdded.fileExtension"
+								name="fileextension" #fileextension="ngModel" required>
+							</md-input-container>
+						</div>
+						<div class="col-md-6">
+							<md-select placeholder="select frequency type"
+								class="inputHeight" class="example-full-width"
+								(change)="selectedFreqType()"
+								[(ngModel)]="selectedFrequencyType" name="selectedfrequencytype"
+								required #selectedfrequencytype="ngModel"> <md-option
+								*ngFor="let freq of frequencyList" [value]="freq.name">
+							{{ freq.name }} </md-option> </md-select>
+						</div>
+					</div>
+				</div>
+			</div> -->
+		</div>
+		<div style="margin-bottom: 20px;"></div>
+		</p-accordionTab> </p-accordion>
+	</form>
+	<!-- </perfect-scrollbar> -->
+</div>

@@ -1,0 +1,153 @@
+<div class="component-body reports-list-table" style="padding: 0px 20px;">
+	<div class="row botom-dotted-blue-border component-title" style="margin-left: 0px;">
+		<div class="col-md-6 col-sm-6 col-xs-6 pageTitle pageListTitle" style="display: flex;">
+			<md-icon style="font-size:35px; margin-right: 10px; margin-top: -2px;color: #da9c03" *ngIf="listType=='Favourite Reports List'">star_border</md-icon>
+			<md-icon style="font-size:35px; margin-right: 10px; margin-top: -2px;" *ngIf="listType=='Recent Reports List'">schedule</md-icon>
+			<h4 style="margin-top: 5px;" [ngStyle]="{'padding':listType=='All Reports List' ? '0px' : '0px 10px' }">{{listType}}</h4> 
+			<div class="custom-Lov-picker" (mouseleave)="displayCustLov=false;">
+				<button md-icon-button mdTooltip="Select List Type" (click)="displayCustLov=!displayCustLov;">
+				<md-icon style="margin-left: -16px;font-size: 40px;color: gray;">expand_more</md-icon>
+				</button>
+				<div [ngClass]="displayCustLov?'Lov-picker':'custom-Lov-picker-hide'">
+					<div class="Lov-list">
+						<div *ngFor="let item of listsLov" class="Lov-item hand" (click)="listTypeChange(item);displayCustLov=false;">
+							{{item}} 
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="col-md-6 col-sm-6 col-xs-6" style="padding-top: 10px;">
+			<button md-icon-button class="pull-right add-item md-36" (click)="loadReportsList();" mdTooltip="Refresh Reports List"
+			 mdTooltipPosition="below">
+				<md-icon style="margin-top: -4px;">refresh</md-icon>
+			</button>
+			<button md-icon-button [routerLink]="['/reports', {outlets: { 'content': ['new-report']}}]" class="pull-right add-item md-36"
+			 mdTooltip="Add Report" mdTooltipPosition="below">
+				<md-icon style="margin-top: -4px;">add</md-icon>
+			</button>
+		</div>
+	</div>
+	<md-tab-group class="report-tabs" (focusChange)="tabChange($event.index)" id="RecentReportsList">
+			<md-tab label="All Types">
+				<p-dataTable class="reports-list-table" [value]="reports" scrollable="true" [scrollHeight]="TemplatesHeight" #dt resizableColumns="true" columnResizeMode="expand"
+				 (onSort)="loadSortedReportList($event)">
+					<p-column field="reportName" header="Report Name" styleClass="left" sortable="true" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<a [routerLink]="['/reports', {outlets: {'content': [row['id']]+'/details'}}]" style="word-wrap: break-word;">{{row[col.field]}}</a>
+							<button *ngIf="!row['isFavourite']" id="showIcon" md-icon-button (click)="setFavReport(row);">
+								<md-icon>star_border</md-icon>
+							</button>
+							<button md-icon-button *ngIf="row['isFavourite']" (click)="removeFavRpt(row);">
+								<md-icon style="color: #da9c03 !important;">star_rate</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+					<p-column field="lastRun" header="Last Run" styleClass="left" sortable="true" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span *ngIf="row[col.field]">
+								{{row[col.field] | date:'medium'}}
+							</span>
+						</ng-template>
+					</p-column>
+					<p-column field="lastRunBy" header="Submitted By" styleClass="left" sortable="true" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+					</p-column>
+					<p-column field="reportTypeName" header="Report Type" styleClass="left" sortable="true" [style]="{'width':'15%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+					</p-column>
+					<p-column field="description" header="Description" styleClass="left" sortable="true" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body" style="word-wrap: break-word;">{{row[col.field]}}</ng-template>
+					</p-column>
+					<p-column field="parameters" header="Parameters" styleClass="left" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<p class="parameters-lable" *ngIf="(row['lastRun']&&row['lastRun'].length>0)" (click)="buildParameters(row['requestId'],row['reportTypeCode']);">Parameters...</p>
+						</ng-template>
+					</p-column>
+					<p-column field="actions" header="Actions" styleClass="center" [style]="{'width':'15%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<button [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+							 md-icon-button mdTooltip="View Output" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': ['run-reports',row['requestId'],row['id']]}}]">
+								<i class="fa fa-eye" aria-hidden="true"></i>
+							</button>
+							<button [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+							 class="color-gray" md-icon-button mdTooltip="Download as CSV" mdTooltipPosition="below" (click)="exportToCSV(row['requestId'])">
+								<md-icon>system_update_alt</md-icon>
+							</button>
+							<button md-icon-button [mdTooltip]="'Run '+row['reportName']" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': [row['id']]+'/run-reports'}}]">
+								<md-icon>play_circle_filled</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+				<md-paginator [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="pageEvent = $event; loadReportsList()">
+				</md-paginator>
+			</md-tab>
+			<md-tab *ngFor="let reportType of srcReportTypes" [label]="reportType.typeDisplayName1">
+				<p-dataTable class="reports-list-table" [value]="reports" scrollable="true" [scrollHeight]="TemplatesHeight" #dt resizableColumns="true" columnResizeMode="expand"
+				 (onSort)="loadSortedReportList($event)">
+					<p-column field="reportName" header="Report Name" styleClass="left" sortable="true" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<a [routerLink]="['/reports', {outlets: {'content': [row['id']]+'/details'}}]">{{row[col.field]}}</a>
+							<button id="showIcon" *ngIf="!row['isFavourite']" md-icon-button (click)="setFavReport(row);">
+								<md-icon>star_border</md-icon>
+							</button>
+							<button md-icon-button *ngIf="row['isFavourite']" (click)="removeFavRpt(row);">
+								<md-icon style="color: #da9c03 !important;">star_rate</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+					<p-column field="lastRun" header="Last Run" styleClass="left" sortable="true" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span *ngIf="row[col.field]">
+								{{row[col.field] | date:'medium'}}
+							</span>
+						</ng-template>
+					</p-column>
+					<p-column field="lastRunBy" header="Submitted By" styleClass="left" sortable="true" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+					</p-column>
+					<p-column field="reportTypeName" header="Report Type" styleClass="left" sortable="true" [style]="{'width':'15%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+					</p-column>
+					<p-column field="description" header="Description" styleClass="left" sortable="true" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+					</p-column>
+					<p-column field="parameters" header="Parameters" styleClass="left" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<p class="parameters-lable" *ngIf="(row['lastRun']&&row['lastRun'].length>0)" (click)="buildParameters(row['requestId'],row['reportTypeCode']);">Parameters...</p>
+						</ng-template>
+					</p-column>
+					<p-column field="actions" header="Actions" styleClass="center" [style]="{'width':'15%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<button [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+							 md-icon-button mdTooltip="View Output" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': ['run-reports',row['requestId'],row['id']]}}]">
+								<i class="fa fa-eye" aria-hidden="true"></i>
+							</button>
+							<button [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+							 class="color-gray" md-icon-button mdTooltip="Download as CSV" mdTooltipPosition="below" (click)="exportToCSV(row['requestId'])">
+								<md-icon>system_update_alt</md-icon>
+							</button>
+							<button md-icon-button [mdTooltip]="'Run '+row['reportName']" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': [row['id']]+'/run-reports'}}]">
+								<md-icon>play_circle_filled</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+				<md-paginator [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="pageEvent = $event; loadReportsList()">
+				</md-paginator>
+			</md-tab>
+		</md-tab-group>
+</div>
+<p-dialog header="Parameters" [(visible)]="displayParameters" modal="modal" minWidth="500" responsive="true">
+	<p-dataTable [(value)]="parametersSubmited" class="parameters-definition" [style]="{'width':'450px'}">
+		<p-column field="Parameter" header="Name" sortable="true" [style]="{'width':100}"></p-column>
+		<p-column field="Value" header="Value" sortable="true" [style]="{'width':350}"></p-column>
+	</p-dataTable>
+</p-dialog>
+<p-dialog header="Processing" [(visible)]="showProcessing">
+	Please wait request is processing....
+	<p-footer>
+		<button md-raised-button (click)="cancelRequest();">Cancel</button>
+	</p-footer>
+</p-dialog>

@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { SourceProfileFileAssignments } from './source-profile-file-assignments.model';
+import { SourceProfileFileAssignmentsService } from './source-profile-file-assignments.service';
+
+@Component({
+    selector: 'jhi-source-profile-file-assignments-detail',
+    templateUrl: './source-profile-file-assignments-detail.component.html'
+})
+export class SourceProfileFileAssignmentsDetailComponent implements OnInit, OnDestroy {
+
+    sourceProfileFileAssignments: SourceProfileFileAssignments;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private sourceProfileFileAssignmentsService: SourceProfileFileAssignmentsService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInSourceProfileFileAssignments();
+    }
+
+    load(id) {
+        this.sourceProfileFileAssignmentsService.find(id).subscribe((sourceProfileFileAssignments) => {
+            this.sourceProfileFileAssignments = sourceProfileFileAssignments;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInSourceProfileFileAssignments() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'sourceProfileFileAssignmentsListModification',
+            (response) => this.load(this.sourceProfileFileAssignments.id)
+        );
+    }
+}

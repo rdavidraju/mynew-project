@@ -1,0 +1,684 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit, ViewChild,Inject } from '@angular/core';
+import { FormControl } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+import { Router, NavigationEnd } from '@angular/router';
+import { JhiDateUtils } from 'ng-jhipster';
+import { RuleGroup } from './rule-group.model';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { CommonService } from '../common.service';
+import { Rules } from '../rules/rules.model';
+import { Observable } from 'rxjs/Rx';
+import { LookUpCodeService } from '../look-up-code/look-up-code.service';
+import { DataViewsService } from '../data-views/data-views.service';
+import { RuleGroupConditionsPost } from './rule-group-conditions-post.model';
+import { RulesService } from '../rules/rules.service';
+import { RuleConditions } from '../rule-conditions/rule-conditions.model';
+import { RuleGroupService } from '../rule-group/rule-group.service';
+import { RuleGroupWithRulesAndConditions } from './ruleGroupWithRulesAndConditions.model';
+import { RulesAndConditions } from '../rules/rulesWithConditions.model';
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import { FormGroup, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { SessionStorageService } from 'ng2-webstorage';
+import { RuleGroupAndRuleWithLineItem, AccountingRuleGroup } from './ruleGroupAndRuleWithLineItem.model';
+import { NguiMessagePopupComponent, NguiPopupComponent } from '@ngui/popup';
+import { ApprovalRuleGRoupWithRules } from './approval-rule-groupWithRules.model';
+import { RuleGroupAccountingNewComponent } from './rule-group-accounting-new.component';
+import { RuleGroupReconciliationComponent } from './rule-group-reconciliation.component';
+import { RuleGroupApprovalsComponent } from './rule-group-approvals.component';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+declare var $: any;
+const URL = '';
+
+@Component({
+    selector: 'rule-group-confirm-action-modal',
+    templateUrl: 'rule-group-confirm-action-modal.html'
+})
+export class ConfirmActionModalDialog {
+    constructor(
+        public dialogRef: MdDialogRef<ConfirmActionModalDialog>,
+        public dialog: MdDialog,
+        @Inject(MD_DIALOG_DATA) public data: any) {
+    }
+
+    onNoClick(): void {
+        this.dialogRef.close();
+    }
+}
+
+@Component({
+    selector: 'jhi-rule-group-edit',
+    templateUrl: './rule-group-edit.component.html'
+})
+export class RuleGroupEditComponent {
+    @ViewChild(NguiPopupComponent) popup: NguiPopupComponent;
+    @ViewChild(RuleGroupAccountingNewComponent) ruleGroupAccountingNewComponent: RuleGroupAccountingNewComponent;
+    @ViewChild(RuleGroupReconciliationComponent) ruleGroupReconciliationComponent: RuleGroupReconciliationComponent;
+    @ViewChild(RuleGroupApprovalsComponent) ruleGroupApprovalsComponent: RuleGroupApprovalsComponent;
+    GroupTypePlaceHolder: any;
+    ruleGrpWithRuleAndLineItems = new RuleGroupAndRuleWithLineItem();
+    @Input() saveButton: boolean = false;
+    myData: any = '';
+    filterAction: any = '';
+    duplicateRuleGroupName: boolean = false;
+    ruleListformArray: FormGroup[] = [];
+    targetDataViewformsArray: FormGroup[] = [];
+    srcDataViewformsArray: FormGroup[] = [];
+
+    srcColumnListformsArray: FormGroup[] = [];
+    targetColumnListformsArray: FormGroup[] = [];
+
+    selectedSrcDataViewAndColumns = [];
+    selectedTargetDataViewAndColumns = [];
+
+
+    logicalOperatorLOV = [];
+
+    expandTab: boolean[] = [];
+    showOptions: boolean = false;
+    mouseOverRowNo: number = -1;
+    parents = [
+        {
+            children: [
+                "child1"
+            ]
+        },
+        {
+            children: [
+                "child2"
+            ]
+        },
+        {
+            children: [
+                "child3"
+            ]
+        },
+        {
+            children: [
+                "child4"
+            ]
+        },
+    ];
+
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+
+    create: string = 'create';
+    edit: string = 'edit';
+    view: string = 'view';
+
+    ruleListArrays: any[] = [];
+    filteredRuleList: any[] = [];
+
+    sourceDataViewsArrays: any[] = [];
+    targetDataViewsArrays: any[] = [];
+
+    sourceColumnArrays: any[] = [];
+    targetColumnArrays: any[] = [];
+
+    // ruleGroupRulesAndConditions = new RuleGroupWithRulesAndConditions();
+    ruleGroupsList: RuleGroup[] = [];
+    RuleWithConditions: RulesAndConditions[];
+    sourceDataViewId: number;
+    targetDataViewId: number;
+    ruleGroup = new RuleGroup();
+    rules = new Rules();
+    ruleConditions: RuleConditions[];
+    ruleConditionList: RuleConditions[] = [];
+    ruleNameValidation = '';
+    rulesList: Rules[] = [];
+    ruleGroupTypes = [];
+    operatorLOV: any = [];
+    ruletypeLOV: any = [];
+    open: boolean = true;
+    routeSub: any;
+    formControlArray: FormControl[] = [];
+    optionsArray: any[][] = [[], []];
+    myControl = new FormControl();
+    sourceDataViewControl = new FormControl();
+    targetDataViewControl = new FormControl();
+    sourceColumnLOVControl = new FormControl();
+    targetColumnLOVControl = new FormControl();
+    operatorLOVControl = new FormControl();
+    options: any = [];
+
+    sourceDataViewsAndColumns = [];
+    targetDataViewsAndColumns = [];
+    sourceColumnLOV = [];
+    targetColumnLOV = [];
+
+    filteredOptions: Observable<any[]>[];
+
+    ruleNamefilteredOptions: Observable<any[]>;
+    sourceDataViews: Observable<any[]>;
+    TargetDataViews: Observable<any[]>;
+
+    srcColumnsList: Observable<any[]>;
+    targetColumnList: Observable<any[]>;
+
+    operatorColumnList: Observable<any[]>;
+    excelFunctions = [];
+    excelexpressioninput: any;
+    excelexpressionExample: any;
+    operatorList = [];
+    //
+    FilterTitle: string = 'Filters';
+    FormulaTitle: string = 'Formulae';
+    ToleranceTitle: string = 'Tolerance ';
+    additionalFilters: string = '  Additional filters ';
+    sFilterTitle = [];
+    sFilter = [];
+    sFormulaTitle = [];
+    sFormula = [];
+    sToleranceTitle = [];
+    sTolerance = [];
+    sAdditionalFiltersTitle = [];
+
+    tFilterTitle = [];
+    tFilter = [];
+    tFormulaTitle = [];
+    tFormula = [];
+    tToleranceTitle = [];
+    tTolerance = [];
+    tAdditionalFiltersTitle = [];
+    ruleGroupDiffer: any;
+    ruleObjDiffer: any;
+    ruleConditionsDiffer: any;
+    ruleConditionObjDiffer: any;
+    isVisibleA: boolean = false;
+    tenantSubscribedModules = [];
+    tagRule: any;
+    displayRule: any;
+    groups = [];
+    openDialog: any;
+    displayAccountingType: any = 'col-md-12';
+    accountingTypes = [];
+    nameLength: any = 'col-md-4 col-sm-6 col-xs-12 form-group';
+    rulePurposeLength: any = 'col-md-4 col-sm-6 col-xs-12 form-group';
+    dateLength: any = 'col-md-4 col-sm-6 col-xs-12 form-group';
+    ruleGroupList: any = [];
+    constructor(
+
+        private builder: FormBuilder,
+        private config: NgbDatepickerConfig,
+        private router: Router,
+        private route: ActivatedRoute,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        private lookUpCodeService: LookUpCodeService,
+        private dataViewsService: DataViewsService,
+        private rulesService: RulesService,
+        public ruleGroupService: RuleGroupService,
+        private _sanitizer: DomSanitizer,
+        private notificationsService: NotificationsService,
+        private $sessionStorage: SessionStorageService,
+        public dialog: MdDialog
+
+
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+    selectedRule(value: any, indexVal: any) {
+        // this.setRuleObject(value,indexVal);
+    }
+    changeMinDate() {
+        this.config.minDate = this.ruleGroup.startDate;
+    }
+
+    resetMinDate() {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+    }
+
+
+
+    ngOnInit() {
+        //console.log( 'in ngonnt of edit comp' );
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 130) + 'px'
+        });
+        this.ruleGroupService.fetchRuleGroupsBypurpose('Reconciliation').subscribe(
+            (res: any) => {
+                this.ruleGroupList = res;
+             //   console.log(' ruleGroupList ' + JSON.stringify(this.ruleGroupList));
+            });
+
+        this.lookUpCodeService.fetchLookUpsByLookUpType('RULE_GROUP_TYPE').subscribe((res: any) => {
+            this.ruleGroupTypes = res;
+        });
+        this.lookUpCodeService.fetchLookUpsByLookUpType('ACCOUNTING_TYPE').subscribe((res: any) => {
+            this.accountingTypes = res;
+           // console.log(' this.accountingTypes' + JSON.stringify(this.accountingTypes));
+        });
+
+        this.commonService.callFunction();
+        this.routeSub = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            if (params['id']) {
+                this.fetchGroupAndRulesAndRuleConditionsByGroupId(params['id']);
+                // detail or edit
+
+                if (url.endsWith('edit')) {
+                    this.isEdit = true;
+                } else {
+                    this.view = this.view + '-' + params['id'];
+                    this.isViewOnly = true;
+
+                }
+            } else {
+                this.ruleGroupService.approvalRuleGRoupWithRules = new ApprovalRuleGRoupWithRules();
+                this.ruleGroupService.ruleGrpWithRuleAndLineItems = new RuleGroupAndRuleWithLineItem();
+                this.ruleGroupService.accountingRuleGroup = new AccountingRuleGroup();
+                this.ruleGroupService.ruleGroupRulesAndConditions = new RuleGroupWithRulesAndConditions();
+                this.ruleGroupService.ruleGroup = new RuleGroup();
+                this.ruleGroupService.ruleGroup.rulePurpose = this.ruleGroupService.routerRuleGroupType;
+                this.startEndDateClass();
+                this.SelectRuleGroupType();
+                this.isCreateNew = true;
+                this.isVisibleA = true;
+            }
+        });
+
+    }
+    startEndDateClass() {
+        if (this.ruleGroupService.ruleGroup.startDate != null) {
+            // return 'col-md-3 col-sm-6 col-xs-12 form-group';
+            if (this.ruleGroupService.ruleGroup.rulePurpose == 'ACCOUNTING') {
+                this.nameLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+                this.rulePurposeLength = 'col-md-9 col-sm-6 col-xs-12 form-group';
+                this.dateLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+            }
+            else {
+                this.nameLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+                this.rulePurposeLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+                this.dateLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+            }
+
+
+        } else {
+            //return 'col-md-4 col-sm-6 col-xs-12 form-group';
+            if (this.ruleGroupService.ruleGroup.rulePurpose == 'ACCOUNTING') {
+                this.rulePurposeLength = 'col-md-9 col-sm-6 col-xs-12 form-group';
+                this.dateLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+            }
+            else {
+                this.nameLength = 'col-md-4 col-sm-6 col-xs-12 form-group';
+                this.rulePurposeLength = 'col-md-4 col-sm-6 col-xs-12 form-group';
+                this.dateLength = 'col-md-4 col-sm-6 col-xs-12 form-group';
+            }
+
+        }
+    }
+
+    SelectRuleGroupType() {
+        if (this.ruleGroupService.ruleGroup.rulePurpose == 'APPROVALS') {
+            this.ruleGroupService.getTenantConfigModules().subscribe((res: any) => {
+                this.tenantSubscribedModules = res;
+                let indexVal: any = 0;
+                if (this.tenantSubscribedModules)
+                    this.tenantSubscribedModules.forEach(module => {
+                        if (module.modules.search('_APPROVALS') != -1) {
+                            this.tenantSubscribedModules.splice(indexVal, 1);
+                        }
+                        else {
+                        }
+                        indexVal = indexVal + 1;
+                    });
+            });
+        }
+        if (this.ruleGroupService.ruleGroup.rulePurpose == 'ACCOUNTING') {
+            this.displayAccountingType = 'col-md-3';
+            this.nameLength = 'col-md-3 col-sm-6 col-xs-12 form-group';
+            this.rulePurposeLength = 'col-md-6 col-sm-6 col-xs-12 form-group';
+            this.startEndDateClass();
+        }
+        else {
+            this.displayAccountingType = 'col-md-12';
+            this.nameLength = 'col-md-4 col-sm-6 col-xs-12 form-group';
+            this.rulePurposeLength = 'col-md-4 col-sm-6 col-xs-12 form-group';
+            this.startEndDateClass();
+        }
+
+
+        this.ruleGroupService.instantiateObjects();
+        this.setPlaceHolder();
+        // this.ruleGrpWithRuleAndLineItems.rulePurpose = this.ruleGroupService.ruleGroup.rulePurpose;
+
+    }
+    setPlaceHolder() {
+        if (this.ruleGroupService.ruleGroup.rulePurpose == 'RECONCILIATION') {
+            this.GroupTypePlaceHolder = 'Reconciliation Process';
+        }
+        else if (this.ruleGroupService.ruleGroup.rulePurpose == 'ACCOUNTING') {
+            this.GroupTypePlaceHolder = 'Accounting Process';
+        }
+        else if (this.ruleGroupService.ruleGroup.rulePurpose == 'APPROVALS') {
+            this.GroupTypePlaceHolder = 'Approvals Process';
+        }
+        else {
+            this.GroupTypePlaceHolder = 'Process Name';
+        }
+    }
+    fetchGroupAndRulesAndRuleConditionsByGroupId(groupId: any) {
+
+        this.ruleGroupService.getGroupDetails(groupId).subscribe((res: any) => {
+
+            this.ruleGroupService.ruleGroup = res;
+            if (this.ruleGroupService.ruleGroup.rulePurpose == 'ACCOUNTING') {
+                this.displayAccountingType = 'col-md-6';
+            }
+            this.setPlaceHolder();
+        });
+    }
+    checkGroupName(name: string) {
+        this.ruleGroupService.query().subscribe(
+            (res: Response) => {
+                this.ruleGroupsList = res.json();
+                let count: number = 0;
+                if (this.ruleGroupsList)
+                    this.ruleGroupsList.forEach(ruleGroup => {
+                        if (ruleGroup.name.toLowerCase() == this.ruleGroupService.ruleGroup.name.toLowerCase()) {
+                            count = count + 1;
+
+                        }
+                        else {
+
+                        }
+                    });
+                if (count > 0) {
+                    this.duplicateRuleGroupName = true;
+                }
+                else {
+                    this.duplicateRuleGroupName = false;
+                }
+            }
+        );
+
+    }
+
+    displayOptions() {
+        this.showOptions = true;
+    }
+
+    saveRuleGroup() {
+        if (this.ruleGroupService.ruleGroup.rulePurpose == 'APPROVALS') {
+            if (this.ruleGroupApprovalsComponent.approvalForm.valid) {
+                let ind: number = 1;
+                this.ruleGroupService.approvalRuleGRoupWithRules.enabledFlag = true;
+                this.ruleGroupService.approvalRuleGRoupWithRules.rules.forEach(rule => {
+                    rule.priority = ind;
+                    ind = ind + 1;
+                    if (!rule.ruleGroupAssignId) {
+                        //new rule tagged
+                        if (rule.id && rule.id > 0) {
+                            //existing rule tagged
+                            rule.assignmentFlag = true;
+                        }
+                        else {
+                            //new created rule
+                            rule.enabledFlag = true;
+                            rule.assignmentFlag = true;
+                        }
+                    }
+                    else {
+                        //editing tagged rule
+
+                    }
+                });
+
+                /*   if(this.isCreateNew)
+                       {
+                           this.ruleGroupService.approvalRuleGRoupWithRules.enabledFlag = true;
+                           if(this.ruleGroupService.approvalRuleGRoupWithRules.rules)
+                               {
+                                   this.ruleGroupService.approvalRuleGRoupWithRules.rules.forEach(rule=>{
+                                       rule.enabledFlag = true;
+                                       rule.assignmentFlag = true;
+                                   });
+                               }
+                           
+                       }
+                   */
+                this.ruleGroupService.postApprovalRules().subscribe((res: any) => {
+                    let savedObj = [];
+                    savedObj = res;
+                    if (savedObj[0].taskName == 'Rule Group Save') {
+                        this.notificationsService.success(
+                            'Saved!',
+                            this.ruleGroupService.ruleGroup.name + ' saved successfully!'
+                        )
+                        let groupId: any;
+                        groupId = savedObj[0].details;
+                        this.router.navigate(['/rule-group', { outlets: { 'content': groupId + '/details' } }]);
+                    }
+                });
+            }
+            else {
+                this.notificationsService.error('Please fill mandatory fields', '');
+            }
+        }
+        else if (this.ruleGroupService.ruleGroup.rulePurpose == 'ACCOUNTING') {
+            if (this.ruleGroupAccountingNewComponent.accRuleForm.valid) {
+                if (this.isCreateNew) {
+                    this.ruleGroupService.accountingRuleGroup.enabledFlag = true;
+
+                }
+                this.ruleGroupService.accountingRuleGroup.rules.forEach(ruleObj => {
+                    if (ruleObj.id) {
+
+                    }
+                    else {
+                        ruleObj.enabledFlag = true;
+                        ruleObj.assignmentFlag = true;
+                        ruleObj.debitLines.forEach(line => {
+                            ruleObj.lineDerivationRules.push(line);
+                        });
+                        ruleObj.creditLines.forEach(line => {
+                            ruleObj.lineDerivationRules.push(line);
+                        });
+                    }
+
+                });
+                let ind: number = 1;
+                this.ruleGroupService.accountingRuleGroup.enabledFlag = true;
+                this.ruleGroupService.accountingRuleGroup.rules.forEach(rule => {
+                    rule.priority = ind;
+
+                    if (!rule.ruleGroupAssignId) {
+                        //new rule tagged
+                        if (rule.id && rule.id > 0) {
+                            //existing rule tagged
+                            rule.assignmentFlag = true;
+                        }
+                        else {
+                            //new created rule
+                            rule.enabledFlag = true;
+                            rule.assignmentFlag = true;
+                        }
+                    }
+                    else {
+                        //editing tagged rule
+
+                    }
+                    ind = ind + 1;
+                });
+                this.ruleGroupService.postAccountingRuleGroup().subscribe((res: any) => {
+                    let savedObj = [];
+                    savedObj = res;
+                    //console.log( 'savedObj after acc rule save' + JSON.stringify( savedObj ) );
+                    if (savedObj[0].taskName == 'Rule Group Save') {
+                        this.notificationsService.success(
+                            'Saved!',
+                            this.ruleGroupService.ruleGroup.name + ' saved successfully!'
+                        )
+                        let groupId: any;
+                        groupId = savedObj[0].details;
+                        this.router.navigate(['/rule-group', { outlets: { 'content': groupId + '/details' } }]);
+                    }
+                });
+
+
+            }
+            else {
+                this.notificationsService.error('Please fill mandatory fields', '');
+            }
+
+        }
+        else {
+            if (this.ruleGroupReconciliationComponent.reconForm.valid) {
+               
+                    this.ruleGroupService.ruleGroupRulesAndConditions.enabledFlag = true;
+                    let emptyConditionsFound:number=0;
+                   
+                   for(let i=0;i< this.ruleGroupService.ruleGroupRulesAndConditions.rules.length;i++)
+                    {
+                        this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.priority = i+1;
+                       
+                        if (! this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.ruleGroupAssignId) {
+                            //new rule tagged
+                            if ( this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.id &&  this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.id > 0) {
+                                //existing rule tagged
+                                this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.assignmentFlag = true;
+                            }
+                            else {
+                                //new created rule
+                                this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.enabledFlag = true;
+                                this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.assignmentFlag = true;
+                            }
+                        }
+                        else {
+                            //editing tagged rule
+    
+                        }
+                        let ci:number=0;
+                        let indexes =[];
+                        let sequences :any='';
+                        console.log('conditions before edit'+JSON.stringify(this.ruleGroupService.ruleGroupRulesAndConditions.rules[i]));
+                        if(!this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.id || this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.id <=0 )
+                        {
+                            this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].ruleConditions.forEach(condition=>{
+                                if(!condition.sColumnId && !condition.operator && !condition.tColumnId)
+                                {
+                                    this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].ruleConditions.splice(ci,1);
+                                    emptyConditionsFound = emptyConditionsFound+1;
+                                    if(this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].ruleConditions[ci-1] && this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].ruleConditions.length==1)
+                                    {
+                                        this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].ruleConditions[ci-1].logicalOperator=null;
+                                    }                                
+                                }
+                                ci=ci+1;
+                            });
+                            
+                        }
+ 
+                    //    if(sequences == '')
+                    //    {
+                       
+                    //      if(i==this.ruleGroupService.ruleGroupRulesAndConditions.rules.length-1)
+                    //      this.saveReconRuleGroup();
+                    //    }
+                    //    else{
+                    //     var dialogRef = this.dialog.open(ConfirmActionModalDialog, {
+                    //         data: {  deleteEmptyConditions: 'delete', No: 'NoThanks',sequences:sequences, ruleName: this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].rule.ruleCode}
+                    //     });
+                    //     dialogRef.afterClosed().subscribe(result => {
+                    //         if (result && result == 'delete'){
+                    //     indexes.forEach(inde=>{
+                    //         this.ruleGroupService.ruleGroupRulesAndConditions.rules[i].ruleConditions.splice(inde,1);
+                    //     });
+                        // if(i==this.ruleGroupService.ruleGroupRulesAndConditions.rules.length-1)
+                        // this.saveReconRuleGroup();
+                    //     }
+                    //     else{
+                    //         // this.saveReconRuleGroup();
+                    //     }
+                    //     });
+                    //    }                           
+                         
+                    }
+                      
+                if(emptyConditionsFound>0)
+                {
+                    var dialogRef = this.dialog.open(ConfirmActionModalDialog, {
+                        data: {  message: ' Ignored '+emptyConditionsFound+' empty conditions'}
+                    });
+                }
+                this.saveReconRuleGroup();      
+            }
+            else
+                this.notificationsService.error('Please fill mandatory fields', '');
+        }
+
+
+    }
+    saveReconRuleGroup()
+    {
+        this.ruleGroupService.postRuleGroup().subscribe((res: any) => {
+            let savedObj = [];
+            savedObj = res;
+            //console.log('saved obj of reconciliation is:'+JSON.stringify(savedObj));
+            let taskk: boolean = false;
+            if (savedObj[0].taskName == 'Rule Group Save') {
+                this.notificationsService.success(
+                    'Saved!',
+                    this.ruleGroupService.ruleGroup.name + ' saved successfully!'
+                )
+                this.$sessionStorage.clear('reconciliationRuleList');
+                let groupId: any;
+                groupId = savedObj[0].details;
+                //console.log('groupId'+groupId);
+                this.router.navigate(['/rule-group', { outlets: { 'content': groupId + '/details' } }]);
+            }
+        });
+    }
+    toggleSB() {
+        if (!this.isVisibleA) {
+            this.isVisibleA = true;
+            $('.split-example .left-component').addClass('visible');
+        } else {
+            this.isVisibleA = false;
+            $('.split-example .left-component').addClass('visible');
+        }
+    }
+    selectConfiguredModules() {
+        //fetch list based on configured module selection
+        // console.log( 'selected configured module' + this.ruleGroupService.ruleGroup.configuredModuleId );
+        this.groups = [];
+        this.tenantSubscribedModules.forEach(module => {
+            if (module.id == this.ruleGroupService.ruleGroup.configuredModuleId) {
+                this.ruleGroupService.ruleGroup.configuredModuleName = module.modules;
+            }
+        });
+        if (this.ruleGroupService.ruleGroup.configuredModuleName.search('RECON') != -1) {
+
+            this.ruleGroupService.fetchUnTaggedRuleGroups('RECONCILIATION').subscribe((res: any) => {
+                this.groups = res.json();
+                // console.log( ' this.groups' + JSON.stringify( this.groups ) );
+            });
+
+        }
+        else if (this.ruleGroupService.ruleGroup.configuredModuleName.search('ACCOUNTING') != -1) {
+            this.ruleGroupService.fetchUnTaggedRuleGroups('ACCOUNTING').subscribe((res: any) => {
+                this.groups = res.json();
+                // console.log( ' this.groups' + JSON.stringify( this.groups ) );
+            });
+        }
+        if (this.groups) {
+            let ind: number = 0;
+            this.groups.forEach(group => {
+                if (group.apprRuleGrpId) {
+                    this.groups.splice(ind, 1);
+                }
+                ind = ind + 1;
+            });
+        }
+
+    }
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+
+}

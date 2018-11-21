@@ -1,0 +1,308 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Response } from '@angular/http';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService } from 'ng-jhipster';
+import { SelectItem, OverlayPanelModule, DialogModule } from 'primeng/primeng';
+import { DataViews } from './data-views.model';
+import { DataViewsService } from './data-views.service';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { PageEvent } from '@angular/material';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import { CommonService } from '../common.service';
+
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-data-views',
+    templateUrl: './data-views.component.html'
+})
+export class DataViewsComponent implements OnInit, OnDestroy {
+    dataViews: DataViews[];
+    dataViews1 = [];
+    dataViewsList = [];
+    currentAccount: any;
+    eventSubscriber: Subscription;
+    currentSearch: string;
+    mySelectedRows = [];
+    columnOptions: SelectItem[];
+    viewColumnOptions = [];
+    dataViewRecordsLength: number;
+    itemsPerPage: any;
+    pageSizeOptions = [10, 25, 50, 100];
+    pageSize: number;
+    pageSizeTemp = [];
+    pageEvent: PageEvent = new PageEvent();
+    page: any;
+    viewLength: any;
+    viewsList = [];
+    viewTableColumns = [];
+    viewId: any = '';
+    calFun:boolean = false;
+    dataViewTableColumns = [                  //  source connection list source columns
+        /* { field: 'dataViewDispName', header: 'Display Name' }, */
+        /* { field: 'dataViewName', header: 'View Name' }, */
+        { field: 'description', header: 'Description', width: '280px', align: 'left' },
+        { field: 'type', header: 'Type', width: '280px', align: 'left' },
+        { field: 'startDate', header: 'Start Date', width: '280px', align: 'left' },
+        { field: 'endDate', header: 'End Date', width: '280px', align: 'left' },
+        /* ,
+           { field: 'enabledFlag', header: 'Status' } */
+
+    ];
+    TemplatesHeight: any;
+    constructor(
+        private jhiLanguageService: JhiLanguageService,
+        private dataViewsService: DataViewsService,
+        private alertService: JhiAlertService,
+        private eventManager: JhiEventManager,
+        private activatedRoute: ActivatedRoute,
+        private principal: Principal,
+        private config: NgbDatepickerConfig,
+        private commonService: CommonService,
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+        this.currentSearch = activatedRoute.snapshot.params['search'] ? activatedRoute.snapshot.params['search'] : '';
+        // this.jhiLanguageService.setLocations(['dataViews']);
+        this.columnOptions = [];
+        for (let i = 0; i < this.dataViewTableColumns.length; i++) {
+            this.columnOptions.push({ label: this.dataViewTableColumns[i].header, value: this.dataViewTableColumns[i] });
+        }
+        this.itemsPerPage = ITEMS_PER_PAGE;
+    }
+    changeMinDate() {
+        this.config.minDate = this.dataViews[0].startDate;
+    }
+
+    resetMinDate() {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+    }
+
+    loadAll() {
+        /*  if (this.currentSearch) {
+             this.dataViewsService.search({
+                 query: this.currentSearch,
+                 }).subscribe(
+                     (res: Response) => this.dataViews = res.json(),
+                     (res: Response) => this.onError(res.json())
+                 );
+             return;
+        }
+         this.dataViewsService.query().subscribe(
+             (res: Response) => {
+                 this.dataViews = res.json();
+                 this.currentSearch = '';
+             },
+             (res: Response) => this.onError(res.json())
+         ); */
+    }
+
+    search(query) {
+        if (!query) {
+            return this.clear();
+        }
+        this.currentSearch = query;
+        this.loadAll();
+    }
+
+    clear() {
+        this.currentSearch = '';
+        this.loadAll();
+    }
+    ngOnInit() {
+        this.TemplatesHeight = (this.commonService.screensize().height - 340) + 'px';
+        this.loadAll();
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        this.page = 0;
+        this.dataViewsService.allDataViewLists(this.page).subscribe((res: any) => {
+            //this.pageSizeOptions = [];
+            this.dataViewsList = res;
+          
+            console.log('this.dataViewsList.len' + this.dataViewsList.length);
+        });
+        this.dataViewsService.dataViewLists(this.page+1, this.itemsPerPage).subscribe((res: Response) => {
+            //this.pageSizeOptions = [];
+            
+            this.dataViews = res.json();
+            this.dataViewRecordsLength= +res.headers.get('x-total-count');
+            console.log('dataViewRecordsLength ' + this.dataViewRecordsLength);
+            console.log('this.dataViews.len ' + this.dataViews.length);
+            
+
+
+            /* console.log('this.dataViewsList.length ' + this.dataViewsList.length);
+            console.log('this.itemsPerPage ' + this.itemsPerPage);
+            console.log(this.dataViewsList.length > this.itemsPerPage);
+            if (this.dataViewsList.length > this.itemsPerPage) {
+                this.dataViewRecordsLength = this.dataViewsList.length;
+                this.page = 0;
+                let pgind = (this.page + 1) * this.itemsPerPage;
+                for (var i = 0; i < pgind; i++) {
+                    this.dataViews1.push(this.dataViewsList[i]);
+                }
+                this.dataViews = this.dataViews1;
+            } else {
+                this.dataViews = this.dataViewsList;
+            } */
+
+            /* if(this.dataViewsList.length>this.itemsPerPage){
+               this.dataViewRecordsLength = this.dataViewsList.length;
+               let length = this.dataViewRecordsLength / this.itemsPerPage;
+               let tempdecimals = length - Math.floor(length);
+               let decimal: any = tempdecimals.toFixed(1);
+               let viewLength = length - decimal;
+               let b = 0;
+               for (var i = 1; i <= viewLength; i++) {
+                   b = (this.itemsPerPage * i);
+                   this.pageSizeTemp.push(b);
+                   if (viewLength == this.pageSizeTemp.length) {
+                       let temp = this.itemsPerPage * decimal;
+                       this.pageSizeTemp.push(b + temp);
+                   }
+                   this.pageSizeOptions = this.pageSizeTemp;
+               }
+               this.page = 0;
+               let pgind = (this.page + 1) * this.itemsPerPage;
+               for (var i = 0; i < pgind; i++) {
+                   this.dataViews1.push(this.dataViewsList[i]);
+               }
+               this.dataViews = this.dataViews1;
+           }else{ 
+               this.dataViews = this.dataViewsList;
+            }  */
+
+        });
+        this.registerChangeInDataViews();
+
+        $(".search-icon-body").click(function () {
+            if ($(".ftlSearch md-input-container").hasClass("hidethis")) {
+                $(".ftlSearch md-input-container").removeClass("hidethis");
+                $(".ftlSearch md-input-container").addClass("show-this");
+            } else if ($(".ftlSearch md-input-container").hasClass("show-this")) {
+                var value = $('.ftlSearch md-input-container .mySearchBox').filter(function () {
+                    return this.value != '';
+                });
+                if (value.length <= 0) { // zero-length string
+                    $(".ftlSearch md-input-container").removeClass("show-this");
+                    $(".ftlSearch md-input-container").addClass("hidethis");
+                }
+            } else {
+                $(".ftlSearch md-input-container").addClass("show-this");
+            }
+        });
+        $(".ftlSearch md-input-container .mySearchBox").blur(function () {
+            var value = $('.ftlSearch md-input-container .mySearchBox').filter(function () {
+                return this.value != '';
+            });
+            if (value.length <= 0) { // zero-length string
+                $(".ftlSearch md-input-container").removeClass("show-this");
+                $(".ftlSearch md-input-container").addClass("hidethis");
+            }
+        });
+    }
+
+    onPaginateChange(event) {
+        this.page = event.pageIndex;
+        this.itemsPerPage = event.pageSize;
+        this.dataViewsService.dataViewLists(this.page+1, this.itemsPerPage).subscribe((res: any) => {
+            //this.pageSizeOptions = [];
+            this.dataViews = res.json();
+            this.dataViewRecordsLength= +res.headers.get('x-total-count');
+            this.dataViews.splice(this.dataViews.length, 1);
+        });
+        /* this.dataViews1 = [];
+        this.dataViews = [];
+        let a = event.pageIndex * event.pageSize;
+        this.page = event.pageIndex;
+        let pgind = (this.page + 1) * event.pageSize;
+        for (var i = a; i < pgind; i++) {
+            this.dataViews1.push(this.dataViewsList[i]);
+        }
+        this.dataViews = this.dataViews1; */
+    }
+    ngOnDestroy() {
+        //this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    trackId(index: number, item: DataViews) {
+        return item.id;
+    }
+
+
+
+    registerChangeInDataViews() {
+        this.eventSubscriber = this.eventManager.subscribe('dataViewsListModification', (response) => this.loadAll());
+    }
+
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+    display: boolean = false;
+
+    
+    onRowSelect(event) {
+        console.log('id ' + JSON.stringify(event.data.id));
+        this.viewId = event.data.id;
+        this.calFun = true;
+    }
+
+    showView(event,col) {
+        console.log('id ' + this.viewId); 
+        console.log('col ' + JSON.stringify(col));
+            console.log('setTimeout ' + this.viewId);
+            if(this.calFun == true){
+                console.log('inside ' + this.viewId);
+                this.dataViewsService.getViewDetails(this.viewId).subscribe((res: any) => {
+                    this.viewsList = res;
+                    if(this.viewsList.length>0){
+                        let temp = Object.keys(this.viewsList[0]);
+                        temp.forEach(element => {
+                            this.viewTableColumns.push({ field: element, header: element });
+                        });
+                        console.log('this.viewTableColumns ' + JSON.stringify(this.viewTableColumns));
+                        if(this.viewTableColumns.length>0){
+                            for (let i = 0; i < this.viewTableColumns.length; i++) {
+                                let obj = {
+                                    "label": this.viewTableColumns[i].header,
+                                    "value": this.viewTableColumns[i].field
+                                }
+                                this.viewColumnOptions.push(obj);
+                            }
+                            console.log('this.viewColumnOptions ' + JSON.stringify(this.viewColumnOptions));
+                            this.display = true;
+                        }
+                    }
+                    console.log('view list ' + JSON.stringify(this.viewsList));
+                });
+            }
+    }
+/*     dispCols() {
+        let temp = Object.keys(this.viewsList[0]);
+        temp.forEach(element => {
+            this.viewTableColumns.push({ field: element, header: element });
+        });
+        console.log('this.viewTableColumns ' + JSON.stringify(this.viewTableColumns));
+        if(this.viewTableColumns.length>0){
+            this.dispOpts();
+        }
+    }
+    dispOpts() {
+        for (let i = 0; i < this.viewTableColumns.length; i++) {
+            let obj = {
+                "label": this.viewTableColumns[i].header,
+                "value": this.viewTableColumns[i].field
+            }
+            this.viewColumnOptions.push(obj);
+        }
+        console.log('this.viewColumnOptions ' + JSON.stringify(this.viewColumnOptions));
+        this.display = true;
+    } */
+}

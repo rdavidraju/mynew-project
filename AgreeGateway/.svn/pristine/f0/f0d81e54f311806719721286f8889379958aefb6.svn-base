@@ -1,0 +1,362 @@
+<div class="container-fluid component-body">
+	<div class="row botom-dotted-blue-border component-title margin-left-22">
+		<div class="col-md-6 pageTitle">
+			<h2>
+				<span *ngIf="isCreateNew">New Connection</span>
+				<span *ngIf="!isCreateNew">{{sourceConnectionDetails.name}}</span>
+			</h2>
+		</div>
+		<div class="col-md-6">
+			<div class="row float-right">
+				<button *ngIf="!isViewOnly && f.valid && !duplicateConName" md-icon-button class="pull-right color-green" aria-hidden="true"
+				 mdTooltip="Save Source Connection" (click)="saveSourceConnection()"><md-icon>save</md-icon>
+				</button>
+				<button *ngIf="!isViewOnly && !f.valid || duplicateConName" md-icon-button class="pull-right color-gray" aria-hidden="true"
+				 mdTooltip="Fill mandatory fields" (click)="validationMsg()"><md-icon>save</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/source-connection-details', {outlets: {'content': [sourceConnectionDetails.id]+'/edit'}}]"><md-icon>mode_edit</md-icon>
+				</button>
+				<button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/source-connection-details', {outlets: {'content': [sourceConnectionDetails.id]+'/details'}}]"><md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/source-connection-details', {outlets: {'content': ['source-connection-detailst']}}]"><md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Connections List" [routerLink]="['/source-connection-details', {outlets: {'content': ['source-connection-detailst']}}]"><md-icon>undo</md-icon>
+				</button>
+			</div>
+		</div>
+	</div>
+	<br>
+	<!-- <div class="col-md-12">
+		<md-input-container class="example-full-width ">
+			<input mdInput [(ngModel)]="sourceConnectionDetails.name" [ngClass]="{'color-black' : isViewOnly}" 
+				[disabled]="isViewOnly" placeholder="Connection Name"> 
+		</md-input-container>
+	</div> -->
+	<form novalidate #f="ngForm">
+		<div class="row leftmargin-20">
+			<div class="col-md-3  col-xs-6 form-group" style="display: inline-block;">
+				<md-input-container class="example-full-width ">
+					<input mdInput [(ngModel)]="sourceConnectionDetails.name" [ngClass]="{'color-black' : isViewOnly}" id="name" [disabled]="isViewOnly"
+					 placeholder="Connection Name" (ngModelChange)="checkConnectionName($event)" name="name" #name="ngModel" required>
+
+					<!-- <span class="help-block errorFont" *ngIf="!name.valid && name.touched">This field is required.</span> -->
+				</md-input-container>
+				<span class="help-block errorFont" style="margin-left: 32px;" *ngIf="duplicateConName">Connection name already exists.</span>
+			</div>
+			<div class="col-md-3  col-xs-6 form-group">
+				<md-input-container class="example-full-width ">
+					<input mdInput [(ngModel)]="sourceConnectionDetails.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 placeholder="Description" name="description" #description="ngModel">
+					<!-- <span class="help-block errorFont" *ngIf="!description.valid && description.touched">This field is required.</span> -->
+				</md-input-container>
+			</div>
+			<div class="col-md-2 col-xs-6 form-group">
+				<md-form-field> <input mdInput [mdDatepicker]="stpicker" placeholder="Start date" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 [(ngModel)]="sourceConnectionDetails.startDate" name="startDate" required>
+					<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+					<md-datepicker #stpicker></md-datepicker>
+				</md-form-field>
+			</div>
+			<div class="col-md-2 col-xs-6 form-group" *ngIf="sourceConnectionDetails.startDate">
+				<md-form-field> <input mdInput [mdDatepicker]="edpicker" placeholder="End date" [min]="sourceConnectionDetails.startDate" [ngClass]="{'color-black' : isViewOnly}"
+					 [disabled]="isViewOnly" [(ngModel)]="sourceConnectionDetails.endDate" name="endDate">
+					<md-datepicker-toggle mdSuffix
+					 [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+					<md-datepicker #edpicker></md-datepicker>
+				</md-form-field>
+			</div>
+			<div class="col-md-2 col-xs-6" *ngIf="isEdit" style="padding-top: 24px;">
+				<md-slide-toggle class="example-margin" color="primary" [disabled]="!isEdit" [(ngModel)]="sourceConnectionDetails.enabledFlag"
+				 name="status"></md-slide-toggle>
+				<span *ngIf="sourceConnectionDetails.enabledFlag">Active</span>
+				<span *ngIf="!sourceConnectionDetails.enabledFlag">Inactive</span>
+			</div>
+			<div class="col-md-2 col-xs-6" *ngIf="isViewOnly">
+				<span class="badge badge-success"  *ngIf="sourceConnectionDetails.enabledFlag">Active</span>
+				<span class="badge badge-warning" *ngIf="!sourceConnectionDetails.enabledFlag" >Inactive</span>
+			</div>
+		</div>
+		<!-- <perfect-scrollbar style="height: 600px; ">  -->
+		<p-accordion [multiple]="true">
+			<div style="margin-left: 15px;">
+				<p-accordionTab header="Details" [selected]="true">
+					<div class="accordioncontenet">
+						<div class="row">
+							<div class="col-md-3">
+
+								<md-select [disabled]="isViewOnly" placeholder="Connection Type" (change)="getDisplayColumns1()" [(ngModel)]="sourceConnectionDetails.connectionType"
+								 name="connectionType" #connectionType="ngModel" required>
+									<md-option size="50" *ngFor="let connectionType of connectionTypesList | orderBy : 'connectionTypeMeaning'" [value]="connectionType.connectionTypeCode">{{connectionType.connectionTypeMeaning}}</md-option>
+									<!-- <span class="help-block errorFont" *ngIf="!connectionType.valid && connectionType.touched">This field is required.</span> -->
+								</md-select>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-3" *ngFor="let myObj of finalCols; let i = index;">
+								<div *ngIf="i < 4">
+									<div style="margin-top: 3.7%;">
+										<md-input-container class="example-full-width" *ngIf="myObj.meaning != 'Password'">
+											<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning" [(ngModel)]="myObj.value"
+											 class="inputHeight" [name]="myObj.meaning" required ngModel>
+
+											<!-- <span class="help-block errorFont" *ngIf="!myObj.value">This field is required.</span> -->
+										</md-input-container>
+										<md-input-container class="example-full-width" *ngIf="myObj.meaning == 'Password'">
+											<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning" [(ngModel)]="myObj.value"
+											 class="inputHeight" [name]="myObj.meaning" required type="password" #input ngModel>
+											<i *ngIf="myObj.meaning == 'Password' && !isView && !isViewOnly" class="fa fa-eye hand" (click)="showPassword(input)" mdTooltip="View Password"
+											 >
+										</i>
+											<i *ngIf="myObj.meaning == 'Password' && isView" class="fa fa-eye-slash hand" (click)="showPassword(input)" mdTooltip="Hide Password"
+											 ></i>
+											<!-- <span class="help-block errorFont" *ngIf="!myObj.value">This field is required.</span> -->
+										</md-input-container>
+
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-3" *ngFor="let myObj of finalCols; let i = index;">
+								<div *ngIf="i > 3 && i < 8">
+									<div style="margin-top: 3.7%;">
+										<!-- <md-input-container class="example-full-width">
+										<input mdInput class="color-black" [disabled]="isViewOnly" [placeholder]="myObj.meaning" 
+											[(ngModel)]="myObj.value" [name]="myObj.meaning"
+											#value2="ngModel"
+											required>
+											<span class="help-block errorFont" *ngIf="!value2.valid && value2.touched">This field is required.</span>
+									</md-input-container> -->
+										<md-input-container class="example-full-width ">
+											<input mdInput [(ngModel)]="myObj.value" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning"
+											 [name]="myObj.meaning" class="inputHeight" required>
+											<!-- <span class="help-block errorFont" *ngIf="!name.valid && name.touched">This field is required.</span> -->
+										</md-input-container>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div class="row">
+							<div class="col-md-3" *ngFor="let myObj of finalCols; let i = index;">
+								<div *ngIf="i > 7 && i < 12">
+									<div style="margin-top: 3.7%;">
+										<md-input-container class="example-full-width">
+											<input mdInput class="color-black" [disabled]="isViewOnly" [placeholder]="myObj.meaning" [(ngModel)]="myObj.value" [name]="myObj.meaning"
+											 #value3="ngModel" class="inputHeight" required>
+											<!-- <span class="help-block errorFont" *ngIf="!value3.valid && value3.touched">This field is required.</span> -->
+										</md-input-container>
+									</div>
+								</div>
+							</div>
+						</div>
+						<!-- <button md-raised-button *ngIf="finalCols.length>0 && !isViewOnly" class="float-right" 
+						(click)="testConnection(finalCols)">
+						<i class="material-icons" style="color: green;" *ngIf="checkData">check</i>  Test Connection</button> -->
+					</div>
+				</p-accordionTab>
+				<p-accordionTab *ngIf="!hideProfile" ><!-- (click)="getAllProf(sourceConnectionDetails.startDate,sourceConnectionDetails.endDate);false" -->
+					<p-header>
+						<span>Associate Profile</span>
+						
+					</p-header>
+					<button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add Profile" (click)="addProfileRow();false" *ngIf="!isViewOnly && sourceProfiles" style="left: -37px;top: -23px;">
+								<md-icon>exposure_plus_1</md-icon>
+						</button>
+					<div class="accordioncontenet row" style="margin-top: 18px;">
+						<div class=" col-md-12">
+						<table class="table templateLines data-view-creation">
+							<thead class="tableheader">
+								<tr>
+									<th>Profile Name</th>
+									<th>Profile Description</th>
+									<th>Status</th>
+									<th></th>
+								</tr>
+							</thead>
+							<tbody class="createmode">
+								<tr *ngFor="let myObj of sourceProfileList; let i = index;" id="hideIconTable">
+									<td>
+										<div *ngIf="isViewOnly">{{myObj.sourceProfileName}}</div>
+										<md-select *ngIf="!isViewOnly" class="example-full-width " style="margin-left: 0px !important;margin-top: -13px !important;"
+											(change)="selectedAssociateProfile()"
+										 [(ngModel)]="myObj.sourceProfileName" [ngClass]="{'color-black' : isViewOnly}" name="sourceProfileName_{{i}}" #sourceProfileName="ngModel">
+											<perfect-scrollbar style="height: 200px;" *ngIf="!eligibleProfile">  
+										 		<md-option value="" (click)="myObj.description='';myObj.enabledFlag='';"></md-option>
+												<md-option size="50" *ngFor="let myObj of sourceProfiles; let j=index;" [value]="myObj.sourceProfileName" (click)="selectedProfile(myObj, i);">{{myObj.sourceProfileName}}</md-option>
+											</perfect-scrollbar>
+											<md-option class="create-connection-divider" [value]="-1" *ngIf="eligibleProfile">No Eligible Profiles Create New</md-option>
+											<md-option class="create-connection-divider" [value]="-1" *ngIf="!eligibleProfile">Create New</md-option>
+										</md-select>
+									</td>
+									<td>
+										<div>{{myObj.description}}</div>
+									</td>
+									<td>
+										<span class="badge badge-danger hand" *ngIf="!myObj.enabledFlag && myObj.sourceProfileName">DeActive</span>
+										<span class="badge badge-success hand" *ngIf="myObj.enabledFlag && myObj.sourceProfileName">Active</span>
+									</td>
+									<td style="width: 50px;">
+										<div class="display-flex" id="showIcon">
+											<button md-icon-button *ngIf="!isViewOnly" mdTooltip="delete" (click)="deleteColumn(i);">
+											<md-icon>delete</md-icon>
+										</button>
+										</div>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+						</div>
+					</div>
+				</p-accordionTab>
+			</div>
+		</p-accordion>
+		<!-- </perfect-scrollbar> -->
+	</form>
+</div>
+
+
+
+<!-- <div class="col-md-3">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.protocol" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Protocol"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width ">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.clientKey" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Client Key"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.clientSecret" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Client Secret"> 
+							</md-input-container>
+						</div>
+					</div>
+					<div class="row">
+						<div class="col-md-3">
+							<md-input-container class="example-full-width ">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.authEndpointUrl" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Auth End-point URL"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.tokenEndpointUrl" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Token End-point URL"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width ">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.callBackUrl" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Callback URL"> 
+							</md-input-container>
+						</div>
+						
+					</div>
+					<div class="row">
+						<div class="col-md-3">
+							<md-input-container class="example-full-width ">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.host" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Host"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.userName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="User"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width ">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.password" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Password"> 
+							</md-input-container>
+						</div>
+						<div class="col-md-3">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceConnectionDetails.url" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="URL"> 
+							</md-input-container>
+						</div> -->
+
+<!-- <div *ngIf="sourceConnectionDetails">
+    <h2><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.detail.title">Source Connection Details</span> {{sourceConnectionDetails.id}}</h2>
+    <hr>
+    <jhi-alert-error></jhi-alert-error>
+    <dl class="row-md jh-entity-details">
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.name">Name</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.name}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.description">Description</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.description}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.protocol">Protocol</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.protocol}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.clientKey">Client Key</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.clientKey}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.clientSecret">Client Secret</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.clientSecret}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.authEndpointUrl">Auth Endpoint Url</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.authEndpointUrl}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.tokenEndpointUrl">Token Endpoint Url</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.tokenEndpointUrl}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.callBackUrl">Call Back Url</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.callBackUrl}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.host">Host</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.host}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.userName">User Name</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.userName}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.password">Password</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.password}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.url">Url</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.url}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.tenantId">Tenant Id</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.tenantId}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.createdDate">Created Date</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.createdDate | date:'medium'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.createdBy">Created By</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.createdBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.lastUpdatedBy">Last Updated By</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.lastUpdatedBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.sourceConnectionDetails.lastUpdatedDate">Last Updated Date</span></dt>
+        <dd>
+            <span>{{sourceConnectionDetails.lastUpdatedDate | date:'medium'}}</span>
+        </dd>
+    </dl>
+
+    <button type="submit"
+            (click)="previousState()"
+            class="btn btn-info">
+        <span class="fa fa-arrow-left"></span>&nbsp;<span jhiTranslate="entity.action.back"> Back</span>
+    </button>
+
+    <button type="button"
+            [routerLink]="['/', { outlets: { popup: 'source-connection-details/'+ sourceConnectionDetails.id + '/edit'} }]"
+            replaceUrl="true"
+            class="btn btn-primary">
+        <span class="fa fa-pencil"></span>&nbsp;<span jhiTranslate="entity.action.edit"> Edit</span>
+    </button>
+</div> -->

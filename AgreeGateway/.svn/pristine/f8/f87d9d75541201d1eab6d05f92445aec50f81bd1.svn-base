@@ -1,0 +1,795 @@
+<!-- <div style="height: 100%; width: 100%"></div> -->
+<div class="component-body ETLWQ ">
+	<div class="mat-card-padding" class="pull-right display-flex">
+		<!-- <md-input-container class="" > <input
+							class="mySearchBox" mdInput
+							[(ngModel)]="sourceProfilesService.searchData"
+							(keyup.enter)="searchProfileData()"
+							placeholder="Search profiles"> </md-input-container> -->
+		<input type="search" placeholder="Search" class="" [(ngModel)]="sourceProfilesService.searchData" (keyup.enter)="searchProfileData()"
+		 style="height:18px;margin-top:10px;margin-right:20px;">
+		<md-tab-group (focusChange)="fetchSourceProfiles($event)" [selectedIndex]="selectedProfileStatus" dynamicHeight="true">
+			<md-tab *ngFor="let status of statusList ">
+				<ng-template md-tab-label>
+					{{status}}
+				</ng-template>
+			</md-tab>
+		</md-tab-group>
+	</div>
+	<div class="gridView" style="clear:both;">
+		<span *ngIf="!sourceProfilesForTenant || sourceProfilesForTenant.length<=0">
+			<i>No profiles created</i>
+		</span>
+		<div class="mat-card-padding">
+			<!-- <p-accordion [multiple]="true" class="rule-group-recon" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant.length>0">
+						<p-accordionTab [selected]="true">
+							<p-header>
+								<span>Profiles</span>
+							</p-header>
+							<div class="accordioncontenet"> -->
+			<div style="padding-bottom:5px;" class="profiles">
+				<md-card>
+					<div class="profile-list">
+						<md-tab-group (focusChange)="loadContent($event)" [selectedIndex]="selectedTab" dynamicHeight="true">
+							<md-tab *ngFor="let profile of sourceProfilesForTenant;let spInd=index;">
+								<ng-template md-tab-label>
+									<md-card>
+										<div style="padding:5px;width:350px;height:140px;overflow:hidden;">
+											<!-- <button class="material-icons hand pull-left" style="color: green" md-icon-button *ngIf="selectedProfileStatus == '2' && profile.enabledFlag">
+																<md-icon>check_circle</md-icon>
+															</button>-->
+											<button class="material-icons hand pull-right" style="color: red" md-icon-button *ngIf="selectedProfileStatus == '2' && !profile.enabledFlag">
+												<md-icon>error</md-icon>
+											</button>
+											<h5 [ngClass]="{'profile-pad':spInd == selectedTab}" style="text-align:center;word-wrap:break-word;white-space:normal;">
+												<span class="text-ellipse">{{profile.sourceProfileName}}</span>
+											</h5>
+
+											<span style="text-align:center;word-wrap:break-word;white-space:normal;" class="text-con-ellipse">
+												{{profile.connectionType}} - {{profile.connectionName}}
+											</span>
+
+											<button *ngIf="spInd == selectedTab  && (sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag);"
+											 md-icon-button class="hand md-20" (click)="viewProfileSchedules(sourceProfilesForTenant[selectedTab].id);loadProfileSchedules=true;templateNameForSchedulesDisplay=profile.sourceProfileName"
+											 mdTooltip="View Schedules">
+												<md-icon>alarm</md-icon>
+											</button>
+											<button *ngIf="spInd == selectedTab && (sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag )"
+											 class="hand md-20" md-icon-button mdTooltip="More Actions" (click)="profileOptions(spInd)">
+												<md-icon>more_vert</md-icon>
+											</button>
+
+											<div class="more-actions">
+												<!--[ngClass]="{'show-more-options:nth-of-type(spInd)': spInd == selectedTab,'show-more-options': showProfileOptions == true}" -->
+												<button md-icon-button class="hand md-20" (click)="extractNow('profile',null,null,null,null)" mdTooltip="Extract Now">
+													<i class="rec-font-data-extraction" style="font-size:20px;"></i>
+												</button>
+												<button md-icon-button class="hand md-20" (click)="transformNow('profile',null,null,null,null)" mdTooltip="Transform Now">
+													<i class="rec-font-data-transformation" style="font-size:20px;"></i>
+												</button>
+												<button md-icon-button class="hand md-20" (click)="schedule('profile');dataManagementWqService.loadScheduleContent=true"
+												 mdTooltip="Schedule">
+													<md-icon>date_range</md-icon>
+												</button>
+											</div>
+										</div>
+									</md-card>
+								</ng-template>
+							</md-tab>
+						</md-tab-group>
+					</div>
+				</md-card>
+			</div>
+			<md-card>
+				<div *ngIf="sourceProfilesForTenant && sourceProfilesForTenant.length>0">
+					<p-accordion [multiple]="true" class="rule-group-recon">
+						<p-accordionTab [selected]="true">
+							<p-header>
+								<span *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] &&sourceProfilesForTenant[selectedTab].sourceProfileName ">Templates for {{sourceProfilesForTenant[selectedTab].sourceProfileName}}</span>
+
+							</p-header>
+
+							<div class="accordioncontenet">
+
+								<div>
+									<div style="position:absolute;right:33px;top:10px;">
+										<i class="rec-font-data-extraction hand " style="font-size:24px;top: -24px" (click)="extractNow('template',null,null,null,null)"
+										 mdTooltip="Extract Now" *ngIf="showActions"></i>
+										<i class="rec-font-data-transformation hand " style="font-size:27px;top: -24px;padding:0 15px;" (click)="transformNow('template',null,null,null,null)"
+										 mdTooltip="Transform Now" *ngIf="showActions"></i>
+										<i class="material-icons hand " style="top: -24px;font-size:27px;" (click)="schedule('template');dataManagementWqService.loadScheduleContent=true"
+										 *ngIf="showActions" mdTooltip="Schedule">date_range</i>
+										<!-- <button md-icon-button style="top: -24px;" class="hand md-36 pull-right" (click)="extractNow('template',null,null,null,null)"
+															 mdTooltip="Extract Now" *ngIf="showActions">
+																<i class="rec-font-data-extraction" style="font-size:20px;"></i>
+															</button>
+															<button md-icon-button style="top: -24px;" class="hand md-36 pull-right" (click)="transformNow('template',null,null,null,null)"
+															 mdTooltip="Transform Now" *ngIf="showActions">
+																<i class="rec-font-data-transformation" style="font-size:20px;"></i>
+															</button>
+															<button md-icon-button style="top: -24px;" class="hand md-36 pull-right" (click)="schedule('template');dataManagementWqService.loadScheduleContent=true"
+															 *ngIf="showActions" mdTooltip="Schedule">
+																<md-icon>date_range</md-icon>
+															</button> -->
+									</div>
+									<div class="ETLJobsDialog">
+										<p-dialog header="Schedule" [resizable]="true" [responsive]="true" [(visible)]="dataManagementWqService.loadScheduleContent"
+										 [modal]="true">
+											<div class="display-flex" *ngIf="showBatchHeaderActions ==false && showBatchActions==false">
+												<div class="col-md-11" style="padding:0px">
+													<md-select placeholder="Process" [style.width]="'100%'" [(ngModel)]="schedulingObj.programName" [ngModelOptions]="{standalone: true}">
+														<md-option *ngFor="let program of programmeList" [value]="program">{{program}}</md-option>
+													</md-select>
+												</div>
+
+												<md-checkbox style="margin-top:23px;padding-left:20px;" mdTooltip="Transform Immediately" [(ngModel)]="schedulingObj.parameters[schedulingObj.parameters.length -1].selectedValue"
+												 [ngModelOptions]="{standalone: true}" *ngIf="schedulingObj.programName=='DataExtraction'">
+												</md-checkbox>
+											</div>
+											<div class="etl-schdl-main">
+												<scheduling [basicInfo]="schedulingObj" (changeDisplay)="hideDialog($event)"></scheduling>
+											</div>
+										</p-dialog>
+									</div>
+
+
+									<div class="table-responsive actionsOnHover" style="padding: 0 15px;">
+
+
+										<!-- <button md-icon-button class="pull-right  md-36" aria-hidden="true" mdTooltip="Hide Dropzone" (click)="hideDropZone()" *ngIf="!hideDZone && (sourceProfilesForTenant[selectedTab].enabledFlag )">
+                                                        <md-icon>keyboard_arrow_right</md-icon>
+                                                    </button>
+                                                    <button md-icon-button class="pull-right  md-36" aria-hidden="true" mdTooltip="Show Dropzone" (click)="hideDropZone()"
+                                                     *ngIf="hideDZone && (sourceProfilesForTenant[selectedTab].enabledFlag )">
+                                                        <md-icon>keyboard_arrow_left</md-icon>
+                                                    </button> -->
+
+										<i class="material-icons hand" *ngIf="!hideDropZoneToggler" mdTooltip="Drop Zone" style="position:absolute;right:5px;" (click)="showHideDropZone('OPEN')">chevron_left</i>
+										<div class="templateLines">
+											<p-dataTable [value]="dataManagementWqService.fileTemplatesList " scrollable="true" scrollHeight="250px" reorderableColumns="true"
+											 columnResizeMode="expand" resizableColumns="true" rowHover="true" [rows]="10" [editable]="false" [responsive]="true">
+
+												<p-column [style]="{'width':'50px'}" header="" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag && displayTemplateCheckbox">
+													<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="header">
+
+														<md-checkbox class="etl-wq-temp-check-all" [(ngModel)]="selectedAll" (change)="selectAll();" [ngModelOptions]="{standalone: true}">
+
+														</md-checkbox>
+													</ng-template>
+													<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="body">
+														<md-checkbox [(ngModel)]="row['selected']" (change)="checkIfAllSelected();" [ngModelOptions]="{standalone: true}" *ngIf="row['templateStatus'] == 'Active' && !row['hold'] ">
+														</md-checkbox>
+													</ng-template>
+												</p-column>
+												<p-column field="templateName" header="Template Name">
+												<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="body">
+												<b (click)="fetchBatchHeadersList(row['spaid'],'template')">
+														<u>{{row['templateName']}}</u>
+												</b>
+												</ng-template>
+												
+												</p-column>
+												<p-column *ngFor="let template of templateDetailsColumnsList" [field]="template.field" [header]="template.header" (mouseover)="mouseOverTemplate=ind"
+												 (mouseleave)="mouseOverTemplate=-1" [sortable]="true" [editable]="false">
+													<ng-template let-row="rowData">
+														<span *ngIf=" row[template.field] != 'Active' && row[template.field] != 'Inactive'">{{row[template.field] }}</span>
+													</ng-template>
+												</p-column>
+												<p-column [style]="{'width':'80px' }" field="templateStatus" header="Status">
+													<ng-template let-col let-row="rowData" pTemplate="body">
+														<i *ngIf=" row[col.field] == 'Active' " style="color: darkgray" class="material-icons hand">check_circle</i>
+														<i *ngIf=" row[col.field] == ' Inactive' || row[col.field] == 'Inactive'" style="color: red" class="material-icons hand" aria-hidden="true">error</i>
+													</ng-template>
+												</p-column>
+												<p-column [style]="{'width':'80px' }" header="Actions" (mouseover)="actionsForTemplate($event)" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag">
+													<ng-template let-template let-i="rowIndex" let-row="rowData" pTemplate="body" ng-mouseover="mouseOverTemplate = i">
+														<div class="display-flex">
+															<button md-icon-button class="hand md-20 tempActionButton " (click)="unHoldTemplate(row['spaid'])" mdTooltip="Release Hold"
+															 *ngIf="(row['hold'] && row['hold']==true )&& (row['templateStatus']=='Active') ">
+																<md-icon>play_arrow</md-icon>
+															</button>
+															<button md-icon-button class="hand md-20 tempActionButton" (click)="holdTemplate(row['spaid']);" mdTooltip="Hold Template"
+															 *ngIf="(!row['hold'] || row['hold']==false  )&& (row['templateStatus']=='Active')">
+																<md-icon>pause</md-icon>
+															</button>
+															<button md-icon-button class="hand md-20 tempActionButton" (click)="viewSchedules(sourceProfilesForTenant[selectedTab].id, row['templateId'],i);loadProfileSchedules=true;templateNameForSchedulesDisplay=row['templateName']"
+															 mdTooltip="View Schedules">
+																<md-icon>alarm</md-icon>
+															</button>
+														</div>
+													</ng-template>
+												</p-column>
+
+											</p-dataTable>
+										</div>
+										<div class="ETLWQDialog" *ngIf="loadProfileSchedules==true && profileSchedulesList && profileSchedulesList.length>0">
+											<p-dialog header="Schedules{{templateNameForSchedulesDisplay}}" [resizable]="true" [responsive]="true" [(visible)]="profileSchedulesList"
+											 [modal]="true" (onHide)="loadProfileSchedules=false;emptySchedules()">
+												<div class="row" *ngIf="!profileSchedulesList || profileSchedulesList.length<=0">
+													No schedules
+												</div>
+												<div class="row" *ngIf="profileSchedulesList && profileSchedulesList.length>0">
+													<p-dataTable [value]="profileSchedulesList" scrollable="true" scrollHeight="250px" reorderableColumns="true" columnResizeMode="expand"
+													 resizableColumns="true" [responsive]="true" *ngIf="profileSchedulesList && profileSchedulesList.length>0">
+														<p-column *ngFor="let scheduleHeader of scheduleListColumns" [field]="scheduleHeader.field" [header]="scheduleHeader.header"
+														 [style]="{'width':scheduleHeader.width}" [sortable]="true" [editable]="false">
+
+														</p-column>
+														<!-- <p-column *ngFor="let col of scheduleListColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':'left'}"
+																					 [sortable]="true" [editable]="false">
+																					</p-column> -->
+														<!-- <p-column [style]="{'width':'100px', 'text-align':'center'}" field="Actions" header="Actions" [sortable]="true" [editable]="true"
+																			 frozen="true">
+																				<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+
+																				</ng-template>
+																			</p-column> -->
+													</p-dataTable>
+												</div>
+											</p-dialog>
+										</div>
+
+										<!-- 
+																
+																
+																
+												<table class="table" *ngIf="dataManagementWqService.fileTemplatesList">
+													<thead>
+														<tr>
+															<th *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag">
+																<md-checkbox class="etl-wq-temp-check-all" [(ngModel)]="selectedAll" (change)="selectAll();" [ngModelOptions]="{standalone: true}">
+																</md-checkbox>
+															</th>
+															<th>Template Name</th>
+															<th>Source Directory Path</th>
+															<th>Local Directory Path</th>
+															<th>Status</th>
+															<th>Schedules</th>
+															<th *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag">Actions</th>
+														
+														</tr>
+													</thead>
+													<tbody>
+														<tr *ngFor="let template of dataManagementWqService.fileTemplatesList ;let ind=index;" (mouseover)="mouseOverTemplate=ind"
+														 (mouseleave)="mouseOverTemplate=-1">
+															<td *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag">
+																<md-checkbox [(ngModel)]="template.selected" (change)="checkIfAllSelected();" [ngModelOptions]="{standalone: true}" *ngIf="template.templateStatus == 'Active' && !template.hold">
+																</md-checkbox>
+															</td>
+															<td>{{template.templateName}}</td>
+															<td>{{template.sourceDirectoryPath}}</td>
+															<td>{{template.localDirectoryPath}}</td>
+															<td>
+																<button md-icon-button class="md-36" mdTooltip="Active" *ngIf="template.templateStatus == 'Active'">
+																	<md-icon>check_circle</md-icon>
+																</button>
+																<button md-icon-button class="md-36" mdTooltip="Inactive" *ngIf="template.templateStatus == 'InActive'">
+																	<md-icon>error</md-icon>
+																</button>
+															</td>
+															<td>
+																<i class="material-icons hand" *ngIf="mouseOverTemplate == ind" (click)="viewSchedules(sourceProfilesForTenant[selectedTab].id,template.templateId,ind);loadSchedules=true">alarm</i>
+																<div class="ETLWQDialog">
+																	<p-dialog header="Schedules" [resizable]="true" [responsive]="true" [(visible)]="loadSchedules" [modal]="true" (onHide)="loadSchedules=false">
+																		<div class="row" *ngIf="!schedulesList || schedulesList.length<=0">
+																			No schedules
+																		</div>
+																		<div class="row" *ngIf="schedulesList && schedulesList[ind] && schedulesList[ind].length>0">
+																			<p-dataTable [value]="schedulesList[ind]" scrollable="true" scrollHeight="500px" reorderableColumns="true" columnResizeMode="expand"
+																			 selectionMode="multiple" [rows]="10" [responsive]="true" *ngIf="schedulesList && schedulesList[ind] && schedulesList[ind].length>0">
+																				<p-column *ngFor="let col of scheduleListColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':'left'}"
+																				 [sortable]="true" [editable]="true">
+																				</p-column>
+																				<p-column [style]="{'width':'100px', 'text-align':'center'}" field="Actions" header="Actions" [sortable]="true" [editable]="true"
+																				 frozen="true">
+																					<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+
+																					</ng-template>
+																				</p-column>
+																			</p-dataTable>
+																		</div>
+																	</p-dialog>
+																</div>
+															</td>
+																<td>{{template.status}}</td>
+															<td *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag">
+																<i class="fa fa-pause hand" aria-hidden="true" *ngIf="!template.hold && template.templateStatus == 'Active' && mouseOverTemplate == ind"
+																 (click)="holdTemplate(template.spaid);" mdTooltip="Hold Template"></i>
+																<i class="fa fa-play-circle hand" aria-hidden="true" *ngIf="template.hold && template.templateStatus == 'Active' && mouseOverTemplate == ind"
+																 (click)="unHoldTemplate(template.spaid)" mdTooltip="UnHold Template"></i>
+															</td>
+														</tr>
+													</tbody>
+												</table> -->
+										<!-- <button md-icon-button class="pull-right  md-36" aria-hidden="true" mdTooltip="Hide dropzone" (click)="hideDropZone()" *ngIf="!hideDZone">
+															<md-icon>keyboard_arrow_right</md-icon>
+														</button>
+														<button md-icon-button class="pull-right  md-36" aria-hidden="true" mdTooltip="Unhide dropzone" (click)="hideDropZone()"
+														 *ngIf="hideDZone">
+															<md-icon>keyboard_arrow_left</md-icon>
+														</button> -->
+										<!-- 		<button md-icon-button class="pull-right md-36" [mdTooltip]=hideDropZoneVar (click)="hideDropZone()">
+										<md-icon>view_list</md-icon>
+									</button>
+									 -->
+									</div>
+								</div>
+
+								<!-- <div [class]="dropZoneWidthClass" *ngIf="dropZoneWidthClass  && (sourceProfilesForTenant[selectedTab].enabledFlag )">
+														<md-card style="height: 176px">
+															<div style="padding:10px;">
+																<div ng2FileDrop [ngClass]="{'nv-file-over': hasBaseDropZoneOver}" (fileOver)="fileOverBase($event)" (onFileDrop)="onFileDrop($event)"
+																 (click)="singleFile.click()" [uploader]="uploader" class="well my-drop-zone hand" mdTooltip="Click or Drop Files Here">
+																	<i class="material-icons cloudupload" *ngIf=!enableLineInfo>cloud_upload</i>
+																	<i class="material-icons cloudsuccess" *ngIf=enableLineInfo>cloud_done</i>
+																</div>
+																<input type="file" ng2FileSelect [uploader]="uploader" #singleFile #file (change)="fileChange(file)" style="display: none;"
+																/> -->
+
+								<div class="ETLWQDialog" *ngIf="dataManagementWqService.loadCreateTemplateForm && remoteValue == 'create'">
+									<p-dialog header="" [resizable]="true" [responsive]="true" [(visible)]="dataManagementWqService.loadCreateTemplateForm" [modal]="true">
+										<jhi-file-templates-edit [createFromRemoteArea]="remoteValue"></jhi-file-templates-edit>
+									</p-dialog>
+								</div>
+
+
+								<div class="ETLWQDialog" *ngIf="dataManagementWqService.showMatchedTemplates && dataManagementWqService.matchedTemplates && dataManagementWqService.matchedTemplates.length>0">
+									<p-dialog header="Matched Templates" [resizable]="true" [responsive]="true" [(visible)]="dataManagementWqService.showMatchedTemplates"
+									 [modal]="true" (onHide)="emptyQueue();dataManagementWqService.showMatchedTemplates=false">
+										<button md-icon-button class="pull-right  md-36" (click)="dataManagementWqService.loadCreateTemplateForm = true;remoteValue= 'create'"
+										 mdTooltip="Create New Template">
+											<md-icon>add</md-icon>
+										</button>
+										<br>
+										<ng-template ngFor let-temp [ngForOf]="dataManagementWqService.matchedTemplates" let-mTempInd="index" ;>
+											<p-accordion [multiple]="true">
+												<p-accordionTab [selected]="false" (mouseover)="mouseOnMatchedTemp = mTempInd" (mouseleave)="mouseOnMatchedTemp=-1">
+													<p-header>
+														<span *ngIf="temp[1]" (click)="fetchTemplateDetails(temp[0])">{{temp[1]}}</span>
+														<button class="material-icons hand pull-right" md-icon-button mdTooltip="Proceed Process" *ngIf="mouseOnMatchedTemp == mTempInd"
+														 (click)="proceedForExtraction(temp[2])">
+															<md-icon>send</md-icon>
+														</button>
+													</p-header>
+													<div class="accordioncontenet" style="height: 240px;" *ngIf="showTemplateDetail">
+														<jhi-file-templates-edit [createFromRemoteArea]="remoteValue"></jhi-file-templates-edit>
+													</div>
+												</p-accordionTab>
+											</p-accordion>
+										</ng-template>
+									</p-dialog>
+								</div>
+								<!-- Last Dialog Placed Here -->
+							</div>
+						</p-accordionTab>
+					</p-accordion>
+				</div>
+			</md-card>
+		</div>
+	</div>
+
+	<div class="mat-card-padding">
+		<md-card>
+			<p-accordion [multiple]="true" class="rule-group-recon" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant.length>0">
+				<p-accordionTab [selected]="true">
+					<p-header>
+						<span>Batch history</span>
+					</p-header>
+					<div class="accordioncontenet profiles" style="padding-top:10px;">
+						<div class="flex-container">
+							<div class="display-flex">
+
+							</div>
+							<div class="display-flex">
+								<button style="top:-8px;padding-right:40px;" md-icon-button mdTooltip="Refresh Batches" (click)="refreshBatchData()" *ngIf="sourceProfilesForTenant[selectedTab].enabledFlag">
+									<md-icon>replay</md-icon>
+								</button>
+								<div style="margin-top:-5px;" *ngIf="(batchData &&  batchData.length>0)">
+									<input type="search" placeholder="Search" class="" [(ngModel)]="dataManagementWqService.searchData" (keyup.enter)="searchData();">
+								</div>
+								<i *ngIf="showBatchHeaderActions" class="rec-font-data-extraction hand" style="font-size: 24px;padding-left:30px;padding-right:10px;"
+								 aria-hidden="true" (click)="transformNow('batchHeader',null,null,null,null)" mdTooltip="Transform Now"></i>
+								<i *ngIf="showBatchHeaderActions" class="material-icons hand" style="font-size:28px;margin-top:-4px;" aria-hidden="true"
+								 (click)="schedule('batchHeader');dataManagementWqService.loadScheduleContent=true" mdTooltip="Schedule">date_range</i>
+							</div>
+						</div>
+
+						<div class="row">
+							<div class="col-md-2 col-sm-3">
+								<md-accordion [multi]="true">
+									<md-expansion-panel [expanded]="true" [selected]="true" (opened)="profilePanelOpenState = true" (closed)="profilePanelOpenState = false">
+										<md-expansion-panel-header>
+											<md-panel-title>
+												<b> Profile </b>
+											</md-panel-title>
+											<!-- <md-panel-description>
+													 All
+													</md-panel-description> -->
+										</md-expansion-panel-header>
+										<md-radio-group [(ngModel)]="viewAllBatches" layout="row" [ngModelOptions]="{standalone: true}" (change)="filterBysProfile()">
+											<md-radio-button value="all" [ngClass]="{'color-black' : true}">All</md-radio-button>
+											<br>
+											<md-radio-button value="selectedProfile" [ngClass]="{'color-black' : true}">Selected Profile</md-radio-button>
+										</md-radio-group>
+									</md-expansion-panel>
+									<md-expansion-panel [expanded]="true" [selected]="true" (opened)="batchPanelOpenState = true" (closed)="batchPanelOpenState = false"
+									 *ngIf="!(viewBy == 'All' && batchData.length<=0)">
+										<md-expansion-panel-header>
+											<md-panel-title>
+												<b>Batch </b>
+											</md-panel-title>
+										</md-expansion-panel-header>
+										<md-radio-group [(ngModel)]="viewBy" layout="row" [ngModelOptions]="{standalone: true}" (change)="fetchByViewOption()">
+
+											<md-radio-button value="All" [ngClass]="{'color-black' : true}">All </md-radio-button>
+											<br>
+
+											<md-radio-button value="Fail" [ngClass]="{'color-black' : true}">Failed</md-radio-button>
+											<br>
+
+											<md-radio-button value="extracted" [ngClass]="{'color-black' : true}">Extracted</md-radio-button>
+											<br>
+
+											<md-radio-button value="transformed" [ngClass]="{'color-black' : true}">Transformed</md-radio-button>
+											<br>
+
+											<md-radio-button value="holded" [ngClass]="{'color-black' : true}">Holded</md-radio-button>
+
+										</md-radio-group>
+
+									</md-expansion-panel>
+								</md-accordion>
+							</div>
+							<div class="col-md-10 col-sm-9">
+								<div class="table-responsive actionsOnHover templateLines">
+									<span *ngIf="(!batchData || batchData.length<=0 ) && viewAllBatches == 'selectedProfile'">
+										No batches found for {{ sourceProfilesForTenant[selectedTab].sourceProfileName}}
+									</span>
+									<span *ngIf="(!batchData || batchData.length<=0 ) && viewAllBatches == 'all' ">
+										No batches found
+									</span>
+									<p-dataTable [value]="batchData" scrollable="true" scrollHeight="500px" reorderableColumns="true" columnResizeMode="expand"
+									 resizableColumns="true" [responsive]="true" *ngIf="batchData && batchData.length>0">
+										<p-column [style]="{'width':'30px'}" header="" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag && displayBatchCheckbox">
+											<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="header">
+
+												<md-checkbox class="etl-wq-temp-check-all" [(ngModel)]="selectAllBatches" (change)="selectAllBatchesList();" [ngModelOptions]="{standalone: true}">
+
+												</md-checkbox>
+											</ng-template>
+											<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="body">
+												<md-checkbox [(ngModel)]="row['selected']" (change)="checkIfAllBatchesSelected();" [ngModelOptions]="{standalone: true}"
+												 *ngIf="!row['transformationStatus']">
+												</md-checkbox>
+											</ng-template>
+										</p-column>
+										<p-column [style]="{'width':'400px', 'text-align':'left'}" field="batchName" header="Batch Name" [sortable]="true">
+											<ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+												<span class="hand">
+													<b (click)="clearOtherPaginations();onRowSelect(i);">
+														<u>{{row[col.field]}}</u>
+													</b>
+												</span>
+												<!-- <a [routerLink]="['/file-templates', {outlets	: {'content': [row['id']]+'/details'}}]">{{row[col.field]}}</a> -->
+											</ng-template>
+										</p-column>
+										<!-- <p-column [style]="{'width':'100px', 'text-align':'center'}" field="batchName" header="Batch Name" [sortable]="true" [editable]="true"
+						 frozen="true">
+						  <ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+						 <span><b (click)="onRowSelect(i);openBatchDetail=true">{{row[field]}}</b></span>
+						 </ng-template>
+						 </p-column> -->
+										<p-column *ngFor="let col of batchHistoryColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width}"
+										 [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+												<span *ngIf="(col.field != 'extractedDateTime' && col.field != 'transformedDateTime'  ) && col.field != 'Actions'" (click)="fetchBatchDetailsByBatchId(i)">
+													{{row[col.field]}}</span>
+												<span *ngIf="(col.field == 'extractedDateTime' || col.field == 'transformedDateTime')  && col.field != 'Actions'">
+													{{row[col.field] | date:'mediumDate' }} {{row[col.field] | date:'mediumTime' }}
+												</span>
+												<!-- <i class="fa fa-pause hand" aria-hidden="true" *ngIf="col.field == 'Actions' && (!row['hold'] || row['hold'] == false)" (click)="holdBatch(row.id);"
+											 mdTooltip="Hold Batch"></i>
+											<i class="fa fa-play-circle hand" aria-hidden="true" *ngIf="col.field == 'Actions' && ( row['hold'] || row['hold'] ==true)"
+											 (click)="releaseBatchHold(row.id)" mdTooltip="Release hold"></i> -->
+											</ng-template>
+										</p-column>
+										<p-column [style]="{'width':'80px' }" header="Actions" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag">
+											<ng-template let-template let-i="rowIndex" let-row="rowData" pTemplate="body" ng-mouseover="mouseOverTemplate = i">
+												<div class="display-flex">
+													<button md-icon-button class="hand md-20 tempActionButton " (click)="releaseBatchHold(row.id)" mdTooltip="Release Hold" *ngIf="row['hold'] && row['hold']==true ">
+														<md-icon>play_arrow</md-icon>
+													</button>
+													<button md-icon-button class="hand md-20 tempActionButton" (click)="holdBatch(row.id)" mdTooltip="Hold Batch" *ngIf="!row['hold'] || row['hold']==false">
+														<md-icon>pause</md-icon>
+													</button>
+												</div>
+											</ng-template>
+										</p-column>
+
+									</p-dataTable>
+									<md-paginator *ngIf="batchLength > 0" [length]="batchLength" [pageSize]="batchPageSize" [pageSizeOptions]="pageSizeOptions"
+									 [pageIndex]="page" (page)="onSPaginateChange($event)">
+									</md-paginator>
+									<!-- 	<md-paginator *ngIf="batchLength > batchPageSize " [length]="batchLength" [pageSize]="batchPageSize" [pageSizeOptions]="pageSizeOptions"
+						 (page)="batchpageEvent = $event; fetchBatchHeadersList(sourceProfilesForTenant[selectedTab].id); ">
+						</md-paginator> -->
+								</div>
+							</div>
+						</div>
+						<div class="ETLWQDialog">
+							<p-dialog header="" [resizable]="true" [responsive]="true" [(visible)]="openBatchDetail" [modal]="true">
+								<p-header>
+									<span *ngIf="batchDetailsList && batchDetailsList[0] && batchDetailsList[0].batchHeaderName">{{batchDetailsList[0].batchHeaderName}} Details:</span>
+								</p-header>
+								<div class="pull-right row" *ngIf="showBatchActions">
+									<button md-icon-button class="hand md-36" (click)="transformNow('batchDetail',null,null,selectedBatch,null)" mdTooltip="Transform Now">
+										<i class="rec-font-data-transformation" style="font-size:20px;"></i>
+									</button>
+									<button md-icon-button class="hand md-36" (click)="schedule('batchDetail',null,null,selectedBatch,null)" mdTooltip="Schedule">
+										<md-icon>date_range</md-icon>
+									</button>
+								</div>
+								<div class="templateLines">
+									<p-dataTable [value]="batchDetailsList" scrollable="true" reorderableColumns="true" scrollHeight="250px" columnResizeMode="expand"
+									 resizableColumns="true" [rows]="10" [editable]="true" [responsive]="true" *ngIf="batchDetailsList && batchDetailsList.length>0">
+										<p-column [style]="{'width':'20px'}" header="" *ngIf="sourceProfilesForTenant && sourceProfilesForTenant[selectedTab] && sourceProfilesForTenant[selectedTab].enabledFlag && displayBatchDetailsCheckbox">
+											<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="header">
+
+												<md-checkbox class="etl-wq-temp-check-all" [(ngModel)]="BHselectedAll" (change)="selectAllBatchDetailsList();" [ngModelOptions]="{standalone: true}">
+
+												</md-checkbox>
+											</ng-template>
+											<ng-template let-template let-row="rowData" let-rowIndex="rowIndex" pTemplate="body">
+												<md-checkbox [(ngModel)]="row['selected']" (change)="checkIfAllbatchDetailsSelected();" [ngModelOptions]="{standalone: true}"
+												 *ngIf="!row['hold']&& row['status'] != 'Loaded'">
+												</md-checkbox>
+											</ng-template>
+										</p-column>
+										<p-column *ngFor="let batchDetail of batchDetailColumnList" [field]="batchDetail.field" [header]="batchDetail.header" [style]="{'width':batchDetail.width}"
+										 [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body" *ngIf="batchDetail.field != 'Actions' ">
+												<span *ngIf="batchDetail.field == 'fileName' && row['status']== 'Extracted'">{{row[batchDetail.field]}}</span>
+												<span *ngIf="batchDetail.field != 'fileName'">{{row[batchDetail.field]}}</span>
+												<span class="hand" (click)="fetchLinesBySrcFileInb(sourceProfilesForTenant[selectedTab].id,row['templateId'],row['fileName'],row['srcInbHistId'],i,row['status']);loadLinesForSelectedFile=true;linesStatusFilter='Fail';selectedFileName =row['fileName'];"
+												 *ngIf="batchDetail.field == 'fileName' && row['status']!= 'Extracted'">
+													<b>
+														<u>{{row[batchDetail.field]}}</u>
+													</b>
+												</span>
+											</ng-template>
+											<ng-template let-i="rowIndex" let-row="rowData" pTemplate="body" *ngIf="batchDetail.field == 'Actions' ">
+												<!-- <i class="fa fa-pause hand tempActionButton" aria-hidden="true" *ngIf="(!row['hold'] || row['hold'] == false) && row['status'] != 'Loaded'"
+											 (click)="holdBatchDetail(row['srcInbHistId'])" mdTooltip="Hold"></i>
+											<i class="fa fa-play-circle hand tempActionButton" aria-hidden="true" *ngIf="row['hold'] && row['status'] != 'Loaded'" (click)="releaseBatchDetailHold(row['srcInbHistId']);"
+											 mdTooltip="Release Hold"></i>
+											  -->
+												<div class="display-flex">
+													<button md-icon-button class="tempActionButton" (click)="holdBatchDetail(row['srcInbHistId'])" mdTooltip="Hold" id="showIcon"
+													 *ngIf="(!row['hold'] || row['hold'] == false) && row['status'] != 'Loaded'">
+														<md-icon>pause</md-icon>
+													</button>
+													<button md-icon-button class="tempActionButton" (click)="releaseBatchDetailHold(row['srcInbHistId']);" mdTooltip="Release Hold"
+													 id="showIcon" *ngIf="row['hold'] && row['status'] != 'Loaded'">
+														<md-icon>play_arrow</md-icon>
+													</button>
+													<button md-icon-button class="tempActionButton" (click)="deleteAllLines(row['srcInbHistId'])" mdTooltip="Clear file data"
+													 id="showIcon" *ngIf="row['status'] == 'Loading Failed'">
+														<md-icon>delete</md-icon>
+													</button>
+												</div>
+											</ng-template>
+										</p-column>
+									</p-dataTable>
+									<md-paginator *ngIf="batchDetailLength > 0" [length]="batchDetailLength" [pageSize]="batchDetailPageSize" [pageSizeOptions]="pageSizeOptions"
+									 [pageIndex]="batchDetailPage" (page)="onBatchDetailPaginateChange($event)">
+										<!-- (page)="batchDetailPageEvent = $event;fetchBatchDetailsByBatchId(indexToFetchBatchDetail)"> -->
+									</md-paginator>
+
+								</div>
+
+								<div class="lines" *ngIf="linesListBasedOnFile && linesListBasedOnFile.length>0">
+
+									<p-dialog [resizable]="true" [responsive]="true" [(visible)]="loadLinesForSelectedFile" [modal]="true">
+										<p-header>
+											Lines for {{selectedFileName}}
+											<button md-icon-button aria-hidden="true" mdTooltip="Update Lines" (click)="saveStagingLines();loadLinesForSelectedFile=true;"
+											 *ngIf="stagingData && linesToUpdate &&  linesToUpdate.length>0">
+												<md-icon>save</md-icon>
+											</button>
+
+										</p-header>
+
+										<!-- 										
+										<div class="row"  *ngIf="multipleIdentifiers && multipleIdentifiers.length>0">
+												<div class="col-md-12 col-sm-12 col-xs-12 tabsUnderLine" >
+														<md-tab-group (focusChange)="loadFileTemplateLine($event)" [selectedIndex]="selectedTabIndex">
+																<md-tab *ngFor="let obj of multipleIdentifiers;let i =index">
+																		<ng-template md-tab-label>
+																			{{obj.rowIdentifier}}
+								
+																		</ng-template>
+																		<div class="demo-tab-content">
+																			</div>
+																			</md-tab>
+														</md-tab-group>
+												</div>
+											</div> -->
+										<div class="row etl-tabs">
+											<md-tab-group (focusChange)="fetchLinesByRowId($event)" [selectedIndex]="selectedIdentifierIndex" *ngIf="multipleIdentifiers && multipleIdentifiers.length>0">
+												<md-tab [disabled]="!obj.display" *ngFor="let obj of multipleIdentifiers;let i =index">
+													<ng-template md-tab-label>
+														{{obj.rowIdentifier}}
+
+													</ng-template>
+													<div class="demo-tab-content">
+													
+													</div>
+												</md-tab>
+											</md-tab-group>
+											<div class="templateLines" style="padding-top:10px">
+												<!-- <div  class="pull-right"> -->
+												<div class="flex-container">
+													<div class="display-flex">
+
+													</div>
+													<div class="display-flex">
+														<button md-icon-button style="top: -9px;" (click)="deleteAllLines()" mdTooltip="Clear file data" id="showIcon" *ngIf="stagingData">
+															<md-icon>delete_forever</md-icon>
+														</button>
+														<md-radio-group [(ngModel)]="linesStatusFilter" (change)="filterLinesByStatus(sourceProfilesForTenant[selectedTab].id,selectedFilesTempId,selectedFileName,selectedSrcInbHistId,bhDetIndex)"
+														 layout="row" [ngModelOptions]="{standalone: true}" *ngIf="stagingData">
+															<md-radio-button value="Fail" [ngClass]="{'color-black' : true}">Errored</md-radio-button>
+
+															<md-radio-button value="Success" [ngClass]="{'color-black' : true}">Success</md-radio-button>
+
+															<md-radio-button value="All" [ngClass]="{'color-black' : true}">All</md-radio-button>
+														</md-radio-group>
+													</div>
+												</div>
+
+
+
+												<p-dataTable [value]="linesListBasedOnFile" scrollable="true" reorderableColumns="true" scrollHeight="400px" columnResizeMode="expand"
+												 [rowStyleClass]="lookupRowStyleClass" resizableColumns="true" [rows]="10" [editable]="true" [responsive]="true"
+												 *ngIf="linesListBasedOnFile && linesListBasedOnFile.length>0">
+
+													<p-column *ngFor="let line of fileTemplateLineColumns" [field]="line.field" [header]="line.header" [style]="{'width':line.width}"
+													 [sortable]="true">
+														<ng-template let-row="rowData" pTemplate="body" *ngIf="line.field != 'Actions'">
+															<md-input-container class="" *ngIf="line.field != 'recordStatus' && row['editable']==true">
+																<input class="" mdInput [(ngModel)]="row[line.field]">
+															</md-input-container>
+															<span *ngIf="line.field != 'recordStatus'&& row['editable']==false ">{{row[line.field]}}</span>
+															<i *ngIf="line.field == 'recordStatus' && row[line.field] == 'SUCCESS' " style="color: darkgray" class="material-icons hand">check_circle</i>
+															<i *ngIf="line.field == 'recordStatus' && row[line.field] != 'SUCCESS' " style="color: red" class="material-icons hand" aria-hidden="true">error</i>
+														</ng-template>
+														<ng-template let-i="rowIndex" let-row="rowData" pTemplate="body" *ngIf="line.field == 'Actions' ">
+															<div class="display-flex">
+																<button md-icon-button class="tempActionButton" (click)="deleteLines(row['id'])" mdTooltip="Delete Line" id="showIcon" *ngIf=" row['recordStatus'] != 'SUCCESS'">
+																	<md-icon>delete</md-icon>
+																</button>
+
+																<button md-icon-button class="tempActionButton" (click)="confirmAsSuccess(row,i)" mdTooltip="Proceed to Success" id="showIcon"
+																 *ngIf=" row['recordStatus'] != 'SUCCESS'">
+																	<md-icon>done</md-icon>
+																</button>
+															</div>
+
+
+
+														</ng-template>
+													</p-column>
+												</p-dataTable>
+												<md-paginator *ngIf="linesLength > 0 " [length]="linesLength" [pageSize]="linesPageSize" [pageSizeOptions]="pageSizeOptions"
+												 [pageIndex]="linePage" (page)="onLinePaginateChange($event)">
+												</md-paginator>
+											</div>
+										</div>
+
+
+									</p-dialog>
+								</div>
+							</p-dialog>
+						</div>
+
+
+						<!--  <div class="ftlSearch">
+							
+						
+					</div> -->
+					</div>
+				</p-accordionTab>
+			</p-accordion>
+		</md-card>
+	</div>
+
+	<!-- *ngIf="dropZoneWidthClass  && (sourceProfilesForTenant[selectedTab].enabledFlag )" -->
+	<div class="etl-drop-zone">
+		<md-card>
+			<div class="text-right">
+				<i class="material-icons hand" (click)="showHideDropZone('HIDE')" mdTooltip="Close">close</i>
+			</div>
+			<!-- <div class="row localupload">DropZone</div>
+							<br> -->
+			<div style="padding:10px;">
+				<div ng2FileDrop [ngClass]="{'nv-file-over': hasBaseDropZoneOver}" (fileOver)="fileOverBase($event)" (onFileDrop)="onFileDrop($event)"
+				 (click)="singleFile.click()" [uploader]="uploader" class="well my-drop-zone hand" mdTooltip="Click or Drop Files Here">
+					<i class="material-icons cloudupload" *ngIf=!enableLineInfo>cloud_upload</i>
+					<i class="material-icons cloudsuccess" *ngIf=enableLineInfo>cloud_done</i>
+				</div>
+				<input type="file" ng2FileSelect [uploader]="uploader" #singleFile #file (change)="fileChange(file)" style="display: none;"
+				/>
+				<div class="row" style="margin-left: -8px !important;word-wrap: break-word;">
+					<div class="col-md-9">
+						<span *ngIf="uploader && uploader.queue && uploader.queue[0] && uploader.queue[0].file && uploader.queue[0].file.name">{{uploader.queue[0].file.name}}</span>
+					</div>
+					<div class="col-md-1"></div>
+					<div class="col-md-2">
+						<i *ngIf="spin" class="fa fa-spinner fa-spin" style="font-size: 24px"></i>
+						<i *ngIf="uploadedIcon" class="fa fa-check" style="font-size: 20px"></i>
+					</div>
+				</div>
+				<!-- <table class="table">
+						<thead>
+						</thead>
+						<tbody>
+							<tr *ngFor="let item of uploader.queue">
+								<td class="text-center">
+									<span *ngIf="item.isSuccess">
+										<i class="glyphicon glyphicon-ok"></i>
+									</span>
+									<span *ngIf="item.isCancel">
+										<i class="glyphicon glyphicon-ban-circle"></i>
+									</span>
+									<span *ngIf="item.isError">
+										<i class="glyphicon glyphicon-remove"></i>
+									</span>
+								</td>
+								<td (click)="showMatchedTemplates=true">
+									<strong>{{ item?.file?.name }}</strong>
+								</td>
+								<td>
+									<i *ngIf="spin" class="fa fa-spinner fa-spin" style="font-size: 24px"></i>
+								</td>
+								<td>
+									<i *ngIf="uploadedIcon" class="fa fa-check" style="font-size: 24px"></i>
+								</td>
+								<td class="text-center"></td>
+								<td class="text-center">
+									<span *ngIf="item.isSuccess">
+										<i class="glyphicon glyphicon-ok"></i>
+									</span>
+									<span *ngIf="item.isCancel"> </span>
+									<span *ngIf="item.isError">
+										<i class="glyphicon glyphicon-remove"></i>
+									</span>
+								</td>
+								<td nowrap>
+									<span *ngIf="item.isSuccess">success</span>
+								</td>
+								<td></td>
+							</tr>
+						</tbody>
+					</table> -->
+			</div>
+
+			<div class="text-center" style="padding-bottom:10px;">
+				<span>(or)</span>
+			</div>
+
+			<div class="text-center">
+
+				<img style="position:relative;right:10px;cursor:pointer;" mdTooltip="Open Drive" alt="google-drive" src="../../../content/images/Google-Drive-icon.png"
+				 height="40px" width="40px" (click)="onApiLoad()">
+				<img style="position:relative;left:10px;cursor:pointer;" mdTooltip="Open Drop Box" alt="Open Drop Box" src="../../../content/images/Dropbox_Icon_2017.png"
+				 height="40px" width="40px" (click)="selectFromDropBox()">
+				<!-- <i class="rec-font-google-drive hand" mdTooltip="Open Drive" style="font-size: 24px" aria-hidden="true"  (click)="onApiLoad()" ></i> -->
+				<!-- <i class="rec-font-drop-box hand" mdTooltip="Open Drop Box" style="font-size: 24px; padding-left: 14px;"  aria-hidden="true" (click)="selectFromDropBox()" ></i> -->
+			</div>
+
+		</md-card>
+
+	</div>
+
+</div>
+<!-- </div> -->

@@ -1,0 +1,159 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Response } from '@angular/http';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService } from 'ng-jhipster';
+import { MappingSet } from './mapping-set.model';
+import { MappingSetService } from './mapping-set.service';
+import { ITEMS_PER_PAGE, Principal, ResponseWrapper, User, UserService } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { CommonService } from '../../entities/common.service';
+import { UserRoleAssignment } from '../../entities/roles/user-role-assignment.model';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { JhiDateUtils } from 'ng-jhipster';
+import { SelectItem } from 'primeng/primeng';
+declare var $: any;
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+
+@Component({
+    selector: 'jhi-mapping-set',
+    templateUrl: './mapping-set.component.html'
+})
+export class MappingSetComponent implements OnInit, OnDestroy {
+mappingSets: MappingSet[];
+currentAccount: any;
+eventSubscriber: Subscription;
+currentSearch: string;
+TemplatesHeight: any;
+columnOptions: SelectItem[];
+mappingSetTableColumns = [
+    { field: 'id', header: 'Id', width: '150px', align: 'left' },
+    { field: 'description', header: 'Description', width: '200px', align: 'left' },
+    { field: 'tenantId', header: 'Tenant Id', width: '150px', align: 'left' },
+    { field: 'startDate', header: 'Start Date', width: '200px', align: 'left' },
+    { field: 'endDate', header: 'End Date', width: '200px', align: 'left' },
+    // { field: 'enabledFlag', header: 'Status', width: '200px', align: 'left' },
+];
+
+    constructor(
+        private mappingSetService: MappingSetService,
+        private alertService: JhiAlertService,
+        private eventManager: JhiEventManager,
+        private activatedRoute: ActivatedRoute,
+        private principal: Principal,
+        private parseLinks: JhiParseLinks,
+        private router: Router,
+        private paginationUtil: JhiPaginationUtil,
+        private paginationConfig: PaginationConfig,
+        private commonService: CommonService
+    ) {
+        // this.currentSearch = activatedRoute.snapshot.params['search'] ? activatedRoute.snapshot.params['search'] : '';
+        this.columnOptions = [];
+        for(let i = 0; i < this.mappingSetTableColumns.length; i++) {
+            this.columnOptions.push({label: this.mappingSetTableColumns[i].header, value: this.mappingSetTableColumns[i]});
+        }
+    }
+
+    ngOnInit() {
+        this.TemplatesHeight = (this.commonService.screensize().height - 340) + 'px';
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+
+        $(".search-icon-body").click(function () {
+            if ($(".ftlSearch md-input-container").hasClass("hidethis")) {
+                $(".ftlSearch md-input-container").removeClass("hidethis");
+                $(".ftlSearch md-input-container").addClass("show-this");
+            } else if ($(".ftlSearch md-input-container").hasClass("show-this")) {
+                var value = $('.ftlSearch md-input-container .mySearchBox').filter(function () {
+                    return this.value != '';
+                });
+                if (value.length <= 0) { // zero-length string
+                    $(".ftlSearch md-input-container").removeClass("show-this");
+                    $(".ftlSearch md-input-container").addClass("hidethis");
+                }
+            } else {
+                $(".ftlSearch md-input-container").addClass("show-this");
+            }
+        });
+        $(".ftlSearch md-input-container .mySearchBox").blur(function () {
+            var value = $('.ftlSearch md-input-container .mySearchBox').filter(function () {
+                return this.value != '';
+            });
+            if (value.length <= 0) { // zero-length string
+                $(".ftlSearch md-input-container").removeClass("show-this");
+                $(".ftlSearch md-input-container").addClass("hidethis");
+            }
+        });
+        //Get List of Mapping Sets Based on Tenant Id//
+        this.getAllMappingSets();
+    }
+
+    //Get List of Mapping Sets Based on Tenant Id//
+    getAllMappingSets(){
+        this.mappingSetService.getListMappingSetsByTenantId().subscribe((res: any) => {
+            this.mappingSets = res;
+        })
+    }
+
+    // loadAll() {
+    //     if (this.currentSearch) {
+    //         this.mappingSetService.search({
+    //             query: this.currentSearch,
+    //             }).subscribe(
+    //                 (res: ResponseWrapper) => this.mappingSets = res.json,
+    //                 (res: ResponseWrapper) => this.onError(res.json)
+    //             );
+    //         return;
+    //    }
+    //     this.mappingSetService.query().subscribe(
+    //         (res: ResponseWrapper) => {
+    //             this.mappingSets = res.json;
+    //             this.currentSearch = '';
+    //         },
+    //         (res: ResponseWrapper) => this.onError(res.json)
+    //     );
+    // }
+
+    // private onError(error) {
+    //     this.alertService.error(error.message, null, null);
+    // }
+    // //Temp Jhipster Default Api//
+
+    ngOnDestroy() {
+    }
+
+}
+
+
+//     search(query) {
+//         if (!query) {
+//             return this.clear();
+//         }
+//         this.currentSearch = query;
+//         this.loadAll();
+//     }
+
+//     clear() {
+//         this.currentSearch = '';
+//         this.loadAll();
+//     }
+//     ngOnInit() {
+//         this.loadAll();
+//         this.principal.identity().then((account) => {
+//             this.currentAccount = account;
+//         });
+//         this.registerChangeInMappingSets();
+//     }
+
+//     ngOnDestroy() {
+//         this.eventManager.destroy(this.eventSubscriber);
+//     }
+
+//     trackId(index: number, item: MappingSet) {
+//         return item.id;
+//     }
+//     registerChangeInMappingSets() {
+//         this.eventSubscriber = this.eventManager.subscribe('mappingSetListModification', (response) => this.loadAll());
+//     }

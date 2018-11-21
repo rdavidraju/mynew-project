@@ -1,0 +1,183 @@
+<div class="component-title">
+	<div class="col-md-6 col-sm-6 col-xs-6">
+			<div class="headingIcons">
+					<i class="rec-font-connections iconStyle"></i>
+				</div>
+		<h4>Data Connectors</h4>
+		<input class="form-control search-input search-field"  style="margin-left:12px"  type="text"  placeholder="Search.." #gb>
+	</div>
+	<div class="col-md-6 col-sm-6 col-xs-6">
+		<!-- <a >
+						<i class="fa fa-file-excel-o fa-1x pull-right hand" style="margin-top: 15px;" mdTooltip="Export Connections" (click)="scon.exportCSV()"></i>
+					</a> -->
+		<button md-icon-button (click)="scon.exportCSV()" class="hand pull-right" mdTooltip="Export Connections" *ngIf="sourceConnectionDetails && sourceConnectionDetails.length>0">
+			<i class="fa fa-file-excel-o fa-1x"></i>
+		</button>
+		<button md-icon-button [routerLink]="['/source-connection-details', {outlets: { 'content': ['source-connection-details-new']}}]"
+		 class="pull-right" mdTooltip="Add New Connection" *jhiHasAnyAuthority="['SRC_CONNECTION_CREATE']">
+			<md-icon>add</md-icon>
+		</button>
+		<div class="paginator-class display-flex" #paginatorClass >
+			<button class="paginator-icon" md-icon-button mdTooltip="paginator" (click)="addPaginator()"  *ngIf="length >0 && !showPaginator">
+				<md-icon>chevron_left</md-icon>
+			</button>
+			<button class="paginator-icon" md-icon-button mdTooltip="paginator" (click)="addPaginator()"  *ngIf="length >0 && showPaginator">
+					<md-icon>chevron_right</md-icon>
+				</button>
+			<div class="row"  *ngIf="showPaginator && length >0 && (pageSizeOptions && pageSizeOptions[0] && length>pageSizeOptions[0])"   @slide >
+				<md-paginator *ngIf="length >0"   [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex"
+				 (page)="pageEvent = $event;loadAllProfiles()"></md-paginator>
+			</div>
+			<div class="row"  style="padding-top: 8px;width:200px" *ngIf="showPaginator && length >0 && (pageSizeOptions && pageSizeOptions[0] && length<=pageSizeOptions[0])"  @slide> 
+				<span > 1 - {{length}} of {{length}} </span>
+			</div>
+		</div>
+		<!-- <input class="pull-right" type="search"   required [(ngModel)]="sourceConnectionDetailsService.searchData" placeholder="Search"
+			 [ngModelOptions]="{standalone: true}" (ngModelChange)="searchText()" > -->
+		<!-- <button md-icon-button class="pull-right search-icon-body" mdTooltip="Search"><md-icon>search</md-icon></button> -->
+		<!-- <i class="pull-right material-icons md-36 hand ripple search-icon-body ripple">search</i> -->
+		<!-- <md-input-container class="pull-right hidethis">
+				<input class="mySearchBox" mdInput #gb placeholder="What're we looking for?">
+			</md-input-container> -->
+
+	</div>
+</div>
+<div class="component-body">
+	<div class="d-flex justify-content-between sr-pg-con">
+		<input type="text" placeholder="Search.." class="form-control search-input search-field1" #gb>
+		<!-- <md-paginator *ngIf="length >0 " [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex" (page)="pageEvent = $event; fetchCons()"></md-paginator> -->
+	</div>
+	<div class="position-relative">
+		<div class="show-hide-class">
+			<p-multiSelect [options]="columnOptions" [(ngModel)]="connectionTableColumns" title="Show/Hide Columns"></p-multiSelect>
+		</div>
+		<!-- scrollHeight="calc(100vh - 315px)" -->
+		<div class="list-table" id="list-table">
+			<p-dataTable #scon [value]="sourceConnectionDetails" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" [globalFilter]="gb" 
+			 selectionMode="multiple" scrollable="true" [(selection)]="mySelectedRows" [responsive]="true" [headerCheckboxToggleAllPages]="true"
+			 #dt [rows]="5" (onSort)="changeSourceSort($event)">
+				<!-- <p-column [style]="{'width':'38px'}" selectionMode="multiple"></p-column> -->
+				<p-column field="name" header="Name" styleClass="left" [style]="{'width':'30%'}" styleClass="left" [sortable]="true">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<div class="display-flex">
+							<div style="margin-top: 19px">
+								<img *ngIf=" row['connectionTypeCode'] == 'GOOGLE_DRIVE'" title="{{row['connectionType']}}" alt="google-drive" src="../../../content/images/Google-Drive-icon.png"
+								 style="width: 25px; height: 25px; margin-top: -4px;">
+								<img *ngIf="row['connectionTypeCode']  == 'DROP_BOX'" title="{{row['connectionType']}}" alt="drop-box" src="../../../content/images/Dropbox_Icon_2017.png"
+								 style="width: 25px; height: 25px; margin-top: -4px;">
+								<img *ngIf=" row['connectionTypeCode']  == 'SFTP'" title="{{row['connectionType']}}" alt="sftp" src="../../../content/images/sftp.png"
+								 style="width: 25px; height: 25px; margin-top: -4px;">
+							</div>
+							<div class="flex-column-center" style="width:100%;">
+								<span style="display:block">
+	
+									{{row[col.field]}}
+								</span>
+								<!-- <span class="no-mb" style="color:#a0a0a0 !important;">Profiles : ({{row['profCnt']}})</span> -->
+								<!-- <span style="color: green;font-size: 12px;font-weight:bold" *ngIf="row['enabledFlag'] ==1 || row['enabledFlag'] == true">
+									Active
+									<span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true"> - End dated</span>
+								</span>
+	
+								<span style="color: red;font-size: 12px;font-weight:bold" *ngIf="row['enabledFlag'] ==0 ||row['enabledFlag'] == false">
+									Inactive
+									<span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true"> - End dated</span>
+								</span> -->
+	
+							</div>
+						</div>
+						<!-- <span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true">End dated</span> -->
+						<!-- <a [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/details'}}]">{{row[col.field]}}</a> -->
+					</ng-template>
+				</p-column>
+				<p-column *ngFor="let col of connectionTableColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+				 [header]="col.header" [sortable]="true">
+					<!-- <ng-template let-col let-row="rowData" pTemplate="body" *ngIf="col.field == 'connectionType'">
+					<img *ngIf=" row['connectionTypeCode'] == 'GOOGLE_DRIVE'" title= "{{row[col.field]}}" alt="google-drive" src="../../../content/images/Google-Drive-icon.png"
+					 style="width: 20px; height: 20px; margin-top: -4px;">
+					<img *ngIf="row['connectionTypeCode']  == 'DROP_BOX'" title= "{{row[col.field]}}"   alt="drop-box" src="../../../content/images/Dropbox_Icon_2017.png"
+					 style="width: 20px; height: 20px; margin-top: -4px;">
+					<img *ngIf=" row['connectionTypeCode']  == 'SFTP'"  title= "{{row[col.field]}}"   alt="sftp" src="../../../content/images/sftp.png"
+					 style="width: 20px; height: 20px; margin-top: -4px;">
+				</ng-template> -->
+					<!-- <ng-template let-col let-row="rowData" pTemplate="body" *ngIf="col.field != 'connectionType'">
+						{{row[col.field]}}
+					</ng-template> -->
+					<ng-template let-col let-row="rowData" pTemplate="body">
+							<i *ngIf="col.field == 'enabledFlag' && row[col.field]" class="material-icons" mdTooltip="Active">check_circle</i>
+							<i *ngIf="col.field == 'enabledFlag' && (!row[col.field] )" class="material-icons" aria-hidden="true" mdTooltip="InActive">error</i>
+						
+						<span *ngIf="col.field != 'connectionType' && col.field != 'enabledFlag' && col.field != 'profCnt'">
+							{{row[col.field]}}
+						</span>
+						<div style="display:flex;justify-content: space-between;" *ngIf="col.field == 'profCnt'">
+							<div style="white-space: nowrap;overflow: hidden;text-overflow: ellipsis;margin-top: 8px;">{{row[col.field] }}</div>
+					
+							<div class="icons-list">
+					
+								<button md-icon-button mdTooltip="View Connection" *jhiHasAnyAuthority="['SRC_CONNECTION_VIEW']" [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/details'}}]">
+									<md-icon>remove_red_eye</md-icon>
+								</button>
+					
+					
+								<button md-icon-button mdTooltip="Edit Connection" *jhiHasAnyAuthority="['SRC_CONNECTION_EDIT']" [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/edit'}}]">
+									<md-icon>edit</md-icon>
+								</button>
+					
+					
+								<button md-icon-button *jhiHasAnyAuthority="['SRC_CONNECTION_COPY']" [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/copyedit'}}]"
+								 mdTooltip="Copy Connection">
+									<md-icon>content_copy</md-icon>
+								</button>
+					
+					
+							</div>
+						</div>
+					</ng-template>
+				</p-column>
+				<!-- <p-column [style]="{'width':'20%','text-align' : 'center'}" header="Actions" styleClass="text-center overflow-visible" resizableColumns="false">
+					<ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+						<div class="display-flex">
+							<div class="editIcon" *jhiHasAnyAuthority="['SRC_CONNECTION_VIEW']">
+								<button md-icon-button mdTooltip="View Connection" [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/details'}}]">
+									<md-icon>remove_red_eye</md-icon>
+								</button>
+							</div>
+							<div class="editIcon" *jhiHasAnyAuthority="['SRC_CONNECTION_EDIT']">
+								<button md-icon-button mdTooltip="Edit Connection" [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/edit'}}]">
+									<md-icon>edit</md-icon>
+								</button>
+							</div>
+							<div class="editIcon" *jhiHasAnyAuthority="['SRC_CONNECTION_COPY']">
+								<button md-icon-button [routerLink]="['/source-connection-details', {outlets: {'content': [row['id']]+'/copyedit'}}]" mdTooltip="Copy Connection">
+									<md-icon>content_copy</md-icon>
+								</button>
+							</div>
+						</div>
+					</ng-template>
+				</p-column> -->
+				<!-- <p-column [style]="{'width':'80px' }" field="enabledFlag" header="Status" styleClass="text-center" styleClass="center" [sortable]="true">
+				<ng-template let-col let-row="rowData" pTemplate="body">
+				
+					<i *ngIf="row['enabledFlag'] == 1 || row['enabledFlag'] == true"  class="material-icons" mdTooltip="Active">check_circle</i>
+					<i *ngIf="row['enabledFlag'] == 0 || row['enabledFlag'] == false"  class="material-icons" aria-hidden="true"
+					 mdTooltip="InActive">error</i>
+				</ng-template>
+			</p-column> -->
+				<!-- <p-column [style]="{'width':'80px' }" field="endDated" header="End dated">
+				<ng-template let-col let-row="rowData" pTemplate="body">
+				
+					<i *ngIf="row['endDated'] == true"  class="material-icons" aria-hidden="true" mdTooltip="End Dated">warning</i>
+				</ng-template>
+			</p-column> -->
+			</p-dataTable>
+		</div>
+	</div>
+		<!-- <md-paginator  *ngIf= "length >0 "[length]="length"
+			class="sr-pg-con"
+			[pageSize]="pageSize"
+			[pageSizeOptions]="pageSizeOptions"
+			[pageIndex]="pageEvent.pageIndex"
+			(page)="pageEvent = $event; fetchCons()">
+	</md-paginator> -->
+</div>

@@ -1,0 +1,79 @@
+import { BaseEntity } from './../../shared';
+import { JhiDateUtils } from 'ng-jhipster';
+
+export class FileTemplates implements BaseEntity {
+    constructor(
+        public id?: number,
+        public templateName?: string,
+        public description?: string,
+        public startDate?: any,
+        public endDate?: any,
+        public status?: string,
+        public fileType?: string,
+        public delimiter?: string,
+        public source?: string,
+        public skipRowsStart?: number,
+        public skipRowsEnd?: number,
+        public number_of_columns?: number,
+        public headerRowNumber?: number,
+        public tenantId?: number,
+        public createdBy?: number,
+        public createdDate?: any,
+        public lastUpdatedBy?: number,
+        public lastUpdatedDate?: any,
+        public data?: any,
+        public sampleData?:any,
+        public colHeaders?: any,
+        public sdFilename?: any,
+        public record?: string,
+        public recordIdentifier ?: string,
+        public enabledFlag ?: boolean,
+		public rowIdentifier?:any,
+		public multipleRowIdentifiers ?:boolean ,
+        public idForDisplay ?: string
+    ) {
+        this.multipleRowIdentifiers =false;
+        this.startDate = new Date();
+    }
+}
+
+export class FileTemplateBreadCrumbs {
+    constructor(
+        public fileTemplates: any = '',
+        public fileTemplatesDetails: any = '',
+        public fileTemplatesNew: any = '',
+        public fileTemplatesEdit: any = ''
+    ) {
+
+    }
+}
+export const FileTemplateBreadCrumbTitles = {
+    fileTemplates: 'Templates',
+    fileTemplatesDetails: 'Template Details',
+    fileTemplatesNew: 'Template Creation',
+    fileTemplatesEdit: 'Edit Template'
+}
+
+
+export class RowIdentifiersList{
+    constructor(
+            public id ?: number,
+            public rowIdentifier ?: string,
+            public criteria ?: string,
+            public positionStart ?: number,
+            public positionEnd ?: number,
+            public data ?: any,
+            public selected ?: boolean
+                    )
+            {
+        this.rowIdentifier = null;
+        this.criteria=null;
+        this.positionStart=0;
+        this.positionEnd=0; 
+        this.selected =false;
+        
+        
+        
+    }
+    
+}

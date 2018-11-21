@@ -1,0 +1,66 @@
+import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { RouterModule } from '@angular/router';
+
+import { AgreeGatewayV1SharedModule } from '../../shared';
+import { AgreePlugInsSharedModule } from '../../agree-plugins-shared.module';
+import { CommonService } from '../common.service';
+import {
+    SourceProfilesService,
+    SourceProfilesPopupService,
+    SourceProfilesComponent,
+    SourceProfilesDetailComponent,
+    SourceProfilesDialogComponent,
+    SourceProfilesPopupComponent,
+   // SourceProfilesDeletePopupComponent,
+    //SourceProfilesDeleteDialogComponent,
+    sourceProfilesRoute,
+    SourceProfilesResolvePagingParams,
+    ProfilesSideBarComponent,
+    SourceProfilesEditComponent,
+    SourceProfilesHomeComponent,
+    ConfirmActionModalDialog
+
+} from './';
+
+const ENTITY_STATES = [
+    ...sourceProfilesRoute
+];
+
+@NgModule({
+    imports: [
+        AgreeGatewayV1SharedModule,
+        AgreePlugInsSharedModule,
+        RouterModule.forRoot(ENTITY_STATES, { useHash: true })
+    ],
+    declarations: [
+        SourceProfilesComponent,
+        SourceProfilesDetailComponent,
+        SourceProfilesDialogComponent,
+        //SourceProfilesDeleteDialogComponent,
+        SourceProfilesPopupComponent,
+        //SourceProfilesDeletePopupComponent,
+        ProfilesSideBarComponent,
+        SourceProfilesEditComponent,
+        SourceProfilesHomeComponent,
+        ConfirmActionModalDialog
+    ],
+    entryComponents: [
+        SourceProfilesComponent,
+        SourceProfilesDialogComponent,
+        SourceProfilesPopupComponent,
+        //SourceProfilesDeleteDialogComponent,
+        //SourceProfilesDeletePopupComponent,
+        SourceProfilesEditComponent,
+        ProfilesSideBarComponent,
+        SourceProfilesHomeComponent,
+        ConfirmActionModalDialog
+    ],
+    providers: [
+        SourceProfilesService,
+        SourceProfilesPopupService,
+        SourceProfilesResolvePagingParams,
+        CommonService,
+    ],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA]
+})
+export class AgreeGatewayV1SourceProfilesModule { }

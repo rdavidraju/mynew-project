@@ -1,0 +1,1970 @@
+<p-blockUI [blocked]="blockedDocument"></p-blockUI>
+<div class="component-body dashboardV5 dashboardID" id="dashboardID">
+    <md-card id="dashboardNavSticky">
+        <!-- id="dashboardNavSticky" -->
+        <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;padding: 10px;">
+            <div class="col-lg-3 col-md-3 processSelectionTitle">
+                <!-- <div>Selected Process : {{selectedProcessName}}</div> -->
+                <md-select placeholder="" [(ngModel)]="selectedProcess" name="selectedProcess" style="padding-top: 0px;width: 200px;" *ngIf="processesLength">
+                    <!--   padding-left: 8px;  -->
+                    <md-option *ngFor="let col of processesList" [value]="col.id" (click)="callAllBySelectedProcessId(col.id);">
+                        {{ col.processName }}
+                    </md-option>
+                </md-select>
+                <!-- <button md-raised-button [routerLink]="['/accounting-data', {outlets: {'content': ['accounting-data-home']}}]">Go to AWQ</button>
+                <button md-raised-button [routerLink]="['/reconcilewq', {outlets: {'content': ['reconcilewqhome']}}]">Go to RWQ</button> -->
+                <div *ngIf="!processesLength">There is no processess to display module wise analysis.
+                    <a [routerLink]="['/processes', {outlets: {'content': ['processes-home']}}]">Click here</a> to create new</div>
+                <!-- <button md-raised-button (click)="goToAWQ()" [routerLink]="['/accounting-data', {outlets: {'content': ['accounting-data-home']}}]">Go to AWQ</button>
+                <button md-raised-button (click)="goToRWQ()" [routerLink]="['/reconcilewq', {outlets: {'content': ['reconcilewqhome']}}]">Go to RWQ</button> -->
+            </div>
+            <div class="col-lg-8 col-md-8" style="text-align: right;">
+                <!-- display: flex;     -->
+                <div *ngIf="customizationMode" style="margin-top: auto;margin-bottom: auto;">You are in customization mode, Once done click
+                    <button *ngIf="customizationMode" md-button style="color: green;" (click)="SaveCustomizedData();">Finished</button>
+                </div>
+                <!-- <md-slide-toggle style="position: absolute;right: 0;top: 6px;" *ngIf="!customizationMode" class="pull right example-margin" color="primary" mdTooltip="Customization Mode" 
+                    placeholder="Customization Mode" [(ngModel)]="customizationMode" name="customizationMode"> Customization Mode
+				</md-slide-toggle> -->
+            </div>
+            <!-- <div class="col-lg-8 col-md-8 mainNav" style="margin-top: -10px;margin-bottom: -14px;">
+                <md-tab-group style="float:right;" (focusChange)="changeModuleType($event);" [selectedIndex]="selectedModuleType">
+                    <md-tab label="Reconciliation"></md-tab>
+                    <md-tab label="Accounting"></md-tab>
+                </md-tab-group>
+            </div> -->
+            <div class="col-lg-1 col-md-1" style="position: absolute;right: 0;top: 5px;">
+                <button md-icon-button class="pull-right" aria-hidden="true" mdTooltip="Filter Data" (click)="openSideBar('Filter Data');">
+                    <md-icon>filter_list</md-icon>
+                </button>
+            </div>
+        </div>
+    </md-card>
+    <div class="row" style="margin-left: -5px;margin-right: -5px;margin-top: 7px;" *ngIf="processesLength">
+        <div class="col-lg-2 col-md-2 col-sm-3 col-xs-12">
+            <md-card id="dashboardNavSticky1" style="height: calc(100vh - 115px) !important;">
+                <!-- <div class=" col-lg-1 col-md-1"></div> -->
+                <div class="sideProgess extractionStatusCls" (click)="displaySelectedProcess('extraction');" style="height: 25% !important;">
+                    <circle-progress [percent]="moduleAnalysisList.etl" [radius]="40" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                        [outerStrokeColor]="'#ffa1b5'" [innerStrokeColor]="'#ededed'" [animation]="true" [animationDuration]="300"
+                        [showSubtitle]="true" [subtitle]="'ETL'" [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10"
+                        style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                </div>
+                <!-- <div class="sideProgess transformationStatusCls" (click)="displaySelectedProcess('transformation');">
+                    <circle-progress [percent]="moduleAnalysisList.transformation" [radius]="40" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#86c7f3'"
+                        [innerStrokeColor]="'#ededed'" [animation]="true" [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Transformation'"
+                        [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10"></circle-progress>
+                </div> -->
+                <div class="sideProgess reconciliationStatusCls" (click)="displaySelectedProcess('reconciliation');" style="height: 25% !important;">
+                    <circle-progress [percent]="moduleAnalysisList.reconciliation" [radius]="40" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                        [outerStrokeColor]="'rgba(92, 184, 92, 0.85)'" [innerStrokeColor]="'#ededed'" [animation]="true" [animationDuration]="300"
+                        [showSubtitle]="true" [subtitle]="'Reconciliation'" [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10"
+                        style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                </div>
+                <div class="sideProgess accountingStatusCls" (click)="displaySelectedProcess('accounting');" style="height: 25% !important;">
+                    <circle-progress [percent]="moduleAnalysisList.accounting" [radius]="40" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                        [outerStrokeColor]="'#93d9d9'" [innerStrokeColor]="'#ededed'" [animation]="true" [animationDuration]="300"
+                        [showSubtitle]="true" [subtitle]="'Accounting'" [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10"
+                        style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                </div>
+                <!-- <div class="sideProgess journalsStatusCls" (click)="displaySelectedProcess('journals');" style="height: 25% !important;">
+                    <circle-progress [percent]="moduleAnalysisList.journals" [radius]="40" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                        [outerStrokeColor]="'#ff9f40'" [innerStrokeColor]="'#ededed'" [animation]="true" [animationDuration]="300"
+                        [showSubtitle]="true" [subtitle]="'Journals'" [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10"
+                        style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                </div> -->
+                <!-- <div class=" col-lg-1 col-md-1"></div> -->
+            </md-card>
+        </div>
+
+        <div class="col-lg-10 col-md-10 col-sm-9 col-xs-12">
+            <!-- <md-card id="extractionDiv">
+                <md-card-header>
+                    <md-card-title>Extraction</md-card-title>
+                </md-card-header>
+                <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;margin-top: 10px;padding: 0px;">
+                    Extraction Data
+                </div>
+            </md-card> -->
+            <md-card id="extractionDiv">
+                <md-card-header>
+                    <md-card-title>
+                        <i class="rec-font-ETL sideIcon" aria-hidden="true"></i>
+                        <!-- style="left: 45%;position: absolute;top: 12px;" -->
+                        <span>{{dashBoardLayOutObj.etl.headerNameTitle}}
+                            <md-icon *ngIf="customizationMode" class="hand" style="font-size:11px;" (click)="openDialog('etl.headerNameTitle', dashBoardLayOutObj.etl.headerNameTitle);">mode_edit</md-icon>
+                        </span>
+                        <!-- <button md-icon-button class="modulesMoreOption" (click)="openModuleSetting = 'ETL';visibleSidebar2 = true;">
+                            <md-icon>more_vert</md-icon>
+                        </button> -->
+                        <!-- <div class="customToggleTabs" style="position: absolute;right: 6px;top: 8px;">
+                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRangeAcc($event);">
+                                <md-button-toggle value="1W" checked mdTooltip="1 Week">
+                                    1W
+                                </md-button-toggle>
+                                <md-button-toggle value="2W" mdTooltip="2 Weeks">
+                                    2W
+                                </md-button-toggle>
+                                <md-button-toggle value="1M" mdTooltip="1 Month">
+                                    1M
+                                </md-button-toggle>
+                                <md-button-toggle value="3M" mdTooltip="3 Months">
+                                    3M
+                                </md-button-toggle>
+                            </md-button-toggle-group>
+                        </div> -->
+                    </md-card-title>
+                </md-card-header>
+                <div class="row" style="display:flex;padding: 7px;margin-left: 0px;margin-right: 0px;" *ngIf="showETLModule">
+                    <div *ngIf="etlAnalysisData.extraction['1W'] != undefined && etlAnalysisData.transformation['1W'] != undefined" class="col-md-3 hand"
+                        (click)="etlPeriodDetails('1W');">
+                        <md-card>
+                            <div class="col-md-12 oneWeeKClsETL" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <div>
+                                        <i class="rec-font-1W"></i>
+                                        <!-- <i class="rec-font-1W"></i> -->
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['1W'].totalExtracted + etlAnalysisData.transformation['1W'].totalTransformed
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['1W'].reconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['1W'].totalExtractionFailedCt + etlAnalysisData.transformation['1W'].totalTransFailedCt
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['1W'].unReconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="etlAnalysisData.extraction['2W'] != undefined && etlAnalysisData.transformation['2W'] != undefined" class="col-md-3 hand"
+                        (click)="etlPeriodDetails('2W');">
+                        <md-card>
+                            <div class="col-md-12 twoWeeKClsETL" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>2W</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-2W"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['2W'].totalExtracted + etlAnalysisData.transformation['2W'].totalTransformed
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['2W'].reconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['2W'].totalExtractionFailedCt + etlAnalysisData.transformation['2W'].totalTransFailedCt
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['2W'].unReconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="etlAnalysisData.extraction['1M'] != undefined && etlAnalysisData.transformation['1M'] != undefined" class="col-md-3 hand"
+                        (click)="etlPeriodDetails('1M');">
+                        <md-card>
+                            <div class="col-md-12 oneMonthClsETL" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>1M</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-1M"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['1M'].totalExtracted + etlAnalysisData.transformation['1M'].totalTransformed
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['1M'].reconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['1M'].totalExtractionFailedCt + etlAnalysisData.transformation['1M'].totalTransFailedCt
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['1M'].unReconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="etlAnalysisData.extraction['3M'] != undefined && etlAnalysisData.transformation['3M'] != undefined" class="col-md-3 hand"
+                        (click)="etlPeriodDetails('3M');">
+                        <md-card>
+                            <div class="col-md-12 threeMonthClsETL" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>3M</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-3M"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['3M'].totalExtracted + etlAnalysisData.transformation['3M'].totalTransformed
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['3M'].reconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span>{{etlAnalysisData.extraction['3M'].totalExtractionFailedCt + etlAnalysisData.transformation['3M'].totalTransFailedCt
+                                                | amountFormat:'': 2}}</span>
+                                            <!-- <span>({{reconciliationAnalysisData['3M'].unReconPercentage}}%)</span> -->
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                </div>
+                <div style="display:flex;">
+                    <!-- <div class="col-md-8" style="padding: 7px;">
+                        <div style="padding: 5px;">
+                            <button md-icon-button class="pull-right" *ngIf="groupedExtractionTransformation" (click)="changeETLChartView();">
+                                <md-icon>show_chart</md-icon>
+                            </button>
+                            <button md-icon-button class="pull-right" *ngIf="!groupedExtractionTransformation" (click)="changeETLChartView();">
+                                <md-icon>insert_chart</md-icon>
+                            </button>
+                        </div>
+                        <div *ngIf="!groupedExtractionTransformation" style="display: flex;height:260px !important;padding-top: 14px;">
+                            <div class="col-md-6" *ngIf="showExtractionAnalysis">
+                                <canvas baseChart [datasets]="lineChartDataExtraction" [labels]="lineChartLabelsExtraction" [options]="lineChartExtractionOptions"
+                                    [colors]="extractionAnalysisColors" [legend]="lineChartLegendExtraction" [chartType]="lineChartType"></canvas>
+                            </div>
+                            <div class="col-md-6" *ngIf="showTransformationAnalysis">
+                                <canvas baseChart [datasets]="lineChartDataTransformation" [labels]="lineChartLabelsTransformation" [options]="lineChartTransformationOptions"
+                                    [colors]="transformationAnalysisColors" [legend]="lineChartLegendTransformation" [chartType]="lineChartType"></canvas>
+                            </div>
+                        </div>
+                        <div *ngIf="groupedExtractionTransformation && showETLAnalysis" style="display: block;height:250px !important;padding-top: 14px;">
+                            <canvas baseChart [datasets]="extractionAndTransformationData" [labels]="extractionAndTransformationLabels" [options]="extractionAndTransformationOptions"
+                                [legend]="extractionAndTransformationLegend" [chartType]="extractionAndTransformationChartType" [colors]="extractionAndTransformationColors"></canvas>
+                        </div>
+                    </div> -->
+                    <div class="col-md-8" style="padding: 7px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;">
+                            {{dashBoardLayOutObj.etl.dayWiseAnalysis.headerNameTitle}} {{selectedETLPeriod}}
+                            <div style="position: absolute;right: 17px;top: 3px;">
+                                <button md-icon-button class="pull-right" *ngIf="groupedExtractionTransformation" (click)="changeETLChartView();" mdTooltip="Line Chart">
+                                    <md-icon>show_chart</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" *ngIf="!groupedExtractionTransformation" (click)="changeETLChartView();" mdTooltip="Bar Chart">
+                                    <md-icon>insert_chart</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" *ngIf="showDrillDownExt || showDrillDownTrans || showDrillDownETL" (click)="backToOriginalViewExtraction();">
+                                    <md-icon>undo</md-icon>
+                                </button>
+                            </div>
+                        </div>
+                        <div *ngIf="!groupedExtractionTransformation" style="display: flex;height:260px !important;padding-top: 14px;">
+
+                            <div class="col-md-6" *ngIf="showExtractionAnalysis">
+                                <div class="drillDownPanelExt">
+                                    <div *ngIf="showDrillDownExt">
+                                        <div *ngIf="lineChartLabelsExtractionDrillDown" style="display: block;height:250px !important">
+                                            <!--  style="display: block;height:250px !important" -->
+                                            <canvas baseChart [datasets]="lineChartDataExtractionDrillDown" [labels]="lineChartLabelsExtractionDrillDown" [options]="lineChartExtractionOptions"
+                                                [colors]="extractionAnalysisColors" [legend]="lineChartLegendExtraction" [chartType]="lineChartType"
+                                                (chartClick)="chartClickedExtraction($event)"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas baseChart [datasets]="lineChartDataExtraction" [labels]="lineChartLabelsExtraction" [options]="lineChartExtractionOptions"
+                                    [colors]="extractionAnalysisColors" [legend]="lineChartLegendExtraction" [chartType]="lineChartType"
+                                    (chartClick)="chartClickedExtraction($event)"></canvas>
+                            </div>
+
+                            <div class="col-md-6" *ngIf="showTransformationAnalysis">
+                                <div class="drillDownPanelTrans">
+                                    <div *ngIf="showDrillDownTrans">
+                                        <div *ngIf="lineChartLabelsTransformationDrillDown" style="display: block;height:250px !important">
+                                            <!--  style="display: block;height:250px !important" -->
+                                            <canvas baseChart [datasets]="lineChartDataTransformationDrillDown" [labels]="lineChartLabelsTransformationDrillDown" [options]="lineChartTransformationOptions"
+                                                [colors]="transformationAnalysisColors" [legend]="lineChartLegendTransformation"
+                                                [chartType]="lineChartType" (chartClick)="chartClickedTransformation($event)"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                                <canvas baseChart [datasets]="lineChartDataTransformation" [labels]="lineChartLabelsTransformation" [options]="lineChartTransformationOptions"
+                                    [colors]="transformationAnalysisColors" [legend]="lineChartLegendTransformation" [chartType]="lineChartType"
+                                    (chartClick)="chartClickedTransformation($event)"></canvas>
+                            </div>
+                        </div>
+                        <div class="drillDownPanelETL">
+                            <div *ngIf="showDrillDownETL">
+                                <div *ngIf="extractionAndTransformationLabelsDrillDown" style="display: block;height:250px !important">
+                                    <canvas baseChart [datasets]="extractionAndTransformationDataDrillDown" [labels]="extractionAndTransformationLabelsDrillDown"
+                                        [options]="extractionAndTransformationOptions" [colors]="extractionAndTransformationColors"
+                                        [legend]="extractionAndTransformationLegend" [chartType]="extractionAndTransformationChartType"
+                                        (chartClick)="chartClickedETL($event)"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div *ngIf="groupedExtractionTransformation && showETLAnalysis" style="display: block;height:250px !important;padding-top: 14px;">
+                            <canvas baseChart [datasets]="extractionAndTransformationData" [labels]="extractionAndTransformationLabels" [options]="extractionAndTransformationOptions"
+                                [legend]="extractionAndTransformationLegend" [chartType]="extractionAndTransformationChartType"
+                                [colors]="extractionAndTransformationColors" (chartClick)="chartClickedETL($event)"></canvas>
+                            <!-- [colors]="extractionAndTransformationColors" -->
+                        </div>
+                    </div>
+                    <div class="col-md-4 progressDayWise" style="padding: 7px;padding-left: 25px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;">{{dashBoardLayOutObj.etl.kpi.headerNameTitle}} {{selectedETLDayWiseAnalysis}}</div>
+                        <div style="padding: 20px;" *ngIf="etlExtractionFailedItemsKpi != null;">
+                            <span style="font-size: 26px;">{{etlExtractionFailedItemsKpi | amountFormat:'': 2}} </span>
+                            <span style="font-size: 12px;">Files</span>
+                            <span style="float: right;font-size: 70%;margin-top: 15px;">{{dashBoardLayOutObj.etl.kpi.extraction.extractionFailedTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="etlExtractionFailedItemsKpiPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div style="padding: 20px;" *ngIf="etlTransformationFailedItemsKpi != null;">
+                            <span style="font-size: 26px;">{{etlTransformationFailedItemsKpi | amountFormat:'': 2}} </span>
+                            <span style="font-size: 12px;">Records</span>
+                            <span style="float: right;font-size: 70%;margin-top: 15px;">{{dashBoardLayOutObj.etl.kpi.transformation.transFailedTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="etlTransformationFailedItemsKpiPer" [color]="'warn'"></md-progress-bar>
+                        </div>
+                    </div>
+                </div>
+                <!-- <div style="display:flex;">
+                    <div class="col-md-8" style="padding: 7px;">
+                        <div style="display: block;height:250px !important;padding-top: 14px;">
+                            <canvas baseChart [datasets]="extractionAndTransformationData" [labels]="extractionAndTransformationLabels" [options]="extractionAndTransformationOptions" 
+                                     [legend]="extractionAndTransformationLegend" [chartType]="extractionAndTransformationChartType"></canvas>
+                        </div>
+                    </div>
+                </div> -->
+            </md-card>
+            <!-- <md-card id="transformationDiv" style="margin-top: 7px;">
+                <md-card-header>
+                    <md-card-title>Transformation</md-card-title>
+                </md-card-header>
+                <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;margin-top: 10px;padding: 0px;">
+                    Transformation Data
+                </div>
+            </md-card> -->
+            <md-card id="reconciliationAct" style="margin-top: 7px;">
+                <md-card-header>
+                    <md-card-title style="display: -webkit-box;text-align: -webkit-center;">
+                        <i class="rec-font-reconciliation sideIcon" aria-hidden="true" style="left: 39%;position: absolute;top: 12px;"></i>
+                        <div>{{dashBoardLayOutObj.reconciliation.headerNameTitle}}</div>
+                        <div class=" customToggleTabs " style="position: absolute;right: 20px;top: 10px;">
+                            <!-- <div style="font-size: 16px !important;margin-top: auto;margin-bottom: auto;">By: </div>
+                            <md-select placeholder="" [(ngModel)]="selectedReconFilterValue" name="selectedReconFilterValue" style="padding-top: 0px; padding-left: 8px;">
+                                <md-option *ngFor="let col of reconFilterBy" [value]="col" (click)="changeReconGrpBy(col);">
+                                    {{ col }}
+                                </md-option>
+                            </md-select> -->
+                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="changeReconGrpBy($event);" value="Amount">
+                                <md-button-toggle value="Amount">
+                                    Amount
+                                </md-button-toggle>
+                                <md-button-toggle value="Count">
+                                    Count
+                                </md-button-toggle>
+                            </md-button-toggle-group>
+                            <!-- <span *ngIf="changeReconGrp" style="font-size: 16px;">Count</span> <span  style="font-size: 16px;" *ngIf="!changeReconGrp">Amount</span>
+							<md-slide-toggle class="pull right example-margin" color="primary" mdTooltip="Group By" placeholder="Group By"
+							 [(ngModel)]="changeReconGrp" name="groupByRecon" (change)="changeReconGrpBy();">
+                            </md-slide-toggle> -->
+                        </div>
+                        <!-- <div class=" customToggleTabs" style="position: absolute;right: 20px;top: 4px;"> -->
+                        <!-- <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRange($event);">
+                                <md-button-toggle value="1W" checked mdTooltip="1 Week">
+                                    1W
+                                </md-button-toggle>
+                                <md-button-toggle value="2W" mdTooltip="2 Weeks">
+                                    2W
+                                </md-button-toggle>
+                                <md-button-toggle value="1M" mdTooltip="1 Month">
+                                    1M
+                                </md-button-toggle>
+                                <md-button-toggle value="3M" mdTooltip="3 Months">
+                                    3M
+                                </md-button-toggle>
+                            </md-button-toggle-group> -->
+                        <!--  <div class="row" style="margin-left: 0px;margin-right: 0px;" *ngIf="showReconModule">
+                                <div *ngIf="reconciliationAnalysisData['1W'] != undefined" class="col-md-3 col-xs-3 form-group  hand class1W" style="border-right: 1px solid #eeebeb;margin-top: auto;margin-bottom: auto;"
+                                    mdTooltip="1 Week" (click)="selectedTabRec('1W');">
+                                    <div style="padding-right: 9px;font-size:20px;margin-top: auto;margin-bottom: auto;">1W</div>
+                                    <div style="margin-top: 5px;">
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #34A853;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['1W'].reconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['1W'].reconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #EA4335;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['1W'].unReconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['1W'].unReconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div *ngIf="reconciliationAnalysisData['2W'] != undefined" class="col-md-3 col-xs-3 form-group  hand class2W" style="border-right: 1px solid #eeebeb;margin-top: auto;margin-bottom: auto;"
+                                    mdTooltip="2 Weeks" (click)="selectedTabRec('2W');">
+                                    <div style="padding-right: 9px;font-size:20px;margin-top: auto;margin-bottom: auto;">2W</div>
+                                    <div style="margin-top: 5px;">
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #34A853;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['2W'].reconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['2W'].reconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #EA4335;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['2W'].unReconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['2W'].unReconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div *ngIf="reconciliationAnalysisData['1M'] != undefined" class="col-md-3 col-xs-3 form-group  hand class1M" style="border-right: 1px solid #eeebeb;margin-top: auto;margin-bottom: auto;"
+                                    mdTooltip="1 Month" (click)="selectedTabRec('1M');">
+                                    <div style="padding-right: 9px;font-size:20px;margin-top: auto;margin-bottom: auto;">1M</div>
+                                    <div style="margin-top: 5px;">
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #34A853;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['1M'].reconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['1M'].reconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #EA4335;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['1M'].unReconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['1M'].unReconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div *ngIf="reconciliationAnalysisData['3M'] != undefined" class="col-md-3 col-xs-3 form-group  hand class3M" style="border-right: 1px solid #eeebeb;margin-top: auto;margin-bottom: auto;"
+                                    mdTooltip="3 Months" (click)="selectedTabRec('3M');">
+                                    <div style="padding-right: 9px;font-size:20px;margin-top: auto;margin-bottom: auto;">3M</div>
+                                    <div style="margin-top: 5px;">
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #34A853;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['3M'].reconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['3M'].reconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex;">
+                                            <div style="display: flex;color: #EA4335;">
+                                                <div style="margin-bottom: 0px;margin-top: -3px;font-size: 15px;">{{reconciliationAnalysisData['3M'].unReconAmount}}</div>
+                                                <div style="font-size: 11px;">{{reconciliationAnalysisData['3M'].unReconPercentage}}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div> -->
+                        <!-- </div> -->
+                    </md-card-title>
+                </md-card-header>
+                <div class="row" style="display:flex;padding: 7px;margin-left: 0px;margin-right: 0px;" *ngIf="showReconModule">
+                    <div *ngIf="reconciliationAnalysisData['1W'] != undefined" class="col-md-3 hand" (click)="recononciliationPeriodDetails('1W');">
+                        <md-card>
+                            <div class="col-md-12 oneWeeKClsRecon" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>1W</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-1W"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['1W'].reconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['1W'].reconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['1W'].reconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['1W'].reconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['1W'].unReconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['1W'].unReconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['1W'].unReconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['1W'].unReconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="reconciliationAnalysisData['2W'] != undefined" class="col-md-3 hand" (click)="recononciliationPeriodDetails('2W');">
+                        <md-card>
+                            <div class="col-md-12 twoWeeKClsRecon" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>2W</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-2W"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['2W'].reconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['2W'].reconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['2W'].reconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['2W'].reconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['2W'].unReconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['2W'].unReconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['2W'].unReconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['2W'].unReconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="reconciliationAnalysisData['1M'] != undefined" class="col-md-3 hand" (click)="recononciliationPeriodDetails('1M');">
+                        <md-card>
+                            <div class="col-md-12 oneMonthClsRecon" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>1M</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-1M"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['1M'].reconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['1M'].reconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['1M'].reconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['1M'].reconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['1M'].unReconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['1M'].unReconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['1M'].unReconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['1M'].unReconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="reconciliationAnalysisData['3M'] != undefined" class="col-md-3 hand" (click)="selectedTabProcessWiseAnalysis=0;recononciliationPeriodDetails('3M');">
+                        <md-card>
+                            <div class="col-md-12 threeMonthClsRecon" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>3M</div> -->
+                                    <div>
+                                        <!-- <i class="rec-font-3M"></i> -->
+                                        <i class="rec-font-3M"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;padding: 5px;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['3M'].reconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['3M'].reconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['3M'].reconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['3M'].reconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;padding: 5px;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">{{reconciliationAnalysisData['3M'].unReconAmount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Amount'">({{reconciliationAnalysisData['3M'].unReconPercentage}}%)</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">{{reconciliationAnalysisData['3M'].unReconCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedReconFilterValue == 'Count'">({{reconciliationAnalysisData['3M'].unReconCtPer}}%)</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                </div>
+                <div style="display:flex;">
+                    <div class="col-md-8" style="padding: 7px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;">{{dashBoardLayOutObj.reconciliation.dayWiseAnalysis.headerNameTitle}} {{selectedReconPeriod}}
+                            <div style="position: absolute;right: 17px;top: 3px;">
+                                <button md-icon-button class="pull-right" mdTooltip="Line Chart" (click)="reconChartType = 'line';changeReconChartCol('line');"
+                                    *ngIf="reconDisplayChart">
+                                    <md-icon>show_chart</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" mdTooltip="Bar Chart" (click)="reconChartType = 'bar';changeReconChartCol('bar');"
+                                    *ngIf="!reconDisplayChart">
+                                    <md-icon>insert_chart</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" *ngIf="showDrillDown" (click)="backToOriginalView();">
+                                    <md-icon>undo</md-icon>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="drillDownPanel col-md-12">
+                            <div *ngIf="showDrillDown">
+
+                                <div *ngIf="lineChartLabelsReconDrill" style="display: block;height:250px !important">
+                                    <canvas baseChart [datasets]="lineChartDataDrill" [labels]="lineChartLabelsReconDrill" [options]="lineChartOptions" [colors]="reconChartColors"
+                                        [legend]="lineChartLegend" [chartType]="reconChartType" (chartClick)="chartClickedReconDrill($event)"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: block;height:260px !important;padding-top: 14px;" *ngIf="showReconModule">
+                            <canvas baseChart [datasets]="lineChartData" [labels]="lineChartLabelsRecon" [options]="lineChartOptions" [colors]="reconChartColors"
+                                [legend]="lineChartLegend" [chartType]="reconChartType" (chartClick)="chartClickedRecon($event)"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-4 progressDayWise" style="padding: 7px;padding-left: 25px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;">{{dashBoardLayOutObj.reconciliation.kpi.headerNameTitle}} {{selectedReconDayWiseAnalysis}}</div>
+                        <div class="reconItemsValueClass" *ngIf="unReconItemsValueKpi != null" style="padding: 16px;" (click)="reconTabSelected('Un-Reconciled Items By Value');">
+                            <span style="font-size: 26px;" class="count">{{unReconItemsValueKpi | amountFormat:'$': 2}}</span>
+                            <!-- <span style="font-size: 12px;"> M</span> -->
+                            <span style="float: right;font-size: 67%;margin-top: 15px;">{{dashBoardLayOutObj.reconciliation.kpi.unReconItemsTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="unReconItemsValueKpiPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="reconItemsViolationClass" *ngIf="unReconItemsViolationKpi != null" style="padding: 16px;" (click)="reconTabSelected('Un-Reconciled Items By Violation');">
+                            <span style="font-size: 26px;" class="count">{{unReconItemsViolationKpi | amountFormat:'': 2}}</span>
+                            <span style="font-size: 11px;"> Trans</span>
+                            <span style="float: right;font-size: 67%;margin-top: 15px;">{{dashBoardLayOutObj.reconciliation.kpi.unReconViolationTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="unReconItemsViolationKpiPer" [color]="'warn'"></md-progress-bar>
+                        </div>
+                        <div class="reconAwaitingAppClass" *ngIf="awaitingAppCountKpi != null" style="padding: 16px;" (click)="reconTabSelected('Awaiting For Approvals');">
+                            <span style="font-size: 26px;" class="count">{{awaitingAppCountKpi | amountFormat:'': 2}}</span>
+                            <span style="font-size: 11px;"> Approvals</span>
+                            <span style="float: right;font-size: 67%;margin-top: 15px;">{{dashBoardLayOutObj.reconciliation.kpi.approvalsTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="awaitingAppCountKpiPer" [color]="'accent'"></md-progress-bar>
+                        </div>
+                    </div>
+                </div>
+                <div *ngIf="showunReconItemValuesDetails && showUnReconGrpChart && unReconItemValuesDetails.length>0" class="col-md-12 navTabsStyling"
+                    style="padding-left: 0px;padding-right: 0px;">
+                    <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                        {{dashBoardLayOutObj.reconciliation.secondLevelProcess.viewSpecificTitle}} {{selectedDetailTabRec}} Details
+                    </div>
+                    <md-tab-group (focusChange)="reconGrpTabFun($event)" [selectedIndex]="selectedTabReconGroup">
+                        <md-tab *ngFor="let col of unReconItemValuesDetails;let i = index;">
+                            <ng-template md-tab-label>
+                                <div style="display:block;">
+                                    <div>{{col.viewName}}</div>
+                                    <div>
+                                        <!-- *ngIf="col.violationCount == undefined" -->
+                                        <span style="font-size: 20px;">{{col.amount | amountFormat:'': 2}}</span>
+                                        <span> ({{col.count | amountFormat:'': 2}})</span>
+                                    </div>
+                                    <!-- <div *ngIf="col.violationCount != undefined">
+                                        <span style="font-size: 20px;">{{col.violationAmt | amountFormat:'': 2}}</span>
+                                        <span> ({{col.violationCount | amountFormat:'': 2}})</span>
+                                    </div> -->
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div *ngIf="showUnReconGrpChart && unReconGrpByChartsData && !showApproverChart && unReconGrpByList" class="col-md-12 reconProcessWiseCharts hideRippleForNav">
+                    <md-tab-group style="padding-top: 7px;padding-bottom: 7px;">
+                        <md-tab *ngFor="let col of unReconGrpByChartsData;let i = index;">
+                            <ng-template md-tab-label>
+                                <div style="display:block;height:215px;">
+                                    <div style="padding: 5px;color: #4e4e4e;" *ngIf="selectedDetailTabRec != 'Awaiting For Approvals';">By: {{unReconGrpByList[i].columnName}}</div>
+                                    <canvas *ngIf="unReconGrpByChartsData.length>0" baseChart [data]="unReconGrpByChartsData[i]" [labels]="unReconGrpByChartsLabels[i]"
+                                        [options]="reconGroupByChartOptions" [chartType]="reconGroupByChartType" [colors]="unReconGrpByColors"></canvas>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div class="col-md-4" *ngIf="showApproverChart" style="margin-top: 20px;">
+                    <div style="display:block;">
+                        <canvas *ngIf="reconApproverDetailsData.length>0" baseChart [data]="reconApproverDetailsData" [labels]="reconApproverDetailsLabels"
+                            [options]="approversChartOptions" [chartType]="approverByChartType" [colors]="unReconGrpByColors"></canvas>
+                    </div>
+                </div>
+
+
+                <div *ngIf="!showUnReconGrpChart && showReconSubProcess" class="col-md-12 reconProcessWiseCharts" style="padding-left: 0px;padding-right: 0px;">
+                    <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                        <!-- {{selectedReconStatus}}  -->{{dashBoardLayOutObj.reconciliation.secondLevelProcess.viewSpecificTitle}} {{selectedReconDayWiseAnalysis}}
+                    </div>
+                    <div style="text-align: center;padding: 11px;" *ngIf="barChartData1.length == 0">No Data to display</div>
+                    <md-tab-group [selectedIndex]="selectedTabProcessWiseAnalysis">
+                        <md-tab *ngFor="let col of barChartData1;let i = index;">
+                            <ng-template md-tab-label>
+                                <div style="display: block;height:160px;margin-bottom: 27px;">
+                                    <!-- <md-card> -->
+                                    <div style="padding: 5px;color: #4e4e4e;">{{tempChartViewName[i]}}</div>
+                                    <canvas baseChart [data]="barChartData1[i]" [labels]="barChartLabels1" [options]="barChartOptions1" [legend]="barChartLegend1"
+                                        [chartType]="barChartType1" (chartClick)="fetchReconGroupByDetails($event,i)" [colors]="analysisChartReconColors"></canvas>
+                                    <!-- </md-card> -->
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div *ngIf="!showUnReconGrpChart">
+                    <div class="col-md-12 reconProcessWiseCharts hideRippleForNav" style="padding-left: 0px;padding-right: 0px;">
+                        <div *ngIf="showGrpChart">
+                            <!-- <div class="col-md-12" style="display:flex;">
+                                <div style="color: #4e4e4e; font-size: 16px; padding: 5px; margin-top: -13px;">{{selectedReconViewName}}</div>
+                                <div style="position: absolute;right: 5px;top: -11px;">
+                                    <md-select *ngIf="displayReconGrpList" placeholder="" [(ngModel)]="selectedReconGroupBy" name="selectedReconGroupBy" style="padding-top: 0px; padding-left: 8px;">
+                                        <md-option *ngFor="let col of reconGroupByData" [value]="col.columnAliasName" (click)="filterReconGrpDetails(selectedReconGroupBy);">
+                                            {{ col.columnName }}
+                                        </md-option>
+                                    </md-select>
+                                </div>
+                            </div> -->
+                            <div style="display:block;" *ngIf="showGrpChart">
+                                <!-- <canvas *ngIf="reconGroupByChartData.length>0" baseChart [data]="reconGroupByChartData" [labels]="reconGroupByChartLabels"
+                                    [options]="reconGroupByChartOptions" [legend]="reconGroupByChartLegends" [chartType]="reconGroupByChartType"></canvas> -->
+                                <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                                    {{selectedReconModuleName}} {{dashBoardLayOutObj.reconciliation.thirdLevelProcess.groupSpecificTitle}}
+                                </div>
+                                <div style="text-align: center;padding: 11px;" *ngIf="reconGroupByChartData.length == 0">No Data to display</div>
+                                <md-tab-group [disableRipple]="true" style="padding-top: 7px;padding-bottom: 7px;" *ngIf="showGrpChart">
+                                    <md-tab *ngFor="let col of reconGroupByChartData;let i = index;">
+                                        <ng-template md-tab-label>
+                                            <div style="display: block;height:215px;">
+                                                <div style="padding: 5px;color: #4e4e4e;">By {{reconGroupByList.columnsList[i].columnName}}</div>
+                                                <canvas baseChart [data]="reconGroupByChartData[i]" [labels]="reconGroupByChartLabels[i]" [options]="reconGroupByChartOptions"
+                                                    [legend]="reconGroupByChartLegends" [chartType]="reconGroupByChartType" [colors]="reconGrpByColors"
+                                                    (chartClick)="goToRWQ($event)"></canvas>
+                                                <!-- (chartClick)="fetchReconGroupByDetails($event)" [colors]="analysisChartReconColors" -->
+                                            </div>
+                                        </ng-template>
+                                    </md-tab>
+                                </md-tab-group>
+                            </div>
+
+                            <!-- [colors]="analysisChartReconColors" -->
+                        </div>
+                    </div>
+                </div>
+            </md-card>
+            <md-card id="accountingAct" style="margin-top: 7px;">
+                <md-card-header>
+                    <md-card-title>
+                        <i class="rec-font-accounting sideIcon" aria-hidden="true" style="left: 41%;position: absolute;top: 12px;"></i>
+                        <div>{{dashBoardLayOutObj.accounting.headerNameTitle}}</div>
+                        <div class=" customToggleTabs " style="position: absolute;right: 20px;top: 10px;">
+                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="changeAccGrpBy($event);" value="Amount">
+                                <md-button-toggle value="Amount">
+                                    Amount
+                                </md-button-toggle>
+                                <md-button-toggle value="Count">
+                                    Count
+                                </md-button-toggle>
+                            </md-button-toggle-group>
+                        </div>
+                        <!-- <div class="customToggleTabs" style="position: absolute;right: 6px;top: 8px;">
+                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRangeAcc($event);">
+                                <md-button-toggle value="1W" checked mdTooltip="1 Week">
+                                    1W
+                                </md-button-toggle>
+                                <md-button-toggle value="2W" mdTooltip="2 Weeks">
+                                    2W
+                                </md-button-toggle>
+                                <md-button-toggle value="1M" mdTooltip="1 Month">
+                                    1M
+                                </md-button-toggle>
+                                <md-button-toggle value="3M" mdTooltip="3 Months">
+                                    3M
+                                </md-button-toggle>
+                            </md-button-toggle-group>
+                        </div> -->
+                    </md-card-title>
+                </md-card-header>
+                <div class="row" style="display:flex;padding: 7px;margin-left: 0px;margin-right: 0px;" *ngIf="showAccountingModule">
+                    <div *ngIf="accountingAnalysisData['1W'] != undefined" class="col-md-3 hand" (click)="accountingPeriodDetails('1W');">
+                        <md-card>
+                            <div class="col-md-12 oneWeeKClsAcc" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>1W</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-1W"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['1W'].finalActamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['1W'].finalActPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['1W'].finalActCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['1W'].finalActCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#FBBC05;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['1W'].actamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['1W'].actPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['1W'].actCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['1W'].actCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">warning</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['1W'].notActAndAcctInProcAmt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['1W'].notActAndAcctInProcAmtPer}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['1W'].notActAndAcctInProcCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['1W'].notActAndAcctInProcCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="accountingAnalysisData['2W'] != undefined" class="col-md-3 hand" (click)="accountingPeriodDetails('2W');">
+                        <md-card>
+                            <div class="col-md-12 twoWeeKClsAcc" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>2W</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-2W"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['2W'].finalActamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['2W'].finalActPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['2W'].finalActCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['2W'].finalActCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#FBBC05;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['2W'].actamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['2W'].actPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['2W'].actCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['2W'].actCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">warning</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['2W'].notActAndAcctInProcAmt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['2W'].notActAndAcctInProcAmtPer}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['2W'].notActAndAcctInProcCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['2W'].notActAndAcctInProcCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="accountingAnalysisData['1M'] != undefined" class="col-md-3 hand" (click)="accountingPeriodDetails('1M');">
+                        <md-card>
+                            <div class="col-md-12 oneMonthClsAcc" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>1M</div> -->
+                                    <div>
+                                        <!--  <i class="rec-font-1M"></i> -->
+                                        <i class="rec-font-1M"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['1M'].finalActamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['1M'].finalActPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['1M'].finalActCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['1M'].finalActCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#FBBC05;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['1M'].actamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['1M'].actPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['1M'].actCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['1M'].actCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">warning</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['1M'].notActAndAcctInProcAmt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['1M'].notActAndAcctInProcAmtPer}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['1M'].notActAndAcctInProcCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['1M'].notActAndAcctInProcCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                    <div *ngIf="accountingAnalysisData['3M'] != undefined" class="col-md-3 hand" (click)="accountingPeriodDetails('3M');">
+                        <md-card>
+                            <div class="col-md-12 threeMonthClsAcc" style="display: flex;">
+                                <div class="col-md-3 navTabCalendarIcon">
+                                    <!-- <div>3M</div> -->
+                                    <div>
+                                        <!-- <i class="fa fa-calendar-o"></i> -->
+                                        <i class="rec-font-3M"></i>
+                                    </div>
+                                </div>
+                                <div class="col-md-9" style="text-align: center;">
+                                    <div style="color:#34A853;display: flex;text-align: center;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['3M'].finalActamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['3M'].finalActPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['3M'].finalActCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['3M'].finalActCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">check</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#FBBC05;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['3M'].actamount | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['3M'].actPercentage}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['3M'].actCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['3M'].actCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">warning</i>
+                                        </div>
+                                    </div>
+                                    <div style="color:#EA4335;display: flex;justify-content: center;">
+                                        <div style="margin-top: auto;margin-bottom: auto;">
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">{{accountingAnalysisData['3M'].notActAndAcctInProcAmt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Amount'">({{accountingAnalysisData['3M'].notActAndAcctInProcAmtPer}})%</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">{{accountingAnalysisData['3M'].notActAndAcctInProcCt | amountFormat:'': 2}}</span>
+                                            <span *ngIf="selectedAccFilterValue == 'Count'">({{accountingAnalysisData['3M'].notActAndAcctInProcCtPer}})%</span>
+                                        </div>
+                                        <div style="padding-left: 5px;">
+                                            <i class="material-icons">clear</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                </div>
+                <div style="display:flex;border-bottom: 1px solid #dfdfdf;">
+                    <!--  <div class="col-md-8" style="padding: 7px;">
+                        <div style="text-align: center;">
+                            <div style="color: #4e4e4e; font-size: 16px; padding: 5px;padding-left: 25px;">Day Wise Analysis For {{selectedAccountingPeriod}}</div>
+                        </div>
+                        <div style="display: block;height:250px !important;padding-top: 14px;" *ngIf="showAccountingModule">
+                            <canvas baseChart [datasets]="lineChartDataAcc" [labels]="lineChartLabelsAcc" [options]="lineChartOptions" [colors]="lineChartColorsAccounting"
+                                [legend]="lineChartLegendAcc" [chartType]="lineChartType" 
+                                (chartClick)="chartClickedAcc($event)"></canvas>
+                        </div>
+                    </div> -->
+                    <div class="col-md-8" style="padding: 7px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;">{{dashBoardLayOutObj.accounting.dayWiseAnalysis.headerNameTitle}} {{selectedAccountingPeriod}}
+                            <div style="position: absolute;right: 17px;top: 3px;">
+                                <button md-icon-button class="pull-right" mdTooltip="Line Chart" (click)="lineChartType = 'line';changeAccChartCol('line');"
+                                    *ngIf="accDisplayChart">
+                                    <md-icon>show_chart</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" mdTooltip="Bar Chart" (click)="lineChartType = 'bar';changeAccChartCol('bar');"
+                                    *ngIf="!accDisplayChart">
+                                    <md-icon>insert_chart</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" *ngIf="showDrillDownAcc" (click)="backToOriginalViewAcc();">
+                                    <md-icon>undo</md-icon>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="drillDownPanelAcc col-md-12">
+                            <div *ngIf="showDrillDownAcc">
+                                <div *ngIf="lineChartLabelsAccDrill" style="display: block;height:250px !important">
+                                    <canvas baseChart [datasets]="lineChartDataAccDrill" [labels]="lineChartLabelsAccDrill" [options]="lineChartOptionsAcc" [colors]="lineChartColorsAccounting"
+                                        [legend]="lineChartLegendAcc" [chartType]="lineChartType" (chartClick)="chartClickedAccountingDrill($event)"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: block;height:260px !important;padding-top: 14px;" *ngIf="showAccountingModule">
+                            <canvas baseChart [datasets]="lineChartDataAcc" [labels]="lineChartLabelsAcc" [options]="lineChartOptionsAcc" [colors]="lineChartColorsAccounting"
+                                [legend]="lineChartLegendAcc" [chartType]="lineChartType" (chartClick)="chartClickedAcc($event)"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-4 progressDayWise" style="padding: 7px;padding-left: 25px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;">{{dashBoardLayOutObj.accounting.kpi.headerNameTitle}} {{selectedAccountingDayWiseAnalysis}}</div>
+                        <div class="accItemsValueClass" style="padding: 15px;" *ngIf="unAccItemsValueKpi != null" (click)="accTabSelected('Un-Accounted Items By Value');">
+                            <span style="font-size: 26px;">{{unAccItemsValueKpi | amountFormat:'$': 2}} </span>
+                            <!-- <span style="font-size: 12px;">M</span> -->
+                            <span style="float: right;font-size: 70%;margin-top: 15px;">{{dashBoardLayOutObj.accounting.kpi.unAccountedItemsTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="accItemsValueKpiPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="accItemsViolationClass" style="padding: 15px;" *ngIf="unAccItemsViolationKpi != null" (click)="accTabSelected('Un-Accounted Items By Violation');">
+                            <span style="font-size: 26px;">{{unAccItemsViolationKpi | amountFormat:'': 2}} </span>
+                            <span style="font-size: 11px;">Trans</span>
+                            <span style="float: right;font-size: 67%;margin-top: 15px;">{{dashBoardLayOutObj.accounting.kpi.unAccountedViolationTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="accItemsViolationKpiPer" [color]="'warn'"></md-progress-bar>
+                        </div>
+                        <div class="accAwaitingAppClass" style="padding: 15px;" *ngIf="accAwaitingAppCountKpi != null" (click)="accTabSelected('Awaiting For Approvals');">
+                            <span style="font-size: 26px;">{{accAwaitingAppCountKpi | amountFormat:'': 2}} </span>
+                            <span style="font-size: 12px;">Approvals</span>
+                            <span style="float: right;font-size: 70%;margin-top: 15px;">{{dashBoardLayOutObj.accounting.kpi.approvalsTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="accAwaitingAppCountKpiPer" [color]="'accent'"></md-progress-bar>
+                        </div>
+                        <div class="accItemsJEClass" style="padding: 15px;" *ngIf="jePendingKpi != null">
+                            <span style="font-size: 26px;">{{jePendingKpi | amountFormat:'': 2}} </span>
+                            <span style="font-size: 11px;">Trans</span>
+                            <span style="float: right;font-size: 67%;margin-top: 15px;">{{dashBoardLayOutObj.accounting.kpi.jePendingTitle}}</span>
+                            <md-progress-bar mode="determinate" [value]="jePendingKpiPer" [color]="'warn'"></md-progress-bar>
+                        </div>
+                    </div>
+                </div>
+                <!-- <div style="display:flex;height:250px !important;">
+                    <div *ngIf="showAccountingSubProcess" class="col-md-6" style="display: block;height:230px !important;padding-top: 14px;">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px; margin-top: -13px;">{{selectedAccountingStatus}} Process Wise Analysis For {{selectedAccountingDayWiseAnalysis}}</div>
+                        <canvas baseChart [data]="accountingDayWiseAnalysisData" [labels]="accountingDayWiseAnalysisLabels" [options]="accountingDayWiseAnalysisOptions"
+                            [legend]="accountingDayWiseAnalysisLegend" [chartType]="accountingDayWiseAnalysisChartType"></canvas>
+                    </div>
+                    <div class="col-md-6">
+
+                    </div>
+                </div> -->
+                <div *ngIf="showAccItemValuesDetails && showAccGrpChart && accItemValuesDetails.length>0" class="col-md-12 navTabsStyling"
+                    style="padding-left: 0px;padding-right: 0px;">
+                    <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                        {{dashBoardLayOutObj.accounting.secondLevelProcess.viewSpecificTitle}} {{selectedDetailTabAcc}} Details
+                    </div>
+                    <md-tab-group (focusChange)="accGrpTabFun($event)" [selectedIndex]="selectedTabAccGroup">
+                        <md-tab *ngFor="let col of accItemValuesDetails;let i = index;">
+                            <ng-template md-tab-label>
+                                <div style="display:block;">
+                                    <div>{{col.viewName}}</div>
+                                    <!-- <div *ngIf="col.violationCount == undefined">
+                                            <span style="font-size: 20px;">{{col.unAccAmount | amountFormat:'': 2}}</span>
+                                            <span> ({{col.unAccCount | amountFormat:'': 2}})</span>
+                                        </div> -->
+                                    <div>
+                                        <!-- *ngIf="col.violationCount != undefined" -->
+                                        <span style="font-size: 20px;">{{col.amount | amountFormat:'': 2}}</span>
+                                        <span> ({{col.count | amountFormat:'': 2}})</span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div *ngIf="showAccGrpChart && unAccGrpByChartsData && unAccGrpByList" class="col-md-12 reconProcessWiseCharts hideRippleForNav">
+                    <md-tab-group style="padding-top: 7px;padding-bottom: 7px;">
+                        <md-tab *ngFor="let col of unAccGrpByChartsData;let i = index;">
+                            <ng-template md-tab-label>
+                                <div style="display:block;height:210px;">
+                                    <div style="padding: 5px;color: #4e4e4e;" *ngIf="unAccGrpByChartsData[i]">By: {{tempKPIValues[i]}}</div>
+                                    <canvas *ngIf="unAccGrpByChartsData.length>0" baseChart [data]="unAccGrpByChartsData[i]" [labels]="unAccGrpByChartsLabels[i]"
+                                        [options]="reconGroupByChartOptions" [chartType]="reconGroupByChartType" [colors]="accGrpByColors1"></canvas>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div *ngIf="!showAccGrpChart && showAccountingSubProcess" class="col-md-12 reconProcessWiseCharts" style="padding-left: 0px;padding-right: 0px;">
+                    <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                        <!-- {{selectedReconStatus}}  -->{{dashBoardLayOutObj.accounting.secondLevelProcess.viewSpecificTitle}} {{selectedAccountingDayWiseAnalysis}}
+
+                    </div>
+                    <div class="customToggleTabsAcc" style="padding: 5px;">
+                        <!-- position: absolute;right: 8px;top: 2px; -->
+                        <md-button-toggle-group #groupACC="mdButtonToggleGroup" value="Data Souce" (change)="changeAccProcessView($event)">
+                            <md-button-toggle value="Account">
+                                Account
+                            </md-button-toggle>
+                            <md-button-toggle value="Data Souce">
+                                Data Souce
+                            </md-button-toggle>
+                        </md-button-toggle-group>
+                    </div>
+                    <md-tab-group [selectedIndex]="selectedTabProcessWiseAnalysisAcc" *ngIf="!showAccProcess">
+                        <md-tab *ngFor="let col of accountingDayWiseAnalysisData;let i = index;">
+                            <ng-template md-tab-label>
+                                <div style="display: block;height:170px;">
+                                    <!-- <md-card> -->
+                                    <div style="padding: 5px;color: #4e4e4e;">{{tempChartViewNameAcc[i]}}</div>
+                                    <canvas baseChart [data]="accountingDayWiseAnalysisData[i]" [labels]="accountingDayWiseAnalysisLabels" [options]="accountingDayWiseAnalysisOptions"
+                                        [legend]="accountingDayWiseAnalysisLegend" [chartType]="accountingDayWiseAnalysisChartType"
+                                        (chartClick)="fetchAccGroupByDetails($event,i)" [colors]="dayWiseColorsAccounting"></canvas>
+                                    <!-- (chartClick)="fetchReconGroupByDetails($event,i)" [colors]="analysisChartReconColors"-->
+                                    <!-- </md-card> -->
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                    <div *ngIf="showViewSource && !showAccProcess" class="reconProcessWiseCharts hideRippleForNav">
+                        <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                            {{selectedAccModuleName}} {{dashBoardLayOutObj.accounting.thirdLevelProcess.groupSpecificTitle}}
+                        </div>
+                        <md-tab-group [selectedIndex]="selectedTabProcessWiseAnalysisAccJE" [disableRipple]="true" style="padding: 10px;">
+                            <md-tab *ngFor="let col of barChartDataJE;let i = index;">
+                                <ng-template md-tab-label>
+                                    <div style="text-align: center;margin-top: 16px;" *ngIf="barChartDataJE.length == 0">No Data to display</div>
+                                    <div style="display: block;height:170px;" *ngIf="barChartDataJE.length>0">
+                                        <!-- <div style="padding: 5px;color: #4e4e4e;">By {{accGroupByData[i].columnName}}</div> -->
+                                        <div style="padding: 5px;color: #4e4e4e;">By {{tempJEAccGrpName[i]}}</div>
+                                        <canvas baseChart [datasets]="barChartDataJE[i]" [labels]="barChartLabelsJE[i]" [options]="barChartOptionsJE" [legend]="barChartLegendJE"
+                                            [chartType]="barChartTypeJE">
+                                        </canvas>
+                                    </div>
+                                </ng-template>
+                            </md-tab>
+                        </md-tab-group>
+                    </div>
+                    <!-- <div style="display: block" *ngIf="showViewSource ">
+                        <div *ngFor="let col of barChartDataJE; let i = index">
+                                <canvas baseChart
+                                [datasets]="barChartDataJE[i]"
+                                [labels]="barChartLabelsJE[i]"
+                                [options]="barChartOptionsJE"
+                                [legend]="barChartLegendJE"
+                                [chartType]="barChartTypeJE"></canvas>
+                        </div>
+                      </div> -->
+                    <div *ngIf="showAccProcess" style="padding: 5px;">
+                        <md-radio-group (change)="fetchDetailedInfoForJE(accountingDateObj);" [(ngModel)]="selectedAccountType" style="position: absolute;right: 15px;top: 46px;">
+                            <md-radio-button value="JE Creation">JE Creation</md-radio-button>
+                            <md-radio-button value="Accounted">Pending Journals</md-radio-button>
+                            <md-radio-button value="None">Both</md-radio-button>
+                        </md-radio-group>
+                        <p-dataTable [value]="journalsAccDetails" [responsive]="true">
+                            <p-headerColumnGroup>
+                                <p-row>
+                                    <p-column header="Code" [style]="{'text-align':'center'}"></p-column>
+                                    <p-column header="Account"></p-column>
+                                    <p-column header="Debit" [style]="{'text-align':'right'}"></p-column>
+                                    <p-column header="Credit" [style]="{'text-align':'right'}"></p-column>
+                                    <p-column header="Total" [style]="{'text-align':'right'}"></p-column>
+                                </p-row>
+                            </p-headerColumnGroup>
+                            <p-column field="account" [style]="{'text-align':'center'}"></p-column>
+                            <p-column field="description"></p-column>
+                            <p-column field="debit" [style]="{'text-align':'right'}"></p-column>
+                            <p-column field="credit" [style]="{'text-align':'right'}"></p-column>
+                            <p-column field="balance" [style]="{'text-align':'right'}"></p-column>
+                        </p-dataTable>
+                    </div>
+                </div>
+                <div *ngIf="!showAccGrpChart && !showAccProcess && !showViewSource && accGroupByChartData.length>0">
+                    <div class="col-md-12 reconProcessWiseCharts hideRippleForNav" style="padding-left: 0px;padding-right: 0px;">
+                        <div *ngIf="showGrpChartAcc && displayAccGrpList">
+                            <div style="display:block;">
+                                <div style="text-align: center; color: #4e4e4e; font-size: 16px; padding: 5px;border-bottom: 1px solid #dfdfdf;background: rgba(223, 223, 223, 0.3);">
+                                    {{selectedAccModuleName}} {{dashBoardLayOutObj.accounting.thirdLevelProcess.groupSpecificTitle}}
+                                </div>
+                                <div style="text-align: center;margin-top: 16px;" *ngIf="accGroupByChartData.length == 0">No Data to display</div>
+                                <md-tab-group [disableRipple]="true" style="padding-top: 7px;padding-bottom: 7px;">
+                                    <md-tab *ngFor="let col of accGroupByChartData;let i = index;">
+                                        <ng-template md-tab-label>
+                                            <div style="display: block;height:210px;">
+                                                <!-- <div style="padding: 5px;color: #4e4e4e;">By {{accGroupByList.columnsList[i].columnName}}</div> -->
+                                                <div style="padding: 5px;color: #4e4e4e;">By {{tempNotAccGrpName[i]}}</div>
+                                                <canvas baseChart [data]="accGroupByChartData[i]" [labels]="accGroupByChartLabels[i]" [options]="reconGroupByChartOptions"
+                                                    [legend]="reconGroupByChartLegends" [chartType]="reconGroupByChartType" [colors]="reconGrpByColors"></canvas>
+                                            </div>
+                                        </ng-template>
+                                    </md-tab>
+                                </md-tab-group>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </md-card>
+        </div>
+    </div>
+    <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="padding: 7px 0px 7px 0px;margin-left: 0px !important;">
+        <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12 navbar" *ngIf="dashBoardLayOutObj.notifications.display == true;" style="padding-left: 0px;">
+            <md-card class="dashBoardLayout">
+                <md-card-header>
+                    <md-card-title style="margin-bottom: 0px !important;color: #0173cb;display:flex;">
+                        <div>{{dashBoardLayOutObj.notifications.headerTitle}}</div>
+                        <div>
+                            <li *ngIf="true" ngbDropdown class="nav-item dropdown pointer" style="position: absolute;right: 5px;top: 3px;list-style-type: none;color: black;">
+                                <button class="pull-right" ngbDropdownToggle md-icon-button mdTooltip="Chart Types">
+                                    <md-icon>more_vert</md-icon>
+                                </button>
+                                <ul class="dropdown-menu fadeInDown dropdown-menu-right notiCls" ngbDropdownMenu>
+                                    <li>
+                                        <a class="dropdown-item" value="today" (click)="dayType='today';moduleType='All';getNotificationDetails();">
+                                            <span>Today</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" value="yesterday" (click)="dayType='yesterday';moduleType='All';getNotificationDetails();">
+                                            <span>Yesterday</span>
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item active" value="7Days" (click)="dayType='7Days';moduleType='All';getNotificationDetails();">
+                                            <span>Last 7 Days</span>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
+                        </div>
+                    </md-card-title>
+                </md-card-header>
+                <md-card-content>
+                    <div class="row" style="border-bottom: 1px solid #eeebeb;margin-left: 0px;margin-right: 0px;">
+                        <div class="col-md-3 col-xs-3 form-group displayCount hand allNoti" style="border-right: 1px solid #eeebeb;margin-bottom: 0px !important;"
+                            (click)="moduleType='All';getNotificationDetails();">
+                            <h6>
+                                <small>All</small>
+                            </h6>
+                            <h4>{{notificationList.count}}</h4>
+                        </div>
+                        <div class="col-md-3 col-xs-3 form-group displayCount hand reconNoti" style="border-right: 1px solid #eeebeb;margin-bottom: 0px !important;"
+                            (click)="moduleType='RECON';getNotificationDetails();">
+                            <h6>
+                                <small>Reconciled</small>
+                            </h6>
+                            <h4>{{notificationList.Recon}}</h4>
+                        </div>
+                        <div class="col-md-3 col-xs-3 form-group displayCount hand accNoti" style="border-right: 1px solid #eeebeb;margin-bottom: 0px !important;"
+                            (click)="moduleType='ACCOUNTING';getNotificationDetails();">
+                            <h6>
+                                <small>Accounting</small>
+                            </h6>
+                            <h4>{{notificationList.Accounting}}</h4>
+                        </div>
+                        <div class="col-md-3 col-xs-3 form-group displayCount hand jourNoti" style="margin-bottom: 0px !important;" (click)="moduleType='JOURNAL_ENTRY';getNotificationDetails();">
+                            <h6>
+                                <small>Journal</small>
+                            </h6>
+                            <h4>{{notificationList.JournalEntry}}</h4>
+                        </div>
+                    </div>
+                    <perfect-scrollbar style="height: 266px;">
+                        <div style="padding: 5px 5px 5px 5px;">
+                            <ul>
+                                <li class="dashboardNotification" *ngFor="let col of notificationList.data" style="border-bottom: 1px solid #e9e9e9; padding: 9px 5px 5px 5px;cursor: pointer;">
+                                    <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left:0px !important;">
+                                        <div class="col-lg-1 col-md-1 col-sm-1 col-xs-1">
+                                            <span style="margin-left: -6px;line-height: 56px; font-size: 24px;background-color: rgb(71, 90, 130);color: white; width: 45px; height: 45px; display: inline-block; font-weight: 400; text-align: center; border-radius: 100%;">
+                                                <i *ngIf="col.module == 'RECON'" class="rec-font-reconciliation sideIcon" aria-hidden="true"></i>
+                                                <i *ngIf="col.module == 'ACCOUNTING'" class="rec-font-accounting sideIcon" aria-hidden="true"></i>
+                                                <i *ngIf="col.module == 'JOURNAL_ENTRY'" class="fa fa-book sideIcon" aria-hidden="true"></i>
+                                            </span>
+                                        </div>
+                                        <div class="col-lg-8 col-md-8 col-sm-8 col-xs-8" style="margin-top: auto; margin-bottom: auto;">
+                                            <span style="font-size: 13px; display: block; margin: 1px 0; -o-text-overflow: ellipsis; text-overflow: ellipsis; overflow: hidden; color: #67757c; white-space: normal;">
+                                                {{col.message}}
+                                            </span>
+                                        </div>
+                                        <div class="col-lg-3 col-md-3 col-sm-3 col-xs-3">
+                                            <span class="badge" style="padding: 5px 4px 1px 3px;width: 110px;background: #56bc56;" *ngIf="col.module == 'Recon'">{{col.module}}</span>
+                                            <span class="badge" style="padding: 5px 4px 1px 3px;width: 110px;background: #32c2c2;" *ngIf="col.module == 'Accounting'">{{col.module}}</span>
+                                            <span class="badge" style="padding: 5px 4px 1px 3px;width: 110px;background: #fc9d3f;" *ngIf="col.module == 'Journal Entry'">{{col.module}}</span>
+                                            <span style="font-size: 12px;display: block;margin: 1px 0;-o-text-overflow: ellipsis;text-overflow: ellipsis;overflow: hidden;color: #67757c;white-space: nowrap;">
+                                                {{col.time}}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </perfect-scrollbar>
+                </md-card-content>
+            </md-card>
+        </div>
+        <div class=" col-lg-6 col-md-6 col-sm-12 col-xs-12" style="padding-top: 8px;padding-right: 0px;" *ngIf="dashBoardLayOutObj.dayWiseAnalysisBlock.display == true;">
+            <md-card style="height: 376px;" class="dashBoardLayout">
+                <md-card-header>
+                    <!--  style="padding: 7px 5px 7px 5px;" -->
+                    <md-card-title style="margin-bottom: 0px !important;color: #0173cb;display:flex;">
+                        <div>{{dashBoardLayOutObj.dayWiseAnalysisBlock.headerTitle}}</div>
+                        <div style="right: 0;top: 2px;position: absolute;">
+                            <button md-icon-button class="pull-right  md-36" mdTooltip="Change View" (click)="changeReportView();" style="color: black;">
+                                <md-icon>grid_on</md-icon>
+                            </button>
+                        </div>
+                    </md-card-title>
+                </md-card-header>
+                <md-card-content>
+                    <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="padding: 5px 7px 5px 7px;margin-left: 0px;" *ngIf="tableView1">
+                        <!-- [@flyInOut] -->
+                        <div class="table-responsive tableView">
+                            <table class="table table-bordered">
+                                <thead class="tableheader text-nowrap">
+                                    <tr>
+                                        <th>Day</th>
+                                        <th>Extraction</th>
+                                        <th>Transformation</th>
+                                        <th>Reconciliation</th>
+                                        <th>Accounting</th>
+                                        <th>Journals</th>
+                                        <th>Total Process</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="viewTab text-nowrap">
+                                    <tr *ngFor="let col of ccReconProcess;let i = index;" id="hideIconTable" [ngClass]="{'active': col.columnEdit && !isCreateNew}">
+                                        <td>
+                                            <div>{{col.date | date:'d MMM'}}</div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div class="circle" *ngIf="col.extraction < 26" style="background: rgba(255, 0, 0, 0.55)"></div>
+                                            <div class="circle" *ngIf="col.extraction > 25 && col.extraction<51" style="background: rgba(255, 165, 0, 0.75)"></div>
+                                            <div class="circle" *ngIf="col.extraction > 50 && col.extraction < 76" style="background: rgb(109, 109, 249)"></div>
+                                            <div class="circle" *ngIf="col.extraction > 76" style="background: rgba(0, 128, 0, 0.58)"></div>
+                                            <div class="circleDiv"> {{col.extraction}}%</div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div class="circle" *ngIf="col.extraction < 26" style="background: rgba(255, 0, 0, 0.55)"></div>
+                                            <div class="circle" *ngIf="col.extraction > 25 && col.extraction<51" style="background: rgba(255, 165, 0, 0.75)"></div>
+                                            <div class="circle" *ngIf="col.extraction > 50 && col.extraction < 76" style="background: rgb(109, 109, 249)"></div>
+                                            <div class="circle" *ngIf="col.extraction > 76" style="background: rgba(0, 128, 0, 0.58)"></div>
+                                            <div class="circleDiv">{{col.extraction}}%</div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div class="circle" *ngIf="col.reconciliation < 26" style="background: rgba(255, 0, 0, 0.55)"></div>
+                                            <div class="circle" *ngIf="col.reconciliation > 25 && col.reconciliation<51" style="background: rgba(255, 165, 0, 0.75)"></div>
+                                            <div class="circle" *ngIf="col.reconciliation > 50 && col.reconciliation < 76" style="background: rgb(109, 109, 249)"></div>
+                                            <div class="circle" *ngIf="col.reconciliation > 76" style="background: rgba(0, 128, 0, 0.58)"></div>
+                                            <div class="circleDiv">{{col.reconciliation}}%</div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div class="circle" *ngIf="col.accounting < 26" style="background: rgba(255, 0, 0, 0.55)"></div>
+                                            <div class="circle" *ngIf="col.accounting > 25 && col.accounting<51" style="background: rgba(255, 165, 0, 0.75)"></div>
+                                            <div class="circle" *ngIf="col.accounting > 50 && col.accounting < 76" style="background: rgb(109, 109, 249)"></div>
+                                            <div class="circle" *ngIf="col.accounting > 76" style="background: rgba(0, 128, 0, 0.58)"></div>
+                                            <div class="circleDiv">{{col.accounting}}%</div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div class="circle" *ngIf="col.journals < 26" style="background: rgba(255, 0, 0, 0.55)"></div>
+                                            <div class="circle" *ngIf="col.journals > 25 && col.journals<51" style="background: rgba(255, 165, 0, 0.75)"></div>
+                                            <div class="circle" *ngIf="col.journals > 50 && col.journals < 76" style="background: rgb(109, 109, 249)"></div>
+                                            <div class="circle" *ngIf="col.journals > 76" style="background: rgba(0, 128, 0, 0.58)"></div>
+                                            <div class="circleDiv">{{col.journals}}%</div>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <div class="circle" *ngIf="col.total < 26" style="background: rgba(255, 0, 0, 0.55)"></div>
+                                            <div class="circle" *ngIf="col.total > 25 && col.total<51" style="background: rgba(255, 165, 0, 0.75)"></div>
+                                            <div class="circle" *ngIf="col.total > 50 && col.total < 76" style="background: rgb(109, 109, 249)"></div>
+                                            <div class="circle" *ngIf="col.total > 76" style="background: rgba(0, 128, 0, 0.58)"></div>
+                                            <div class="circleDiv">{{col.total}}%</div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div *ngIf="!tableView1">
+                        <!-- [@flyInOut] -->
+                        <md-tab-group (focusChange)="loadContent($event)" [selectedIndex]="selectedTabCCProcess">
+                            <md-tab *ngFor="let data of ccReconProcess ">
+                                <ng-template md-tab-label>
+                                    {{ data.date | date:'d MMM'}} ({{data.total}}%)
+                                </ng-template>
+                            </md-tab>
+                        </md-tab-group>
+                        <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="padding: 5px 0px 5px 0px;margin-left: 0px;">
+                            <div class=" col-lg-4 col-md-4 extranctionCol text-center">
+                                <circle-progress [percent]="extractionValue" [radius]="50" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#ffa1b5'"
+                                    [innerStrokeColor]="'rgba(255, 161, 181, 0.64)'" [animation]="true" [animationDuration]="300"
+                                    [showSubtitle]="true" [subtitle]="'Extraction'" [titleFontSize]="20" [unitsFontSize]="15"
+                                    [subtitleFontSize]="12"></circle-progress>
+                                <!-- <md-progress-spinner class="example-margin" style="margin-left: 43px;" [color]="extractionColor" [mode]="mode" [value]="extractionValue"
+										 [strokeWidth]=3>
+										</md-progress-spinner>
+										<div style="text-align: center;">Extraction - {{extractionValue}}%</div> -->
+                            </div>
+                            <div class=" col-lg-4 col-md-4 transformationCol text-center">
+                                <circle-progress [percent]="transformationValue" [radius]="50" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                                    [outerStrokeColor]="'#86c7f3'" [innerStrokeColor]="'rgba(134, 199, 243, 0.53)'" [animation]="true"
+                                    [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Transformation'" [titleFontSize]="20"
+                                    [unitsFontSize]="15" [subtitleFontSize]="12"></circle-progress>
+                                <!-- <md-progress-spinner class="example-margin" [color]="transformationColor" [mode]="mode" [value]="transformationValue" [strokeWidth]=3>
+										</md-progress-spinner>
+										<div>Transformation - {{transformationValue}}%</div> -->
+                            </div>
+                            <div class=" col-lg-4 col-md-4 reconCol text-center">
+                                <circle-progress [percent]="reconciliationValue" [radius]="50" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                                    [outerStrokeColor]="'rgba(92, 184, 92, 0.85)'" [innerStrokeColor]="'rgba(92, 184, 92, 0.34)'"
+                                    [animation]="true" [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Reconciliation'"
+                                    [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="12"></circle-progress>
+                                <!-- <md-progress-spinner class="example-margin" [color]="reconColor" [mode]="mode" [value]="reconciliationValue" [strokeWidth]=3>
+										</md-progress-spinner>
+										<div>Reconciliation - {{reconciliationValue}}%</div> -->
+                            </div>
+                            <div class=" col-lg-2 col-md-2">
+                            </div>
+                            <div class=" col-lg-4 col-md-4 accountingCol text-center">
+                                <circle-progress [percent]="accountingValue" [radius]="50" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#93d9d9'"
+                                    [innerStrokeColor]="'rgba(147, 217, 217, 0.54)'" [animation]="true" [animationDuration]="300"
+                                    [showSubtitle]="true" [subtitle]="'Accounting'" [titleFontSize]="20" [unitsFontSize]="15"
+                                    [subtitleFontSize]="12"></circle-progress>
+                                <!-- <md-progress-spinner class="example-margin" [color]="accountingColor" [mode]="mode" [value]="accountingValue" [strokeWidth]=3>
+										</md-progress-spinner>
+										<div>Accounting - {{accountingValue}}%</div> -->
+                            </div>
+                            <div class=" col-lg-4 col-md-4 journalCol text-center">
+                                <circle-progress [percent]="journalsValue" [radius]="50" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#ff9f40'"
+                                    [innerStrokeColor]="'rgba(255, 159, 64, 0.47)'" [animation]="true" [animationDuration]="300"
+                                    [showSubtitle]="true" [subtitle]="'Journals'" [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="12"></circle-progress>
+                                <!-- <md-progress-spinner class="example-margin" [color]="journalsColor" [mode]="mode" [value]="journalsValue" [strokeWidth]=3>
+										</md-progress-spinner>
+										<div>Journals - {{journalsValue}}%</div> -->
+                            </div>
+                        </div>
+                    </div>
+                </md-card-content>
+            </md-card>
+        </div>
+    </div>
+    <!-- </md-card> -->
+
+
+    <!-- SIDE BAR -->
+    <p-sidebar [(visible)]="visibleSidebar2" position="right" [baseZIndex]="10000">
+        <div style="text-align: center;padding: 5px;">
+            <h3>{{openModuleSetting}}</h3>
+        </div>
+        <div class="col-md-12" style="padding: 5px;">
+            <md-slide-toggle *ngIf="!customizationMode" class="pull right example-margin" color="primary" mdTooltip="Customization Mode"
+                placeholder="Customization Mode" [(ngModel)]="customizationMode" name="customizationMode" (change)="visibleSidebar2 = false;">
+                Customization Mode
+            </md-slide-toggle>
+            <!-- position: absolute;right: 0;top: 6px; -->
+        </div>
+        <div *ngIf="openModuleSetting == 'Filter Data'">
+            <!-- <div class="row col-md-12">
+                <div class="col-md-4">customization Mode :</div>
+                <div class="col-md-8">
+
+                </div>
+            </div> -->
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-4" style="margin-top: 12px;">Processes :</div>
+                <div class="col-md-8">
+                    <!-- <md-select placeholder="" [(ngModel)]="selectedProcess" name="selectedProcess" style="padding-top: 0px; padding-left: 8px;">
+                        <md-option *ngFor="let col of processesList" [value]="col.id">
+                            {{ col.processName }}
+                        </md-option>
+                    </md-select> -->
+                    <!-- <md-list *ngFor="let col of processesList">
+                        <md-list-item>{{ col.processName }}</md-list-item>
+                    </md-list> -->
+                    <perfect-scrollbar style="height: 100px;">
+                        <md-nav-list>
+                            <a md-list-item *ngFor="let col of processesList" (click)="selectedProcessFun(col);" [ngClass]="{'nav-active': col == activeItem}">
+                                {{ col.processName }} </a>
+                        </md-nav-list>
+                    </perfect-scrollbar>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;">
+                    <md-checkbox [(ngModel)]="tempProcessFilter.asOfValue">As Of Today</md-checkbox>
+                </div>
+                <div class="col-md-12" *ngIf="tempProcessFilter.asOfValue == false" style="display: flex;padding-left: 33px;">
+                    <div class="datePickerWidth">
+                        <md-form-field>
+                            <input mdInput [mdDatepicker]="stpicker" placeholder="From Date" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                [(ngModel)]="tempProcessFilter.startDateSel" name="startDateSel" required>
+                            <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                            <md-datepicker #stpicker></md-datepicker>
+                        </md-form-field>
+                    </div>
+                    <div class="datePickerWidth">
+                        <md-form-field>
+                            <input mdInput [mdDatepicker]="edpicker" placeholder="To Date" [min]="tempProcessFilter.startDateSel" [ngClass]="{'color-black' : isViewOnly}"
+                                [disabled]="isViewOnly" [(ngModel)]="tempProcessFilter.endDateSel" name="endDateSel">
+                            <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                            <md-datepicker #edpicker></md-datepicker>
+                        </md-form-field>
+                    </div>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;" *ngIf="tempProcessFilter.asOfValue == true;">
+                <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;">
+                    <md-checkbox [(ngModel)]="tempProcessFilter.closedPeriods">Include Closed Periods</md-checkbox>
+                </div>
+                <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;display: flex;" *ngIf="tempProcessFilter.closedPeriods == true;">
+                    <div class="col-md-6" style="margin-top: auto;">
+                        Select Period
+                    </div>
+                    <div class="col-md-6">
+                        <md-select placeholder="" name="selectedCalender" [(ngModel)]="tempProcessFilter.selectedCalender" [ngClass]="{'color-black' : isViewOnly}">
+                            <md-option *ngFor="let col of calenderDetails.calendar" [value]="col.fromDate">
+                                {{ col.periodName }}
+                            </md-option>
+                        </md-select>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;display: flex;">
+                <div class="col-md-6" style="margin-top: auto;margin-bottom: auto;">
+                    Violation Period
+                </div>
+                <div class="col-md-6">
+                    <md-input-container class="example-full-width" style="top: -11px;">
+                        <input mdInput [(ngModel)]="tempProcessFilter.violationPeriod" type="number" [ngClass]="{'color-black' : isViewOnly}" name="violationPeriod"
+                            required>
+                    </md-input-container>
+                </div>
+            </div>
+        </div>
+        <!-- <div *ngIf="openModuleSetting == 'ETL'" class="row">
+
+            <div class="col-md-12">
+                <md-input-container>
+                    <input mdInput [(ngModel)]="dashBoardLayOutObjTemp.etl.headerNameTitle" [ngClass]="{'color-black' : isViewOnly}" placeholder="Module Title Name"
+                        name="etlheaderNameTitle" id="etlheaderNameTitle" required>
+                </md-input-container>
+            </div>
+            <div>Level 1 - Day Wise Analysis</div>
+            <div class="col-md-6">
+                <md-input-container>
+                    <input mdInput [(ngModel)]="dashBoardLayOutObjTemp.etl.dayWiseAnalysis.headerNameTitle" [ngClass]="{'color-black' : isViewOnly}"
+                        placeholder="Periodic Analysis Title Name" name="etldayWiseAnalysisheaderNameTitle" id="etldayWiseAnalysisheaderNameTitle"
+                        required>
+                </md-input-container>
+            </div>
+            <div class="col-md-6">
+                <md-input-container>
+                    <input mdInput [(ngModel)]="dashBoardLayOutObjTemp.etl.dayWiseAnalysis.headerNameTitle" [ngClass]="{'color-black' : isViewOnly}"
+                        placeholder="Chart Preference" name="etldayWiseAnalysischartPreference" id="etldayWiseAnalysischartPreference"
+                        required>
+                </md-input-container>
+            </div>
+            <div>KPI</div>
+            <div class="col-md-12">
+                <md-input-container>
+                    <input mdInput [(ngModel)]="dashBoardLayOutObjTemp.etl.kpi.headerNameTitle" [ngClass]="{'color-black' : isViewOnly}" placeholder="Title For KPI"
+                        name="etldayWiseAnalysiskpiheaderNameTitle" id="etldayWiseAnalysiskpiheaderNameTitle" required>
+                </md-input-container>
+            </div>
+            <div class="col-md-6">
+                <md-input-container>
+                    <input mdInput [(ngModel)]="dashBoardLayOutObjTemp.etl.kpi.extraction.extractionFailedTitle" [ngClass]="{'color-black' : isViewOnly}"
+                        placeholder="Sub-Title For Extraction Failed Items" name="etlextractionFailedTitle" id="etlextractionFailedTitle"
+                        required>
+                </md-input-container>
+            </div>
+            <div class="col-md-6">
+                <md-input-container>
+                    <input mdInput [(ngModel)]="dashBoardLayOutObjTemp.etl.kpi.transformation.transFailedTitle" [ngClass]="{'color-black' : isViewOnly}"
+                        placeholder="Sub-Title For Transformation Failed Items" name="etltransFailedTitle" id="etltransFailedTitle"
+                        required>
+                </md-input-container>
+            </div>
+        </div> -->
+        <div *ngIf="openModuleSetting == 'Reconciliation Status'">
+
+            <!-- <div class="col-md-12" style="margin-top: 15px;">
+                <h5>{{openModuleSetting}}</h5>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Reconciled Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="reconColorTemp"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Un-Reconciled Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="unReconColorTemp"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Background Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="reconBackgroundTemp"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8">
+                    Chart Type :
+                </div>
+                <div class="col-md-4">
+                    <md-radio-group [(ngModel)]="temppieChartReconciliationType">
+                        <md-radio-button value="pie">Pie</md-radio-button>
+                        <md-radio-button value="bar">Bar</md-radio-button>
+                    </md-radio-group>
+                </div>
+            </div> -->
+        </div>
+        <div *ngIf="openModuleSetting == 'Un-Reconciled Transaction By Aging Bucket'">
+            <div class="col-md-12" style="margin-top: 15px;">
+                <h4>{{openModuleSetting}}</h4>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempagingColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Background Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="agingBucketBackgroundTemp"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8">
+                    Chart Type :
+                </div>
+                <div class="col-md-4">
+                    <md-radio-group [(ngModel)]="tempbarChartType">
+                        <md-radio-button value="pie">Pie</md-radio-button>
+                        <md-radio-button value="bar">Bar</md-radio-button>
+                        <md-radio-button value="line">Line</md-radio-button>
+                    </md-radio-group>
+                </div>
+            </div>
+        </div>
+        <div *ngIf="openModuleSetting == 'Un-Reconciled Items By Value'">
+            <div class="col-md-12" style="margin-top: 15px;">
+                <h4>{{openModuleSetting}}</h4>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Radius :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempunReconItemsByValueRadius" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Outer Stroke Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByValueOuterStrokeColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Inner Stroke Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByValueInnerStrokeColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Title Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByValueTitleColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Sub-Title Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByValueSubTitleColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Title Font Size :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempunReconItemsByValueTitleFontSize" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Sub-Title Font Size :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempunReconItemsByValueSubtitleFontSize" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+        </div>
+        <div *ngIf="openModuleSetting == 'Un-Reconciliation Items By Violation'">
+            <div class="col-md-12" style="margin-top: 15px;">
+                <h4>{{openModuleSetting}}</h4>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Radius :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempunReconItemsByViolationRadius" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Outer Stroke Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByViolationOuterStrokeColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Inner Stroke Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByViolationInnerStrokeColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Title Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByViolationTitleColor"></p-colorPicker>
+                </div>
+            </div>
+            <!-- <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Sub-Title Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempunReconItemsByViolationSubTitleColor"></p-colorPicker>
+                </div>
+            </div> -->
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Title Font Size :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempunReconItemsByViolationTitleFontSize" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+            <!-- <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Sub-Title Font Size :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                            <input mdInput type="number" [(ngModel)]="tempunReconItemsByViolationSubtitleFontSize" placeholder="">
+                        </md-input-container>
+                </div>
+            </div> -->
+        </div>
+        <div *ngIf="openModuleSetting == 'Awaiting Approvals'">
+            <div class="col-md-12" style="margin-top: 15px;">
+                <h4>{{openModuleSetting}}</h4>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Radius :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempreconAwaitingForApprovalRadius" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Outer Stroke Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempreconAwaitingForApprovalOuterStrokeColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Title Color :
+                </div>
+                <div class="col-md-4">
+                    <p-colorPicker [(ngModel)]="tempreconAwaitingForApprovalTitleColor"></p-colorPicker>
+                </div>
+            </div>
+            <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                    Title Font Size :
+                </div>
+                <div class="col-md-4" style="margin-top: -12px;">
+                    <md-input-container class="example-full-width ">
+                        <input mdInput type="number" [(ngModel)]="tempreconAwaitingForApprovalTitleFontSize" placeholder="">
+                    </md-input-container>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top: 5px;">
+            <button md-raised-button class="pull-right" (click)="cancelReconSetting();visibleSidebar2 = false">Cancel</button>
+            <button md-raised-button class="pull-right" (click)="fetchAllModuleData();visibleSidebar2 = false" style="margin-right: 5px;">Run</button>
+            <!-- saveReconSetting(); -->
+        </div>
+    </p-sidebar>
+</div>
+
+<!-- <div style="text-align: center; color: #4e4e4e; font-size: 16px;  padding: 5px;">{{selectedDetailTabRec}} For {{selectedReconProcessAnalysis}}</div>
+                        <div *ngIf="selectedDetailTabRec == 'Un-Reconciled Items By Value'" style="padding: 5px;">
+                            <p-dataTable [value]="topTenUnReconItemData" [responsive]="true" scrollable="true" scrollHeight="180px">
+                                <p-headerColumnGroup>
+                                    <p-row>
+                                        <p-column header="Provider Name"></p-column>
+                                        <p-column header="Ledger Name"></p-column>
+                                        <p-column header="Sum Of Amount" [style]="{'text-align':'right'}"></p-column>
+                                        <p-column header="Percentage" [style]="{'text-align':'right'}"></p-column>
+                                    </p-row>
+                                </p-headerColumnGroup>
+                                <p-column field="Provider Name"></p-column>
+                                <p-column field="Ledger Name"></p-column>
+                                <p-column field="Sum Of Amount" [style]="{'text-align':'right'}"></p-column>
+                                <p-column field="Percentage" header="Percentage" [style]="{'text-align':'right'}">
+                                    <ng-template let-col let-row="rowData" pTemplate="body">
+                                        {{row[col.field]}}%
+                                    </ng-template>
+                                </p-column>
+
+                                <p-footerColumnGroup>
+                                    <p-row>
+                                        <p-column footer="Grand Total" colspan="2"></p-column>
+                                        <p-column footer="31,72,26,132.97" [style]="{'text-align':'right'}"></p-column>
+                                        <p-column footer="100%" [style]="{'text-align':'right'}"></p-column>
+                                    </p-row>
+                                </p-footerColumnGroup>
+                            </p-dataTable>
+                        </div>
+                        <div *ngIf="selectedDetailTabRec == 'Un-Reconciled Items By Violation'" style="padding: 5px;">
+                            <p-dataTable [value]="unReconItemByViolationData" [responsive]="true" scrollable="true" scrollHeight="180px">
+                                <p-headerColumnGroup>
+                                    <p-row>
+                                        <p-column header="Provider Name"></p-column>
+                                        <p-column header="Ledger Name"></p-column>
+                                        <p-column header="Un-Reconcilied By Age(Days)" [style]="{'text-align':'center'}"></p-column>
+                                        <p-column header="Sum Of Amount" [style]="{'text-align':'right'}"></p-column>
+                                    </p-row>
+                                </p-headerColumnGroup>
+                                <p-column field="Provider Name"></p-column>
+                                <p-column field="Ledger Name"></p-column>
+                                <p-column field="Un-Reconcilied By Age(Days)" [style]="{'text-align':'center'}"></p-column>
+                                <p-column field="Sum Of Amount" [style]="{'text-align':'right'}"></p-column>
+
+                                <p-footerColumnGroup>
+                                    <p-row>
+                                        <p-column footer="Grand Total" colspan="3"></p-column>
+                                        <p-column footer="9,30,08,011.33" [style]="{'text-align':'right'}"></p-column>
+                                    </p-row>
+                                </p-footerColumnGroup>
+                            </p-dataTable>
+                        </div>
+                        <div *ngIf="selectedDetailTabRec == 'Awaiting For Approvals'" style="padding: 5px;">
+                            <p-dataTable [value]="awaitingForApprovalData" [responsive]="true" scrollable="true" scrollHeight="180px">
+                                <p-headerColumnGroup>
+                                    <p-row>
+                                        <p-column header="Provider Name"></p-column>
+                                        <p-column header="Ledger Name"></p-column>
+                                        <p-column header="Sum Of Amount" [style]="{'text-align':'right'}"></p-column>
+                                    </p-row>
+                                </p-headerColumnGroup>
+                                <p-column field="Provider Name"></p-column>
+                                <p-column field="Ledger Name"></p-column>
+                                <p-column field="Sum Of Amount" [style]="{'text-align':'right'}"></p-column>
+
+                                <p-footerColumnGroup>
+                                    <p-row>
+                                        <p-column footer="Grand Total" colspan="2"></p-column>
+                                        <p-column footer="7,57,65,326.82" [style]="{'text-align':'right'}"></p-column>
+                                    </p-row>
+                                </p-footerColumnGroup>
+                            </p-dataTable>
+                        </div> -->

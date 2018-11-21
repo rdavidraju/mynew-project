@@ -1,0 +1,195 @@
+<div style="height: 100%; width: 100%">
+    <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+        <div id="sticky" class="leftpane split-pane-content-primary">
+            <look-up-code-side-bar></look-up-code-side-bar>
+        </div>
+        <div class="split-pane-content-secondary rightpane">
+            <span class="fa fa-bars hand ripple sbclose" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew"></span>
+            <div class="component-title">
+                <div class="col-md-6">
+                    <h4 *ngIf="isCreateNew">{{lookUpCodeDetails.meaning ? lookUpCodeDetails.meaning : 'Lookup Code Creation'}}</h4>
+                    <h4 *ngIf="!isCreateNew">{{lookUpCodeDetails.meaning ? lookUpCodeDetails.meaning : 'Lookup Code Details'}}</h4>
+                </div>
+                <div class="col-md-6">
+                    <div class="pull-right">
+                        <button *ngIf="!isViewOnly && f.valid" md-icon-button aria-hidden="true" mdTooltip="Save Lookup Code" (click)="saveLookupCode()">
+                            <md-icon>save</md-icon>
+                        </button>
+                        <button *ngIf="!isViewOnly && !f.valid" md-icon-button aria-hidden="true" mdTooltip="Fill mandatory fields" (click)="validationMsg()">
+                            <md-icon>save</md-icon>
+                        </button>
+                        <div *jhiHasAnyAuthority="'LOOKUP_CODE_EDIT'">
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/look-up-code', {outlets: {'content': [lookUpCodeDetails.id]+'/edit'}}]">
+                                <md-icon>mode_edit</md-icon>
+                            </button>
+                        </div>
+                        <!-- <button *ngIf="isEdit" md-icon-button mdTooltip="Close" [routerLink]="['/look-up-code', {outlets: {'content': [lookUpCodeDetails.id]+'/details'}}]">
+                            <md-icon>clear</md-icon>
+                        </button> -->
+                        <button *ngIf="isCreateNew || isEdit" md-icon-button mdTooltip="Close" [routerLink]="['/look-up-code', {outlets: {'content': ['look-up-code-home']}}]">
+                            <md-icon>clear</md-icon>
+                        </button>
+                        <button *ngIf="isViewOnly" md-icon-button mdTooltip="View List" [routerLink]="['/look-up-code', {outlets: {'content': ['look-up-code-home']}}]">
+                            <md-icon>clear</md-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="component-body">
+                <!-- Form Start Here -->
+                <div style="padding-top:10px;">
+                    <form novalidate #f="ngForm">
+                        <div class="row m-0">
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group" style="display:inline-block">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="lookUpCodeDetails.lookUpCode" [ngClass]="{'color-black' : !isCreateNew}" [disabled]="!isCreateNew" placeholder="Lookup Code"
+                                        name="lookUpCode" required #lookUpCode="ngModel" id="lookUpCode" (blur)="isNameExist(lookUpCodeDetails.lookUpType,lookUpCodeDetails.lookUpCode,lookUpCodeDetails.id)"
+                                        (ngModelChange)="nameExist = ''">
+                                </md-input-container>
+                                <small class="form-text text-danger" *ngIf="nameExist">{{nameExist}}</small>
+                            </div>
+
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                                <!-- <md-input-container>
+                                    <input mdInput [(ngModel)]="lookUpCodeDetails.lookUpType" [ngClass]="{'color-black' : !isCreateNew}" [disabled]="!isCreateNew" placeholder="Lookup Type"
+                                        name="lookUpType" required #lookUpType="ngModel" id="lookUpType">
+                                </md-input-container> -->
+                                <md-select placeholder="Lookup Type" [(ngModel)]="lookUpCodeDetails.lookUpType" name="lookUpType" [disabled]="!isCreateNew" [style.width]="'100%'" required>
+                                    <md-option *ngFor="let col of lookupTypesList" [(value)]="col.lookUpType">{{ col.meaning }}</md-option>
+                                </md-select>
+                            </div>
+
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="lookUpCodeDetails.meaning" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                        placeholder="Meaning" name="meaning" #meaning="ngModel">
+                                </md-input-container>
+                            </div>
+
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="lookUpCodeDetails.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                        placeholder="Description" name="description" #description="ngModel">
+                                </md-input-container>
+                            </div>
+
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="stpicker" placeholder="Start date" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                        [(ngModel)]="lookUpCodeDetails.activeStartDate" [max]="lookUpCodeDetails.activeEndDate" name="activeStartDate" required>
+                                    <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                    <md-datepicker #stpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+
+                            <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="lookUpCodeDetails.activeStartDate">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="edpicker" placeholder="End date" [min]="lookUpCodeDetails.activeStartDate" [ngClass]="{'color-black' : isViewOnly}"
+                                        [disabled]="isViewOnly" [(ngModel)]="lookUpCodeDetails.activeEndDate" name="activeEndDate">
+                                    <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                    <md-datepicker #edpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+
+                            <div class="col-md-1" *ngIf="isEdit" style="display:flex">
+                                <span *ngIf="lookUpCodeDetails.enableFlag">Active</span>
+                                <span *ngIf="!lookUpCodeDetails.enableFlag">Inactive</span>
+                                <md-slide-toggle class="pull right" color="primary" [disabled]="!isEdit" mdTooltip="set status" placeholder="status" [(ngModel)]="lookUpCodeDetails.enableFlag"
+                                    name="status">
+                                </md-slide-toggle>
+                            </div>
+                            <div class="col-md-1" *ngIf="isViewOnly">
+                                <span class="badge badge-success" *ngIf="lookUpCodeDetails.enableFlag">Active</span>
+                                <span class="badge badge-warning" *ngIf="!lookUpCodeDetails.enableFlag">Inactive</span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </vertical-split-pane>
+</div>
+
+
+<!-- 
+<div *ngIf="lookUpCode">
+    <h2><span jhiTranslate="agreeGatewayApp.lookUpCode.detail.title">Look Up Code</span> {{lookUpCode.id}}</h2>
+    <hr>
+    <jhi-alert-error></jhi-alert-error>
+    <dl class="row-md jh-entity-details">
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.tenantId">Tenant Id</span></dt>
+        <dd>
+            <span>{{lookUpCode.tenantId}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.lookUpCode">Look Up Code</span></dt>
+        <dd>
+            <span>{{lookUpCode.lookUpCode}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.lookUpType">Look Up Type</span></dt>
+        <dd>
+            <span>{{lookUpCode.lookUpType}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.meaning">Meaning</span></dt>
+        <dd>
+            <span>{{lookUpCode.meaning}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.description">Description</span></dt>
+        <dd>
+            <span>{{lookUpCode.description}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.enableFlag">Enable Flag</span></dt>
+        <dd>
+            <span>{{lookUpCode.enableFlag}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.activeStartDate">Active Start Date</span></dt>
+        <dd>
+            <span>{{lookUpCode.activeStartDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.activeEndDate">Active End Date</span></dt>
+        <dd>
+            <span>{{lookUpCode.activeEndDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.secureAttribute1">Secure Attribute 1</span></dt>
+        <dd>
+            <span>{{lookUpCode.secureAttribute1}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.secureAttribute2">Secure Attribute 2</span></dt>
+        <dd>
+            <span>{{lookUpCode.secureAttribute2}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.secureAttribute3">Secure Attribute 3</span></dt>
+        <dd>
+            <span>{{lookUpCode.secureAttribute3}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.createdBy">Created By</span></dt>
+        <dd>
+            <span>{{lookUpCode.createdBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.creationDate">Creation Date</span></dt>
+        <dd>
+            <span>{{lookUpCode.creationDate | date:'medium'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.lastUpdatedBy">Last Updated By</span></dt>
+        <dd>
+            <span>{{lookUpCode.lastUpdatedBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayApp.lookUpCode.lastUpdatedDate">Last Updated Date</span></dt>
+        <dd>
+            <span>{{lookUpCode.lastUpdatedDate | date:'medium'}}</span>
+        </dd>
+    </dl>
+
+    <button type="submit"
+            (click)="previousState()"
+            class="btn btn-info">
+        <span class="fa fa-arrow-left"></span>&nbsp;<span jhiTranslate="entity.action.back"> Back</span>
+    </button>
+
+    <button type="button"
+            [routerLink]="['/', { outlets: { popup: 'look-up-code/'+ lookUpCode.id + '/edit'} }]"
+            replaceUrl="true"
+            class="btn btn-primary">
+        <span class="fa fa-pencil"></span>&nbsp;<span jhiTranslate="entity.action.edit"> Edit</span>
+    </button>
+</div>
+ -->

@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { MappingSetValues } from './mapping-set-values.model';
+import { MappingSetValuesService } from './mapping-set-values.service';
+
+@Injectable()
+export class MappingSetValuesPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private mappingSetValuesService: MappingSetValuesService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.mappingSetValuesService.find(id).subscribe((mappingSetValues) => {
+                    mappingSetValues.createdDate = this.datePipe
+                        .transform(mappingSetValues.createdDate, 'yyyy-MM-ddThh:mm');
+                    mappingSetValues.lastUpdatedDate = this.datePipe
+                        .transform(mappingSetValues.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.mappingSetValuesModalRef(component, mappingSetValues);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.mappingSetValuesModalRef(component, new MappingSetValues());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    mappingSetValuesModalRef(component: Component, mappingSetValues: MappingSetValues): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.mappingSetValues = mappingSetValues;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

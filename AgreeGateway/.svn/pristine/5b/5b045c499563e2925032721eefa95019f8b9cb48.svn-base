@@ -1,0 +1,154 @@
+import { Component, OnInit } from "@angular/core";
+import { Router, ActivatedRoute, NavigationEnd, Params, PRIMARY_OUTLET } from "@angular/router";
+import "rxjs/add/operator/filter";
+
+interface IBreadcrumb {
+  label: string;
+  params?: Params;
+  url: string;
+  routeType: string;
+  parent: string;
+}
+
+@Component({
+  selector: "breadcrumb",
+  template: `
+    <div *ngIf="breadcrumbs.length > 0" class="breadcrumb-card margin-left-right15">
+        <ul class="breadcrumb nopadding">
+          <li *ngIf="breadcrumbsHistory.length>0">
+              <span class="hand nopadding font-12">
+                  <i class="fa fa-history hand nopadding" aria-hidden="true"></i>
+                  <ul class="myClass" style="display:none;">
+                    <perfect-scrollbar style="max-height: 120px; height:auto;" >
+                      <li *ngFor="let breadcrumb of breadcrumbsHistory.slice().reverse()">
+                        <a *ngIf="breadcrumb.routeType == 'B'" [routerLink]="[breadcrumb.parent, {outlets: {'content': [breadcrumb.url]}}]">{{breadcrumb.label}}</a>
+                        <a *ngIf="breadcrumb.routeType == 'A'" [routerLink]="[breadcrumb.parent, {outlets: {'content': [breadcrumb.url.split('/')[0]]+'/'+breadcrumb.url.split('/')[1]}}]">{{breadcrumb.label}}</a>
+                        <a *ngIf="breadcrumb.routeType == 'C'" [routerLink]="['/'+breadcrumb.url, breadcrumb.params]">{{breadcrumb.label}}</a>
+                      </li>
+                    </perfect-scrollbar>
+                  </ul>
+              </span>
+          </li>
+         </ul>
+         <ul class="breadcrumb recentstates nopadding">
+          <li *ngFor="let breadcrumb of breadcrumbs;">
+            <a *ngIf="breadcrumb.routeType == 'B'" [routerLink]="[breadcrumb.parent, {outlets: {'content': [breadcrumb.url]}}]">{{breadcrumb.label}}</a>
+            <a *ngIf="breadcrumb.routeType == 'A'" [routerLink]="[breadcrumb.parent, {outlets: {'content': [breadcrumb.url.split('/')[0]]+'/'+breadcrumb.url.split('/')[1]}}]">{{breadcrumb.label}}</a>
+            <a *ngIf="breadcrumb.routeType == 'C'" [routerLink]="['/'+breadcrumb.url, breadcrumb.params]">{{breadcrumb.label}}</a>
+          </li>
+        </ul>
+    </div>
+  `
+})
+export class BreadcrumbComponent implements OnInit {
+
+  public breadcrumbs: IBreadcrumb[]= [];
+  public breadcrumbsHistory: IBreadcrumb[]= [];
+  public currentBreadCrumb: IBreadcrumb = {
+    label: '',
+    params: {},
+    url: '',
+    routeType: '',
+    parent: ''
+  };
+
+  constructor(
+    private activatedRoute: ActivatedRoute,
+    private router: Router
+  ) {
+      this.breadcrumbs=[];
+  }
+
+  ngOnInit() {
+    const ROUTE_DATA_BREADCRUMB: string = "breadcrumb";
+
+    //subscribe to the NavigationEnd event
+    this.router.events.filter(event => event instanceof NavigationEnd).subscribe(event => {
+      //set breadcrumbs
+      let root: ActivatedRoute = this.activatedRoute.root;
+      let newBreadCrumbList = this.getBreadcrumbs(root);
+      if (this.breadcrumbs.length > 4) {
+        for (var i = 0; i < this.breadcrumbs.length - 4; i++) {
+          this.breadcrumbsHistory.push(this.breadcrumbs[i]);
+          this.breadcrumbs.splice(i, 1);
+          i = i - 1;
+        }
+      }
+    });
+  }
+  
+  private getBreadcrumbs(route: ActivatedRoute, url: string="", breadcrumbs: IBreadcrumb[]=[]): IBreadcrumb[] {
+      previousRoute.push(route);
+      currentRoute = route;
+    const ROUTE_DATA_BREADCRUMB: string = "breadcrumb";
+
+    //get the child routes
+    let children: ActivatedRoute[] = route.children;
+    
+    
+    //return if there are no more children
+    if (children.length === 0) {
+      return breadcrumbs;
+    }
+        
+    //iterate over each children
+    for (let child of children) {
+            
+      //verify the custom data property "breadcrumb" is specified on the route
+      if (!child.snapshot.data.hasOwnProperty(ROUTE_DATA_BREADCRUMB)) {
+        return this.getBreadcrumbs(child, url, breadcrumbs);
+      }
+
+      //get the route's URL segment
+      let routeURL: string = child.snapshot.url.map(segment => segment.path).join("/");
+
+      //append route URL to URL
+      url += `${routeURL}`;
+      
+      //add breadcrumb
+      let breadcrumb: IBreadcrumb;
+        
+      if (child.outlet === 'content') {
+        if (url.split('/').length > 1) {
+          breadcrumb = {
+            label: child.snapshot.data[ROUTE_DATA_BREADCRUMB],
+            params: child.snapshot.params,
+            url: url,
+            routeType: 'A',
+            parent: `/${child.parent.snapshot.url.map(segment => segment.path).join("/")}`
+          }
+        }else if(url.split('/').length == 1){
+          breadcrumb = {
+            label: child.snapshot.data[ROUTE_DATA_BREADCRUMB],
+            params: child.snapshot.params,
+            url: url,
+            routeType: 'B',
+            parent: `/${child.parent.snapshot.url.map(segment => segment.path).join("/")}`
+          }
+        }
+      } else {
+        breadcrumb = {
+          label: child.snapshot.data[ROUTE_DATA_BREADCRUMB],
+          params: child.snapshot.params,
+          url: url,
+          routeType: 'C',
+          parent: `/${child.parent.snapshot.url.map(segment => segment.path).join("/")}`
+        }
+      };
+      if (breadcrumb && this.currentBreadCrumb.label !== breadcrumb.label)
+      { 
+        this.currentBreadCrumb = breadcrumb;
+        this.breadcrumbs.push(breadcrumb);
+      }
+      
+      //recursive
+      return this.getBreadcrumbs(child, url, breadcrumbs);
+    }
+    
+    //we should never get here, but just in case
+    return breadcrumbs;
+  }
+
+}
+   export var previousRoute : ActivatedRoute[]=[];
+export var currentRoute : ActivatedRoute;

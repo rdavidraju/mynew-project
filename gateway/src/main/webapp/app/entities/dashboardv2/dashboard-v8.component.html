@@ -1,0 +1,1987 @@
+<div class="split-example" style="min-height: calc(100vh - 60px);">
+    <div style="height: 100%;width:100%">
+
+
+        <div class="component-body dashboardV8">
+            <div id="dashboardTabSticky">
+                <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12 dashTabStyle">
+                    <!-- padding: 10px; -->
+                    <div class="col-lg-3 col-md-3 col-sm-6 mainNav customToggleTabs" style=" padding-top: 14px;">
+                        <md-button-toggle-group (change)="changeModuleType($event);">
+                            <md-button-toggle value="Reconciliation" checked> Reconciliation </md-button-toggle>
+                            <md-button-toggle value="Accounting"> Accounting </md-button-toggle>
+                        </md-button-toggle-group>
+                    </div>
+                    <div class="col-md-8 col-sm-9 col-xs-11 push-top customToggleTabs" style="margin: auto;">
+                        <!--  style="overflow-x: hidden;" -->
+                        <div id="daterange" *ngIf="custompicker" class="row " [@enterAnimation]>
+                            <!--  style=" margin-top: 15px;" -->
+                            <!-- blockSlideFromTop -->
+                            <!-- <date-range-picker [class]="'col-md-12 col-sm-12 form-control'"  [options]="daterangepickerOptions" (rangeSelected)="rangeSelected($event)" >
+                            </date-range-picker> -->
+
+                            <div class="col-md-9" style="margin: auto;">
+                                <!-- style="text-align: right;" -->
+                                <div class="datedisplay" style="width: 404px;">
+                                    <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRange($event);">
+                                        <md-button-toggle value='Today' mdTooltip="1 Day"> 1D </md-button-toggle>
+                                        <md-button-toggle value='Last 7 Days' mdTooltip="1 Week"> 1W </md-button-toggle>
+                                        <md-button-toggle value='Last 14 Days' mdTooltip="2 Weeks"> 2W </md-button-toggle>
+                                        <md-button-toggle value='Last 30 Days' mdTooltip="1 Month">
+                                            1M </md-button-toggle>
+                                        <md-button-toggle value='Last 2Months' mdTooltip="2 Months">
+                                            2M </md-button-toggle>
+                                        <md-button-toggle value='Last 3Months' mdTooltip="3 Months">
+                                            3M </md-button-toggle>
+                                        <md-button-toggle value='Last 6Months' mdTooltip="6 Months">
+                                            6M </md-button-toggle>
+                                        <md-button-toggle value='thismonth' checked mdTooltip="This Month">
+                                            This Month </md-button-toggle>
+                                        <!-- <md-button-toggle value='Custom' mdTooltip="Select Daterange" (click)="stpicker.open()">
+                                    Custom </md-button-toggle> -->
+                                    </md-button-toggle-group>
+                                </div>
+                            </div>
+                            <div class="col-md-3 navStEndPicker" style="display: flex;padding-top: 3px;">
+                                <div class="col-md-6 stDtcol" style="margin: auto;">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="stpickers" placeholder="From" [disabled]="!selectedMoreRange" [(ngModel)]="reconDateRange.startDate"
+                                            name="startDate" (dateChange)="newrequest = true;isStartDateChanged = true;" [max]="maxDate"
+                                            (dateChange)="getmindate();dateFormatRange = 'Custom';refreshData();">
+                                        <!-- (ngModelChange)="edpickers.open()" (dateInput)="getmindate()" (click)="stpickers.open()"-->
+                                        <md-datepicker-toggle mdSuffix [for]="stpickers" [disabled]="!selectedMoreRange"></md-datepicker-toggle>
+                                        <md-datepicker #stpickers></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                                <div class="col-md-6" style="margin: auto;">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="edpickers" placeholder="To" [disabled]="!selectedMoreRange" [max]="maxDate" [min]="minDate"
+                                            [(ngModel)]="reconDateRange.endDate" name="endDate" (dateChange)="newrequest = true;isEndDateChanged = true;dateFormatRange = 'Custom';refreshData();">
+                                        <md-datepicker-toggle mdSuffix [for]="edpickers" [disabled]="!selectedMoreRange"></md-datepicker-toggle>
+                                        <md-datepicker #edpickers></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                            </div>
+                        </div>
+                        <md-tab-group class="year-det " style="margin-left: auto;margin-right: 0;" *ngIf="!custompicker" [(selectedIndex)]="selectedPeriodTab"
+                            (focusChange)="cancelRequest();changePeriod($event);" [@enterAnimation]>
+                            <!-- blockSlideFromTop -->
+                            <span>
+                                <md-tab *ngFor="let month of monthslist" label="{{month.periodName}}"></md-tab>
+                            </span>
+                        </md-tab-group>
+                    </div>
+                    <div class="col-md-1 col-sm-1 col-xs-1 text-center" style="padding: 14px;">
+                        <i class="fa fa-remove hand" *ngIf="custompicker" (click)="closePicker()" style="padding: 0px 5px;"></i>
+                        <i class="fa fa-calendar hand" *ngIf="!custompicker" (click)="openPicker()" style="padding: 0px 5px;"></i>
+                        <i class="fa fa-refresh hand refreshBut" (click)="cancelRequest();refreshData();" mdTooltip="Refresh" style="padding: 0px 5px;"></i>
+                    </div>
+                </div>
+            </div>
+            <div id="reconciliationDiv" class="reconview matTabPainationStyle" *ngIf="showrecon" [@enterAnimation]>
+                <div>
+                    <div class="cat-heading">
+                        <span>Reconciliation Process
+                            <span *ngIf="dateFormatRange == 'Period Wise'">For Month</span>
+                            <span *ngIf="dateFormatRange == 'Range Wise'">For Period</span>
+                            <span *ngIf="dateFormatRange == 'Custom'">From Period</span>
+                            <span class="selectedLabel" *ngIf="dateFormatRange != 'Custom';">
+                                {{selectedMonth}}
+                            </span>
+                            <span class="selectedLabel" *ngIf="dateFormatRange == 'Custom';">
+                                {{reconDateRange.startDate | date: 'mediumDate'}} To {{reconDateRange.endDate | date: 'mediumDate'}}
+                            </span>
+                        </span>
+                    </div>
+                    <div *ngIf="reconAllData && !reconAllData.length">
+                        <span style="padding-left: 15px;font-size: 15px;color: #4688F4;" class="selectedLabel">No activity for selected period!
+                            <!-- <span class="selectedLabel" style="font-size: 15px;color: #4688F4;">
+                        {{selectedMonth}}
+                    </span>! --></span>
+                    </div>
+                    <div class="reconview-list hide-mat-tab toggleTabs" *ngIf="reconAllData && reconAllData.length">
+                        <md-tab-group class="" [mode]="stacked" [(selectedIndex)]="selectedReconTab" dynamicHeight="true" (focusChange)="cancelRequest();displayReconStatus($event.index);"
+                            fxFlex md-stretch-tabs>
+                            <md-tab *ngFor="let reconrg of reconAllData;let spInd=index;">
+                                <ng-template md-tab-label>
+                                    <div class="mat-sml-btn ellipsis-text elementToAnimateOpacity" style="width:100%;margin-right: 10px;justify-content:center;">
+                                        <div class="flex-column-center" style="overflow: hidden;">
+                                            <div>
+                                                <span class="ellipsis-text processname" mdTooltip="{{reconrg.ruleGroupName}}" mdTooltipShowDelay="1000">{{reconrg.ruleGroupName}}</span>
+
+                                                <span class="agre-value" mdTooltip="Reconciled Count" matTooltipShowDelay="300" [ngStyle]="{'color':reconrg.recon.count > 0 ? 'orange' : 'gray' }">{{reconrg.recon.countPer}}%
+                                                    <span class="agre-pretext" [ngStyle]="{'color':'gray' }">({{reconrg.recon.count | number: '.0'}})</span>
+                                                    <!-- <span class="agre-pretext" [ngStyle]="{'color':'gray' }">(Reconciled Count)</span> -->
+                                                </span>
+                                                <span *ngIf="reconrg.multiCurrency != 'true'" class="agre-value" mdTooltip="Reconciled Amount" matTooltipShowDelay="300"
+                                                    [ngStyle]="{'color':reconrg.recon.amount > 0 ? 'green' : 'gray' }">
+                                                    <span>|</span> {{reconrg.recon.amountPer}}%
+                                                    <span *ngIf="reconrg.multiCurrency != 'true'" class="agre-pretext" [ngStyle]="{'color':'gray' }">({{reconrg.recon.amount | currency : reconrg.currencyCode[0] : 'symbol-narrow':'1.2-2'}})</span>
+                                                </span>
+
+                                                <!-- <span *ngIf="reconrg.multiCurrency != 'true'" class="agre-pretext" [ngStyle]="{'color':'gray' }">(Reconciled Amount)</span> -->
+                                            </div>
+                                        </div>
+                                    </div>
+                                </ng-template>
+                            </md-tab>
+                        </md-tab-group>
+                    </div>
+                </div>
+                <div class="viewComb-list hide-mat-tab toggleTabs" *ngIf="reconAllData && reconAllData.length">
+                    <div class="cat-heading">
+                        <span>Sub Process Analysis For
+                            <span class="selectedLabel">
+                                {{reconAllData[selectedReconTab].ruleGroupName}}
+                            </span>
+                        </span>
+                        <!-- {{subProcessAnalysisHeading}} -->
+                    </div>
+                    <md-tab-group [(selectedIndex)]="selectedReconAnalysis" (focusChange)="changeReconViewTab($event);" disableRipple>
+                        <!-- <md-tab *ngIf="loadingTab">
+                    <ng-template md-tab-label>
+                        <div>
+                            <div class="d-flex">
+                                <div>
+                                    <p class="m-0" style="font-size: 12px;font-weight: normal;">Reconciliation For</p>
+                                    <div class="d-flex align-items-center">
+                                        <i class="material-icons bgicon">insert_drive_file</i>
+                                        <div>
+                                            <div class="d-block loadingTabName"></div>
+                                            <div class="d-block loadingTabPer"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="switch-icon">
+                                    <i class="material-icons">compare_arrows</i>
+                                </div>
+                                <div>
+                                    <p class="m-0" style="font-size: 12px;font-weight: normal;">Reconciliation With</p>
+                                    <div class="d-flex align-items-center" style="padding-right:7px;">
+                                        <i class="material-icons bgicon">insert_drive_file</i>
+                                        <div>
+                                            <div class="d-block loadingTabName"></div>
+                                            <div class="d-block loadingTabPer"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab> -->
+                        <md-tab *ngFor="let col of reconViewCombinationSpecificAnalysis;let i=index;">
+                            <ng-template md-tab-label>
+                                <!-- *ngIf="!loadingTab" -->
+                                <div [ngClass]="{'disablePointerEvents':loadingKPIGrp == true}" style="    width: 100%;">
+                                    <!-- [ngStyle]="{'pointer-events':loadingKPIGrp == true ? 'green' : 'red' }" -->
+                                    <!--  (click)="fetchReconKPIAndDetails(col.combination[0].viewId, col.combination[0].DisplayviewType, col.combination[0].viewType, col.combination[0].viewName,'Reconciled');
+                        fetchReconKPIAndDetailsTrg(col.combination[1].viewId, col.combination[1].DisplayviewType, col.combination[1].viewType, col.combination[1].viewName, 'Reconciled');" -->
+                                    <!-- <h6 class="m-0">Reconcile</h6> -->
+                                    <div class="d-flex" style="height: 16px;padding: 0px 5px;">
+                                        <span class="col-md-5" style="text-align: left;">
+                                            <p class="m-0" style="font-size: 10px;font-weight: normal;">
+                                                Reconciliation For
+                                            </p>
+                                        </span>
+                                        <span class="col-md-2"></span>
+                                        <span class="col-md-5" style="text-align: left;">
+                                            <p class="m-0" style="font-size: 10px;font-weight: normal;">
+                                                Reconciliation With
+                                            </p>
+                                        </span>
+                                    </div>
+                                    <div class="d-flex" style="padding: 0px 5px;">
+                                        <div class="col-md-5 srcReconOrder_{{i}} topBottomMargin" style="order:0">
+                                            <!--  (click)="changeReconViewOrder = !changeReconViewOrder;fetchReconKPIAndDetails(col.combination[0].viewId, col.combination[0].DisplayviewType, col.combination[0].viewType, col.combination[0].viewName,'Reconciled');
+                                toggleReconView = true;" -->
+                                            <!-- <p class="m-0" style="font-size: 12px;font-weight: normal;">Reconciliation For</p> -->
+                                            <div class="d-flex align-items-center" mdTooltip="{{col.combination[0].viewName}}">
+                                                <!-- <i class="material-icons bgicon">insert_drive_file</i> -->
+                                                <div class="ellipsis-text">
+                                                    <span *ngIf="toggleReconView && selectedReconAnalysis == i" class="d-block ellipsis-text">{{col.combination[0].viewName}}</span>
+                                                    <!-- *ngIf="toggleReconView && selectedReconAnalysis == i" -->
+                                                    <p *ngIf="!toggleReconView && selectedReconAnalysis == i" class="d-block ellipsis-text" style="margin-bottom: 0;">{{col.combination[0].viewName}}</p>
+                                                    <p *ngIf="selectedReconAnalysis != i" class="d-block ellipsis-text" style="margin-bottom: 0;">{{col.combination[0].viewName}}</p>
+                                                    <!-- <p *ngIf="!toggleReconView && selectedReconAnalysis == i" class="d-block" style="margin-bottom: 0;">{{col.combination[0].viewName}}</p> -->
+                                                    <span class="d-block ellipsis-text" *ngIf="toggleReconView && selectedReconAnalysis == i" [@enterAnimation]>{{col.combination[0].countPer | amountFormat:'': 2}}%</span>
+                                                    <!-- <span class="d-block" *ngIf="showReconApprovalPer && toggleReconView && selectedReconAnalysis == i" [@enterAnimation]>{{col.combination[0].unAppCtPer | amountFormat:'': 2}}%</span> -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-2 switch-icon topBottomMargin" style="order:1">
+                                            <i class="material-icons hand" (click)="changeReconViewOrder = !changeReconViewOrder;changeReconViewTab();">compare_arrows</i>
+                                        </div>
+                                        <div class="col-md-5 trgReconOrder_{{i}} topBottomMargin" style="order:3">
+                                            <!--  (click)="changeReconViewOrder = !changeReconViewOrder;fetchReconKPIAndDetails(col.combination[1].viewId, col.combination[1].DisplayviewType, col.combination[1].viewType, col.combination[1].viewName, 'Reconciled');
+                                toggleReconView = false;" -->
+                                            <!-- <p class="m-0" style="font-size: 12px;font-weight: normal;">Reconciliation With</p> -->
+                                            <div class="d-flex align-items-center" style="padding-right:7px;" mdTooltip="{{col.combination[1].viewName}}">
+                                                <!-- <i class="material-icons bgicon">insert_drive_file</i> -->
+                                                <div class="ellipsis-text">
+                                                    <span class="d-block ellipsis-text" *ngIf="!toggleReconView && selectedReconAnalysis == i" style="margin-bottom: 0;">{{col.combination[1].viewName}}</span>
+                                                    <!-- *ngIf="toggleReconView && selectedReconAnalysis == i" -->
+                                                    <p class="d-block ellipsis-text" *ngIf="toggleReconView && selectedReconAnalysis == i" style="margin-bottom: 0;">{{col.combination[1].viewName}}</p>
+                                                    <p class="d-block ellipsis-text" *ngIf="selectedReconAnalysis != i" style="margin-bottom: 0;">{{col.combination[1].viewName}}</p>
+                                                    <!--   <span class="d-block" *ngIf="!toggleReconView && selectedReconAnalysis == i">{{col.combination[1].viewName}}</span> -->
+                                                    <span class="d-block ellipsis-text" *ngIf="!toggleReconView && selectedReconAnalysis == i" [@enterAnimation]>{{col.combination[1].countPer | amountFormat:'': 2}}%</span>
+                                                    <!-- <span class="d-block" *ngIf="showReconApprovalPer && !toggleReconView && selectedReconAnalysis == i" [@enterAnimation]>{{col.combination[0].unAppCtPer | amountFormat:'': 2}}%</span> -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div class="reconGrids tabPaddingZero hide-mat-tab kpiHeaderFnt toggleTabs" *ngIf="reconAllData && reconAllData.length" id="reconDetailAnalysis">
+                    <div class="cat-heading">
+                        <span>KPI's For
+                            <span *ngIf="reconAllData" style="margin-left: 0px;font-weight: 600 !important;">{{reconSelViewName}}</span>
+                            <!-- {{reconAllData[selectedReconTab].ruleGroupName}} -->
+                        </span>
+                    </div>
+                    <md-tab-group class="prof-det profSrc" [mode]="stacked" [(selectedIndex)]="selectedTab" dynamicHeight="true" fxFlex md-stretch-tabs>
+                        <md-tab>
+                            <ng-template md-tab-label>
+                                <div [ngClass]="{selectedModule: currentModule == 'Reconciliation Status'}" (click)="showActiveCls('src');showData('Reconciliation Status')"
+                                    style="padding-left: 0px;">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">
+                                            <span>Reconciliation Status</span>
+                                        </div>
+                                        <div style="position: absolute;right: 4px;top: 9px;">
+                                            <span style="visibility:hidden;" (click)="openSideBar('Reconciliation Status');" *ngIf="reconPeriodAnalysisType == 'None' && !showReconDrillDownData;">
+                                                <i class="material-icons" style="font-size: 16px !important;">settings</i>
+                                            </span>
+                                            <span *ngIf="reconPeriodAnalysisType != 'None' && reconPeriodAnalysisType != 'Months' && showReconDrillDownData && reconDateRanges && reconDateRanges.length>1"
+                                                (click)="fetchReconDrillDown('back');">
+                                                <i class="material-icons" style="font-size: 16px !important;">reply</i>
+                                            </span>
+                                            <!-- <button class="headerbutton" md-icon-button style="visibility:hidden;" (click)="openSideBar('Reconciliation Status');"
+                                        *ngIf="reconPeriodAnalysisType == 'None' && !showReconDrillDownData;">
+                                        <md-icon style="font-size: 16px !important;">settings</md-icon>
+                                    </button> -->
+                                            <!-- <button *ngIf="reconPeriodAnalysisType != 'None' && reconPeriodAnalysisType != 'Months' && showReconDrillDownData && reconDateRanges && reconDateRanges.length>1"
+                                        class="headerbutton" md-icon-button (click)="fetchReconDrillDown('back');">
+                                        <md-icon style="font-size: 16px !important;">reply</md-icon>
+                                    </button> -->
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;" id="reconStatusTest">
+                                        <canvas *ngIf="showRecon && pieChartReconciliation && pieChartReconciliationLabels && !showReconDrillDownData" baseChart
+                                            [data]="pieChartReconciliation" [labels]="pieChartReconciliationLabels" [chartType]="pieChartReconciliationType"
+                                            [options]="pieChartReconciliationOptions" [colors]="pieChartReconciliationColors"
+                                            (chartClick)="fetchReconCombViews('Reconciled', $event);fetchReconDrillDown();scrollTab();">
+                                            <!-- fetchReconciliationStatus($event); -->
+                                        </canvas>
+                                        <canvas *ngIf="showReconDrillDownData" baseChart [datasets]="reconChartData" [labels]="reconChartLabels" [options]="reconChartOptions"
+                                            [colors]="reconChartColors" [legend]="reconChartLegend" [chartType]="reconChartType"
+                                            (chartClick)="fetchReconciliationStatus($event);fetchGrpByData('Reconciled',$event);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();"></canvas>
+                                        <!-- fetchReconCombViews('reconciliation', $event); -->
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                <div class="spinnerCurrencyBlock"></div>
+                                <div>
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Reconciled By Currency</div>
+                                        <div style="position: absolute; right: 3px;top: 12px;">
+                                            <span>
+                                                <i *ngIf="pieChartActivityAccountingType == 'pie'" class="material-icons" (click)="pieChartActivityAccountingType = 'doughnut';"
+                                                    mdTooltip="Donut Chart" style="font-size: 16px;">donut_small</i>
+                                                <i *ngIf="pieChartActivityAccountingType == 'doughnut'" class="material-icons" (click)="pieChartActivityAccountingType = 'pie';"
+                                                    mdTooltip="Pie Chart" style="font-size: 16px;">pie_chart</i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                        <canvas *ngIf="showReconCurrencyChart && pieChartActivityAccounting && pieChartActivityAccountingLabels" baseChart [data]="pieChartActivityAccounting"
+                                            [labels]="pieChartActivityAccountingLabels" [chartType]="pieChartActivityAccountingType"
+                                            [options]="pieChartActivityAccountingOptions" [colors]="pieChartActivityColors" (chartClick)="fetchGrpByData('currency', $event,'Un-Reconciled');reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                        </canvas>
+                                    </div>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                <div class="spinnerBlock"></div>
+                                <div [ngClass]="{selectedModule: currentModule == 'Un-Reconciled Transaction By Aging Bucket'}">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Reconciled By Aging Bucket</div>
+                                        <div style="position: absolute; right: 0px; top: 12px;">
+                                            <span class="headerbutton">
+                                                <md-icon (click)="openSideBar('Un-Reconciled Transaction By Aging Bucket');" style="height: 34px !important;visibility:hidden;font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </span>
+                                            <span class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</span>
+                                            <md-menu #menu="mdMenu" xPosition="before">
+                                                <button md-menu-item *ngFor="let col of bucketList" [ngClass]="{'nav-active': col == activeItem2}" (click)="getReconAgingBucket(col.id);activeItem2 = col;">
+                                                    <span>{{col.bucketName}}</span>
+                                                </button>
+                                            </md-menu>
+                                        </div>
+                                    </div>
+                                    <div class="agingBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;padding: 6px;cursor: pointer;"
+                                        id="reconAgingTest">
+                                        <canvas *ngIf="barChartLabels && barChartData && reconAgingChart" baseChart [datasets]="barChartData" [labels]="barChartLabels"
+                                            [options]="barChartOptions" [legend]="barChartLegend" [chartType]="barChartType"
+                                            [colors]="unReconAgingBucketColors" (chartClick)="fetchGrpByData('aging', $event);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();"></canvas>
+                                        <div *ngIf="bucketList && bucketList.length<1">There is no "Aging Bucket" defined</div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                <div class="spinnerBlock"></div>
+                                <div [ngClass]="{selectedModule: currentModule == 'Un-Reconciled Transaction By Aging Bucket'}">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Reconciled By Aging Bucket</div>
+                                        <div style="position: absolute; right: 0px; top: 12px;">
+                                            <span class="headerbutton">
+                                                <md-icon (click)="openSideBar('Un-Reconciled Transaction By Aging Bucket');" style="height: 34px !important;visibility:hidden;font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </span>
+                                            <span class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</span>
+                                            <md-menu #menu="mdMenu" xPosition="before">
+                                                <button md-menu-item *ngFor="let col of bucketList" [ngClass]="{'nav-active': col == activeItem2}" (click)="getReconAgingBucket(col.id);activeItem2 = col;">
+                                                    <span>{{col.bucketName}}</span>
+                                                </button>
+                                            </md-menu>
+                                        </div>
+                                    </div>
+                                    <div class="agingBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;padding: 6px;cursor: pointer;"
+                                        id="reconAgingTest">
+                                        <canvas *ngIf="barChartLabels && barChartData && reconAgingChart" baseChart [datasets]="barChartData" [labels]="barChartLabels"
+                                            [options]="barChartOptions" [legend]="barChartLegend" [chartType]="barChartType"
+                                            [colors]="unReconAgingBucketColors" (chartClick)="fetchGrpByData('aging', $event);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();"></canvas>
+                                        <div *ngIf="bucketList && bucketList.length<1">There is no "Aging Bucket" defined</div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                <div style="width: 100%;" (click)="fetchGrpByData('Un-Reconciled');showReconDetilsTab = true;reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Reconciled
+                                            <span class="kpiHeaderFont" *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">Value</span>
+                                            <span class="kpiHeaderFont" *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">Transaction(s)</span>
+                                        </div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Reconciled Items By Value');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor mdColor" style="height: 210px;overflow-x: auto;" *ngIf="topTenUnReconValueTitle">
+                                        <span *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                            <circle-progress [percent]="topTenUnReconValue" [radius]="unReconItemsByValueRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByValueInnerStrokeColor" [animation]="true" [animationDuration]="300"
+                                                [showUnits]="false" [showtitle]="true" [title]="topTenUnReconValueTitle" [titleFontSize]="unReconItemsByValueTitleFontSize"
+                                                [unitsFontSize]="15" [showSubtitle]="true" [subtitleFontSize]="unReconItemsByValueSubtitleFontSize"
+                                                [subtitle]="'Value'" [titleColor]="unReconItemsByValueTitleColor" [subtitleColor]="unReconItemsByValueSubTitleColor"
+                                                [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                        </span>
+                                        <span *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                            <circle-progress [percent]="topTenUnReconCount" [radius]="unReconItemsByValueRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByValueInnerStrokeColor" [animation]="true" [animationDuration]="300"
+                                                [showUnits]="false" [showtitle]="true" [title]="unReconCountTitle" [titleFontSize]="unReconItemsByValueTitleFontSize"
+                                                [unitsFontSize]="15" [showSubtitle]="true" [subtitleFontSize]="unReconItemsByValueSubtitleFontSize"
+                                                [subtitle]="'Transaction(s)'" [titleColor]="unReconItemsByValueTitleColor" [subtitleColor]="unReconItemsByValueSubTitleColor"
+                                                [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                <div style="width: 100%;" (click)="fetchGrpByData('Un-Reconciled');showReconDetilsTab = true;reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Reconciled
+                                            <span class="kpiHeaderFont" *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">Value</span>
+                                            <span class="kpiHeaderFont" *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">Transaction(s)</span>
+                                        </div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Reconciled Items By Value');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor mdColor" style="height: 210px;overflow-x: auto;" *ngIf="topTenUnReconValueTitle">
+                                        <span *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                            <circle-progress [percent]="topTenUnReconValue" [radius]="unReconItemsByValueRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByValueInnerStrokeColor" [animation]="true" [animationDuration]="300"
+                                                [showUnits]="false" [showtitle]="true" [title]="topTenUnReconValueTitle" [titleFontSize]="unReconItemsByValueTitleFontSize"
+                                                [unitsFontSize]="15" [showSubtitle]="true" [subtitleFontSize]="unReconItemsByValueSubtitleFontSize"
+                                                [subtitle]="'Value'" [titleColor]="unReconItemsByValueTitleColor" [subtitleColor]="unReconItemsByValueSubTitleColor"
+                                                [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                        </span>
+                                        <span *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                            <circle-progress [percent]="topTenUnReconCount" [radius]="unReconItemsByValueRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByValueInnerStrokeColor" [animation]="true" [animationDuration]="300"
+                                                [showUnits]="false" [showtitle]="true" [title]="unReconCountTitle" [titleFontSize]="unReconItemsByValueTitleFontSize"
+                                                [unitsFontSize]="15" [showSubtitle]="true" [subtitleFontSize]="unReconItemsByValueSubtitleFontSize"
+                                                [subtitle]="'Transaction(s)'" [titleColor]="unReconItemsByValueTitleColor" [subtitleColor]="unReconItemsByValueSubTitleColor"
+                                                [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                <div (click)="fetchGrpByData('violation',reconViolationPeriod);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                    <div id="headerTab">
+                                        <div style="font-size: 14px;padding-left: 10px;font-weight: 500;">Un-Reconciled By Violation</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Reconciliation Items By Violation');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="recondetaildata">
+                                        <span>
+                                            <circle-progress [percent]="topTenUnReconViolation" [radius]="unReconItemsByViolationRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByViolationOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="topTenUnReconViolationTitle"
+                                                [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="15" [subtitle]="'Transaction(s)'"
+                                                [subtitleFontSize]="14" [titleColor]="unReconItemsByViolationTitleColor" [showSubtitle]="true"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="violationWidth" style="display: flex;position: absolute;bottom: -5px;left: 6px;" *ngIf="(selectedTab == 4 && reconAllData[selectedReconTab].multiCurrency == 'true') || (selectedTab == 3 && reconAllData[selectedReconTab].multiCurrency != 'true')"
+                                    [@enterAnimation]>
+                                    <span>Period {{tempreconViolationPeriod}} days</span>
+                                    <md-slider class="example-margin" [disabled]="disabled" [invert]="invert" [max]="max" [min]="min" [step]="step" [thumbLabel]="thumbLabel"
+                                        [tickInterval]="tickInterval" [(ngModel)]="tempreconViolationPeriod" [vertical]="vertical">
+                                    </md-slider>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Update" (click)="updateViolationAnalysis('reconciliation');">check_circle</i>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Cancel" (click)="cancelViolationAnalysis('reconciliation');">cancel</i>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                <div (click)="fetchGrpByData('violation',reconViolationPeriod);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                    <div id="headerTab">
+                                        <div style="font-size: 14px;padding-left: 10px;font-weight: 500;">Un-Reconciled By Violation</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Reconciliation Items By Violation');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="recondetaildata">
+                                        <span>
+                                            <circle-progress [percent]="topTenUnReconViolation" [radius]="unReconItemsByViolationRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByViolationOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="topTenUnReconViolationTitle"
+                                                [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="15" [subtitle]="'Transaction(s)'"
+                                                [subtitleFontSize]="14" [titleColor]="unReconItemsByViolationTitleColor" [showSubtitle]="true"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="violationWidth" style="display: flex;position: absolute;bottom: -5px;left: 6px;" *ngIf="(selectedTab == 4 && reconAllData[selectedReconTab].multiCurrency == 'true') || (selectedTab == 3 && reconAllData[selectedReconTab].multiCurrency != 'true')"
+                                    [@enterAnimation]>
+                                    <span>Period {{tempreconViolationPeriod}} days</span>
+                                    <md-slider class="example-margin" [disabled]="disabled" [invert]="invert" [max]="max" [min]="min" [step]="step" [thumbLabel]="thumbLabel"
+                                        [tickInterval]="tickInterval" [(ngModel)]="tempreconViolationPeriod" [vertical]="vertical">
+                                    </md-slider>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Update" (click)="updateViolationAnalysis('reconciliation');">check_circle</i>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Cancel" (click)="cancelViolationAnalysis('reconciliation');">cancel</i>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="recon_app && reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                <div (click)="fetchGrpByData('approvals');reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Awaiting Approvals</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Awaiting Approvals');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="recondetaildata">
+                                        <span>
+                                            <circle-progress [percent]="awaitingApproval" [radius]="reconAwaitingForApprovalRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="reconAwaitingForApprovalOuterStrokeColor"
+                                                [innerStrokeColor]="reconAwaitingForApprovalInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="awaitingApprovalCount"
+                                                [titleFontSize]="reconAwaitingForApprovalTitleFontSize" [titleColor]="reconAwaitingForApprovalTitleColor"
+                                                [subtitle]="'Approvals'" [showSubtitle]="true" [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab *ngIf="recon_app && reconAllData[selectedReconTab].multiCurrency == 'true'">
+                            <ng-template md-tab-label>
+                                <div (click)="fetchGrpByData('approvals');reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');scrollTab();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Awaiting Approvals</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Awaiting Approvals');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="recondetaildata">
+                                        <span>
+                                            <circle-progress [percent]="awaitingApproval" [radius]="reconAwaitingForApprovalRadius" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="reconAwaitingForApprovalOuterStrokeColor"
+                                                [innerStrokeColor]="reconAwaitingForApprovalInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="awaitingApprovalCount"
+                                                [titleFontSize]="reconAwaitingForApprovalTitleFontSize" [titleColor]="reconAwaitingForApprovalTitleColor"
+                                                [subtitle]="'Approvals'" [showSubtitle]="true" [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                </div>
+                <div *ngIf="reconAllData && reconAllData.length">
+                    <!--  && reconSrcBlock [@slideIn] -->
+                    <!-- showReconDetilsTab -->
+                    <div class="row col-md-12 " style="margin-left: 0px;">
+                        <div class="cat-heading col-md-6">
+                            <span class="d-flex" style="margin-left: -5px;">
+                                <span *ngIf="subProcessAnalysisHeading != 'Awaiting Approvals' && (reconFilteredData && reconFilteredData.detailList)" class="topBottomMargin">View By </span>
+                                <!--  && reconFilteredData.detailList.length -->
+                                <md-select class="reconWidth" *ngIf="subProcessAnalysisHeading != 'Awaiting Approvals' && showUnReconGrpBy " placeholder=""
+                                    style="padding-top: 0px;padding-left: 5px;padding-right: 5px;width: 150px;margin-left: 5px;margin-right: 5px;"
+                                    [(ngModel)]="selectedViewRS" multiple panelClass="lovStyleDash">
+                                    <md-option *ngFor="let col of viewSpecificColumnsGrpBy.columnsList | orderBy: 'columnName';let i = index;" [value]="col.columnAliasName"
+                                        (click)="fetchGrpByData(selectedGrpByTab);" [disabled]="(col.columnAliasName == selectedViewRS && selectedViewRS.length == 1) || 
+                                (viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifier == col.columnName)">{{col.columnName}}</md-option>
+                                </md-select>
+                                <md-select *ngIf="subProcessAnalysisHeading != 'Awaiting Approvals' && !showUnReconGrpBy " style="padding-top: 0px;padding-left: 5px;padding-right: 5px;width: 150px;margin-left: 5px;margin-right: 5px;"
+                                    [(value)]="tempLoading" panelClass="lovStyleDash">
+                                    <md-option value="loading" disabled>Loading...</md-option>
+                                </md-select>
+                                <span class="topBottomMargin" style="padding-right: 5px;">Analysis </span>
+                                <span class="topBottomMargin"> For
+                                    <span style="font-weight: 600 !important">
+                                        {{subProcessAnalysisHeading}}
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="col-md-6 customToggleTabs" style="margin-top: auto;display: flex;">
+                            <div class="col-md-10 viewByTabs topBottomMargin">
+                                <md-tab-group class="viewByTabs" [(selectedIndex)]="reconStatusTab" [@enterAnimation] *ngIf="selectedTab == 0 && (subProcessAnalysisHeading == 'Reconciled' || subProcessAnalysisHeading == 'reconciled' || subProcessAnalysisHeading == 'Un-Reconciled')"
+                                    [@slideIn] (focusChange)="changeReconGrpTab($event);">
+                                    <span>
+                                        <md-tab label="Un-Reconciled"></md-tab>
+                                        <md-tab label="Reconciled"></md-tab>
+                                    </span>
+                                </md-tab-group>
+                                <md-tab-group class="viewByTabs" [(selectedIndex)]="reconCurrencyTab" [@enterAnimation] *ngIf="uniqueCurrencyCode && uniqueCurrencyCode.length  && subProcessAnalysisHeading != 'Awaiting Approvals' && subProcessAnalysisHeading == 'Currency'"
+                                    [@slideIn] (focusChange)="fetchGrpByData('currency', $event.index);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');">
+                                    <!-- && reconCurrencyOption -->
+                                    <span>
+                                        <md-tab label="All"></md-tab>
+                                        <md-tab *ngFor="let currencyValue of uniqueCurrencyCode | orderBy" label="{{currencyValue}}"></md-tab>
+                                    </span>
+                                </md-tab-group>
+                                <md-button-toggle-group #aging="mdButtonToggleGroup" style="margin-top: 9px" (change)="fetchGrpByData('aging', $event.value)"
+                                    *ngIf="showAging" [@slideIn]>
+                                    <md-button-toggle *ngFor="let col of agingLov;let i = index;" [value]="col" [checked]="col.checked">
+                                        {{col.name}}
+                                    </md-button-toggle>
+                                </md-button-toggle-group>
+                            </div>
+                            <div id="headerTab" class="col-md-2" style="display: contents;">
+                                <div class="selectLovFont pull-right">
+                                    <button md-icon-button (click)="exportGrpByFile('csv','Reconciliation')" mdTooltip="Export to CSV" [disabled]="reconFilteredData && reconFilteredData.detailList && !reconFilteredData.detailList.length">
+                                        <i class="rec-font-csv" style="font-size: 24px;"></i>
+                                    </button>
+                                    <button md-icon-button (click)="exportGrpByFile('excel','Reconciliation')" mdTooltip="Export to Excel" [disabled]="reconFilteredData && reconFilteredData.detailList && !reconFilteredData.detailList.length">
+                                        <i class="fa fa-file-excel-o" style="font-size: 24px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- <div *ngIf="uniqueCurrencyCode && uniqueCurrencyCode.length && reconCurrencyOption && subProcessAnalysisHeading != 'Awaiting Approvals'"
+                        class="reconMdBut customToggleTabs" style="margin-top: 9px;" [@slideIn]>
+                        <md-button-toggle-group name="currency" [(ngModel)]="reconCurrencyCode" ngDefaultControl (change)="fetchGrpByData('currency', $event.value);reconSrcBlock = true;reconTrgBlock = false;showActiveCls('src');">
+                            <md-button-toggle *ngFor="let currencyValue of uniqueCurrencyCode | orderBy" [value]="currencyValue">
+                                {{currencyValue}}
+                            </md-button-toggle>
+                        </md-button-toggle-group>
+                    </div> -->
+                        </div>
+                    </div>
+                    <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;padding: 10px 0px;margin-bottom: 26px;">
+                        <div class="spinnerBlockTable"></div>
+                        <div class="dashboardNavTab" style="width: 100%;">
+                            <div class="list-table" *ngIf="reconStatusTabCol.length && subProcessAnalysisHeading != 'Awaiting Approvals'" [@slideIn]>
+                                <p-dataTable [value]="reconFilteredData.detailList" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+                                    scrollable="false" [responsive]="true" [headerCheckboxToggleAllPages]="true" #dt [rows]="15"
+                                    [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]">
+                                    <!--  scrollHeight="222px" -->
+                                    <p-column *ngIf="subProcessAnalysisHeading == 'Aging All'" field="age" header="Aging" styleClass="left" [style]="{'text-align':'left'}"
+                                        [sortable]="false">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row.age}}</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngFor="let col of reconStatusTabCol" [style]="{'text-align':col.align}" [field]="col.field" [header]="col.header"
+                                        [sortable]="false">
+                                        <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showReconApprovalPer" field="count" header="Count" styleClass="right" styleClass="countRight" [style]="{'text-align':'center'}"
+                                        [sortable]="false">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <!-- mdTooltip="{{row.avgCtPer | amountFormat:'': 2}}%" -->
+                                                <!-- <div [ngStyle]="setMyStyles(i,'Count','Reconciliation')" style="background-color: rgb(52, 188, 216);position: absolute;right: 0;height: 100%;"></div> -->
+                                                <div style="position: relative;">{{row[col.field] | number: '.0'}}</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showReconApprovalPer" field="countPer" header="Count Percentage" styleClass="right" [style]="{'text-align':'center'}"
+                                        [sortable]="false" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row.countPer | amountFormat:'': 2}}%</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="reconFilteredData.columnNames && reconFilteredData.columnNames.columnsList && viewSpecificColumnsGrpBy && viewSpecificColumnsGrpBy.currencyCodeQualifier && viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPer
+                            && reconFilteredData.columnNames.amtQualifier && !reconFilteredData.columnNames.amtQualifier.amtQualifierAliasName"
+                                        [field]="reconFilteredData.columnNames.amtQualifier.header" header="Amount" styleClass="right"
+                                        [sortable]="false" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex" ;>
+                                            <a>
+                                                <div style="position: relative;" (click)="navigateToRWQ(row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]);">
+                                                    <div *ngIf="reconAllData[selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                        style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                    <div *ngIf="reconAllData[selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                        style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                    <div *ngIf="reconAllData[selectedReconTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:reconAllData[selectedReconTab]['currencyCode']}}
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="reconFilteredData.columnNames && reconFilteredData.columnNames.columnsList && viewSpecificColumnsGrpBy && viewSpecificColumnsGrpBy.currencyCodeQualifier && viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPer
+                                && reconFilteredData.columnNames.amtQualifier && reconFilteredData.columnNames.amtQualifier.amtQualifierAliasName"
+                                        [field]="reconFilteredData.columnNames.amtQualifier.amtQualifierAliasName" header="Amount"
+                                        styleClass="right" [sortable]="false" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex" ;>
+                                            <div style="position: relative;" (click)="navigateToRWQ();">
+                                                <div *ngIf="reconAllData[selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                    style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                <div *ngIf="reconAllData[selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                    style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                <div *ngIf="reconAllData[selectedReconTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:reconAllData[selectedReconTab]['currencyCode']}}
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="reconFilteredData.columnNames && reconFilteredData.columnNames.columnsList && viewSpecificColumnsGrpBy 
+                                        && viewSpecificColumnsGrpBy.currencyCodeQualifier && viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPer
+                                        && reconAllData[selectedReconTab].multiCurrency != 'true'" field="amtPer" header="Amount Percentage"
+                                        styleClass="right" [style]="{'text-align':'center'}" [sortable]="false" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row.amtPer | amountFormat:'': 2}}%</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                            <div class="list-table" *ngIf="reconStatusTabCol.length && subProcessAnalysisHeading == 'Awaiting Approvals'" [@slideIn]>
+                                <p-dataTable [value]="grpByDetails" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+                                    [responsive]="false" [headerCheckboxToggleAllPages]="true" #dt [rows]="15" [paginator]="false"
+                                    [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]">
+                                    <!-- scrollHeight="222px" -->
+                                    <p-column *ngFor="let col of reconStatusTabCol" [style]="{'text-align':col.align}" [field]="col.field" [header]="col.header"
+                                        [sortable]="false">
+                                    </p-column>
+                                    <p-column *ngIf="!showReconApprovalPer" field="count" header="Count" styleClass="right" styleClass="countRight" [style]="{'text-align':'center'}"
+                                        [sortable]="false">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <!-- mdTooltip="{{row.avgCtPer | amountFormat:'': 2}}%" -->
+                                                <!-- <div [ngStyle]="setMyStyles(i,'Count','Reconciliation')" style="background-color: rgb(52, 188, 216);position: absolute;right: 0;height: 100%;"></div> -->
+                                                <div style="position: relative;">{{row[col.field] | number: '.0'}}</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showReconApprovalPer" field="countPer" header="Count Percentage" styleClass="right" [style]="{'text-align':'center'}"
+                                        [sortable]="false" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row.countPer | amountFormat:'': 2}}%</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="grpByDetails.columnNames && grpByDetails.columnNames.columnsList && viewSpecificColumnsGrpBy && viewSpecificColumnsGrpBy.currencyCodeQualifier && viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPer
+                            && grpByDetails.columnNames.amtQualifier && !grpByDetails.columnNames.amtQualifier.amtQualifierAliasName"
+                                        [field]="grpByDetails.columnNames.amtQualifier.header" header="Amount" styleClass="right"
+                                        [sortable]="false" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex" ;>
+                                            <div style="position: relative;">
+                                                <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                    style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                    style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:reconAllData[this.selectedReconTab]['currencyCode']}}
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="grpByDetails.columnNames && grpByDetails.columnNames.columnsList && viewSpecificColumnsGrpBy && viewSpecificColumnsGrpBy.currencyCodeQualifier && viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPer
+                                && grpByDetails.columnNames.amtQualifier && grpByDetails.columnNames.amtQualifier.amtQualifierAliasName"
+                                        [field]="grpByDetails.columnNames.amtQualifier.amtQualifierAliasName" header="Amount"
+                                        styleClass="right" [sortable]="false" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex" ;>
+                                            <div style="position: relative;">
+                                                <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                    style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] == 'true' && row[viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                    style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:reconAllData[this.selectedReconTab]['currencyCode']}}
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="grpByDetails.columnNames && grpByDetails.columnNames.columnsList && viewSpecificColumnsGrpBy 
+                                && viewSpecificColumnsGrpBy.currencyCodeQualifier && viewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPer
+                                && reconAllData[selectedReconTab].multiCurrency != 'true'" field="amtPer" header="Amount Percentage"
+                                        styleClass="right" [style]="{'text-align':'center'}" [sortable]="false" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row.amtPer | amountFormat:'': 2}}%</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- <div class="reconGrids tabPaddingZero hide-mat-tab kpiHeaderFnt" *ngIf="reconAllData && reconAllData.length" id="reconDetailAnalysisTrg">
+            <div class="cat-heading">
+                <span>KPI's For
+                    <span *ngIf="reconAllData" style="margin-left: 0px">"{{reconSelViewNameTrg}}"</span>
+                </span>
+            </div>
+            <md-tab-group class="prof-det profTrg" [mode]="stacked" [(selectedIndex)]="selectedTabTrg" dynamicHeight="true" fxFlex md-stretch-tabs>
+                <md-tab>
+                    <ng-template md-tab-label>
+                        <div [ngClass]="{selectedModule: currentModule == 'Reconciliation Status'}" style="padding-left: 0px;" (click)="showActiveCls('trg');">
+                            <div id="headerTab">
+                                <div class="kpiHeaderFont">Reconciliation Status</div>
+                                <div style="position: absolute;right: 4px;top: 9px;">
+                                    <span style="visibility:hidden;" (click)="openSideBar('Reconciliation Status');" *ngIf="reconPeriodAnalysisTypeTrg == 'None' && !showReconDrillDownDataTrg;">
+                                        <i class="material-icons" style="font-size: 16px !important;">settings</i>
+                                    </span>
+                                    <span *ngIf="reconPeriodAnalysisTypeTrg != 'None' && reconPeriodAnalysisTypeTrg != 'Months' && showReconDrillDownDataTrg && reconDateRangesTrg && reconDateRangesTrg.length>1"
+                                        (click)="fetchReconDrillDownTrg('back');">
+                                        <i class="material-icons" style="font-size: 16px !important;">reply</i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;" id="reconStatusTest">
+                                <canvas *ngIf="showReconDrillDownDataTrg" baseChart [datasets]="reconChartDataTrg" [labels]="reconChartLabelsTrg" [options]="reconChartOptions"
+                                    [colors]="reconChartColors" [legend]="reconChartLegend" [chartType]="reconChartTypeTrg" (chartClick)="fetchReconciliationStatusTrg($event);fetchGrpByDataTrg('reconciliation',$event);reconSrcBlock = false;reconTrgBlock = true;"></canvas>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+                <md-tab *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true' && showReconCurrencyChartTrg">
+                    <ng-template md-tab-label>
+                        <div>
+                            <div id="headerTab">
+                                <div class="kpiHeaderFont">Un-Reconciled Items By Currency</div>
+                                <div style="position: absolute; right: 3px;top: 12px;">
+                                    <span>
+                                        <i *ngIf="pieChartActivityAccountingTypeTrg == 'pie'" class="material-icons" (click)="pieChartActivityAccountingTypeTrg = 'doughnut';"
+                                            mdTooltip="Donut Chart" style="font-size: 16px;">donut_small</i>
+                                        <i *ngIf="pieChartActivityAccountingTypeTrg == 'doughnut'" class="material-icons" (click)="pieChartActivityAccountingTypeTrg = 'pie';"
+                                            mdTooltip="Pie Chart" style="font-size: 16px;">pie_chart</i>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                <canvas *ngIf="showReconCurrencyChartTrg && pieChartActivityAccountingTrg && pieChartActivityAccountingLabelsTrg" baseChart
+                                    [data]="pieChartActivityAccountingTrg" [labels]="pieChartActivityAccountingLabelsTrg" [chartType]="pieChartActivityAccountingTypeTrg"
+                                    [options]="pieChartActivityAccountingOptions" [colors]="pieChartActivityColors" 
+                                    (chartClick)="fetchGrpByDataTrg('currency', $event);reconSrcBlock = false;reconTrgBlock = true;showActiveCls('trg');">
+                                </canvas>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+                <md-tab>
+                    <ng-template md-tab-label>
+                        <div class="spinnerBlock"></div>
+                        <div [ngClass]="{selectedModule: currentModule == 'Un-Reconciled Transaction By Aging Bucket'}">
+                            <div id="headerTab">
+                                <div class="kpiHeaderFont">Un-Reconciled By Aging Bucket</div>
+                                <div style="position: absolute; right: 0px; top: 12px;">
+                                    <span class="headerbutton">
+                                        <md-icon style="height: 34px !important;visibility:hidden;font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                    </span>
+                                    <span class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</span>
+                                    <md-menu #menu="mdMenu" xPosition="before">
+                                        <button md-menu-item *ngFor="let col of bucketList" [ngClass]="{'nav-active': col == activeItem3}" (click)="getReconAgingBucketTrg(col.id);activeItem3 = col;">
+                                            <span>{{col.bucketName}}</span>
+                                        </button>
+                                    </md-menu>
+                                </div>
+                            </div>
+                            <div class="agingBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;padding: 6px;cursor: pointer;"
+                                id="reconAgingTest">
+                                <canvas *ngIf="barChartLabelsTrg && barChartDataTrg && reconAgingChartTrg" baseChart [datasets]="barChartDataTrg" [labels]="barChartLabelsTrg"
+                                    [options]="barChartOptions" [legend]="barChartLegend" [chartType]="barChartTypeTrg" [colors]="unReconAgingBucketColors"
+                                    (chartClick)="fetchGrpByDataTrg('aging', $event);reconSrcBlock = false;reconTrgBlock = true;showActiveCls('trg');"></canvas>
+                                <div *ngIf="bucketList && bucketList.length<1">There is no "Aging Bucket" defined</div>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+                <md-tab>
+                    <ng-template md-tab-label>
+                        <div style="width: 100%;" (click)="fetchGrpByDataTrg('Un-Reconciled');showReconDetilsTab = true;reconSrcBlock = false;reconTrgBlock = true;showActiveCls('trg');">
+                            <div id="headerTab">
+                                <div class="kpiHeaderFont">Un-Reconciled Items By
+                                    <span class="kpiHeaderFont" *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">Value</span>
+                                    <span class="kpiHeaderFont" *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">Transaction(s)</span>
+                                </div>
+                                <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                    <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;">
+                                        <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="reconBackgroundColor mdColor" style="height: 210px;overflow-x: auto;" *ngIf="topTenUnReconValueTitleTrg">
+                                <span *ngIf="reconAllData[selectedReconTab].multiCurrency != 'true'">
+                                    <circle-progress [percent]="topTenUnReconValueTrg" [radius]="unReconItemsByValueRadius" [space]="-6" [outerStrokeWidth]="6"
+                                        [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor" [innerStrokeColor]="unReconItemsByValueInnerStrokeColor"
+                                        [animation]="true" [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="topTenUnReconValueTitleTrg"
+                                        [titleFontSize]="unReconItemsByValueTitleFontSize" [unitsFontSize]="15" [showSubtitle]="true"
+                                        [subtitleFontSize]="unReconItemsByValueSubtitleFontSize" [subtitle]="'Value'" [titleColor]="unReconItemsByValueTitleColor"
+                                        [subtitleColor]="unReconItemsByValueSubTitleColor" [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                </span>
+                                <span *ngIf="reconAllData[selectedReconTab].multiCurrency == 'true'">
+                                    <circle-progress [percent]="topTenUnReconCountTrg" [radius]="unReconItemsByValueRadius" [space]="-6" [outerStrokeWidth]="6"
+                                        [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor" [innerStrokeColor]="unReconItemsByValueInnerStrokeColor"
+                                        [animation]="true" [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="unReconCountTitleTrg"
+                                        [titleFontSize]="unReconItemsByValueTitleFontSize" [unitsFontSize]="15" [showSubtitle]="true"
+                                        [subtitleFontSize]="unReconItemsByValueSubtitleFontSize" [subtitle]="'Transaction(s)'"
+                                        [titleColor]="unReconItemsByValueTitleColor" [subtitleColor]="unReconItemsByValueSubTitleColor"
+                                        [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                </span>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+                <md-tab>
+                    <ng-template md-tab-label>
+                        <div (click)="fetchGrpByDataTrg('violation',2);reconSrcBlock = false;reconTrgBlock = true;showActiveCls('trg');">
+                            <div id="headerTab">
+                                <div style="font-size: 14px;padding-left: 10px;font-weight: 500;">Un-Reconciled Items By Violation</div>
+                                <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                    <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;">
+                                        <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="recondetaildataTrg">
+                                <span>
+                                    <circle-progress [percent]="topTenUnReconViolationTrg" [radius]="unReconItemsByViolationRadius" [space]="-6" [outerStrokeWidth]="6"
+                                        [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByViolationOuterStrokeColor" [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor"
+                                        [animation]="true" [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="topTenUnReconViolationTitleTrg"
+                                        [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="15" [subtitle]="'Transaction(s)'"
+                                        [subtitleFontSize]="14" [titleColor]="unReconItemsByViolationTitleColor" [showSubtitle]="true"></circle-progress>
+                                </span>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+                <md-tab *ngIf="recon_app">
+                    <ng-template md-tab-label>
+                        <div (click)="fetchGrpByDataTrg('approvals');reconSrcBlock = false;reconTrgBlock = true;showActiveCls('trg');">
+                            <div id="headerTab">
+                                <div class="kpiHeaderFont">Awaiting For Approvals</div>
+                                <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                    <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;">
+                                        <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="recondetaildataTrg">
+                                <span>
+                                    <circle-progress [percent]="awaitingApprovalTrg" [radius]="reconAwaitingForApprovalRadius" [space]="-6" [outerStrokeWidth]="6"
+                                        [innerStrokeWidth]="6" [outerStrokeColor]="reconAwaitingForApprovalOuterStrokeColor"
+                                        [innerStrokeColor]="reconAwaitingForApprovalInnerStrokeColor" [animation]="true" [animationDuration]="300"
+                                        [showUnits]="false" [showtitle]="true" [title]="awaitingApprovalCountTrg" [titleFontSize]="reconAwaitingForApprovalTitleFontSize"
+                                        [titleColor]="reconAwaitingForApprovalTitleColor" [subtitle]="'Approvals'" [showSubtitle]="true"
+                                        [subtitleFontSize]="14"></circle-progress>
+                                </span>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+            </md-tab-group>
+        </div> -->
+                <!-- <div id="pvtoutput"></div> -->
+                <!-- <div *ngIf="reconAllData && reconAllData.length && reconTrgBlock" [@slideIn]>
+            <div class="row col-md-12" style="margin-left: 0px;">
+                <div class="cat-heading col-md-5">
+                    <span style="margin-left: -5px;">Details Analysis For "{{subProcessAnalysisHeadingTrg}}"</span>
+                </div>
+                <div class="col-md-4 customToggleTabs" style="margin-top: auto;">
+                    <md-button-toggle-group class="pull-right" #group="mdButtonToggleGroup" *ngIf="subProcessAnalysisHeadingTrg == 'Reconciliation Status'"
+                        (change)="changeReconGrpTabTrg($event);" [(value)]="selectedGrpByTabTrg">
+                        <md-button-toggle value="Un-Reconciled">
+                            Un-Reconciled
+                        </md-button-toggle>
+                        <md-button-toggle value="Reconciled">
+                            Reconciled
+                        </md-button-toggle>
+                    </md-button-toggle-group>
+                </div>
+                <div id="headerTab" class="col-md-3">
+                    <div *ngIf="subProcessAnalysisHeadingTrg != 'Awaiting Approvals' && showUnReconGrpByTrg && grpByDetailsTrg.detailList.length"
+                        class="selectLovFont cat-grpByLov">
+                        <div>
+                            <span>View By: </span>
+                        </div>
+                        <div>
+                            <md-select placeholder="" style="padding-top: 0px;padding-left: 5px;padding-right: 5px;" [(ngModel)]="selectedViewRSTrg"
+                                multiple>
+                                <md-option *ngFor="let col of viewSpecificColumnsGrpByTrg.columnsList;" [value]="col.columnAliasName" (click)="fetchGrpByDataTrg(selectedGrpByTabTrg);">{{col.columnName}}</md-option>
+                            </md-select>
+                        </div>
+                        <button md-icon-button (click)="exportGrpByFileTrg('csv','Reconciliation')" mdTooltip="Export to CSV">
+                            <i class="rec-font-csv"></i>
+                        </button>
+                        <button md-icon-button (click)="exportGrpByFileTrg('excel','Reconciliation')" mdTooltip="Export to Excel">
+                            <i class="fa fa-file-excel-o"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;padding: 10px 0px;height: 250px;">
+                <div class="spinnerBlockTable"></div>
+                <div class="dashboardNavTab">
+                    <div class="list-table" *ngIf="reconStatusTabColTrg.length" [@slideIn]>
+                        <p-dataTable [value]="grpByDetailsTrg.detailList" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+                            scrollable="true" [responsive]="false" [headerCheckboxToggleAllPages]="true" #dt [rows]="15" [paginator]="false"
+                            [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]" scrollHeight="200px">
+                            <p-column *ngFor="let col of reconStatusTabColTrg" [style]="{'text-align':col.align}" [field]="col.field" [header]="col.header"
+                                [sortable]="false"> </p-column>
+                            <p-column *ngIf="!showReconApprovalPerTrg" field="count" header="Count" styleClass="right" [style]="{'text-align':'center'}"
+                                [sortable]="false">
+                                <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                    <div style="position: relative;" mdTooltip="{{row.avgCtPer | amountFormat:'': 2}}%">
+                                        <div style="position: relative;">{{row[col.field] | number: '.0'}}</div>
+                                    </div>
+                                </ng-template>
+                            </p-column>
+                            <p-column *ngIf="grpByDetailsTrg.columnNames && grpByDetailsTrg.columnNames.columnsList && viewSpecificColumnsGrpByTrg.currencyCodeQualifier &&
+                            viewSpecificColumnsGrpByTrg.currencyCodeQualifier.currencyCodeQualifierAliasName && !showReconApprovalPerTrg" [field]="grpByDetailsTrg.columnNames.amtQualifier.amtQualifierAliasName"
+                                header="Amount" styleClass="right" [sortable]="false" [style]="{'text-align':'right'}">
+                                <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex" ;>
+                                    <div style="position: relative;" mdTooltip="{{row.avgAmtPer | amountFormat:'': 2}}%">
+                                        <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] == 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[viewSpecificColumnsGrpByTrg.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                        <div *ngIf="reconAllData[this.selectedReconTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:reconAllData[this.selectedReconTab]['currencyCode']}}</div>
+                                    </div>
+                                </ng-template>
+                            </p-column>
+                        </p-dataTable>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+            </div>
+            <div id="accountingDiv" class="reconview matTabPainationStyle" *ngIf="showacc" [@enterAnimation]>
+                <div>
+                    <div class="cat-heading">
+                        <!-- <span>Accounting Process
+                    <span class="selectedLabel">
+                        {{selectedMonth}}
+                    </span>
+                </span> -->
+                        <span>Accounting Process
+                            <span *ngIf="dateFormatRange == 'Period Wise'">For Month</span>
+                            <span *ngIf="dateFormatRange == 'Range Wise'">For Period</span>
+                            <span *ngIf="dateFormatRange == 'Custom'">From Period</span>
+                            <span class="selectedLabel" *ngIf="dateFormatRange != 'Custom';">
+                                {{selectedMonth}}
+                            </span>
+                            <span class="selectedLabel" *ngIf="dateFormatRange == 'Custom';">
+                                {{reconDateRange.startDate | date: 'mediumDate'}} To {{reconDateRange.endDate | date: 'mediumDate'}}
+                            </span>
+                        </span>
+                    </div>
+                    <div *ngIf="accountingAllData && !accountingAllData.length">
+                        <span style="padding-left: 15px;font-size: 15px;color: #4688F4;" class="selectedLabel">No activity for selected period!
+                            <!-- <span class="selectedLabel" style="font-size: 15px;color: #4688F4;">
+                        {{selectedMonth}}
+                    </span>! --></span>
+                    </div>
+                    <div class="reconview-list hide-mat-tab" *ngIf="accountingAllData && accountingAllData.length">
+                        <md-tab-group class="prof-det" (focusChange)="cancelRequest();displayAccountingStatus($event.index);" [mode]="stacked" [(selectedIndex)]="selectedAccTab"
+                            dynamicHeight="true" fxFlex md-stretch-tabs>
+                            <md-tab *ngFor="let col of accountingAllData;let spInd=index;">
+                                <ng-template md-tab-label>
+                                    <div class="mat-sml-btn ellipsis-text elementToAnimateOpacity" style="width:100%;margin-right: 10px;justify-content:center;">
+                                        <div class="flex-column-center" style="overflow: hidden;">
+                                            <div>
+                                                <span class="ellipsis-text processname" mdTooltip="{{col.ruleGroupName}}" matTooltipShowDelay="1000">{{col.ruleGroupName}}</span>
+
+                                                <span class="agre-value" mdTooltip="JE Created Count" matTooltipShowDelay="300" [ngStyle]="{'color':col.finalAccounted.count > 0 ? 'orange' : 'gray' }">{{col.finalAccounted.countPer}}%
+                                                    <span class="agre-pretext" [ngStyle]="{'color':'gray' }">({{col.finalAccounted.count | number: '.0'}})</span>
+                                                    <!-- <span class="agre-pretext" [ngStyle]="{'color':'gray' }">(JE Created Count)</span> -->
+                                                </span>
+                                                <!-- <span *ngIf="col.multiCurrency != 'true'" class="agre-value" mdTooltip="JE Created Amount" matTooltipShowDelay="300" [ngStyle]="{'color':col.finalAccounted.amount > 0 ? 'green' : 'gray' }">
+                                        | {{col.finalAccounted.amount | amountFormat:'$': 2}}</span> -->
+                                                <span *ngIf="col.multiCurrency != 'true'" class="agre-value" mdTooltip="JE Created Amount" matTooltipShowDelay="300" [ngStyle]="{'color':col.finalAccounted.amount > 0 ? 'green' : 'gray' }">
+                                                    <span>|</span> {{col.finalAccounted.amountPer}}%
+                                                    <span *ngIf="col.multiCurrency != 'true'" class="agre-pretext" [ngStyle]="{'color':'gray' }">({{col.finalAccounted.amount | currency : col.currencyCode[0] : 'symbol-narrow':'1.2-2'}})</span>
+                                                </span>
+                                                <!-- <span *ngIf="col.multiCurrency != 'true'" class="agre-pretext" [ngStyle]="{'color':'gray' }">(JE Created Amount)</span> -->
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </ng-template>
+                            </md-tab>
+                        </md-tab-group>
+                    </div>
+                </div>
+                <div class="viewComb-list hide-mat-tab" *ngIf="accountingAllData && accountingAllData.length">
+                    <div class="cat-heading">
+                        <span>Sub Process Analysis For
+                            <span class="selectedLabel">{{accountingAllData[selectedAccTab].ruleGroupName}}</span>
+                        </span>
+                    </div>
+                    <md-tab-group (focusChange)="changeAccSubProcess($event);" [(selectedIndex)]="selectedAccAnalysis" disableRipple>
+                        <!-- style="margin-left: 32px;" -->
+                        <md-tab *ngIf="accLoadingTab">
+                            <ng-template md-tab-label>
+                                <div>
+                                    <div class="d-flex">
+                                        <div>
+                                            <div class="d-flex align-items-center">
+                                                <i class="material-icons bgicon">insert_drive_file</i>
+                                                <div>
+                                                    <div class="d-block loadingTabName"></div>
+                                                    <div class="d-block loadingTabPer"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab *ngFor="let col of accViewCombinationSpecificAnalysis;let i=index;">
+                            <ng-template md-tab-label *ngIf="!accLoadingTab">
+                                <div>
+                                    <!--  (click)="fetchAccKPIAndDetails(col.viewId, col.DisplayviewType, col.viewType, col.viewName,'Un-Accounted');" -->
+                                    <div class="d-flex">
+                                        <div class="ellipsis-text">
+                                            <div class="d-flex align-items-center">
+                                                <i class="material-icons bgicon">insert_drive_file</i>
+                                                <div class="ellipsis-text">
+                                                    <span class="d-block ellipsis-text" *ngIf="selectedAccAnalysis == i">{{col.viewName}}</span>
+                                                    <p class="d-block ellipsis-text" *ngIf="selectedAccAnalysis != i" style="margin-bottom: 0px;">{{col.viewName}}</p>
+                                                    <span class="d-block ellipsis-text" *ngIf="selectedAccAnalysis == i">{{col.countPer | amountFormat:'': 2}}%</span>
+                                                    <p class="d-block ellipsis-text" *ngIf="selectedAccAnalysis != i" style="margin-bottom: 0px;">{{col.countPer | amountFormat:'': 2}}%</p>
+                                                    <!-- <span class="d-block" *ngIf="showAccApprovalPer">{{col.unAppCtPer | amountFormat:'': 2}}%</span> -->
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                    </md-tab-group>
+                    <div *ngIf="accViewCombinationSpecificAnalysis.length<1" style="padding: 9px;">
+                        <span style="padding-left: 15px;">No View To Display</span>
+                    </div>
+                </div>
+                <div class="reconGrids tabPaddingZero hide-mat-tab kpiHeaderFnt" *ngIf="accountingAllData && accountingAllData.length" id="accDetailAnalysis">
+                    <div class="cat-heading">
+                        <span>KPI's For
+                            <span *ngIf="accountingAllData">
+                                <span class="selectedLabel">
+                                    {{accSelViewName}}
+                                </span>
+                            </span>
+                        </span>
+                    </div>
+                    <md-tab-group class="prof-det" [mode]="stacked" [(selectedIndex)]="selectedAccTabKPI" dynamicHeight="true" fxFlex md-stretch-tabs
+                        [disableRipple]="true">
+                        <md-tab (click)="showAccountingData('Accounting Status');scrollTabAcc();">
+                            <ng-template md-tab-label>
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Accounting Status'}">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Accounting Status</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button *ngIf="accPeriodAnalysisType == 'None' && !showAccountingDrillDownData;" class="headerbutton" md-icon-button style="height: 34px !important;"
+                                                (click)="openSideBar('Accounting Status');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                            <button *ngIf="accPeriodAnalysisType != 'None' && accPeriodAnalysisType != 'Months' && showAccountingDrillDownData && accDateRanges && accDateRanges.length>1"
+                                                class="headerbutton" md-icon-button style="height: 34px !important;" (click)="fetchAccountingDrillDown('back');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">reply</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                        <canvas *ngIf="showAccountingStatus && pieChartAccounting && pieChartAccountingLabels && !showAccountingDrillDownData" baseChart
+                                            [data]="pieChartAccounting" [labels]="pieChartAccountingLabels" [chartType]="pieChartAccountingType"
+                                            [options]="pieChartAccountingOptions" [colors]="pieChartAccountingColors" (chartClick)="fetchAccountingDrillDown();fetchAccountingCombViews('Un-Accounted', $event);scrollTabAcc();">
+                                            <!-- (chartClick)="fetchAccountingStatus($event);fetchAccountingCombViews();" -->
+                                        </canvas>
+                                        <canvas *ngIf="showAccountingDrillDownData" baseChart [datasets]="accountingChartData" [labels]="accountingChartLabels" [options]="accountingChartOptions"
+                                            [colors]="accountingChartColors" [legend]="accountingChartLegend" [chartType]="accountingChartType"
+                                            (chartClick)="fetchAccountingStatus($event);accFetchGrpByData('Un-Accounted', $event);scrollTabAcc();"></canvas>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'">
+                                <div>
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted By Currency</div>
+                                        <div style="position: absolute; right: 2px;top: 11px;height: 34px;">
+                                            <span>
+                                                <i *ngIf="pieChartGrpCurrencyAccountingType == 'pie'" class="material-icons" (click)="pieChartGrpCurrencyAccountingType = 'doughnut';"
+                                                    mdTooltip="Donut Chart" style="font-size: 16px;">donut_small</i>
+                                                <i *ngIf="pieChartGrpCurrencyAccountingType == 'doughnut'" class="material-icons" (click)="pieChartGrpCurrencyAccountingType = 'pie';"
+                                                    mdTooltip="Pie Chart" style="font-size: 16px;">pie_chart</i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                        <canvas *ngIf="showAccCurrencyChart && pieChartGrpCurrencyAccounting && pieChartGrpCurrencyAccountingLabels" baseChart [data]="pieChartGrpCurrencyAccounting"
+                                            [labels]="pieChartGrpCurrencyAccountingLabels" [chartType]="pieChartGrpCurrencyAccountingType"
+                                            [options]="pieChartGrpCurrencyAccountingOptions" [colors]="pieChartActivityColors"
+                                            (chartClick)="accFetchGrpByData('currency', $event,'Un-Accounted');scrollTabAcc();">
+                                        </canvas>
+                                    </div>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Un-Accounted By Aging Bucket'}" (click)="showAccountingData('Un-Accounted By Aging Bucket')">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted By Aging Bucket</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <!-- <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Accounted By Aging Bucket');">
+                                            <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                        </button> -->
+                                            <span class="headerbutton">
+                                                <md-icon (click)="openSideBar('Un-Accounted By Aging Bucket');" style="height: 34px !important;visibility:hidden;font-size: 16px !important;margin-top: 10px !important;">settings</md-icon>
+                                            </span>
+                                            <span class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</span>
+                                            <md-menu #menu="mdMenu" xPosition="before">
+                                                <button md-menu-item *ngFor="let col of bucketList" [ngClass]="{'nav-active': col == activeAccAging}" (click)="getAccAgingBucket(col.id);activeAccAging = col;">
+                                                    <span>{{col.bucketName}}</span>
+                                                </button>
+                                            </md-menu>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                        <canvas *ngIf="accAgingChartLabels && accAgingChartData && accAgingChart" baseChart [datasets]="accAgingChartData" [labels]="accAgingChartLabels"
+                                            [options]="barChartOptions" [legend]="accAgingChartLegend" [chartType]="accAgingChartType"
+                                            (chartClick)="accFetchGrpByData('aging', $event);scrollTabAcc();" [colors]="unReconAgingBucketColors"></canvas>
+                                        <div *ngIf="bucketList && bucketList.length<1">There is no "Aging Bucket" defined</div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Un-Accounted By Aging Bucket'}" (click)="showAccountingData('Un-Accounted By Aging Bucket')">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted By Aging Bucket</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <!-- <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Accounted By Aging Bucket');">
+                                        <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                    </button> -->
+                                            <span class="headerbutton">
+                                                <md-icon (click)="openSideBar('Un-Accounted By Aging Bucket');" style="height: 34px !important;visibility:hidden;font-size: 16px !important;margin-top: 10px !important;">settings</md-icon>
+                                            </span>
+                                            <span class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</span>
+                                            <md-menu #menu="mdMenu" xPosition="before">
+                                                <button md-menu-item *ngFor="let col of bucketList" [ngClass]="{'nav-active': col == activeAccAging}" (click)="getAccAgingBucket(col.id);activeAccAging = col;">
+                                                    <span>{{col.bucketName}}</span>
+                                                </button>
+                                            </md-menu>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                        <canvas *ngIf="accAgingChartLabels && accAgingChartData && accAgingChart" baseChart [datasets]="accAgingChartData" [labels]="accAgingChartLabels"
+                                            [options]="barChartOptions" [legend]="accAgingChartLegend" [chartType]="accAgingChartType"
+                                            (chartClick)="accFetchGrpByData('aging', $event);scrollTabAcc();" [colors]="unReconAgingBucketColors"></canvas>
+                                        <div *ngIf="bucketList && bucketList.length<1">There is no "Aging Bucket" defined</div>
+                                    </div>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Top 10 Un-Accounted By Value'}" (click)="accFetchGrpByData('Un-Accounted');showAccountingData('Top 10 Un-Accounted By Value');scrollTabAcc();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted
+                                            <span class="kpiHeaderFont" *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'">Value</span>
+                                            <span class="kpiHeaderFont" *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'">Transaction(s)</span>
+                                        </div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Top 10 Un-Accounted By Value');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <!-- <div class="reconBackgroundColor" style="min-height: 210px;">
+                                    <canvas *ngIf="showActivityAccountingStatus && pieChartActivityAccounting && pieChartActivityAccountingLabels" baseChart
+                                        [data]="pieChartActivityAccounting" [labels]="pieChartActivityAccountingLabels" [chartType]="pieChartActivityAccountingType"
+                                        [options]="pieChartActivityAccountingOptions" (chartClick)="fetchAccountingActivity($event)"
+                                        [colors]="randomChartColors">
+                                    </canvas>
+                                </div> -->
+                                    <!--  "unAccountedItemsValue" : 3.871005861E7,
+                                        "unAccountedItemsValuePer" : 100.0, -->
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="accdetaildata && accdetaildata.accountingData">
+                                        <span>
+                                            <circle-progress *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'" [percent]="accdetaildata.accountingData[0].un_accountedamtPer"
+                                                [radius]="80" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="accdetaildata.accountingData[0].un_accountedamt"
+                                                [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="0" [titleColor]="unReconItemsByViolationTitleColor"
+                                                [unitsColor]="unReconItemsByViolationSubTitleColor" [subtitle]="'Value'" [showSubtitle]="true"
+                                                [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                        <span>
+                                            <circle-progress *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'" [percent]="accdetaildata.accountingData[0].un_accountedper"
+                                                [radius]="80" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="accdetaildata.accountingData[0].un_accountedCount"
+                                                [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="15" [titleColor]="unReconItemsByViolationTitleColor"
+                                                [unitsColor]="unReconItemsByViolationSubTitleColor" [subtitle]="'Transaction(s)'"
+                                                [showSubtitle]="true" [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Top 10 Un-Accounted By Value'}" (click)="accFetchGrpByData('Un-Accounted');showAccountingData('Top 10 Un-Accounted By Value');scrollTabAcc();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted
+                                            <span class="kpiHeaderFont" *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'">Value</span>
+                                            <span class="kpiHeaderFont" *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'">Transaction(s)</span>
+                                        </div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Top 10 Un-Accounted By Value');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <!-- <div class="reconBackgroundColor" style="min-height: 210px;">
+                                <canvas *ngIf="showActivityAccountingStatus && pieChartActivityAccounting && pieChartActivityAccountingLabels" baseChart
+                                    [data]="pieChartActivityAccounting" [labels]="pieChartActivityAccountingLabels" [chartType]="pieChartActivityAccountingType"
+                                    [options]="pieChartActivityAccountingOptions" (chartClick)="fetchAccountingActivity($event)"
+                                    [colors]="randomChartColors">
+                                </canvas>
+                            </div> -->
+                                    <!--  "unAccountedItemsValue" : 3.871005861E7,
+                                    "unAccountedItemsValuePer" : 100.0, -->
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="accdetaildata && accdetaildata.accountingData">
+                                        <span>
+                                            <circle-progress *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'" [percent]="accdetaildata.accountingData[0].un_accountedamtPer"
+                                                [radius]="80" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="accdetaildata.accountingData[0].un_accountedamt"
+                                                [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="0" [titleColor]="unReconItemsByViolationTitleColor"
+                                                [unitsColor]="unReconItemsByViolationSubTitleColor" [subtitle]="'Value'" [showSubtitle]="true"
+                                                [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                        <span>
+                                            <circle-progress *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'" [percent]="accdetaildata.accountingData[0].un_accountedper"
+                                                [radius]="80" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="unReconItemsByValueOuterStrokeColor"
+                                                [innerStrokeColor]="unReconItemsByViolationInnerStrokeColor" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="accdetaildata.accountingData[0].un_accountedCount"
+                                                [titleFontSize]="unReconItemsByViolationTitleFontSize" [unitsFontSize]="15" [titleColor]="unReconItemsByViolationTitleColor"
+                                                [unitsColor]="unReconItemsByViolationSubTitleColor" [subtitle]="'Transaction(s)'"
+                                                [showSubtitle]="true" [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true'">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Un-Accounted Items By Violation'}" (click)="accFetchGrpByData('violation',2);scrollTabAcc();">
+                                    <!-- showAccountingData('Un-Accounted Items By Violation') -->
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted By Violation</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Accounted Items By Violation');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="accdetaildata">
+                                        <span>
+                                            <circle-progress [percent]="accdetaildata.unAccountedItemsViolationPer" [radius]="80" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="'#9C27B0'" [innerStrokeColor]="'#ededed'"
+                                                [animation]="true" [animationDuration]="300" [showUnits]="false" [showtitle]="true"
+                                                [title]="accdetaildata.unAccountedItemsViolation" [titleFontSize]="unReconItemsByValueTitleFontSize"
+                                                [unitsFontSize]="15" [titleColor]="unReconItemsByValueTitleColor" [unitsColor]="unReconItemsByValueUnitsColor"
+                                                [subtitle]="'Transaction(s)'" [showSubtitle]="true" [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="violationWidth" style="display: flex;position: absolute;bottom: -5px;left: 6px;" *ngIf="(selectedAccTabKPI == 4 && accountingAllData[selectedAccTab].multiCurrency == 'true') || (selectedAccTabKPI == 3 && accountingAllData[selectedAccTab].multiCurrency != 'true')"
+                                    [@enterAnimation]>
+                                    <span>Period {{tempAccountingViolationPeriod}} days</span>
+                                    <md-slider class="example-margin" [disabled]="disabled" [invert]="invert" [max]="max" [min]="min" [step]="step" [thumbLabel]="thumbLabel"
+                                        [tickInterval]="tickInterval" [(ngModel)]="tempAccountingViolationPeriod" [vertical]="vertical">
+                                    </md-slider>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Update" (click)="updateViolationAnalysis('accounting');">check_circle</i>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Cancel" (click)="cancelViolationAnalysis('accounting');">cancel</i>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency == 'true'">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Un-Accounted Items By Violation'}" (click)="accFetchGrpByData('violation',2);scrollTabAcc();">
+                                    <!-- showAccountingData('Un-Accounted Items By Violation') -->
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Un-Accounted By Violation</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Un-Accounted Items By Violation');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="accdetaildata">
+                                        <span>
+                                            <circle-progress [percent]="accdetaildata.unAccountedItemsViolationPer" [radius]="80" [space]="-6" [outerStrokeWidth]="6"
+                                                [innerStrokeWidth]="6" [outerStrokeColor]="'#9C27B0'" [innerStrokeColor]="'#ededed'"
+                                                [animation]="true" [animationDuration]="300" [showUnits]="false" [showtitle]="true"
+                                                [title]="accdetaildata.unAccountedItemsViolation" [titleFontSize]="unReconItemsByValueTitleFontSize"
+                                                [unitsFontSize]="15" [titleColor]="unReconItemsByValueTitleColor" [unitsColor]="unReconItemsByValueUnitsColor"
+                                                [subtitle]="'Transaction(s)'" [showSubtitle]="true" [subtitleFontSize]="14"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="violationWidth" style="display: flex;position: absolute;bottom: -5px;left: 6px;" *ngIf="(selectedAccTabKPI == 4 && accountingAllData[selectedAccTab].multiCurrency == 'true') || (selectedAccTabKPI == 3 && accountingAllData[selectedAccTab].multiCurrency != 'true')"
+                                    [@enterAnimation]>
+                                    <span>Period {{tempAccountingViolationPeriod}} days</span>
+                                    <md-slider class="example-margin" [disabled]="disabled" [invert]="invert" [max]="max" [min]="min" [step]="step" [thumbLabel]="thumbLabel"
+                                        [tickInterval]="tickInterval" [(ngModel)]="tempAccountingViolationPeriod" [vertical]="vertical">
+                                    </md-slider>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Update" (click)="updateViolationAnalysis('accounting');">check_circle</i>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Cancel" (click)="cancelViolationAnalysis('accounting');">cancel</i>
+                                </div>
+                            </ng-template>
+                            <ng-template md-tab-label *ngIf="accountingAllData[selectedAccTab].multiCurrency != 'true' && acc_app">
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Accounting Awaiting For Approval'}" (click)="accFetchGrpByData('approvals');showAccountingData('Accounting Awaiting For Approval');scrollTabAcc();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Awaiting Approval</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Accounting Awaiting For Approval');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="accdetaildata">
+                                        <span>
+                                            <circle-progress [percent]="accdetaildata.awaitingAppCountPer" [radius]="80" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                                                [outerStrokeColor]="'#fd9700'" [innerStrokeColor]="'#ededed'" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="accdetaildata.awaitingAppCount"
+                                                [titleFontSize]="unReconItemsByValueTitleFontSize" [unitsFontSize]="15" [subtitle]="'Approval'"
+                                                [showSubtitle]="true" [subtitleFontSize]="14" [titleColor]="unReconItemsByValueTitleColor"
+                                                [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <md-tab *ngIf="acc_app && accountingAllData[selectedAccTab].multiCurrency == 'true'">
+                            <ng-template md-tab-label>
+                                <div [ngClass]="{selectedModule: currentAccModule == 'Accounting Awaiting For Approval'}" (click)="accFetchGrpByData('approvals');showAccountingData('Accounting Awaiting For Approval');scrollTabAcc();">
+                                    <div id="headerTab">
+                                        <div class="kpiHeaderFont">Awaiting Approval</div>
+                                        <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                            <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Accounting Awaiting For Approval');">
+                                                <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="reconBackgroundColor" style="min-height: 210px;" *ngIf="accdetaildata">
+                                        <span>
+                                            <circle-progress [percent]="accdetaildata.awaitingAppCountPer" [radius]="80" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                                                [outerStrokeColor]="'#fd9700'" [innerStrokeColor]="'#ededed'" [animation]="true"
+                                                [animationDuration]="300" [showUnits]="false" [showtitle]="true" [title]="accdetaildata.awaitingAppCount"
+                                                [titleFontSize]="unReconItemsByValueTitleFontSize" [unitsFontSize]="15" [subtitle]="'Approval'"
+                                                [showSubtitle]="true" [subtitleFontSize]="14" [titleColor]="unReconItemsByValueTitleColor"
+                                                [unitsColor]="unReconItemsByValueUnitsColor"></circle-progress>
+                                        </span>
+                                    </div>
+                                </div>
+                            </ng-template>
+                        </md-tab>
+                        <!-- <md-tab>
+                    <ng-template md-tab-label>
+                        <div [ngClass]="{selectedModule: currentAccModule == 'Activity Accounting Status'}" (click)="showAccountingData('Activity Accounting Status')">
+                            <div id="headerTab">
+                                <div style="font-size: 14px;">Some Random Accounting Chart</div>
+                                <div style="position: absolute; right: 0px; top: 1px;height: 34px;">
+                                    <button class="headerbutton" md-icon-button style="height: 34px !important;visibility:hidden;" (click)="openSideBar('Activity Accounting Status');">
+                                        <md-icon style="font-size: 16px !important;margin-top: -12px !important;">settings</md-icon>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="reconBackgroundColor" style="text-align: -webkit-center;height: 210px;width: 250px;">
+                                <canvas *ngIf="showActivityAccountingStatus && pieChartActivityAccounting && pieChartActivityAccountingLabels" baseChart
+                                    [data]="pieChartActivityAccounting" [labels]="pieChartActivityAccountingLabels" [chartType]="pieChartActivityAccountingType"
+                                    [options]="pieChartActivityAccountingOptions" (chartClick)="fetchAccountingActivity($event)"
+                                    [colors]="pieChartActivityColors">
+                                </canvas>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab> -->
+                    </md-tab-group>
+                </div>
+                <div *ngIf="accViewCombinationSpecificAnalysis.length && accountingAllData && accountingAllData.length">
+                    <div class="row col-md-12" style="margin-left: 0px;">
+                        <div class="cat-heading col-md-6">
+                            <span class="d-flex" style="margin-left: -5px;">
+                                <span *ngIf="subProcessAnalysisHeadingAcc != 'Awaiting Approvals' && (accFilteredData && accFilteredData.detailList )" class="topBottomMargin">View By </span>
+                                <md-select *ngIf="subProcessAnalysisHeadingAcc != 'Awaiting Approvals' && showAccGrpBy" placeholder="" style="padding-top: 0px;padding-left: 5px;padding-right: 5px;width: 150px;margin-left: 5px;margin-right: 5px;"
+                                    [(ngModel)]="accSelectedViewRS" multiple panelClass="lovStyleDash">
+                                    <!-- && accGrpByDetails && accGrpByDetails.detailList 
+                            && accViewSpecificColumnsGrpBy && accViewSpecificColumnsGrpBy.columnsList -->
+                                    <md-option *ngFor="let col of accViewSpecificColumnsGrpBy.columnsList | orderBy: 'columnName';let i = index;" [value]="col.columnAliasName"
+                                        (click)="accFetchGrpByData(accSelectedGrpByTab);" [disabled]="(col.columnAliasName == accSelectedViewRS && accSelectedViewRS.length == 1) || 
+                                (accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifier == col.columnName)">{{col.columnName}}</md-option>
+                                </md-select>
+                                <md-select *ngIf="subProcessAnalysisHeadingAcc != 'Awaiting Approvals' && !showAccGrpBy " style="padding-top: 0px;padding-left: 5px;padding-right: 5px;width: 150px;margin-left: 5px;margin-right: 5px;"
+                                    [(value)]="tempLoading" panelClass="lovStyleDash">
+                                    <md-option value="loading" disabled>Loading...</md-option>
+                                </md-select>
+                                <span class="topBottomMargin" style="padding-right: 5px;">Analysis </span>
+                                <span class="topBottomMargin"> For
+                                    <span class="selectedLabel">
+                                        {{subProcessAnalysisHeadingAcc}}
+                                    </span>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="col-md-6 customToggleTabs" style="margin-top: auto;display: flex;">
+                            <div class="col-md-10 viewByTabs topBottomMargin">
+                                <!-- <md-button-toggle-group class="pull-right" #group="mdButtonToggleGroup" (change)="changeAccGrpTab($event);" [(value)]="accSelectedGrpByTab"
+                            style="margin-top: 9px;" *ngIf="selectedAccTabKPI == 0 && (subProcessAnalysisHeadingAcc == 'Un-Accounted' || subProcessAnalysisHeadingAcc == 'JE Pending' || subProcessAnalysisHeadingAcc == 'JE Created')">
+                            <md-button-toggle value="Un-Accounted">
+                                Un-Accounted
+                            </md-button-toggle>
+                            <md-button-toggle value="JE Pending">
+                                JE Pending
+                            </md-button-toggle>
+                            <md-button-toggle value="JE Created">
+                                JE Created
+                            </md-button-toggle>
+                        </md-button-toggle-group> -->
+                                <md-tab-group class="viewByTabs" [(selectedIndex)]="accStatusTab" [@enterAnimation] *ngIf="selectedAccTabKPI == 0 && (subProcessAnalysisHeadingAcc == 'Un-Accounted' || subProcessAnalysisHeadingAcc == 'JE Pending' || subProcessAnalysisHeadingAcc == 'JE Created')"
+                                    [@slideIn] (focusChange)="changeAccGrpTab($event);">
+                                    <span>
+                                        <md-tab label="Un-Accounted"></md-tab>
+                                        <md-tab label="JE Pending"></md-tab>
+                                        <md-tab label="JE Created"></md-tab>
+                                    </span>
+                                </md-tab-group>
+                                <!--  <div *ngIf="accuniqueCurrencyCode && accuniqueCurrencyCode.length && accCurrencyOption && subProcessAnalysisHeadingAcc != 'Awaiting Approvals'"
+                class="accMdBut customToggleTabs" style="padding-top: 7px;" [@slideIn]>
+                <span>Currency :</span>
+                <span>
+                    <md-button-toggle-group name="currency" [(ngModel)]="accCurrencyCode" ngDefaultControl (change)="changeAccCurr = true;accFetchGrpByData('currency',$event.value);">
+                        <md-button-toggle *ngFor="let currency of accuniqueCurrencyCode | orderBy" [value]="currency">
+                            {{currency}}
+                        </md-button-toggle>
+                    </md-button-toggle-group>
+                </span>
+            </div> -->
+                                <md-tab-group class="viewByTabs" [(selectedIndex)]="accCurrencyTab" [@enterAnimation] *ngIf="accuniqueCurrencyCode && accuniqueCurrencyCode.length  && subProcessAnalysisHeadingAcc != 'Awaiting Approvals' && subProcessAnalysisHeadingAcc == 'Currency'"
+                                    [@slideIn] (focusChange)="changeAccCurr = true;accFetchGrpByData('currency',$event.index);">
+                                    <!-- && reconCurrencyOption -->
+                                    <span>
+                                        <md-tab label="All"></md-tab>
+                                        <md-tab *ngFor="let currencyValue of accuniqueCurrencyCode | orderBy" label="{{currencyValue}}"></md-tab>
+                                    </span>
+                                </md-tab-group>
+                                <md-button-toggle-group #agingAcc="mdButtonToggleGroup" *ngIf="showAccAging" style="margin-top: 9px" class="pull-right" (change)="accFetchGrpByData('aging', $event.value)">
+                                    <md-button-toggle *ngFor="let col of accAgingLov;let i = index;" [value]="col" [checked]="col.checked">
+                                        {{col.name}}
+                                    </md-button-toggle>
+                                </md-button-toggle-group>
+                            </div>
+
+                            <div id="headerTab" class="col-md-2" style="display: contents;">
+                                <div class="selectLovFont pull-right">
+                                    <!-- *ngIf="showAccGrpBy && accFilteredData && accFilteredData.detailList && accFilteredData.detailList.length" -->
+                                    <button md-icon-button (click)="exportGrpByFile('csv','Accounting')" mdTooltip="Export to CSV" [disabled]="accFilteredData && accFilteredData.detailList && !accFilteredData.detailList.length">
+                                        <i class="rec-font-csv" style="font-size: 24px;"></i>
+                                    </button>
+                                    <button md-icon-button (click)="exportGrpByFile('excel','Accounting')" mdTooltip="Export to Excel" [disabled]="accFilteredData && accFilteredData.detailList && !accFilteredData.detailList.length">
+                                        <i class="fa fa-file-excel-o" style="font-size: 24px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;padding: 10px 0px;margin-bottom: 15px;">
+                        <div class="spinnerBlockTable"></div>
+                        <div class="dashboardNavTab" style="width: 100%;">
+                            <div class="list-table" *ngIf="accStatusTabCol.length && subProcessAnalysisHeadingAcc != 'Awaiting Approvals'" [@slideIn]>
+                                <p-dataTable [value]="accFilteredData.detailList" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+                                    scrollable="false" [responsive]="true" [headerCheckboxToggleAllPages]="true" #dt [rows]="15"
+                                    [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]">
+                                    <!-- scrollHeight="222px" -->
+                                    <p-column *ngFor="let col of accStatusTabCol" [style]="{'text-align':col.align}" [field]="col.field" [header]="col.header"
+                                        [sortable]="true"> </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer" field="count" header="Count" styleClass="right" styleClass="countRight" [style]="{'text-align':'center'}"
+                                        [sortable]="true">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <!-- <span class="countCenterRight">{{row[col.field] | number: '.0'}}</span> -->
+                                            <div style="position: relative;">
+                                                <!--  mdTooltip="{{row.avgCtPer | amountFormat:'': 2}}%" -->
+                                                <!-- <div [ngStyle]="setMyStyles(i,'Count','Accounting')" style="background-color: rgb(52, 188, 216);position: absolute;right: 0;height: 100%;"></div> -->
+                                                <div style="position: relative;">{{row[col.field] | number: '.0'}}</div>
+                                            </div>
+                                            <!-- class="countCenterRight" -->
+                                        </ng-template>
+                                    </p-column>
+                                    <!-- 
+                            <p-column *ngIf="rowData.reconciliation_status != undefined" field="reconciliation_status" header="Status" styleClass="left" [style]="{'text-align':'center'}"
+                                [sortable]="false">
+                                <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                    <div style="position: relative;">
+                                        <div style="position: relative;">{{row.reconciliation_status}} </div>
+                                    </div>
+                                </ng-template>
+                            </p-column> -->
+                                    <p-column *ngIf="!showAccApprovalPer" field="countPer" header="Count Percentage" styleClass="right" [style]="{'text-align':'center'}"
+                                        [sortable]="true" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row[col.field] | number: '.0'}}%</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer && accFilteredData.columnNames && accViewSpecificColumnsGrpBy.currencyCodeQualifier && accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName
+                                        && accFilteredData.columnNames.amtQualifier && !accFilteredData.columnNames.amtQualifier.amtQualifierAliasName"
+                                        [field]="accFilteredData.columnNames.amtQualifier.header" header="Amount" styleClass="right"
+                                        [sortable]="true" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <a>
+                                                <div style="position: relative;" (click)="navigateToAWQ(row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName],i);">
+                                                    <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                        style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                    <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                        style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                    <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:accountingAllData[selectedAccTab]['currencyCode']}}
+                                                    </div>
+                                                </div>
+                                            </a>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer && accFilteredData.columnNames && accFilteredData.columnNames && accFilteredData.columnNames.amtQualifier && accFilteredData.columnNames.amtQualifier.amtQualifierAliasName
+                                        && accViewSpecificColumnsGrpBy.currencyCodeQualifier && accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName"
+                                        [field]="accFilteredData.columnNames.amtQualifier.amtQualifierAliasName" header="Amount"
+                                        styleClass="right" [sortable]="true" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                    style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                    style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:accountingAllData[selectedAccTab]['currencyCode']}}
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer && accFilteredData.columnNames && accViewSpecificColumnsGrpBy.currencyCodeQualifier 
+                                        && accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName
+                                        && accountingAllData[selectedAccTab].multiCurrency != 'true'" field="amtPer" header="Amount Percentage"
+                                        styleClass="right" [style]="{'text-align':'center'}" [sortable]="true" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row[col.field]}}%</div>
+                                                <!--  | number: '.0' -->
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                            <div class="list-table" *ngIf="accStatusTabCol.length && subProcessAnalysisHeadingAcc == 'Awaiting Approvals'" [@slideIn]>
+                                <p-dataTable [value]="accGrpByDetails" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+                                    [responsive]="false" [headerCheckboxToggleAllPages]="true" #dt [rows]="15" [paginator]="false"
+                                    [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]">
+                                    <!-- scrollHeight="222px" -->
+                                    <p-column *ngFor="let col of accStatusTabCol" [style]="{'text-align':col.align}" [field]="col.field" [header]="col.header"
+                                        [sortable]="true"> </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer" field="count" header="Count" styleClass="right" styleClass="countRight" [style]="{'text-align':'center'}"
+                                        [sortable]="true">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <!-- <span class="countCenterRight">{{row[col.field] | number: '.0'}}</span> -->
+                                            <div style="position: relative;">
+                                                <!--  mdTooltip="{{row.avgCtPer | amountFormat:'': 2}}%" -->
+                                                <!-- <div [ngStyle]="setMyStyles(i,'Count','Accounting')" style="background-color: rgb(52, 188, 216);position: absolute;right: 0;height: 100%;"></div> -->
+                                                <div style="position: relative;">{{row[col.field] | number: '.0'}}</div>
+                                            </div>
+                                            <!-- class="countCenterRight" -->
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer" field="countPer" header="Count Percentage" styleClass="right" [style]="{'text-align':'center'}"
+                                        [sortable]="true" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row[col.field] | number: '.0'}}%</div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer && accGrpByDetails.columnNames && accViewSpecificColumnsGrpBy.currencyCodeQualifier && accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName
+                                && accGrpByDetails.columnNames.amtQualifier && !accGrpByDetails.columnNames.amtQualifier.amtQualifierAliasName"
+                                        [field]="accGrpByDetails.columnNames.amtQualifier.header" header="Amount" styleClass="right"
+                                        [sortable]="true" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                    style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                    style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:accountingAllData[selectedAccTab]['currencyCode']}}
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer && accGrpByDetails.columnNames && accGrpByDetails.columnNames && accGrpByDetails.columnNames.amtQualifier && accGrpByDetails.columnNames.amtQualifier.amtQualifierAliasName
+                                && accViewSpecificColumnsGrpBy.currencyCodeQualifier && accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName"
+                                        [field]="accGrpByDetails.columnNames.amtQualifier.amtQualifierAliasName" header="Amount"
+                                        styleClass="right" [sortable]="true" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] != undefined"
+                                                    style="position: relative;">{{row[col.field] | amountFormat:'': 2:row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName]}}</div>
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] == 'true' && row[accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName] == undefined"
+                                                    style="position: relative;">{{row[col.field] | number : '.2'}}</div>
+                                                <div *ngIf="accountingAllData[selectedAccTab]['multiCurrency'] != 'true'" style="position: relative;">{{row[col.field] | amountFormat:'': 2:accountingAllData[selectedAccTab]['currencyCode']}}
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                    <p-column *ngIf="!showAccApprovalPer && accGrpByDetails.columnNames && accViewSpecificColumnsGrpBy.currencyCodeQualifier 
+                                && accViewSpecificColumnsGrpBy.currencyCodeQualifier.currencyCodeQualifierAliasName
+                                && accountingAllData[selectedAccTab].multiCurrency != 'true'" field="amtPer" header="Amount Percentage"
+                                        styleClass="right" [style]="{'text-align':'center'}" [sortable]="true" styleClass="countRight">
+                                        <ng-template let-col let-row="rowData" pTemplate="body" let-i="rowIndex">
+                                            <div style="position: relative;">
+                                                <div style="position: relative;">{{row[col.field]}}%</div>
+                                                <!--  | number: '.0' -->
+                                            </div>
+                                        </ng-template>
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SIDE BAR -->
+            <p-sidebar [(visible)]="visibleSidebar2" position="right" [baseZIndex]="10000">
+                <div *ngIf="openModuleSetting == 'Filter Data'">
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-4" style="margin-top: 12px;">Processes :</div>
+                        <div class="col-md-8">
+                            <perfect-scrollbar style="height: 100px;">
+                                <md-nav-list>
+                                    <a md-list-item *ngFor="let col of processesList" (click)="selectedProcessFun(col);" [ngClass]="{'nav-active': col == activeItem}">
+                                        {{ col.processName }} </a>
+                                </md-nav-list>
+                            </perfect-scrollbar>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;">
+                            <md-checkbox [(ngModel)]="processFilter.asOfValue">As Of Today</md-checkbox>
+                        </div>
+                        <div class="col-md-12" *ngIf="processFilter.asOfValue == false" style="display: flex;padding-left: 33px;">
+                            <div class="datePickerWidth">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="stpicker" placeholder="From date" [(ngModel)]="processFilter.startDate" name="startDate" required>
+                                    <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                    <md-datepicker #stpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                            <div class="datePickerWidth">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="edpicker" placeholder="To date" [min]="processFilter.startDate" [(ngModel)]="processFilter.endDate"
+                                        name="endDate">
+                                    <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                    <md-datepicker #edpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;">
+                            <md-checkbox [(ngModel)]="processFilter.closedPeriods">Include Closed Periods</md-checkbox>
+                        </div>
+                    </div>
+                </div>
+                <div *ngIf="openModuleSetting == 'Reconciliation Status'">
+                    <div class="col-md-12" style="margin-top: 15px;">
+                        <h5>{{openModuleSetting}}</h5>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Reconciled Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="reconColorTemp"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Un-Reconciled Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="unReconColorTemp"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Background Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="reconBackgroundTemp"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8">
+                            Chart Type :
+                        </div>
+                        <div class="col-md-4">
+                            <md-radio-group [(ngModel)]="temppieChartReconciliationType">
+                                <md-radio-button value="pie">Pie</md-radio-button>
+                                <md-radio-button value="bar">Bar</md-radio-button>
+                            </md-radio-group>
+                        </div>
+                    </div>
+                </div>
+                <div *ngIf="openModuleSetting == 'Un-Reconciled Transaction By Aging Bucket'">
+                    <div class="col-md-12" style="margin-top: 15px;">
+                        <h4>{{openModuleSetting}}</h4>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempagingColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Background Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="agingBucketBackgroundTemp"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8">
+                            Chart Type :
+                        </div>
+                        <div class="col-md-4">
+                            <md-radio-group [(ngModel)]="tempbarChartType">
+                                <md-radio-button value="pie">Pie</md-radio-button>
+                                <md-radio-button value="bar">Bar</md-radio-button>
+                                <md-radio-button value="line">Line</md-radio-button>
+                            </md-radio-group>
+                        </div>
+                    </div>
+                </div>
+                <div *ngIf="openModuleSetting == 'Un-Reconciled Items By Value'">
+                    <div class="col-md-12" style="margin-top: 15px;">
+                        <h4>{{openModuleSetting}}</h4>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Radius :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempunReconItemsByValueRadius" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Outer Stroke Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByValueOuterStrokeColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Inner Stroke Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByValueInnerStrokeColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Title Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByValueTitleColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Sub-Title Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByValueSubTitleColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Title Font Size :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempunReconItemsByValueTitleFontSize" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Sub-Title Font Size :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempunReconItemsByValueSubtitleFontSize" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                </div>
+                <div *ngIf="openModuleSetting == 'Un-Reconciliation Items By Violation'">
+                    <div class="col-md-12" style="margin-top: 15px;">
+                        <h4>{{openModuleSetting}}</h4>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Radius :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempunReconItemsByViolationRadius" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Outer Stroke Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByViolationOuterStrokeColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Inner Stroke Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByViolationInnerStrokeColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Title Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempunReconItemsByViolationTitleColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Title Font Size :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempunReconItemsByViolationTitleFontSize" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                </div>
+                <div *ngIf="openModuleSetting == 'Awaiting Approvals'">
+                    <div class="col-md-12" style="margin-top: 15px;">
+                        <h4>{{openModuleSetting}}</h4>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Radius :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempreconAwaitingForApprovalRadius" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Outer Stroke Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempreconAwaitingForApprovalOuterStrokeColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Title Color :
+                        </div>
+                        <div class="col-md-4">
+                            <p-colorPicker [(ngModel)]="tempreconAwaitingForApprovalTitleColor"></p-colorPicker>
+                        </div>
+                    </div>
+                    <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+                        <div class="col-md-8" style="margin-top: auto; margin-bottom: auto;">
+                            Title Font Size :
+                        </div>
+                        <div class="col-md-4" style="margin-top: -12px;">
+                            <md-input-container class="example-full-width ">
+                                <input mdInput type="number" [(ngModel)]="tempreconAwaitingForApprovalTitleFontSize" placeholder="">
+                            </md-input-container>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 5px;">
+                    <button md-raised-button class="pull-right" (click)="cancelReconSetting();visibleSidebar2 = false">Cancel</button>
+                    <button md-raised-button class="pull-right" (click)="saveReconSetting();visibleSidebar2 = false">Save</button>
+                </div>
+            </p-sidebar>
+        </div>
+    </div>
+</div>

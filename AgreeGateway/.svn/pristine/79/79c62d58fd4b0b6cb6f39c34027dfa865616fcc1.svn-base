@@ -1,0 +1,832 @@
+<div class="container-fluid component-body file-templates">
+    <div class="row botom-dotted-blue-border component-title">
+        <div class="col-md-6 pageTitle" style="padding-left: 0px;display:flex;">
+            <!-- <div class="col-md-8"> -->
+                <h2>Approval's Work Queue</h2>
+            <!-- </div> -->
+            <!-- <div class="col-md-4">
+                <md-select placeholder="Select Module" [(ngModel)]="selectedModuleType" name="moduleType" style="width: 80%;margin-top: -7px;"
+                    [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" required>
+                    <md-option *ngFor="let col of moduleType" [value]="col.value" (click)="fetchNotificationBatchList('IN_PROCESS');">
+                        {{ col.name }}
+                    </md-option>
+                </md-select>
+            </div> -->
+        </div>
+        <div class="col-md-6 ftlSearch">
+            <button md-icon-button class="pull-right search-icon-body" mdTooltip="Search">
+				<md-icon>search</md-icon>
+			</button>
+            <md-input-container class="pull-right hidethis">
+                <input class="mySearchBox" mdInput #gb placeholder="What're we looking for?">
+            </md-input-container>
+        </div>
+    </div>
+    <div class="container-fluid component-body">
+        <!-- <div class="split-pane-content-secondary">  -->
+        <vertical-split-pane primary-component-minsize="35" primary-component-initialratio="0.2">
+            <div class="split-pane-content-primary sideBarNotificationQue">
+                <div class="botom-dotted-blue-border pageTitle row" style="margin-left: 0px;margin-right: 4px;margin-top: 18px;">
+                    <h5 style="margin-left: -5px;">Hierarcial View</h5>
+                </div>
+                <div class="hierarchyClass">
+                    <p-tree [value]="sideBarHierarchyList" selectionMode="single" [(selection)]="selectedFile" (onNodeSelect)="nodeSelect($event)"
+                        (onNodeUnselect)="nodeUnselect($event)"></p-tree>
+                </div>
+            </div>
+            <div class="split-pane-content-secondary">
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="z-index: 1;top: 14px;display:flex;">
+                    <div class="col-md-4">
+                        <md-select placeholder="Select Module" [(ngModel)]="selectedModuleType" name="moduleType" style="width: 50%;margin-top: -7px;"
+                            [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" required>
+                            <md-option *ngFor="let col of moduleType" [value]="col.value" (click)="fetchNotificationBatchList('IN_PROCESS');">
+                                {{ col.name }}
+                            </md-option>
+                        </md-select>
+                    </div>
+                    <div class="col-md-8">
+                        <popover-content #myPopover title="Reassign" placement="left" [animation]="true" [closeOnClickOutside]="false" [popoverCloseOnMouseOutside]="false">
+                            <div class="col-md-12" style="display: flex;">
+                                <div class="col-md-6" style="white-space:nowrap;margin-top: auto;margin-bottom: auto;top: 10px;">Select User :</div>
+                                <div class="col-md-6">
+                                    <md-select placeholder="" name="userslists" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="selectedUser">
+                                        <md-option *ngFor="let col of usersList;" [value]="col.id">{{col.firstName}} {{col.lastName}}</md-option>
+                                    </md-select>
+                                </div>
+                            </div>
+                            <div style="padding: 13px 2px 5px 5px;">
+                                <button md-button style="float: right;" (click)="myPopover.hide();" (click)="reassignSelectedBatch();">Ok</button>
+                                <button md-button style="float: right;" (click)="myPopover.hide();">Cancel</button>
+                            </div>
+                        </popover-content>
+                        <button md-button class="rejectApprover rejectedList" mdTooltip="View Rejected Notification" style="color: red;float: right;"
+                            (click)="fetchNotificationBatchList('REJECTED');displayCheckBox = false;" *ngIf="selectedBatchRows.length<1">Rejected</button>
+                        <button md-button class="approversClass approvedList" mdTooltip="View Approved Notification" style="color: green;float: right;"
+                            (click)="fetchNotificationBatchList('APPROVED');displayCheckBox = false;" *ngIf="selectedBatchRows.length<1">Approved</button>
+                        <button md-button class="inprocessApprover inProcessList" mdTooltip="View In Process Notification"
+                            style="color: #1e88e8;float: right;" (click)="fetchNotificationBatchList('IN_PROCESS');displayCheckBox = true;"
+                            *ngIf="selectedBatchRows.length<1">In Process</button>
+                        <button md-button class="classAllList" style="float: right;" mdTooltip="View All Notification" (click)="fetchNotificationBatchList();displayCheckBox = false;"
+                            *ngIf="selectedBatchRows.length<1">All</button>
+                        
+                        
+                        
+                        <!-- <button md-icon-button class="ripple color-gray pull-right" mdTooltip="Advanced Filter" aria-hidden="true">
+								<i class="fa fa-filter fa-2x" aria-hidden="true"></i>
+                            </button> -->
+                        <button class="color-gray" style="float: right;" *ngIf="selectedBatchRows.length>0" md-button [popover]="myPopover"><md-icon>redo</md-icon>  Reassign</button>
+                        <button class="color-gray" style="float: right;" *ngIf="selectedBatchRows.length>0" md-button (click)="rejectSelectedBatch();"><md-icon>thumb_down</md-icon>  Reject</button>
+                        <button class="color-gray"  *ngIf="selectedBatchRows.length>0" md-button (click)="approveSelectedBatch();" style="color: green !important;float: right;"><md-icon>thumb_up</md-icon>  Approve</button>
+                        
+                        
+                        <!-- <button class="color-gray" *ngIf="selectedBatchRows.length>0" md-button><md-icon>format_list_bulleted</md-icon>  More</button> -->
+                    </div>
+                </div>
+                <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12"><!--  style="margin-top: 41px;" -->
+                    <div style="text-align:right" class="show-hide-class">
+                        <p-multiSelect [options]="columnOptions" [(ngModel)]="notificationBatchTableColumns"></p-multiSelect>
+                    </div>
+                    <p-dataTable [value]="notificationBatches" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+                        scrollHeight={{TemplatesHeight}} [responsive]="true" [headerCheckboxToggleAllPages]="true" [globalFilter]="gb"
+                        #dt [rows]="15" [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]" [(selection)]="selectedBatchRows">
+                        <!-- <p-column  [style]="{'width':'38'}" [sortable]="true">
+                     <ng-template let-col let-row="rowData" pTemplate="body" selectionMode="multiple">
+                        <p-checkbox ></p-checkbox>
+                     </ng-template>
+                </p-column> -->
+                        <p-column [style]="{'width':'38px'}" selectionMode="multiple" *ngIf="displayCheckBox"></p-column>
+                        <p-column field="notificationName" header="Notification Name" [style]="{'width':'280px'}" [sortable]="true">
+                            <ng-template let-col let-row="rowData" pTemplate="body">
+                                <a (click)="displaySelectedBatchDetails(row.id);">{{row[col.field]}}</a>
+                            </ng-template>
+                        </p-column>
+                        <p-column field="notificationDate" header="Notification Date" [style]="{'width':'150px'}" [sortable]="true">
+                            <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field] | date:'medium'}}
+                            </ng-template>
+                        </p-column>
+                        <p-column field="module" header="Module Type" [style]="{'width':'150px'}" [sortable]="true" *ngIf="selectedModuleType == 'ALL'">
+                            <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}
+                            </ng-template>
+                        </p-column>
+                        <p-column *ngFor="let col of notificationBatchTableColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+                            [header]="col.header" [sortable]="true">
+                        </p-column>
+                        <p-column [style]="{'width':'110px' }" field="status" header="Status" styleClass="text-center" styleClass="center" [sortable]="true">
+                            <ng-template let-col let-row="rowData" pTemplate="body">
+                                <div class="badge badge-success " *ngIf="row.statusCode == 'APPROVED'">{{row[col.field]}}</div>
+                                <div class="badge badge-danger " *ngIf="row.statusCode == 'REJECTED'">{{row[col.field]}}</div>
+                                <div class="badge  " *ngIf="row.statusCode == 'IN_PROCESS'" style="background-color: #1e88e8;">{{row[col.field]}}</div>
+                            </ng-template>
+                        </p-column>
+                    </p-dataTable>
+                    <md-paginator *ngIf="batchListRecordsLength>0" [length]="batchListRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+                        [pageIndex]="page" (page)="onPaginateChange($event)">
+                    </md-paginator>
+                </div>
+            </div>
+        </vertical-split-pane>
+        <!-- </div> -->
+    </div>
+</div>
+<!-- HTML for dialog box -->
+
+<div class="target-data">
+    <p-dialog header="Transaction Details" [(visible)]="display" [resizable]="true" [responsive]="true">
+        <div class="row" style="margin-left: -4px;">
+            <div class="col-md-3 col-xs-6 form-group">
+                <md-input-container class="example-full-width ">
+                    <input mdInput [(ngModel)]="selectedBatchDetails.notificationName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Notification Name"
+                        name="notificationName" #notificationName="ngModel" readonly>
+                </md-input-container>
+            </div>
+            <div class="col-md-3 col-xs-6 form-group">
+                <md-input-container class="example-full-width ">
+                    <input mdInput [(ngModel)]="selectedBatchDetails.ruleName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Rule Name"
+                        name="ruleName" #ruleName="ngModel" readonly>
+                </md-input-container>
+            </div>
+            <div class="col-md-3 col-xs-6 form-group">
+                <md-input-container class="example-full-width ">
+                    <input mdInput [(ngModel)]="selectedBatchDetails.dataViewName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Data View Name"
+                        name="dataViewName" #dataViewName="ngModel" readonly>
+                </md-input-container>
+            </div>
+            <div class="col-md-3 col-xs-6 form-group">
+                <md-input-container class="example-full-width ">
+                    <input mdInput [(ngModel)]="selectedBatchDetails.status" [ngClass]="{'color-black' : isViewOnly}" placeholder="Current Status"
+                        name="status" #status="ngModel" readonly>
+                </md-input-container>
+            </div>
+        </div>
+        <!-- <div class="row" style="margin-left: -4px;border-bottom: 1px solid #eeebeb;">
+            <div class="col-md-3 col-xs-6 form-group displayCount" style="border-right: 1px solid #eeebeb;">
+                <h6><small>Total</small></h6>
+                <h4>{{processDetails.total}}</h4>
+            </div>
+            <div class="col-md-3 col-xs-6 form-group displayCount" style="border-right: 1px solid #eeebeb;">
+                <h6><small style="color: #1e88e8;">In Process</small></h6>
+                <h4>{{processDetails.InProcess}}</h4>
+            </div>
+            <div class="col-md-3 col-xs-6 form-group displayCount" style="border-right: 1px solid #eeebeb;">
+                <h6><small style="color: green;">Approved</small></h6>
+                <h4>{{processDetails.Approved}}</h4>
+            </div>
+            <div class="col-md-3 col-xs-6 form-group displayCount">
+                <h6><small style="color: red;">Rejected</small></h6>
+                <h4>{{processDetails.Rejected}}</h4>
+            </div>
+        </div> -->
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+            <div>
+                <div style="font-size: 20px !important;">
+                    <div style="position: relative;top: 9px;">Approval History :</div>
+                </div>
+                <div>
+                    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                        <div class="row" style="padding-top: 15px;">
+                            <div class="col-md-3" *ngFor="let approval of approvalsHistory; let i = index;">
+                                <div *ngIf="i < 4" style="display: flex;">
+                                    <div class="col-md-8">
+                                        <!-- [ngClass]="{'classCurrentApp':approval.status == 'Rejected'}" -->
+                                        <div *ngIf="approval.approvalStatus == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/app.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/rej.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/user.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == 'InProcess'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/currentApp.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.name}}</div>
+                                        <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}"
+                                            mdTooltip="{{approval.approvalDate | date:'medium'}}">{{approval.approvalDate | date:'mediumDate'}}</div>
+                                    </div>
+                                    <div class="col-md-4" style="margin-left: auto;margin-right: auto;text-align: center;">
+                                        <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" style="padding-top: 15px;">
+                            <div class="col-md-3" *ngFor="let approval of approvalsHistory; let i = index;">
+                                <div *ngIf="i > 3 && i < 8" style="display: flex;">
+                                    <div class="col-md-8">
+                                        <!-- [ngClass]="{'classCurrentApp':approval.status == 'Rejected'}" -->
+                                        <div *ngIf="approval.approvalStatus == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/app.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/rej.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/user.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == 'InProcess'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/currentApp.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.name}}</div>
+                                        <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}"
+                                            mdTooltip="{{approval.approvalDate | date:'medium'}}">{{approval.approvalDate | date:'mediumDate'}}</div>
+                                    </div>
+                                    <div class="col-md-4" style="margin-left: auto;margin-right: auto;text-align: center;">
+                                        <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" style="padding-top: 15px;">
+                            <div class="col-md-3" *ngFor="let approval of approvalsHistory; let i = index;">
+                                <div *ngIf="i > 7 && i < 12" style="display: flex;">
+                                    <div class="col-md-8">
+                                        <!-- [ngClass]="{'classCurrentApp':approval.status == 'Rejected'}" -->
+                                        <div *ngIf="approval.approvalStatus == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/app.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/rej.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/user.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div *ngIf="approval.approvalStatus == 'InProcess'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                            <img src='userImages/currentApp.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                        </div>
+                                        <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.name}}</div>
+                                        <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}"
+                                            mdTooltip="{{approval.approvalDate | date:'medium'}}">{{approval.approvalDate | date:'mediumDate'}}</div>
+                                    </div>
+                                    <div class="col-md-4" style="margin-left: auto;margin-right: auto;text-align: center;">
+                                        <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-right: 25px;margin-bottom: 15px;padding-bottom: 5px;">
+            <popover-content #myPopover1 title="Reassign" placement="left" [animation]="true" [closeOnClickOutside]="false" [popoverCloseOnMouseOutside]="false">
+                <div class="col-md-12" style="display: flex;">
+                    <div class="col-md-6" style="white-space:nowrap;margin-top: auto;margin-bottom: auto;top: 10px;">Select User :</div>
+                    <div class="col-md-6">
+                        <md-select placeholder="" name="userslists" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="selectedUser">
+                            <md-option *ngFor="let col of usersList;" [value]="col.id">{{col.firstName}} {{col.lastName}}</md-option>
+                        </md-select>
+                    </div>
+                </div>
+                <div style="padding: 13px 2px 5px 5px;">
+                    <button md-button style="float: right;" (click)="myPopover1.hide();" (click)="reassignSelectedBatch(selectedBatchDetails);">Ok</button>
+                    <button md-button style="float: right;" (click)="myPopover1.hide();">Cancel</button>
+                </div>
+            </popover-content>
+            <button md-button class="color-gray" style="visibility: hidden;"><md-icon>thumb_up</md-icon>  Approve</button>
+            <!-- <button md-button class="color-gray" style="float: right" mdTooltip="More"><md-icon>format_list_bulleted</md-icon>  More</button> -->
+            <button class="color-gray" style="float: right" *ngIf="selectedBatchDetails.status == 'InProcess'" mdTooltip="Reassign" md-button
+                [popover]="myPopover1">
+                <md-icon>redo</md-icon>  Reassign</button>
+            <button md-button class="color-gray" style="float: right" *ngIf="selectedBatchDetails.status == 'InProcess'" mdTooltip="Reject"
+                (click)="rejectSelectedBatch(selectedBatchDetails)"><md-icon>thumb_down</md-icon>  Reject</button>
+            <button md-button class="color-gray" style="float: right;color: green !important;" *ngIf="selectedBatchDetails.status == 'InProcess'"
+                mdTooltip="Approve" (click)="approveSelectedBatch(selectedBatchDetails)"><md-icon>thumb_up</md-icon>  Approve</button>
+            <button md-button class="color-gray" style="float: right" (click)="viewDetailedReport(selectedBatchDetails.id);selectedValues = ''"
+                mdTooltip="View Detailed Report"><md-icon>description</md-icon>  View Report</button>
+        </div>
+    </p-dialog>
+</div>
+
+<p-sidebar [(visible)]="visibleSidebar5" [fullScreen]="true" [baseZIndex]="10000" [blockScroll]="true" [blockScroll]="false">
+    <div class="row botom-dotted-blue-border component-title">
+        <div class="col-md-6 pageTitle" style="padding-left: 0px !important;">
+            <h2>Batch Detail List</h2>
+        </div>
+    </div>
+    <br>
+
+    <div class="row">
+        <div class="col-md-3 col-xs-6 form-group">
+            <md-input-container class="example-full-width ">
+                <input mdInput [(ngModel)]="selectedBatchDetails.notificationName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Notification Name"
+                    name="notificationName" #notificationName="ngModel" readonly>
+            </md-input-container>
+        </div>
+        <div class="col-md-3 col-xs-6 form-group">
+            <md-input-container class="example-full-width ">
+                <input mdInput [(ngModel)]="selectedBatchDetails.ruleName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Rule Name"
+                    name="ruleName" #ruleName="ngModel" readonly>
+            </md-input-container>
+        </div>
+        <div class="col-md-3 col-xs-6 form-group">
+            <md-input-container class="example-full-width ">
+                <input mdInput [(ngModel)]="selectedBatchDetails.dataViewName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Data View Name"
+                    name="dataViewName" #dataViewName="ngModel" readonly>
+            </md-input-container>
+        </div>
+        <div class="col-md-3 col-xs-6 form-group">
+            <md-input-container class="example-full-width ">
+                <input mdInput [(ngModel)]="selectedBatchDetails.status" [ngClass]="{'color-black' : isViewOnly}" placeholder="Current Status"
+                    name="status" #status="ngModel" readonly>
+            </md-input-container>
+        </div>
+    </div>
+    <!-- <div class="row" style="border-bottom: 1px solid #eeebeb;">
+        <div class="col-md-3 col-xs-6 form-group displayCount" style="border-right: 1px solid #eeebeb;">
+            <h6><small>Total</small></h6>
+            <h4>{{processDetails.total}}</h4>
+        </div>
+        <div class="col-md-3 col-xs-6 form-group displayCount" style="border-right: 1px solid #eeebeb;">
+            <h6><small style="color: #1e88e8;">In Process</small></h6>
+            <h4>{{processDetails.InProcess}}</h4>
+        </div>
+        <div class="col-md-3 col-xs-6 form-group displayCount" style="border-right: 1px solid #eeebeb;">
+            <h6><small style="color: green;">Approved</small></h6>
+            <h4>{{processDetails.Approved}}</h4>
+        </div>
+        <div class="col-md-3 col-xs-6 form-group displayCount">
+            <h6><small style="color: red;">Rejected</small></h6>
+            <h4>{{processDetails.Rejected}}</h4>
+        </div>
+    </div> -->
+    <!-- <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 fullScreenViewButton" style="padding-left: 21px;padding-right: 21px;padding-top: 5px;">
+        <div style="position: absolute;right: 0;top: 9px;padding-right: 20px;z-index: 10;">
+            <button *ngIf="selectedValues.length>0" md-button class="color-gray" style="float: right" mdTooltip="Reject" (click)="rejectSelectedReports();"><md-icon>thumb_down</md-icon>  Reject</button>
+            <button *ngIf="selectedValues.length>0" md-button class="color-gray" style="float: right;color:green !important" mdTooltip="Approve"
+                (click)="approveSelectedReports();"><md-icon>thumb_up</md-icon>  Approve</button>
+            <button md-button style="float: right;" class="classAll" mdTooltip="All Records" (click)="viewDetailedReports();">All</button>
+            <button md-button class="inprocessApprover inprocessRec" style="float: right;" mdTooltip="In Process Records" style="color: #1e88e8;"
+                (click)="viewDetailedReports('INPROCESS');">In Process</button>
+            <button md-button class="approversClass approvedRec" style="float: right;" mdTooltip="Approved Records" style="color: green;"
+                (click)="viewDetailedReports('APPROVED');">Approved</button>
+            <button md-button class="rejectApprover rejectedRec" style="float: right;" mdTooltip="Rejected Records" style="color: red;"
+                (click)="viewDetailedReports('REJECTED');">Rejected</button>
+        </div>
+    </div> -->
+    <md-tab-group [dynamicHeight]='false' class="testHei">
+        <md-tab label="Summary Report">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 fullScreenViewButton" style="padding-left: 21px;padding-right: 21px;padding-top: 5px;">
+                <div>
+                    <div>
+                        <div *ngIf="selectedBatchDetailsReports.length<1" style="text-align: center;font-size: 30px;color: #0d47a1;">No records to display</div>
+                        <p-accordion (onOpen)="getDetailRecord($event)">
+                            <div class="table-responsive">
+                                <p-accordionTab *ngFor="let col of selectedBatchDetailsReports; let i = index">
+                                    <!-- (click)="getDetailRecord(col.reconReference,i);" -->
+                                    <p-header>
+                                        <!-- <p-checkbox *ngIf="selectedBatchDetails.status == 'InProcess'" value="{{col.reconReference}}" name="groupname{{i}}" [(ngModel)]="selectedValues"
+                                            (click)="testCheck();"></p-checkbox> -->
+                                        <span>{{col.reconReference}}</span>
+                                    </p-header>
+                                    <div class="split-pane-content-secondary" style="margin-top: -24px;">
+                                        <vertical-split-pane primary-component-minsize="35" secondary-component-minsize="35" secondary-component-initialratio="0.5">
+                                            <div class="split-pane-content-primary" style="margin-top: -10px;">
+                                                <div style="padding-left: 17px;padding-right: 28px;" *ngIf="batchRecordsSrcTrgDetails[i] != ''">
+                                                    <div style="text-align:right" class="show-hide-class">
+                                                        <p-multiSelect [options]="batchRecordsSrcTrgDetails[i].srccolumnOptions" [(ngModel)]="batchRecordsSrcTrgDetails[i].srcnotificationBatchTableColumns"></p-multiSelect>
+                                                    </div>
+                                                    <p-dataTable [value]="batchRecordsSrcTrgDetails[i].source" reorderableColumns="true" resizableColumns="true" [responsive]="true">
+                                                        <p-header>{{batchRecordsSrcTrgDetails[i].sourceName}}</p-header>
+                                                        <p-column *ngFor="let dis of batchRecordsSrcTrgDetails[i].srcnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}"
+                                                            [field]="dis.field" [header]="dis.header">
+                                                        </p-column>
+                                                    </p-dataTable>
+                                                </div>
+                                            </div>
+                                            <div class="split-pane-content-secondary" style="margin-top: -10px;">
+                                                <div style="padding-left: 17px;padding-right: 10px;" *ngIf="batchRecordsSrcTrgDetails[i] != ''">
+                                                    <div style="text-align:right" class="show-hide-class">
+                                                        <p-multiSelect [options]="batchRecordsSrcTrgDetails[i].trgcolumnOptions" [(ngModel)]="batchRecordsSrcTrgDetails[i].trgnotificationBatchTableColumns"></p-multiSelect>
+                                                    </div>
+                                                    <p-dataTable [value]="batchRecordsSrcTrgDetails[i].target" reorderableColumns="true" resizableColumns="true" [responsive]="true">
+                                                        <p-header>{{batchRecordsSrcTrgDetails[i].targetName}}</p-header>
+                                                        <p-column *ngFor="let dis of batchRecordsSrcTrgDetails[i].trgnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}"
+                                                            [field]="dis.field" [header]="dis.header">
+                                                        </p-column>
+                                                    </p-dataTable>
+                                                </div>
+                                            </div>
+                                        </vertical-split-pane>
+                                    </div>
+                                </p-accordionTab>
+                            </div>
+                        </p-accordion>
+                    </div>
+                </div>
+            </div>
+        </md-tab>
+        <md-tab label="Approval's History">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="padding-left: 21px;padding-right: 21px;">
+                <div>
+                    <!-- <div style="font-size: 20px !important;">
+                        <div style="position: relative;top: 9px;">Approval History :</div>
+                    </div> -->
+                    <div>
+                        <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                            <div class="row" style="margin-left: 0px;padding-top: 10px;padding-bottom: 10px;">
+                                <div class="col-md-2" *ngFor="let approval of approvalsHistory; let i = index;">
+                                    <div *ngIf="i < 6" style="display: flex;">
+                                        <div class="col-md-8">
+                                            <div *ngIf="approval.approvalStatus == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/app.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/rej.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/user.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == 'InProcess'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/currentApp.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.name}}</div>
+                                            <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.approvalDate | date:'mediumDate'}}</div>
+                                        </div>
+                                        <div class="col-md-4" style="margin-left: auto;margin-right: auto;text-align: center;">
+                                            <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row" style="margin-left: 0px;padding-top: 10px;padding-bottom: 10px;">
+                                <div class="col-md-2" *ngFor="let approval of approvalsHistory; let i = index;">
+                                    <div *ngIf="i > 5 && i < 12" style="display: flex;">
+                                        <div class="col-md-8" style="margin-left: auto;margin-right: auto;text-align: center;">
+                                            <div *ngIf="approval.approvalStatus == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/app.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/rej.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/user.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == 'InProcess'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/currentApp.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.name}}</div>
+                                            <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.approvalDate | date:'mediumDate'}}</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row" style="margin-left: 0px;padding-top: 10px;padding-bottom: 10px;">
+                                <div class="col-md-2" *ngFor="let approval of approvalsHistory; let i = index;">
+                                    <div *ngIf="i > 11 && i < 18" style="display: flex;">
+                                        <div class="col-md-8" style="margin-left: auto;margin-right: auto;text-align: center;">
+                                            <div *ngIf="approval.approvalStatus == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/app.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/rej.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/user.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div *ngIf="approval.approvalStatus == 'InProcess'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                                                <img src='userImages/currentApp.svg' style="height: 57px;" mdTooltip="{{approval.approvalStatus}}">
+                                            </div>
+                                            <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.name}}</div>
+                                            <div style="text-align: center;white-space: nowrap;" [ngClass]="{'approversClass':approval.approvalStatus == 'Approved','inprocessApprover':approval.approvalStatus == '','text-danger':approval.approvalStatus == 'Rejected'}">{{approval.approvalDate | date:'mediumDate'}}</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </md-tab>
+    </md-tab-group>
+    <md-paginator *ngIf="viewDetailRecordsLength>itemsPerPage" [length]="viewDetailRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+        [pageIndex]="page" (page)="onPaginateChangeViewDetail($event)">
+    </md-paginator>
+    <!-- <div *ngIf="selectedValues.length>0" class="col-lg-12 col-md-12 col-sm-12 col-xs-12 fullScreenViewButton" style="padding-left: 21px;padding-right: 21px;display: flex;padding-bottom: 6px;">
+        <div style="color: rgba(0,0,0,.54) !important;font-size: 22px">Selected Reference :</div>
+        <md-chip-list style="margin-left: 9px;">
+            <md-chip *ngFor="let sel of listOfSelected">{{sel.id}}</md-chip>
+        </md-chip-list>
+    </div> -->
+
+</p-sidebar>
+
+
+
+
+<!-- <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div style="font-size: 1.25em;">
+            Assigned To :
+        </div>
+        <button md-button style="float: right" mdTooltip="Approve" (click)="appr();"><md-icon>thumb_up</md-icon>  Approve</button>
+    </div>
+    <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+        <div class="row">
+            <div class="col-md-2" *ngFor="let approval of approvalDetails; let i = index;">
+                <div *ngIf="i < 6" style="display: flex;">
+                    <div class="col-md-8">
+                        
+                        <div *ngIf="approval.status == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/app.svg' style="height: 57px;">
+                        </div>
+                        <div *ngIf="approval.status == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/rej.svg' style="height: 57px;">
+                        </div>
+                        <div *ngIf="approval.status == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/user.svg' style="height: 57px;">
+                        </div>
+                        <div style="text-align: center;">{{approval.name}}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-2" *ngFor="let approval of approvalDetails; let i = index;">
+                <div *ngIf="i > 5 && i < 12" style="display: flex;">
+                    <div class="col-md-8">
+                        
+                        <div *ngIf="approval.status == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/app.svg' style="height: 57px;">
+                        </div>
+                        <div *ngIf="approval.status == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/rej.svg' style="height: 57px;">
+                        </div>
+                        <div *ngIf="approval.status == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/user.svg' style="height: 57px;">
+                        </div>
+                        <div style="text-align: center;">{{approval.name}}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-2" *ngFor="let approval of approvalDetails; let i = index;">
+                <div *ngIf="i > 11 && i < 18" style="display: flex;">
+                    <div class="col-md-8">
+                        
+                        <div *ngIf="approval.status == 'Approved'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/app.svg' style="height: 57px;">
+                        </div>
+                        <div *ngIf="approval.status == 'Rejected'" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/rej.svg' style="height: 57px;">
+                        </div>
+                        <div *ngIf="approval.status == ''" style="margin-left: auto; margin-right: auto; text-align: center;">
+                            <img src='userImages/user.svg' style="height: 57px;">
+                        </div>
+                        <div style="text-align: center;">{{approval.name}}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <i *ngIf='approval.next == true' class="material-icons" style="position: relative;top: 13px;">trending_flat</i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div> -->
+<!-- [ngClass]="{'classCurrentApp':approval.status == 'Rejected'}" -->
+<!-- [ngClass]="{'classCurrentApp':approval.status == 'Rejected'}" -->
+<!-- [ngClass]="{'classCurrentApp':approval.status == 'Rejected'}" -->
+
+<!--    <div class="row">
+        <div style="margin-top:45px" class="fullScreenViewButton">
+            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+                <div style="font-size: 1.25em;">
+                    Summary Report :
+                </div>
+            </div>
+            <p-accordion>
+                <div class="table-responsive">
+                    <perfect-scrollbar style="height: 500px;">
+                        <p-accordionTab *ngFor="let col of selectedBatchDetailsReports; let i = index">
+                            <p-header>
+                                <p-checkbox value="{{col.reconReference}}" name="groupname{{i}}" [(ngModel)]="selectedValues" onChange="selectedC();"></p-checkbox>
+                                <span>{{col.reconReference}}</span>
+                            </p-header>
+                            <div class="split-pane-content-secondary" style="margin-top: -24px;">
+                                <vertical-split-pane primary-component-minsize="35" secondary-component-minsize="35" secondary-component-initialratio="0.5">
+                                    <div class="split-pane-content-primary" style="margin-top: -10px;">
+                                        <div style="padding-left: 17px;padding-right: 28px;">
+                                            <div style="text-align:right" class="show-hide-class">
+                                                <p-multiSelect [options]="col.srccolumnOptions" [(ngModel)]="col.srcnotificationBatchTableColumns"></p-multiSelect>
+                                            </div>
+                                            <p-dataTable [value]="col.source" reorderableColumns="true" resizableColumns="true" [responsive]="true">
+                                                <p-header>{{col.sourceName}}</p-header>
+                                                <p-column *ngFor="let dis of col.srcnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}" [field]="dis.field"
+                                                    [header]="dis.header">
+                                                </p-column>
+                                            </p-dataTable>
+                                        </div>
+                                    </div>
+                                    <div class="split-pane-content-secondary" style="margin-top: -10px;">
+                                        <div style="padding-left: 17px;padding-right: 10px;">
+                                            <div style="text-align:right" class="show-hide-class">
+                                                <p-multiSelect [options]="col.trgcolumnOptions" [(ngModel)]="col.trgnotificationBatchTableColumns"></p-multiSelect>
+                                            </div>
+                                            <p-dataTable [value]="col.target" reorderableColumns="true" resizableColumns="true" [responsive]="true">
+                                                <p-header>{{col.targetName}}</p-header>
+                                                <p-column *ngFor="let dis of col.trgnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}" [field]="dis.field"
+                                                    [header]="dis.header">
+                                                </p-column>
+                                            </p-dataTable>
+                                        </div>
+                                    </div>
+                                </vertical-split-pane>
+                            </div>
+                        </p-accordionTab>
+                    </perfect-scrollbar>
+                </div>
+            </p-accordion>
+        </div>
+    </div> -->
+<!-- <vertical-split-pane primary-component-minsize="35" primary-component-initialratio="0.5">
+                        <div class="split-pane-content-primary sideBarNotificationQue">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="padding-left: 17px;padding-right: 28px;">
+                                <div style="text-align:right" class="show-hide-class">
+                                    <p-multiSelect [options]="col.srccolumnOptions" [(ngModel)]="col.srcnotificationBatchTableColumns"></p-multiSelect>
+                                </div>
+                                <p-dataTable [value]="col.source" resizableColumns="true">
+                                    <p-header>{{col.sourceName}}</p-header>
+                                    <p-column *ngFor="let dis of col.srcnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}" [field]="dis.field"
+                                        [header]="dis.header">
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                        </div>
+                        <div class="split-pane-content-secondary">
+                            <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="padding-left: 17px;padding-right: 10px;">
+                                <div style="text-align:right" class="show-hide-class">
+                                    <p-multiSelect [options]="col.trgcolumnOptions" [(ngModel)]="col.trgnotificationBatchTableColumns"></p-multiSelect>
+                                </div>
+                                <p-dataTable [value]="col.target" resizableColumns="true">
+                                    <p-header>{{col.targetName}}</p-header>
+                                    <p-column *ngFor="let dis of col.trgnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}" [field]="dis.field"
+                                        [header]="dis.header">
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                        </div>
+                    </vertical-split-pane> -->
+
+<!-- <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="display: flex;">
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <div style="text-align:right" class="show-hide-class">
+                            <p-multiSelect [options]="col.srccolumnOptions" [(ngModel)]="col.srcnotificationBatchTableColumns"></p-multiSelect>
+                        </div>
+                        <p-dataTable [value]="col.source" resizableColumns="true">
+                            <p-header>{{col.sourceName}}</p-header>
+                            <p-column *ngFor="let dis of col.srcnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}" [field]="dis.field"
+                                [header]="dis.header">
+                            </p-column>
+                        </p-dataTable>
+                    </div>
+                    <div class="col-lg-6 col-md-6 col-sm-12 col-xs-12">
+                        <div style="text-align:right" class="show-hide-class">
+                            <p-multiSelect [options]="col.trgcolumnOptions" [(ngModel)]="col.trgnotificationBatchTableColumns"></p-multiSelect>
+                        </div>
+                        <p-dataTable [value]="col.target" resizableColumns="true">
+                            <p-header>{{col.targetName}}</p-header>
+                            <p-column *ngFor="let dis of col.trgnotificationBatchTableColumns" [style]="{'width':dis.width,'text-align':dis.align}" [field]="dis.field"
+                                [header]="dis.header">
+                            </p-column>
+                        </p-dataTable>
+                    </div>
+                </div> -->
+<!-- <p-dataTable [value]="cars1" sortField="brand" rowGroupMode="subheader" groupField="brand" expandableRowGroups="true" [sortableRowGroup]="false"
+            scrollable="true" scrollHeight="500px">
+            
+            <p-headerColumnGroup>
+                <p-row>
+                    <p-column header="Source" colspan="2" [style]="{'text-align': 'center','width':'50%'}"></p-column>
+                    <p-column header="Target" colspan="2" [style]="{'text-align': 'center','width':'50%'}"></p-column>
+                </p-row>
+                <p-row>
+                    <p-column header="Color" [style]="{'text-align': 'center','width':'25%'}"></p-column>
+                    <p-column header="Year" [style]="{'text-align': 'center','width':'25%'}"></p-column>
+                    <p-column header="Vin" [style]="{'text-align': 'center','width':'25%'}"></p-column>
+                    <p-column header="Price" [style]="{'text-align': 'center','width':'25%'}"></p-column>
+                </p-row>
+            </p-headerColumnGroup>
+            <ng-template pTemplate="rowgroupheader" let-rowData>
+                <td colspan="4">{{rowData['brand']}}</td>
+                <td>
+                    <div>
+                        <button class="rejectNotificationButton" md-button (click)="rejectFun(rowData['vin']);" mdTooltip="Reject"><md-icon>thumb_down</md-icon>  Reject</button>
+                        <button class="approveNotificationButton" md-button mdTooltip="Approve"><md-icon>thumb_up</md-icon> Approve</button>
+                    </div>
+                </td>
+            </ng-template>
+            <p-column field="color" header="Color"></p-column>
+            <p-column field="year" header="Year"></p-column>
+            <p-column field="vin" header="Vin"></p-column>
+            <p-column field="price" header="Price">
+                <ng-template let-col let-car="rowData" pTemplate="body">
+                    <span>{{car[col.field] | currency:'USD':true:'.0-0'}}</span>
+                </ng-template>
+            </p-column>
+        </p-dataTable> -->
+<!-- <button pButton type="button" (click)="visibleSidebar5 = false" label="Save" class="ui-button-success"></button>
+        <button pButton mdTooltip="Cancel" type="button" (click)="visibleSidebar5 = false" label="Cancel" class="ui-button-secondary"></button> -->
+<!-- <div>
+    <h2>
+        <span jhiTranslate="agreeGatewayV1App.notificationBatch.home.title">Notification Batches</span>
+        <button class="btn btn-primary float-right jh-create-entity create-notification-batch" [routerLink]="['/', { outlets: { popup: ['notification-batch-new'] } }]">
+            <span class="fa fa-plus"></span>
+            <span class="hidden-sm-down"  jhiTranslate="agreeGatewayV1App.notificationBatch.home.createLabel">
+            Create new Notification Batch
+            </span>
+        </button>
+    </h2>
+    <jhi-alert></jhi-alert>
+    <div class="row">
+        <div class="col-sm-12">
+            <form name="searchForm" class="form-inline">
+                <div class="input-group w-100 mt-3">
+                    <input type="text" class="form-control" [(ngModel)]="currentSearch" id="currentSearch" name="currentSearch" placeholder="{{ 'agreeGatewayV1App.notificationBatch.home.search' | translate }}">
+                    <button class="input-group-addon btn btn-info" (click)="search(currentSearch)">
+                        <span class="fa fa-search"></span>
+                    </button>
+                    <button class="input-group-addon btn btn-danger" (click)="clear()" *ngIf="currentSearch">
+                        <span class="fa fa-trash-o"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <br/>
+    <div class="table-responsive" *ngIf="notificationBatches">
+        <table class="table table-striped">
+            <thead>
+            <tr jhiSort [(predicate)]="predicate" [(ascending)]="reverse" [callback]="transition.bind(this)">
+            <th jhiSortBy="id"><span jhiTranslate="global.field.id">ID</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="notificationName"><span jhiTranslate="agreeGatewayV1App.notificationBatch.notificationName">Notification Name</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="currentApprover"><span jhiTranslate="agreeGatewayV1App.notificationBatch.currentApprover">Current Approver</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="parentBatch"><span jhiTranslate="agreeGatewayV1App.notificationBatch.parentBatch">Parent Batch</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="refLevel"><span jhiTranslate="agreeGatewayV1App.notificationBatch.refLevel">Ref Level</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="createdBy"><span jhiTranslate="agreeGatewayV1App.notificationBatch.createdBy">Created By</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="createdDate"><span jhiTranslate="agreeGatewayV1App.notificationBatch.createdDate">Created Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lastUpdatedBy"><span jhiTranslate="agreeGatewayV1App.notificationBatch.lastUpdatedBy">Last Updated By</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lastUpdatedDate"><span jhiTranslate="agreeGatewayV1App.notificationBatch.lastUpdatedDate">Last Updated Date</span> <span class="fa fa-sort"></span></th>
+            <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let notificationBatch of notificationBatches ;trackBy: trackId">
+                <td><a [routerLink]="['../notification-batch', notificationBatch.id ]">{{notificationBatch.id}}</a></td>
+                <td>{{notificationBatch.notificationName}}</td>
+                <td>{{notificationBatch.currentApprover}}</td>
+                <td>{{notificationBatch.parentBatch}}</td>
+                <td>{{notificationBatch.refLevel}}</td>
+                <td>{{notificationBatch.createdBy}}</td>
+                <td>{{notificationBatch.createdDate | date:'medium'}}</td>
+                <td>{{notificationBatch.lastUpdatedBy}}</td>
+                <td>{{notificationBatch.lastUpdatedDate | date:'medium'}}</td>
+                <td class="text-right">
+                    <div class="btn-group flex-btn-group-container">
+                        <button type="submit"
+                                [routerLink]="['../notification-batch', notificationBatch.id ]"
+                                class="btn btn-info btn-sm">
+                            <span class="fa fa-eye"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.view">View</span>
+                        </button>
+                        <button type="submit"
+                                [routerLink]="['/', { outlets: { popup: 'notification-batch/'+ notificationBatch.id + '/edit'} }]"
+                                replaceUrl="true"
+                                class="btn btn-primary btn-sm">
+                            <span class="fa fa-pencil"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.edit">Edit</span>
+                        </button>
+                        <button type="submit"
+                                [routerLink]="['/', { outlets: { popup: 'notification-batch/'+ notificationBatch.id + '/delete'} }]"
+                                replaceUrl="true"
+                                class="btn btn-danger btn-sm">
+                            <span class="fa fa-remove"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.delete">Delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div> -->
+<!-- Pager is not implemented yet, so this is normal pagination instead -->
+<!-- <div *ngIf="notificationBatches && notificationBatches.length">
+            <div class="row justify-content-center">
+                <jhi-item-count [page]="page" [total]="queryCount" [itemsPerPage]="itemsPerPage"></jhi-item-count>
+            </div>
+            <div class="row justify-content-center">
+                <ngb-pagination [collectionSize]="totalItems" [(page)]="page"  (pageChange)="loadPage(page)"></ngb-pagination>
+            </div>
+        </div>
+</div> -->

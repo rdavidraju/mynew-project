@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { DataViewUnion } from './data-view-union.model';
+import { DataViewUnionPopupService } from './data-view-union-popup.service';
+import { DataViewUnionService } from './data-view-union.service';
+
+@Component({
+    selector: 'jhi-data-view-union-delete-dialog',
+    templateUrl: './data-view-union-delete-dialog.component.html'
+})
+export class DataViewUnionDeleteDialogComponent {
+
+    dataViewUnion: DataViewUnion;
+
+    constructor(
+        private dataViewUnionService: DataViewUnionService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.dataViewUnionService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'dataViewUnionListModification',
+                content: 'Deleted an dataViewUnion'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-data-view-union-delete-popup',
+    template: ''
+})
+export class DataViewUnionDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private dataViewUnionPopupService: DataViewUnionPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.dataViewUnionPopupService
+                .open(DataViewUnionDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

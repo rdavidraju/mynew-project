@@ -1,0 +1,64 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.FileTemplates;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the FileTemplates entity.
+ */
+@SuppressWarnings("unused")
+public interface FileTemplatesRepository extends JpaRepository<FileTemplates,Long> {
+
+	
+	
+	@Query(value =  "select distinct(source) FROM t_file_templates",nativeQuery=true)
+	List<String> fetchDistinct(/*@Param("columnName") String columnName,@Param("tableName") String tableName*/);
+
+	List<FileTemplates> findBySource(String string);
+
+	
+	FileTemplates findByTenantIdAndTemplateName(Long tenanatId, String tempName);
+
+
+	Page<FileTemplates> findByTenantIdOrderByIdDesc(Long tenantId,
+			Pageable pageable);
+
+	List<FileTemplates> findByTenantIdOrderByIdDesc(Long tenantId);
+
+	List<FileTemplates> findByTenantId(Long tenantId);
+	
+	@Query(value =  "select * from t_file_templates where tenant_id=:tenantId and status = 'Active' and ((:startDate <= end_date and :endDate >= start_date) or (end_date is null))",nativeQuery=true)
+	List<FileTemplates> fetchActiveRecordsByStartAndEndDateRange(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+	
+	@Query(value =  "select * from t_file_templates where tenant_id=:tenantId and status = 'Active' and (:startDate <= end_date or end_date is null)",nativeQuery=true)
+	List<FileTemplates> fetchActiveRecordsByStartDateRange(@Param("tenantId") Long tenantId, @Param("startDate") LocalDate startDate);
+	
+	//@Query(value =  "select * from t_file_templates where ID in(:idList) and tenant_id=:tenantId and (((DATEDIFF(CURDATE(),start_date)) >= 0) and (DATEDIFF(end_date,CURDATE()) >= 0))",nativeQuery=true)
+	@Query(value =  "select * from t_file_templates where ID in(:idList) and tenant_id=:tenantId ",nativeQuery=true)
+	List<FileTemplates> findByTenantIdAndActiveStatus(@Param("tenantId") Long tenantId,@Param("idList") List<Long> idList);
+
+	@Query(value =  "select * from t_file_templates where ID in(:idList) and tenant_id=:tenantId ",nativeQuery=true)
+	List<FileTemplates> findByTenantIdAndStarDate(@Param("tenantId") Long tenantId,@Param("idList") List<Long> idList);
+
+	
+	@Query(value =  "select id from t_file_templates where tenant_id=:tenantId and status=:status",nativeQuery=true)
+	List<BigInteger> findIdsByTenantIdAndStatus(@Param("tenantId") Long tenantId,@Param("status") String status);
+	
+// kiran
+	Page<FileTemplates> findByTenantId(Long tenantId,
+			Pageable pageable);
+
+	FileTemplates findByIdForDisplayAndTenantId(String idForDisplay,Long tenantId);
+
+	List<FileTemplates> findBySourceAndTenantId(String source, Long tenantId);
+
+	List<FileTemplates> findByTenantIdAndFileType(Long tenantId, String string);
+}

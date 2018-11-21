@@ -1,0 +1,260 @@
+<div style="height: 100%; width: 100%" *ngIf="loadDocument">
+    <div class="component-title">
+        <div class="col-md-6">
+            <h4>
+                <span *ngIf="!calendar.name">Calendar {{isCreateNew ? 'Creation' : 'Detail'}}</span>
+                <span *ngIf="calendar.name">
+                    <span>Calendar: </span>
+                    <span style="color:black">{{calendar.name}}</span>
+                </span>
+            </h4>
+        </div>
+        <div class="col-md-6">
+            <div class="pull-right">
+                <button *ngIf="!isViewOnly && f.valid" md-icon-button aria-hidden="true" mdTooltip="Save" (click)="saveCalendar()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !f.valid" md-icon-button aria-hidden="true" mdTooltip="Fill mandatory fields" (click)="validationMsg('calendar')">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/calendar', {outlets: {'content': [calendar.id]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button>
+                <button *ngIf="isEdit" md-icon-button mdTooltip="Close" [routerLink]="['/calendar', {outlets: {'content': [calendar.id]+'/details'}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isCreateNew" md-icon-button mdTooltip="Close" [routerLink]="['/calendar', {outlets: {'content': ['calendar-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button md-icon-button (click)="exportCalPeriods(calendar.id, 'csv')" *ngIf="calendar.id && isViewOnly">
+                    <i class="rec-font-csv" style="font-size:24px;"></i>
+                </button>
+                <button md-icon-button (click)="exportCalPeriods(calendar.id, 'excel')" *ngIf="calendar.id && isViewOnly">
+                    <i class="fa fa-file-excel-o" style="font-size:24px;"></i>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Close" [routerLink]="['/calendar', {outlets: {'content': ['calendar-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="component-body">
+        <!-- Form Start Here -->
+        <div style="padding-top:10px;">
+            <form novalidate #f="ngForm">
+                <div class="row m-0">
+                    <div class="p-1" [ngClass]="isCreateNew ? 'col-md-3' : 'col-md-2'" style="display:inline-block">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="calendar.name" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Name"
+                                    name="name" required #name="ngModel" id="name" (blur)="isNameExist(calendar.name, calendar.id)"
+                                    (ngModelChange)="nameExist = ''">
+                            </md-input-container>
+                        </div>
+                        <small class="form-text text-danger" *ngIf="nameExist">{{nameExist}}</small>
+                    </div>
+
+                    <div class="p-1" [ngClass]="isCreateNew ? 'col-md-3' : 'col-md-2'" *ngIf="calendar.description || !isViewOnly">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="calendar.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Description"
+                                    name="description" #description="ngModel">
+                            </md-input-container>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 p-1">
+                        <div class="mat-c-input-wrapper">
+                            <md-form-field >
+                                <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="!isCreateNew" [(ngModel)]="calendar.startDate" [min]="currentDate" name="startDate" required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 p-1" *ngIf="calendar.startDate && (calendar.endDate || !isViewOnly)">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container *ngIf="calendar.endDate == '-'">
+                                <input mdInput [(ngModel)]="calendar.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="End Date"
+                                    name="endDate">
+                            </md-input-container>
+                            <md-form-field *ngIf="calendar.endDate != '-'">
+                                <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="calendar.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" [(ngModel)]="calendar.endDate" name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 p-1">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Calendar Type" [(ngModel)]="calendar.calendarType" name="calendarType" [disabled]="!isCreateNew"
+                                [style.width]="'100%'" required (change)="calType(calendar.calendarType, f.valid)">
+                                <md-option *ngFor="let col of calendarType" [(value)]="col.lookUpCode">{{ col.meaning }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 p-1" *ngIf="!isCreateNew">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Status" [(ngModel)]="calendar.enabledFlag" name="status" [disabled]="isViewOnly" required>
+                                <md-option *ngFor="let sts of statuses" [(value)]="sts.code">{{ sts.value }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 p-1" *ngIf="calendar.calendarType == 'MONTHLY' && isCreateNew">
+                        <div class="mat-c-input-wrapper">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="sppicker" placeholder="Start Period" [(ngModel)]="calendar.period" name="period" required>
+                                <md-datepicker-toggle mdSuffix [for]="sppicker"></md-datepicker-toggle>
+                                <md-datepicker #sppicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 p-1 align-items-center" *ngIf="calendar.calendarType == 'MONTHLY' && calendar.period && isCreateNew">
+                        <button md-raised-button (click)="generatePeriods()">Generate Periods</button>
+                    </div>
+                </div>
+
+                <!-- Calendar Details -->
+                <br>
+                <div class="table-responsive" *ngIf="displayPeriod || !isCreateNew" style="overflow-y:hidden;">
+                    <table class="table basicTable theme-table">
+                        <thead>
+                            <tr class="th-v-midlle">
+                                <th>Period Name</th>
+                                <th>Status</th>
+                                <th>From Date</th>
+                                <th>To Date</th>
+                                <th>Period Number</th>
+                                <th>Quarter</th>
+                                <th>Year</th>
+                                <th>Adjustment</th>
+                                <th *ngIf="!isCreateNew">Active</th>
+                                <th>
+                                    <div>
+                                        <button md-icon-button mdTooltip="Add Period" (click)="addNewPeriods()">
+                                            <md-icon>exposure_plus_1</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Generate Periods" [popover]="genPerPopover" *ngIf="isViewOnly">
+                                            <md-icon>playlist_add</md-icon>
+                                        </button>
+                                    </div>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let col of calendar.periodList;let i = index;" id="hideIconTable">
+                                <td class="matbasictabletd">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="col.periodName" name="periodName-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                    </md-input-container>
+                                </td>
+                                <td class="matbasictabletd" style="width:200px">
+                                    <md-select class="md-no-placeholder" [disabled]="!col.columnEdit" [(ngModel)]="col.status" [name]="'status'+i" required style="width:200px">
+                                        <md-option *ngFor="let periodStatus of periodStatusList;" [value]="periodStatus.lookUpCode">{{periodStatus.meaning}}</md-option>
+                                    </md-select>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="col.fromDate" name="fromDate-{{i}}" required [disabled]="!col.columnEdit"
+                                            [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                        <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                        <md-datepicker #stpicker></md-datepicker>
+                                    </md-form-field>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="col.toDate" name="toDate-{{i}}" required [min]="col.fromDate" [disabled]="!col.columnEdit"
+                                            [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                        <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                        <md-datepicker #edpicker></md-datepicker>
+                                    </md-form-field>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-input-container>
+                                        <input mdInput type="number" [(ngModel)]="col.periodNum" name="periodNum-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                    </md-input-container>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-input-container>
+                                        <input mdInput type="number" [(ngModel)]="col.quarter" name="quarter-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                    </md-input-container>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-input-container>
+                                        <input mdInput type="number" [(ngModel)]="col.year" name="year-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                    </md-input-container>
+                                </td>
+                                <td style="text-align: center">
+                                    <md-checkbox [(ngModel)]="col.adjustment" name="adjustment-{{i}}" color="primary" [disabled]="!col.columnEdit && !col.newPeriodAdj"
+                                        [ngModelOptions]="{standalone: true}"></md-checkbox>
+                                </td>
+                                <td *ngIf="!isCreateNew">
+                                    <div *ngIf="!col.columnEdit">
+                                        <i *ngIf="col.enabledFlag == true" style="color: darkgrey" class="material-icons">check_circle</i>
+                                        <i *ngIf="col.enabledFlag == false" style="color: darkgrey" class="material-icons" aria-hidden="true">error</i>
+                                    </div>
+                                    <i *ngIf="col.newPeriodStatus" style="color: darkgrey" class="material-icons">check_circle</i>
+                                    <md-slide-toggle color="primary" *ngIf="col.columnEdit && !col.newPeriodStatus" mdTooltip="Set Status" placeholder="Status"
+                                        [(ngModel)]="col.enabledFlag" name="enabledFlag-{{i}}" [ngModelOptions]="{standalone: true}">
+                                    </md-slide-toggle>
+                                </td>
+                                <td>
+                                    <div class="display-flex pull-right" id="showIcon" [ngClass]="col.columnEdit ? 'edit-mode' : ''">
+                                        <button *ngIf="col.columnEdit && isViewOnly" md-icon-button class="color-green" style="font-size: 24px;" aria-hidden="true"
+                                            mdTooltip="Save" (click)="updatePeriod(col, i)">
+                                            <md-icon>save</md-icon>
+                                        </button>
+                                        <button *ngIf="col.columnEdit && isViewOnly" (click)="col.columnEdit = false;cancelEdit()" md-icon-button class="pull-right color-gray"
+                                            style="font-size: 24px;" mdTooltip="Cancel">
+                                            <md-icon>clear</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Edit" (click)="editPeriod(i)" *ngIf="!col.columnEdit && isViewOnly">
+                                            <md-icon>mode_edit</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" deleteConfirmation (deleteIt)="deletePeriod(col)">
+                                            <md-icon>delete</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew" (click)="deleteRow(i)">
+                                            <md-icon>delete</md-icon>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="loadDocument" *ngIf="!loadDocument">Loading...</div>
+
+<popover-content #genPerPopover title="Generate Periods" placement="left" [animation]="true" [closeOnClickOutside]="false"
+    [popoverCloseOnMouseOutside]="false" class="periodsPopover">
+    <div>
+        <div class="justify-content-around align-items-center">
+            <p class="m-0">For Next</p>
+            <div class="col-md-3">
+                <md-input-container>
+                    <input mdInput type="number" [(ngModel)]="calendar.period" pattern="^[1-9]\d*$" #period="ngModel" required>
+                </md-input-container>
+            </div>
+            <p class="m-0">Months</p>
+        </div>
+    </div>
+    <div class="justify-content-between">
+        <button md-raised-button (click)="generatePeriods(true, genPerPopover)" [disabled]="!period.valid">Generate & Save</button>
+        <button md-raised-button (click)="genPerPopover.hide()">Cancel</button>
+    </div>
+</popover-content>

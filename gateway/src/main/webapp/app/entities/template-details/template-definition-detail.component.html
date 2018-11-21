@@ -1,0 +1,793 @@
+<div class="component-body hideSidePanel" *ngIf="loadDocument">
+    <div class="botom-dotted-blue-border component-title">
+        <!-- <div class="col-md-6 col-sm-6 col-xs-6 pageTitle">
+            <h2 *ngIf="isCreateNew">Journal Template Builder:</h2>
+            <h2 *ngIf="!isCreateNew">{{journalTemplate.templateName}} Template Details</h2>
+        </div> -->
+        <div *ngIf="isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+            <!-- <h3 class="pageListTitle">Journal Template Builder</h3> -->
+            <h4 *ngIf="isCreateNew">{{journalTemplate?.templateName ? journalTemplate?.templateName : 'Journal Template Builder'}}</h4>
+        </div>
+        <div *ngIf="!isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+            <h4 *ngIf="!isCreateNew">{{journalTemplate.templateName}}</h4>
+        </div>
+        <div class="col-md-4 col-sm-4 col-xs-4">
+            <div class="row float-right">
+                <button *ngIf="!isViewOnly && journalsTemplateForm.invalid" md-icon-button class="pull-right color-green" aria-hidden="true"
+                    mdTooltip="Save Journal Template" (click)="validateForm();">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && journalsTemplateForm.valid" md-icon-button class="pull-right color-green" aria-hidden="true"
+                    mdTooltip="Save Journal Template" (click)="saveJournalTemplate();" [disabled]="journalsTemplateForm.invalid && !duplicateJournalName">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/template-details', {outlets: {'content': [journalTemplate.id]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button>
+                <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/template-details', {outlets: {'content': ['template-details-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="View List" [routerLink]="['/template-details', {outlets: {'content': ['template-details-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isEdit" md-icon-button mdTooltip="View List" [routerLink]="['/template-details', {outlets: {'content': [journalTemplate['id']]+'/template-details'}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <!-- <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/template-details', {outlets: {'content': [template-details-home]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button> -->
+            </div>
+        </div>
+    </div>
+    <form novalidate #journalsTemplateForm="ngForm" style="padding: 10px;">
+        <div class="row" style="margin-left: 0px;margin-right: 0px;">
+            <div class="col-md-4 col-sm-6 col-xs-12 form-group" style="display: inline-block;">
+                <!-- [class]="startEndDateClass()" -->
+                <md-input-container class="example-full-width">
+                    <input mdInput [(ngModel)]="journalTemplate.templateName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        (ngModelChange)="checkJournalName($event)" placeholder="Journal Template Name" name="templateName" required>
+                </md-input-container>
+                <span class="help-block errorFont" *ngIf="duplicateJournalName" style="position: relative;top: 8px;">Journal Template Name Already Exists.</span>
+                <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'templateName') && submitted" style="position: relative;top: 8px;">Template Name Is Mandatory</span>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                <!-- [class]="startEndDateClass()" -->
+                <md-input-container class="example-full-width">
+                    <input mdInput [(ngModel)]="journalTemplate.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        placeholder="Description" name="description">
+                </md-input-container>
+            </div>
+            <!-- <div [class]="startEndDateClass()">
+                <md-form-field class="example-full-width d-inline">
+                    <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        [(ngModel)]="journalTemplate.startDate" [max]="journalTemplate.endDate" name="startDate" required (dateChange)="startDateChange=true;">
+                    <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                    <md-datepicker #stpicker></md-datepicker>
+                </md-form-field>
+                <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'startDate') && submitted">Start Date Is Mandatory</span>
+            </div>
+            <div class="col-md-2" *ngIf="((journalTemplate.startDate && !isViewOnly) || (journalTemplate.endDate && isViewOnly))">
+                <md-form-field class="example-full-width">
+                    <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="journalTemplate.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                        [disabled]="isViewOnly" [(ngModel)]="journalTemplate.endDate" name="endDate" (dateChange)="endDateChange=true;">
+                    <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                    <md-datepicker #edpicker></md-datepicker>
+                </md-form-field>
+            </div> -->
+            <div class="col-md-3 navStEndPicker" style="display: flex;padding-top: 3px;margin-left: 6px;">
+                <!-- *ngIf="((journalTemplate.startDate && !isViewOnly) || (journalTemplate.endDate && isViewOnly))" -->
+                <div class="col-md-6 stDtcol" style="margin: auto;">
+                    <md-form-field>
+                        <input mdInput [mdDatepicker]="stpickers" placeholder="From" [disabled]="isViewOnly" [min]="today" [(ngModel)]="journalTemplate.startDate"
+                            [max]="journalTemplate.endDate" name="startDate" required (dateChange)="startDateChange=true;" (ngModelChange)="edpickers.open()">
+                        <!-- (ngModelChange)="edpickers.open()" (dateInput)="getmindate()" (click)="stpickers.open()"-->
+                        <md-datepicker-toggle mdSuffix [for]="stpickers" [disabled]="isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #stpickers></md-datepicker>
+                    </md-form-field>
+                </div>
+                <div class="col-md-6" style="margin: auto;">
+                    <md-form-field>
+                        <input mdInput [mdDatepicker]="edpickers" placeholder="To" [disabled]="isViewOnly" [min]="journalTemplate.startDate" [(ngModel)]="journalTemplate.endDate"
+                            name="endDate" (dateChange)="endDateChange=true;">
+                        <md-datepicker-toggle mdSuffix [for]="edpickers" [disabled]="isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #edpickers></md-datepicker>
+                    </md-form-field>
+                </div>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12 form-group d-inline" *ngIf="journalTemplate.templateName && journalTemplate.startDate"
+                [@displayAnimation]>
+                <!-- <md-select placeholder="Accounting Process" [(ngModel)]="journalTemplate.ruleGrpId" name="ruleGrpId" style="width: 100%;"
+                    [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" required>
+                    <md-option *ngFor="let col of ruleGroupList| searchFilter:ruleGrpIdSearch" [value]="col.id" (click)="fetchDVBasedOnRuleGroup(col.id);">
+                        {{ col.name }}
+                    </md-option>
+                </md-select> -->
+                <md-select placeholder="Accounting Process" [(ngModel)]="journalTemplate.ruleGrpId" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" [materialFilter]="ruleGrpId" #ruleGrpId name="ruleGrpId" [materialFilterModel]="ruleGrpIdSearchModel"
+                    [materialFilterInput]="ruleGrpIdSearchInput">
+                    <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="ruleGrpIdSearch" name="ruleGrpIdSearch" #ruleGrpIdSearchModel="ngModel"
+                        #ruleGrpIdSearchInput>
+                    <md-option *ngFor="let col of ruleGroupList | searchFilter:ruleGrpIdSearch" [value]="col.id" (click)="fetchDVBasedOnRuleGroup(col.id);">
+                        {{ col.name }}
+                    </md-option>
+                </md-select>
+                <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'ruleGrpId') && submitted" [@displayAnimation]>Accounting Process Is Mandatory</span>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12 form-group d-inline" *ngIf="journalTemplate.templateName && journalTemplate.startDate && journalTemplate.ruleGrpId"
+                [@displayAnimation]>
+                <!-- <md-select placeholder="{{selectedViewLabel}}" [(ngModel)]="journalTemplate.viewId" name="viewList" style="width: 100%;"
+                    [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" required>
+                    <md-option *ngFor="let view of dataViews" [value]="view.id" (click)="fetchViewColumns(view.id);">
+                        {{ view.dataViewDispName }}
+                    </md-option>
+                </md-select> -->
+                <md-select placeholder="Source" [(ngModel)]="journalTemplate.viewId" style="width: 100%;" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" [materialFilter]="viewList" #viewList name="viewList" [materialFilterModel]="viewListSearchModel"
+                    [materialFilterInput]="viewListSearchInput" required>
+                    <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="viewListSearch" name="viewListSearch" #viewListSearchModel="ngModel"
+                        #viewListSearchInput>
+                    <md-option *ngFor="let view of dataViewsBasedOnRuleId | searchFilter:viewListSearch" [value]="view.id" (click)="fetchViewColumns(view.id);">
+                        {{ view.dataViewDispName }}
+                    </md-option>
+                </md-select>
+                <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'viewList') && submitted" [@displayAnimation]>Source Is Mandatory</span>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="journalTemplate.templateName && journalTemplate.startDate && journalTemplate.ruleGrpId && journalTemplate.viewId"
+                [@displayAnimation]>
+                <md-select placeholder="Chart Of Accounts" [(ngModel)]="journalTemplate.coaId" style="width: 100%;" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" [materialFilter]="coaId" #coaId name="coaId" [materialFilterModel]="coaIdSearchModel"
+                    [materialFilterInput]="coaIdSearchInput" required>
+                    <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="coaIdSearch" name="coaIdSearch" #coaIdSearchModel="ngModel"
+                        #coaIdSearchInput>
+                    <md-option *ngFor="let col of coaList | searchFilter:coaIdSearch" [value]="col.coaId">
+                        {{ col.coaName }}
+                    </md-option>
+                </md-select>
+            </div>
+            <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="isViewOnly">
+                <md-input-container class="example-full-width">
+                    <input mdInput [(ngModel)]="displayJournalBatchName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Journal Batch Name"
+                        name="journalBatchName" required>
+                </md-input-container>
+            </div>
+            <div class="col-md-2 col-sm-6 col-xs-12 form-group" *ngIf="journalTemplate.templateName && journalTemplate.startDate && journalTemplate.ruleGrpId && journalTemplate.viewId"
+                style="margin-top: auto;margin-bottom: auto;" [@displayAnimation]>
+                <md-checkbox [(ngModel)]="approvalInitiation" name="approvalInitiation" [disabled]="isViewOnly" [checked]="approvalInitiation">Approval Required</md-checkbox>
+            </div>
+            <div class="col-md-2 col-sm-6 col-xs-12 form-group" *ngIf="journalTemplate.templateName && journalTemplate.startDate && journalTemplate.ruleGrpId && journalTemplate.viewId && approvalInitiation"
+                [@displayAnimation]>
+                <md-select placeholder="Process" [(ngModel)]="journalTemplate.apprRuleGrpId" name="apprRuleGrpId" style="width: 100%;" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" required>
+                    <md-option *ngFor="let col of approvalProcessName" [value]="col.id">
+                        {{ col.name }}
+                    </md-option>
+                </md-select>
+            </div>
+            <div class="col-md-2" style="display:flex;" *ngIf="isEdit">
+                <span *ngIf="journalTemplate.enable">Active </span>
+                <span *ngIf="!journalTemplate.enable">Inactive </span>
+                <md-slide-toggle class="pull right example-margin" color="primary" [disabled]="!isEdit" mdTooltip="Set Status" placeholder="status"
+                    [(ngModel)]="journalTemplate.enable" name="status" style="padding: 6px;">
+                </md-slide-toggle>
+
+            </div>
+            <div class="col-md-2" *ngIf="isViewOnly">
+                <!-- <span class="badge badge-success" *ngIf="journalTemplate.enable">Active</span>
+                <span class="badge badge-warning" *ngIf="!journalTemplate.enable">Inactive</span> -->
+                <md-input-container class="example-full-width" *ngIf="journalTemplate.enable">
+                    <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Status" name="status" value="Active">
+                </md-input-container>
+                <md-input-container class="example-full-width" *ngIf="!journalTemplate.enable">
+                    <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Status" name="status" value="Inactive">
+                </md-input-container>
+            </div>
+        </div>
+        <div class="row col-md-12" style="margin: auto;padding: 10px 0px 0px 0px;" *ngIf="journalTemplate.viewId && journalTemplate.coaId && !isViewOnly"
+            [@displayAnimation]>
+            <div class="theme-text subHeadingStyles">Define Journal Batch :</div>
+            <span *ngIf="!isViewOnly" style="padding-left: 10px;font-size: 16px;"> {{journalTemplate.jeBatchName}}</span>
+
+        </div>
+        <div class="row col-md-12" *ngIf="journalTemplate.viewId && journalTemplate.coaId && !isViewOnly" [@displayAnimation] style="padding: 0;margin: auto;">
+            <div *ngFor="let col of defineJournalBatchNameList;let i = index" style="padding: 5px 5px 5px 5px;" class="col-md-2 row m-0"
+                [ngStyle]="{'order':col.meaning == 'Constant'? '1':''}">
+                <p-checkbox value="{{col.meaning}}" name="name1{{i}}" [(ngModel)]="selectedValues" (onChange)="selectBatchValue($event,col.meaning);"></p-checkbox>
+                <div style="padding: 2px 0px 0px 5px;"> {{col.meaning}}</div>
+                <div style="padding-left: 10px;">
+                    <input class="example-full-width" mdInput [(ngModel)]="constantValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        style="border-bottom: 1px solid lightgray;    width: 100px !important;" placeholder="" name="constantValue"
+                        focused required *ngIf="col.meaning == 'Constant' && constantInputField" (ngModelChange)="defineBatchName();">
+                </div>
+                <span class="help-block errorFont" *ngIf="col.meaning == 'Constant' && constantInputField && !constantValue">Enter constant Value</span>
+            </div>
+        </div>
+        <div *ngIf="journalTemplate.viewId && journalTemplate.coaId && ((journalTemplate.jeBatchName && journalTemplate.jeBatchName.length) || displayJournalBatchName)"
+            class="jeTemplateClass" [@displayAnimation] style="padding-top: 10px;">
+            <div>
+                <div class="theme-text subHeadingStyles">Header Derivation Rules</div>
+                <div class="row accordioncontenet" style="margin: 0;padding-top: 5px;">
+                    <div style="height: 100%; width: 100%">
+                        <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA"
+                            class="hideSidePanel">
+                            <div id="stickyr" class="split-pane-content-primary" *ngIf="!isViewOnly">
+                                <div class="MyPanel" style="height: 266px;">
+                                    <div class="Heading BlueTitleDiv">Header Attributes</div>
+                                    <perfect-scrollbar style="max-height: 300px;">
+                                        <div class="panel-body" style="padding: 0 !important;">
+                                            <div *ngIf="!isViewOnly">
+                                                <ul class="list-group">
+                                                    <li class="list-group-item" *ngFor="let col of commonHeaderAttribute" dnd-draggable [dragEnabled]="true" [dragData]="col">{{col.meaning}}
+                                                        <span *ngIf="col.lookUpCode == 'DATE' || col.lookUpCode == 'PERIOD'">*</span>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                            <div *ngIf="isViewOnly">
+                                                <ul class="list-group">
+                                                    <li class="list-group-item" *ngFor="let col of commonHeaderAttribute">{{col.meaning}}</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+                            </div>
+                            <div class="split-pane-content-secondary journalPanel">
+
+                                <div class="row col-md-12" style="margin-left: 0px;padding: 0px 7px;">
+                                    <div class="col-md-6 MyPanel" dnd-droppable (onDropSuccess)="transferHeaderData($event)" style="height: 271px;padding: 0;">
+                                        <!-- style="max-height: 250px;margin-top: 5px;" -->
+                                        <!-- <perfect-scrollbar style="min-height: 250px;margin-top: 5px;"> -->
+                                        <div class="panel-body" dnd-droppable (onDropSuccess)="transferHeaderData($event)" style="padding: 0 !important;">
+                                            <div *ngIf="(selectedHeaderAttributes.length < 1 && (!isViewOnly || !isEdit))" style="margin-top: 23px;">
+                                                <span style="display: grid;text-align: -webkit-center;">Select Header Attributes
+                                                    <span style="font-size: 11px;">(Drag & Drop)</span>
+                                                </span>
+                                            </div>
+                                            <div class="Heading BlueTitleDiv" *ngIf="(isViewOnly || isEdit)">Selected Header Attributes</div>
+                                            <ul class="list-group">
+                                                <!-- <li class="list-group-item" style="padding-top: 5px; padding-bottom: 5px;">
+                                                    <div class="col-md-12" style="display: flex;">
+                                                        <div class="col-md-4" style="margin-top: auto;margin-bottom: auto;">
+                                                            <div>Journal Batch Name</div>
+                                                        </div>
+                                                        <div class="col-md-8" style="display:flex;margin-top: auto; margin-bottom: auto;">
+                                                            <div class="d-inline extnWidth">
+                                                                <md-input-container style="top: -8px;" *ngIf="!isViewOnly">
+                                                                    <input mdInput [(ngModel)]="journalTemplate.jeBatchName" [ngClass]="{'color-black' : isViewOnly}" readonly name="jeBatchName"
+                                                                        required>
+                                                                </md-input-container>
+                                                                <div *ngIf="isViewOnly" style="padding-bottom: 7px; padding-top: 7px;">{{displayJournalBatchName}}</div>
+                                                                <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'jeBatchName') && submitted">Batch Name Is Mandatory</span>
+                                                            </div>
+                                                            <div class="journal-template-creation">
+                                                                <popover-content #myPopover title="Define Journal Batch Name" placement="left" [closeOnClickOutside]="true">
+                                                                    <div *ngFor="let col of defineJournalBatchNameList;let i = index" style="display: flex;padding: 5px 5px 5px 5px;">
+                                                                        <p-checkbox value="{{col.meaning}}" name="name1{{i}}" [(ngModel)]="selectedValues" (onChange)="selectBatchValue($event,col.meaning);"></p-checkbox>
+                                                                        <div style="padding: 2px 0px 0px 5px;"> {{col.meaning}}</div>
+                                                                        <div style="padding-left: 10px;">
+                                                                            <input class="example-full-width" mdInput [(ngModel)]="constantValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                                                                style="border-bottom: 1px solid lightgray;" placeholder=""
+                                                                                name="constantValue" focused required *ngIf="col.meaning == 'Constant' && constantInputField">
+                                                                            <span class="help-block errorFont" *ngIf="col.meaning == 'Constant' && constantInputField && !constantValue">Enter constant Value</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button md-button style="float: right;" mdTooltip="Define Name" (click)="defineBatchName();myPopover.hide();">Define Name</button>
+                                                                </popover-content>
+                                                            </div>
+                                                            <button md-icon-button class="pull-right color-gray" id="jeDefineId" [popover]="myPopover" *ngIf="!isViewOnly">
+                                                                <md-icon>more_vert</md-icon>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </li> -->
+                                                <span *ngIf="isViewOnly">
+                                                    <li class="list-group-item" *ngFor="let col of selectedHeaderAttributesDetails; let i = index">
+                                                        <div class="col-md-4" *ngIf="isViewOnly" style="font-weight: 600;">{{col.aliasName}}</div>
+                                                        <div class="col-md-8" *ngIf="isViewOnly">{{col.valueName}}</div>
+                                                    </li>
+                                                </span>
+                                                <span *ngIf="!isViewOnly">
+                                                    <li class="list-group-item" id="hideIconTable" *ngFor="let col of selectedHeaderAttributes; let i = index;trackBy:trackByIndex"
+                                                        dnd-draggable [dragEnabled]="true" [dragData]="col" dnd-droppable (onDropSuccess)="transferHeaderData($event)"
+                                                        style="padding-top: 3px; padding-bottom: 3px;">
+                                                        <div class="col-md-4 d-inline" *ngIf="col && col.aliasName" mdTooltip={{col.meaning}}>
+                                                            <md-input-container class="example-full-width" style="top: -8px;">
+                                                                <input mdInput [(ngModel)]="col.aliasName" [ngClass]="{'color-black' : isViewOnly}" required name="aliasName-{{i}}">
+                                                            </md-input-container>
+                                                            <span *ngIf="journalsTemplateForm.hasError('required', 'aliasName-'+i) && submitted" class="help-block errorFont">Alias Name Is Mandatory</span>
+                                                        </div>
+                                                        <div class="col-md-7 md-no-placeholder">
+                                                            <!--  style="display: flex;" -->
+                                                            <div class="d-inline">
+                                                                <md-select *ngIf="(col.lookUpCode || col.attributeName) == 'PERIOD'" [(ngModel)]="col.value" [ngClass]="{'color-black' : isViewOnly}"
+                                                                    style="padding-top: 0px;" required name="period-{{i}}">
+                                                                    <md-option *ngFor="let col of calenderList" [value]="col.id">
+                                                                        {{ col.name }}
+                                                                    </md-option>
+                                                                </md-select>
+                                                                <span *ngIf="journalsTemplateForm.hasError('required', 'period-'+i) && submitted" class="help-block errorFont">Period Is Mandatory</span>
+                                                            </div>
+                                                            <div class="d-inline">
+                                                                <md-select *ngIf="(col.lookUpCode || col.attributeName) == 'LEDGER'" [(ngModel)]="col.value" [ngClass]="{'color-black' : isViewOnly}"
+                                                                    style="padding-top: 0px;" required name="ledger-{{i}}">
+                                                                    <md-option *ngFor="let col of ledgersList" [value]="col.id">
+                                                                        {{ col.name }}
+                                                                    </md-option>
+                                                                </md-select>
+                                                                <span *ngIf="journalsTemplateForm.hasError('required', 'ledger-'+i) && submitted" class="help-block errorFont">Ledger Is Mandatory</span>
+                                                            </div>
+                                                            <div class="d-inline">
+                                                                <md-select *ngIf="(col.lookUpCode || col.attributeName) == 'DATE'" [(ngModel)]="col.value" [ngClass]="{'color-black' : isViewOnly}"
+                                                                    style="padding-top: 0px;" required name="date-{{i}}">
+                                                                    <md-option *ngFor="let col of headerDateLov" [value]="col.lookUpCode" (click)="displayCustFunDialog(col.lookUpCode);">
+                                                                        {{ col.meaning }}
+                                                                    </md-option>
+                                                                </md-select>
+                                                                <span *ngIf="journalsTemplateForm.hasError('required', 'date-'+i) && submitted" class="help-block errorFont">Date Is Mandatory</span>
+                                                            </div>
+                                                            <div class="d-inline">
+                                                                <md-select *ngIf="(col.lookUpCode || col.attributeName) == 'SOURCE'" [(ngModel)]="col.value" [ngClass]="{'color-black' : isViewOnly}"
+                                                                    style="padding-top: 0px;" required name="source-{{i}}">
+                                                                    <md-option *ngFor="let col of sourceList" [value]="col.lookUpCode">
+                                                                        {{ col.meaning }}
+                                                                    </md-option>
+                                                                </md-select>
+                                                                <span *ngIf="journalsTemplateForm.hasError('required', 'source-'+i) && submitted" class="help-block errorFont">Source Is Mandatory</span>
+                                                            </div>
+                                                            <div class="d-inline">
+                                                                <md-select *ngIf="(col.lookUpCode || col.attributeName) == 'CATEGORY'" [(ngModel)]="col.value" [ngClass]="{'color-black' : isViewOnly}"
+                                                                    style="padding-top: 0px;" required name="category-{{i}}">
+                                                                    <md-option *ngFor="let col of categoryList" [value]="col.lookUpCode">
+                                                                        {{ col.meaning }}
+                                                                    </md-option>
+                                                                </md-select>
+                                                                <span *ngIf="journalsTemplateForm.hasError('required', 'category-'+i) && submitted" class="help-block errorFont">Category Is Mandatory</span>
+                                                            </div>
+
+                                                        </div>
+                                                        <div class="col-md-1">
+                                                            <button id="showIcon" md-icon-button mdTooltip="Delete" (click)="removeHeaderColumn(col,i);">
+                                                                <md-icon style="font-size: 20px !important;">delete</md-icon>
+                                                            </button>
+                                                        </div>
+                                                    </li>
+                                                </span>
+                                            </ul>
+                                        </div>
+                                        <!-- </perfect-scrollbar> -->
+                                    </div>
+                                    <div class="col-md-6" style="padding-left: 15px;">
+                                        <div style="padding-top: 5px; padding-bottom: 5px;">
+                                            <!-- <p-checkbox class="checkboxLabel" name="groupname" [(ngModel)]="selectedroundOffCard" [disabled]="isViewOnly" (onChange)="roundingFun($event);"
+                                                value="ROUNDING_SETOFF_ACCOUNT" label="Rounding Setoff Account"></p-checkbox> -->
+                                            <md-checkbox class="checkboxLabel" name="groupname" [(ngModel)]="roundOffCard" [disabled]="isViewOnly" value="ROUNDING_SETOFF_ACCOUNT"
+                                                (change)="roundingFun($event);">Rounding Setoff Account</md-checkbox>
+                                            <!-- <div class="row col-md-12 m-0"> -->
+                                            <!-- *ngIf="roundOffCard" -->
+                                            <div class="m-0" [ngStyle]="{'height': roundOffCard === true ? '125px' : '0px' }" *ngIf="roundOffCard">
+                                                <!-- jeOverFlowBlock -->
+                                                <!-- <div class="row m-0" > -->
+                                                <!-- <div class="col-md-12" style="padding-top: 10px;padding-bottom: 10px;"> -->
+                                                <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                                    <div class="col-md-4" style="padding-right:10px;margin-top: auto; margin-bottom: auto;">Account: </div>
+                                                    <div class="col-md-8 cuppaSingleSelection">
+                                                        <!-- <p-inputMask mask="999-9999-99999" [ngModelOptions]="{standalone: true}" [(ngModel)]="accountValue" placeholder="999-9999-99999"
+                                                                        [disabled]="isViewOnly"></p-inputMask> -->
+                                                        <!-- <md-select [(ngModel)]="accountValue" [ngModelOptions]="{standalone: true}" class="example-full-width"
+                                                                        [ngClass]="{'color-black' : isViewOnly}" style="padding-top: 0px;"
+                                                                        required>
+                                                                        <md-option *ngFor="let col of naturalAccountList.segments[0].valueSet" [value]="col[0]">
+                                                                            {{ col[1] }}
+                                                                        </md-option>
+                                                                    </md-select> -->
+                                                        <div *ngIf="isViewOnly && accountValue">{{accountValue[0].itemName}}</div>
+                                                        <angular2-multiselect *ngIf="!isViewOnly" [data]="naturalAccountList" [(ngModel)]="accountValue" [settings]="limitSelectionSettings"
+                                                            [ngModelOptions]="{standalone: true}" required>
+                                                        </angular2-multiselect>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12" style="display: flex;padding-top: 5px; padding-bottom: 5px;">
+                                                    <div class="col-md-4" style="padding-top: 10px; padding-bottom: 10px;">Tolerance: </div>
+                                                    <!-- margin-top: auto; margin-bottom: auto; -->
+                                                    <div class="col-md-8 journalsRound journalsTabs" style="display: flex;">
+                                                        <span *ngIf="isViewOnly" style="margin-top: auto;margin-bottom: auto;margin-right: 19px;">{{toleranceValue}}</span>
+                                                        <span class="d-inline" *ngIf="!isViewOnly">
+                                                            <md-input-container class="example-full-width" style="top: -11px;">
+                                                                <input mdInput [(ngModel)]="toleranceValue" type="number" [ngClass]="{'color-black' : isViewOnly}" name="toleranceValue"
+                                                                    [disabled]="isViewOnly" required>
+                                                            </md-input-container>
+                                                            <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'toleranceValue') && submitted">Tolerance Value Is Mandatory</span>
+                                                        </span>
+                                                        <div class="customToggleTabs ">
+                                                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="customTabFun($event);" [value]="toleranceTempVal" [disabled]="isViewOnly">
+                                                                <md-button-toggle value="AMOUNT" mdToolTip="Amount">
+                                                                    $
+                                                                </md-button-toggle>
+                                                                <md-button-toggle value="PERCENTAGE" mdToolTip="Percentage">
+                                                                    %
+                                                                </md-button-toggle>
+                                                            </md-button-toggle-group>
+                                                        </div>
+                                                        <!--  <div style="display:flex;">
+                                                                        <button md-button class="customTabJe jeAmt" (click)="customTabFun('Amount');">Amount</button>
+                                                                        <button md-button class="customTabJe jePer" (click)="customTabFun('Percentage');">Percentage</button>
+                                                                    </div> -->
+                                                    </div>
+
+                                                </div>
+                                                <!-- </div> -->
+                                                <!-- </div> -->
+                                            </div>
+                                            <!-- </div> -->
+                                        </div>
+                                        <div style="padding-top: 5px; padding-bottom: 5px;">
+                                            <!-- <p-checkbox class="checkboxLabel" name="groupname1" [(ngModel)]="selectedicSetOffDebit" [disabled]="isViewOnly" (onChange)="icSetOffFun($event);"
+                                                value="MULTI_COMPANY_ACCOUNTS" label="Multi Company Accounts"></p-checkbox> -->
+                                            <md-checkbox class="checkboxLabel" name="groupname1" [(ngModel)]="icSetOffCard" [disabled]="isViewOnly" value="MULTI_COMPANY_ACCOUNTS"
+                                                (change)="icSetOffFun($event);">Multi Company Accounts</md-checkbox>
+                                            <!-- <div class="row col-md-12 m-0"> -->
+                                            <!--  *ngIf="icSetOffCard" -->
+                                            <div class="m-0" [ngStyle]="{'height': icSetOffCard === true ? '98px' : '0px' }" *ngIf="icSetOffCard">
+                                                <!-- jeOverFlowBlock1 -->
+                                                <!-- <div class="row m-0" > -->
+                                                <!-- <div class="col-md-12" style="padding-top: 10px;padding-bottom: 10px;"> -->
+                                                <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                                    <div class="col-md-5" style="padding-right:10px;margin-top: auto; margin-bottom: auto;">IC Set Off Debit: </div>
+                                                    <div class="col-md-7 cuppaSingleSelection" *ngIf="naturalAccountList">
+                                                        <!-- <p-inputMask mask="999-9999-99999" [ngModelOptions]="{standalone: true}" [(ngModel)]="icSetOffDebitValue" placeholder="999-9999-99999"
+                                                                        [disabled]="isViewOnly" required></p-inputMask> -->
+
+                                                        <!-- <md-select [(ngModel)]="icSetOffDebitValue" [ngModelOptions]="{standalone: true}" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}"
+                                                                        style="padding-top: 0px;" required>
+                                                                        <md-option *ngFor="let col of interCompanyList.segments[0].valueSet" [value]="col[0]">
+                                                                            {{ col[1] }}
+                                                                        </md-option>
+                                                                    </md-select> -->
+                                                        <div *ngIf="isViewOnly && icSetOffDebitValue">{{icSetOffDebitValue[0].itemName}}</div>
+                                                        <angular2-multiselect *ngIf="!isViewOnly" [data]="naturalAccountList" [(ngModel)]="icSetOffDebitValue" [settings]="limitSelectionSettings"
+                                                            [ngModelOptions]="{standalone: true}" required>
+                                                        </angular2-multiselect>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                                    <div class="col-md-5" style="padding-right:10px;margin-top: auto; margin-bottom: auto;">IC Set Off Credit: </div>
+                                                    <div class="col-md-7 cuppaSingleSelection">
+                                                        <!-- <p-inputMask mask="999-9999-99999" [ngModelOptions]="{standalone: true}" [(ngModel)]="icSetOffCreditValue" placeholder="999-9999-99999"
+                                                                        [disabled]="isViewOnly" required></p-inputMask> -->
+                                                        <!-- <md-select [(ngModel)]="icSetOffCreditValue" [ngModelOptions]="{standalone: true}" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}"
+                                                                        style="padding-top: 0px;" required>
+                                                                        <md-option *ngFor="let col of interCompanyList.segments[0].valueSet" [value]="col[0]">
+                                                                            {{ col[1] }}
+                                                                        </md-option>
+                                                                    </md-select> -->
+                                                        <div *ngIf="isViewOnly && icSetOffCreditValue">{{icSetOffCreditValue[0].itemName}}</div>
+                                                        <angular2-multiselect *ngIf="!isViewOnly" [data]="naturalAccountList" [(ngModel)]="icSetOffCreditValue" [settings]="limitSelectionSettings"
+                                                            [ngModelOptions]="{standalone: true}" required>
+                                                        </angular2-multiselect>
+                                                    </div>
+                                                </div>
+                                                <!-- </div> -->
+                                                <!-- </div> -->
+                                            </div>
+                                            <!-- </div> -->
+                                        </div>
+                                        <!-- <div style="padding-top: 5px; padding-bottom: 5px;">
+                                            <p-checkbox class="checkboxLabel" name="groupname2" [(ngModel)]="selectedconversionTypeValue" [disabled]="isViewOnly" (onChange)="multiCurrencyFun($event);"
+                                                value="Multi Currency" label="Multi Currency"></p-checkbox>
+                                            <div class="row col-md-12" >
+                                                <md-card style="margin-left: 7px;margin-top: 7px;width: 500px;transition: 0.5s all ease-in !important;overflow: hidden;"
+                                                    [ngStyle]="{'height': multiCurrencyCard === true ? '60px' : '0px' }">
+                                                    <div class="row">
+                                                        <div class="col-md-12" style="padding-top: 10px;padding-bottom: 10px;">
+                                                            <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                                                <div class="col-md-5" style="padding-right:10px;margin-top: auto;margin-bottom: auto;">Conversion Type: </div>
+                                                                <div class="col-md-7">
+                                                                    <md-select [(ngModel)]="conversionTypeValue" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="conversionTypeValue"
+                                                                        [disabled]="isViewOnly" style="padding-top: 4px;" required>
+                                                                        <md-option *ngFor="let col of conversionTypeList" [value]="col.id">
+                                                                            {{ col.name }}
+                                                                        </md-option>
+                                                                    </md-select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </md-card>
+                                            </div>
+                                        </div> -->
+                                    </div>
+                                </div>
+                            </div>
+                        </vertical-split-pane>
+                    </div>
+                </div>
+            </div>
+            <div style="padding-top: 20px;">
+                <div class="theme-text subHeadingStyles">Line Derivation Rules</div>
+                <div class="row accordioncontenet" style="margin: 0px;padding-top: 5px;">
+                    <div style="height: 100%; width: 100%">
+                        <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+                            <div id="stickyr" class="split-pane-content-primary" *ngIf="!isViewOnly">
+                                <!-- <div class="MyPanel" dnd-sortable-container [sortableData]="commonLineAttribute">
+                                <div class="Heading BlueTitleDiv">Line Level Attributes</div>
+                                <perfect-scrollbar style="height: 181px;">
+                                    <div class="panel-body" dnd-droppable [dropZones]="['zone2']">
+                                        <ul class="list-group">
+                                            <li *ngFor="let item of commonLineAttribute; let i = index" class="list-group-item" dnd-sortable [sortableIndex]="i" [dragEnabled]="true"
+                                                [dragData]="item">{{item.meaning}}</li>
+                                        </ul>
+                                    </div>
+                                </perfect-scrollbar>
+                            </div> -->
+                                <div class="MyPanel" style="height: 190;">
+                                    <div class="Heading BlueTitleDiv">Line Attributes</div>
+                                    <div class="panel-body">
+                                        <div *ngIf="!isViewOnly">
+                                            <ul class="list-group">
+                                                <li class="list-group-item" *ngFor="let col of commonLineAttribute" dnd-draggable [dragEnabled]="true" [dragData]="col">{{col.meaning}}</li>
+                                            </ul>
+                                        </div>
+                                        <div *ngIf="isViewOnly">
+                                            <ul class="list-group">
+                                                <li class="list-group-item" *ngFor="let col of commonLineAttribute" dnd-draggable [dragEnabled]="false" [dragData]="col">{{col.meaning}}</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <br>
+                                <!-- <div class="MyPanel" dnd-sortable-container [sortableData]="selectedViewColumnsAtLines">
+                                <div class="Heading BlueTitleDiv">View Attributes</div>
+                                <perfect-scrollbar style="height: 300px;">
+                                    <div class="panel-body" dnd-droppable [dropZones]="['zone3']">
+                                        <ul class="list-group">
+                                            <li *ngFor="let item of selectedViewColumnsAtLines; let i = index" class="list-group-item" dnd-sortable [sortableIndex]="i"
+                                                [dragEnabled]="true" [dragData]="item">{{item.columnName}}</li>
+                                        </ul>
+                                    </div>
+                                </perfect-scrollbar>
+                            </div> -->
+                                <div class="MyPanel">
+                                    <div class="Heading BlueTitleDiv">View Attributes</div>
+                                    <perfect-scrollbar style="height: 300px;">
+                                        <div class="panel-body">
+                                            <div *ngIf="!isViewOnly">
+                                                <ul class="list-group">
+                                                    <li class="list-group-item" *ngFor="let col of selectedViewColumnsAtLines" dnd-draggable [dragEnabled]="true" [dragData]="col">{{col.columnName}}</li>
+                                                </ul>
+                                            </div>
+                                            <div *ngIf="isViewOnly">
+                                                <ul class="list-group">
+                                                    <li class="list-group-item" *ngFor="let col of selectedViewColumnsAtLines" dnd-draggable [dragEnabled]="false" [dragData]="col">{{col.columnName}}</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+                            </div>
+                            <div class="split-pane-content-secondary">
+                                <div class="row col-md-12" style="margin-left: 0px;">
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 form-group d-inline" *ngIf="!isViewOnly">
+                                        <md-select placeholder="Balance Type" [(ngModel)]="journalTemplate.balanceType" name="balanceType" class="example-full-width"
+                                            [ngClass]="{'color-black' : isViewOnly}" multiple required>
+                                            <md-option *ngFor="let col of balanceTypeLov" [value]="col.lookUpCode">
+                                                {{ col.meaning }}
+                                            </md-option>
+                                        </md-select>
+                                        <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'balanceType') && submitted">Balance Type Is Mandatory</span>
+                                    </div>
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 form-group" *ngIf="isViewOnly">
+                                        <md-input-container class="example-full-width" mdToolTip="Balance Type">
+                                            <input mdInput [(ngModel)]="journalTemplate.balanceType" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                                placeholder={{journalTemplate.balanceTypeDisplayName}} name="balanceTypeDisplayName1"
+                                                required>
+                                        </md-input-container>
+                                    </div>
+
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 form-group d-inline" *ngIf="!isViewOnly">
+                                        <md-input-container class="example-full-width">
+                                            <input mdInput [(ngModel)]="journalTemplate.balanceTypeDisplayName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                                placeholder="Display Name" name="balanceTypeDisplayName" required>
+                                        </md-input-container>
+                                        <span class="help-block errorFont" *ngIf="journalsTemplateForm.hasError('required', 'balanceTypeDisplayName1') && submitted">Display Name Is Mandatory</span>
+                                    </div>
+                                    <!-- <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 form-group" *ngIf="!isViewOnly">
+                                        <md-select [(ngModel)]="journalTemplate.jeLevel" placeholder="JE Level" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}"
+                                            name="jeLevel" [disabled]="isViewOnly" required>
+                                            <md-option *ngFor="let col of journalGenerationLevelList" [value]="col.lookUpCode">
+                                                {{ col.meaning }}
+                                            </md-option>
+                                        </md-select>
+                                    </div>
+                                    <div class="col-lg-4 col-md-4 col-sm-12 col-xs-12 form-group" *ngIf="isViewOnly">
+                                        <md-input-container class="example-full-width">
+                                            <input mdInput [(ngModel)]="journalTemplate.jeLevel" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="JE Level"
+                                                name="jeLevel1" required>
+                                        </md-input-container>
+                                    </div> -->
+                                </div>
+                                <!-- <div class="MyPanel" dnd-sortable-container [sortableData]="selectedLineAttributes">
+                                <div class="Heading BlueTitleDiv">List Of Attributes</div>
+                                <perfect-scrollbar class="table-responsive" style="height: 100px;">
+                                    <div class="panel-body" dnd-droppable [dropZones]="['zone2' , 'zone3']">
+                                        <ul class="col-md-3 list-group" style="display: -webkit-box;padding-left: 0px;">
+                                            <li *ngFor="let item of defaultLineAttributesList; let y = index" class="list-group-item" style="color: rgba(0, 0, 0, 0.54);">{{item.name}}</li>
+                                            <li *ngFor="let item of selectedLineAttributes; let x = index" [dragEnabled]="true" [dragData]="item" class="list-group-item"
+                                                dnd-sortable [sortableIndex]="x">
+                                                <div *ngIf="item.meaning">{{item.meaning}}</div>
+                                                <div *ngIf="item.columnName">{{item.columnName}}</div>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </perfect-scrollbar>
+                            </div> -->
+                                <div *ngIf="journalTemplate.balanceType" class="MyPanel" dnd-droppable (onDropSuccess)="transferLineData($event)" dnd-sortable-container
+                                    [sortableData]="selectedLineAttributes" [@displayAnimation] style="margin-left: 8px;">
+                                    <div class="Heading BlueTitleDiv">List Of Attributes</div>
+                                    <div class="panel-body" dnd-droppable (onDropSuccess)="transferLineData($event)">
+                                        <div style="height: 100px;overflow-x: auto !important;">
+                                            <ul class="list-group" style="display: -webkit-box;margin: 20px 5px;">
+                                                <span *ngIf="!isViewOnly && !isEdit" style="display: contents;">
+                                                    <li *ngFor="let cols of lineDerivationRuleList; let y = index" class="list-group-item" style="color: rgba(0, 0, 0, 0.54);">
+                                                        <div>{{cols.meaning}}</div>
+                                                    </li>
+                                                </span>
+                                                <span *ngIf="!isViewOnly" style="display: contents;">
+                                                    <li class="list-group-item" id="hideIconTable" *ngFor="let col of selectedLineAttributes; let x = index" dnd-draggable [dragEnabled]="true"
+                                                        [dragData]="col" dnd-droppable (onDropSuccess)="transferLineData($event)"
+                                                        style="padding-top: 3px; padding-bottom: 3px;" dnd-sortable [sortableIndex]="x">
+                                                        <div *ngIf="col.meaning && !isViewOnly">{{col.meaning}}</div>
+                                                        <div *ngIf="col.columnName && !isViewOnly">{{col.columnName}}</div>
+                                                        <div *ngIf="col.colValueName && !isViewOnly">{{col.colValueName}}</div>
+                                                        <button id="showIcon" md-icon-button mdTooltip="delete" (click)="deleteLineAttribute(col,x);" *ngIf="(col.colValueName != 'Line' && col.colValueName != 'Code Combination' && col.colValueName != 'Accounted Debit' && col.colValueName != 'Accounted Credit')">
+                                                            <md-icon style="font-size: 20px !important;">delete</md-icon>
+                                                        </button>
+                                                    </li>
+                                                </span>
+
+                                                <span *ngIf="isViewOnly" style="display: contents;">
+                                                    <li class="list-group-item" *ngFor="let col of displaySelectedLineAttributes;" style="color: rgba(0, 0, 0, 0.54);">
+                                                        <div>
+                                                            {{col.colValueName}}
+                                                        </div>
+                                                    </li>
+                                                </span>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </vertical-split-pane>
+                    </div>
+                </div>
+            </div>
+            <!-- <p-accordionTab header="Additional Information">
+            <div class="accordioncontenet">
+                <div>
+                    <p-checkbox class="checkboxLabel" name="groupname" (onChange)="roundingFun($event);" value="Rounding Setoff Account" label="Rounding Setoff Account"></p-checkbox>
+                    <div class="row col-md-5" *ngIf="roundOffCard">
+                        <md-card style="margin-left: 7px;margin-top: 7px;width: 500px;">
+                            <div class="row">
+                                <div class="col-md-12" style="padding-top: 10px;padding-bottom: 10px;">
+                                    <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                        <div class="col-md-4" style="padding-right:10px;">Account: </div>
+                                        <div class="col-md-8">
+                                            <p-inputMask mask="999-99-9999" [(ngModel)]="accountValue" placeholder="999-99-9999"></p-inputMask>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12" style="display: flex;padding-top: 5px; padding-bottom: 5px;">
+                                        <div class="col-md-4" style="padding-top: 10px; padding-bottom: 10px;">Tolerance: </div>
+                                        <div class="col-md-4">
+                                            <md-select [(ngModel)]="toleranceSelectedValue" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="toleranceSelectedValue"
+                                                [disabled]="isViewOnly" style="padding-top: 4px;" required>
+                                                <md-option *ngFor="let col of toleranceLov" [value]="col.value">
+                                                    {{ col.name }}
+                                                </md-option>
+                                            </md-select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <md-input-container class="example-full-width" style="top: -11px;">
+                                                <input mdInput [(ngModel)]="toleranceValue" type="number" [ngClass]="{'color-black' : isViewOnly}" name="toleranceValue"
+                                                    required>
+                                            </md-input-container>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                </div>
+                <div>
+                    <p-checkbox class="checkboxLabel" name="groupname1" (onChange)="icSetOffFun($event);" value="Multi Company Accounts" label="Multi Company Accounts"></p-checkbox>
+                    <div class="row col-md-5" *ngIf="icSetOffCard">
+                        <md-card style="margin-left: 7px;margin-top: 7px;width: 500px;">
+                            <div class="row">
+                                <div class="col-md-12" style="padding-top: 10px;padding-bottom: 10px;">
+                                    <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                        <div class="col-md-5" style="padding-right:10px;">IC Set Off Debit: </div>
+                                        <div class="col-md-7">
+                                            <p-inputMask mask="999-99-9999" [(ngModel)]="icSetOffDebitValue" placeholder="999-99-9999"></p-inputMask>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                        <div class="col-md-5" style="padding-right:10px;">IC Set Off Credit: </div>
+                                        <div class="col-md-7">
+                                            <p-inputMask mask="999-99-9999" [(ngModel)]="icSetOffCreditValue" placeholder="999-99-9999"></p-inputMask>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                </div>
+                <div>
+                    <p-checkbox class="checkboxLabel" name="groupname2" (onChange)="multiCurrencyFun($event);" value="Multi Currency" label="Multi Currency"></p-checkbox>
+                    <div class="row col-md-5" *ngIf="multiCurrencyCard">
+                        <md-card style="margin-left: 7px;margin-top: 7px;width: 500px;">
+                            <div class="row">
+                                <div class="col-md-12" style="padding-top: 10px;padding-bottom: 10px;">
+                                    <div class="col-md-12" style="display: flex; padding-top: 5px; padding-bottom: 5px;">
+                                        <div class="col-md-5" style="padding-right:10px;">Conversion Type: </div>
+                                        <div class="col-md-7">
+                                            <md-select [(ngModel)]="conversionTypeValue" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="conversionTypeValue"
+                                                [disabled]="isViewOnly" style="padding-top: 4px;" required>
+                                                <md-option *ngFor="let col of conversionTypeList" [value]="col.id">
+                                                    {{ col.meaning }}
+                                                </md-option>
+                                            </md-select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </md-card>
+                    </div>
+                </div>
+            </div>
+        </p-accordionTab> -->
+        </div>
+
+    </form>
+</div>
+
+<p-dialog header="Select Arguments" [(visible)]="functionDefinitionDialog" [width]="500" [responsive]="true" [modal]="true"
+    [resizable]="false" [closable]="false" [closeOnEscape]="false">
+    <form novalidate #customFunctionForm="ngForm">
+        <div class="row" style="padding-bottom: 10px;">
+            <div class="col-md-5">
+                <md-select [(ngModel)]="customFunction.argument1" name="Argument1" placeholder="Argument 1" required>
+                    <!-- <md-option [value]="'File Date'">File Date</md-option>
+                    <md-option [value]="'Period Start Date'">Period Start Date</md-option>
+                    <md-option [value]="'Period End Date'">Period End Date</md-option> -->
+                    <md-option *ngFor="let col of dvDateColumns" [value]="col.id">{{col.columnName}}</md-option>
+            </div>
+            <div class="col-md-5">
+                <md-select [(ngModel)]="customFunction.argument2" name="Argument2" placeholder="Argument 2" required>
+                    <!-- Uncomment if FIle date need externally -->
+                    <!-- <md-option [value]="'File Date'">File Date</md-option>
+                    <md-option [value]="'Period Start Date'">Period Start Date</md-option>
+                    <md-option [value]="'Period End Date'">Period End Date</md-option> -->
+                    <md-option *ngFor="let col of dvDateColumns" [value]="col.id">{{col.columnName}}</md-option>
+                </md-select>
+            </div>
+            <div class="col-md-2">
+                <md-input-container class="example-full-width">
+                    <input mdInput type="number" placeholder="Days" min="1" max="28" [(ngModel)]="customFunction.offSetDays" name="offsetDays"
+                        (keypress)="keyHandlerCount($event.keyCode);" required>
+                </md-input-container>
+            </div>
+        </div>
+    </form>
+    <p-accordion>
+        <p-accordionTab header="Custom Function Definition">
+            <label>IF :Argument1 and :Argument2 between Start_date &amp; end_date of the Open Period, then GL date is File_date.</label>
+            <label>If :Argument1 is within first :Days days of the month and :Argument2 &gt;= Current Open Period End Date, then
+                GL Date is Bill_to_Date.</label>
+            <label>If :Argument1 is within first :Days days of the month and :Argument2 &lt;= Current Open Period End Date, then
+                GL Date is Open period End Date.</label>
+        </p-accordionTab>
+    </p-accordion>
+    <p-footer>
+        <div class="top-border">
+            <button class="pull-right" md-raised-button style="margin-bottom: 10px;" [disabled]="!customFunctionForm.valid" (click)="functionDefinitionDialog=false">Done!</button>
+        </div>
+    </p-footer>
+</p-dialog>

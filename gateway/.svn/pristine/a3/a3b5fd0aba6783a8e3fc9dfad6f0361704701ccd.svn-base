@@ -1,0 +1,131 @@
+<div style="height: 100%; width: 100%">
+    <div class="component-title">
+        <div class="col-md-6">
+            <h4>
+                <span *ngIf="!ledgerDefinition.name">Ledger {{isCreateNew ? 'Creation' : 'Detail'}}</span>
+                <span *ngIf="ledgerDefinition.name">
+                    <span>Ledger: </span>
+                    <span style="color:black">{{ledgerDefinition.name}}</span>
+                </span>
+            </h4>
+        </div>
+        <div class="col-md-6">
+            <div class="pull-right">
+                <button *ngIf="!isViewOnly && f.valid" md-icon-button aria-hidden="true" mdTooltip="Save" (click)="saveLedger()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !f.valid" md-icon-button aria-hidden="true" mdTooltip="Fill mandatory fields" (click)="validationMsg()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/ledger-definition', {outlets: {'content': [ledgerDefinition.id]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button>
+                <button *ngIf="isCreateNew || isEdit" md-icon-button mdTooltip="Close" [routerLink]="['/ledger-definition', {outlets: {'content': ['ledger-definition-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Close" [routerLink]="['/ledger-definition', {outlets: {'content': ['ledger-definition-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="component-body">
+        <!-- Form Start Here -->
+        <div style="padding-top:10px;">
+            <form novalidate #f="ngForm" class="container-fluid" style="width:50%;box-shadow: 0 0 1px 1px lightgrey;padding: 15px;">
+                <div class="row" style="padding: 15px 0;">
+                    <div class="col-md-6 p-2 d-inline-block">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="ledgerDefinition.name" [ngClass]="{'color-black' : !isCreateNew}" [disabled]="!isCreateNew" placeholder="Ledger Name"
+                                    name="name" required #name="ngModel" id="name" (blur)="isNameExist(ledgerDefinition.name, ledgerDefinition.id)"
+                                    (ngModelChange)="nameExist = ''">
+                            </md-input-container>
+                        </div>
+                        <small class="form-text text-danger" *ngIf="nameExist">{{nameExist}}</small>
+                    </div>
+
+                    <div class="col-md-6 p-2">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Ledger Type" [(ngModel)]="ledgerDefinition.ledgerType" name="ledgerType" [disabled]="!isCreateNew"
+                                required>
+                                <md-option *ngFor="let col of ledgerType" [(value)]="col.lookUpCode">{{ col.meaning }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-12 p-2">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="ledgerDefinition.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                    placeholder="Description" name="description" #description="ngModel">
+                            </md-input-container>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 p-2">
+                        <div class="mat-c-input-wrapper">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="!isCreateNew" [(ngModel)]="ledgerDefinition.startDate" name="startDate" required [min]="currentDate">
+                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 p-2" *ngIf="ledgerDefinition.startDate && (ledgerDefinition.endDate || !isViewOnly)">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container *ngIf="ledgerDefinition.endDate == '-'">
+                                <input mdInput [(ngModel)]="ledgerDefinition.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="End Date"
+                                    name="endDate">
+                            </md-input-container>
+                            <md-form-field *ngIf="ledgerDefinition.endDate != '-'">
+                                <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="ledgerDefinition.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" [(ngModel)]="ledgerDefinition.endDate" name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4 p-2" *ngIf="!isCreateNew">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Status" [(ngModel)]="ledgerDefinition.enabledFlag" name="status" [disabled]="isViewOnly" required>
+                                <md-option *ngFor="let sts of statuses" [(value)]="sts.code">{{ sts.value }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 p-2 m-r-5-pt">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Currency" [(ngModel)]="ledgerDefinition.currency" name="currency" [disabled]="!isCreateNew" [style.width]="'100%'"
+                                required #crnySel [materialFilter]="crnySel" [materialFilterModel]="crnySrchModel" [materialFilterInput]="crnySrchInput">
+                                <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="crnySearch" name="crnySearch" #crnySrchModel="ngModel" #crnySrchInput>
+                                <md-option *ngFor="let col of currencies | searchFilter:crnySearch" [(value)]="col.cc">{{ col.cv }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 p-2 m-r-5-pt">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Calendar" [(ngModel)]="ledgerDefinition.calendarId" name="calendarId" [disabled]="!isCreateNew" [style.width]="'100%'"
+                                required>
+                                <md-option *ngFor="let col of calendars" [(value)]="col.id">{{ col.name }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 p-2 m-r-5-pt">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Chart of Account" [(ngModel)]="ledgerDefinition.coaId" name="coaId" [disabled]="!isCreateNew" [style.width]="'100%'"
+                                required>
+                                <md-option *ngFor="let col of chartOfAccounts" [(value)]="col.id">{{ col.name }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

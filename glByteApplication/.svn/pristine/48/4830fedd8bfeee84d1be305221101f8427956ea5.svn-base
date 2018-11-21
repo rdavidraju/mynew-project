@@ -1,0 +1,261 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.springframework.data.elasticsearch.annotations.Document;
+
+import javax.persistence.*;
+
+import java.io.Serializable;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A SourceProfiles.
+ */
+@Entity
+@Table(name = "t_source_profiles")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+@Document(indexName = "reconapplication", type="sourceprofiles")
+public class SourceProfiles implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    @Column(name = "id_for_display")
+    private String idForDisplay;
+
+    @Column(name = "source_profile_name")
+    private String sourceProfileName;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "start_date")
+    private ZonedDateTime startDate;
+
+    @Column(name = "end_date")
+    private ZonedDateTime endDate;
+
+    @Column(name = "enabled_flag")
+    private Boolean enabledFlag;
+
+    @Column(name = "connection_id")
+    private Long connectionId;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "created_date")
+    private ZonedDateTime createdDate;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getSourceProfileName() {
+        return sourceProfileName;
+    }
+
+    public SourceProfiles sourceProfileName(String sourceProfileName) {
+        this.sourceProfileName = sourceProfileName;
+        return this;
+    }
+
+    public void setSourceProfileName(String sourceProfileName) {
+        this.sourceProfileName = sourceProfileName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public SourceProfiles description(String description) {
+        this.description = description;
+        return this;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public ZonedDateTime getStartDate() {
+        return startDate;
+    }
+
+    public SourceProfiles startDate(ZonedDateTime startDate) {
+        this.startDate = startDate;
+        return this;
+    }
+
+    public void setStartDate(ZonedDateTime startDate) {
+        this.startDate = startDate;
+    }
+
+    public ZonedDateTime getEndDate() {
+        return endDate;
+    }
+
+    public SourceProfiles endDate(ZonedDateTime endDate) {
+        this.endDate = endDate;
+        return this;
+    }
+
+    public void setEndDate(ZonedDateTime endDate) {
+        this.endDate = endDate;
+    }
+
+    public Boolean isEnabledFlag() {
+        return enabledFlag;
+    }
+
+    public SourceProfiles enabledFlag(Boolean enabledFlag) {
+        this.enabledFlag = enabledFlag;
+        return this;
+    }
+
+    public void setEnabledFlag(Boolean enabledFlag) {
+        this.enabledFlag = enabledFlag;
+    }
+
+    public Long getConnectionId() {
+        return connectionId;
+    }
+
+    public SourceProfiles connectionId(Long connectionId) {
+        this.connectionId = connectionId;
+        return this;
+    }
+
+    public void setConnectionId(Long connectionId) {
+        this.connectionId = connectionId;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public SourceProfiles tenantId(Long tenantId) {
+        this.tenantId = tenantId;
+        return this;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public SourceProfiles createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public ZonedDateTime getCreatedDate() {
+        return createdDate;
+    }
+
+    public SourceProfiles createdDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+        return this;
+    }
+
+    public void setCreatedDate(ZonedDateTime createdDate) {
+        this.createdDate = createdDate;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public SourceProfiles lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public SourceProfiles lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+
+    public String getIdForDisplay() {
+		return idForDisplay;
+	}
+
+	public void setIdForDisplay(String idForDisplay) {
+		this.idForDisplay = idForDisplay;
+	}
+
+	@Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        SourceProfiles sourceProfiles = (SourceProfiles) o;
+        if (sourceProfiles.getId() == null || getId() == null) {
+            return false;
+        }
+        return Objects.equals(getId(), sourceProfiles.getId());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getId());
+    }
+
+    @Override
+    public String toString() {
+        return "SourceProfiles{" +
+            "id=" + getId() +
+            ", sourceProfileName='" + getSourceProfileName() + "'" +
+            ", description='" + getDescription() + "'" +
+            ", startDate='" + getStartDate() + "'" +
+            ", endDate='" + getEndDate() + "'" +
+            ", enabledFlag='" + isEnabledFlag() + "'" +
+            ", connectionId='" + getConnectionId() + "'" +
+            ", tenantId='" + getTenantId() + "'" +
+            ", createdBy='" + getCreatedBy() + "'" +
+            ", createdDate='" + getCreatedDate() + "'" +
+            ", lastUpdatedBy='" + getLastUpdatedBy() + "'" +
+            ", lastUpdatedDate='" + getLastUpdatedDate() + "'" +
+            "}";
+    }
+}

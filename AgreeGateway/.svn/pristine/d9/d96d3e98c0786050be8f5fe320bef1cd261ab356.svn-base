@@ -1,0 +1,265 @@
+<div class="component-body" style="margin:0px 10px;">
+    <div class="botom-dotted-blue-border component-title">
+        <div class="col-md-6 col-sm-6 col-xs-6" style="padding-top:12px;">
+            <h3>Process</h3>
+        </div>
+        <div class="col-md-6 col-sm-6 col-xs-6 ftlSearch">
+            <button md-icon-button class="pull-right  md-36" mdTooltip="Add Process" (click)="addProcessSetup(f)">
+                <md-icon>add</md-icon>
+            </button>
+            <button md-icon-button class="pull-right search-icon-body" mdTooltip="Search">
+                <md-icon>search</md-icon>
+            </button>
+            <md-input-container class="pull-right hidethis">
+                <input class="mySearchBox" mdInput #gb placeholder="What're we looking for?">
+            </md-input-container>
+        </div>
+    </div>
+
+    <div style="text-align:right" class="show-hide-class">
+        <p-multiSelect [options]="columnOptions" [(ngModel)]="processSetupTableColumns" title="Show/Hide Columns"></p-multiSelect>
+    </div>
+    <p-dataTable [value]="processes" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+        scrollHeight={{TemplatesHeight}} [responsive]="true" [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="10">
+
+        <p-column field="processName" header="Name" styleClass="left" [style]="{'width':'100px'}">
+            <ng-template let-col let-row="rowData" pTemplate="body">
+                <a href="javascript:void(0);" (click)="processSetupDetail(row)">{{row[col.field]}}</a>
+            </ng-template>
+        </p-column>
+
+        <p-column *ngFor="let col of processSetupTableColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+            [header]="col.header">
+        </p-column>
+
+        <p-column [style]="{'width':'80px' }" field="enable" header="Status" styleClass="text-center" styleClass="center">
+            <ng-template let-col let-row="rowData" pTemplate="body">
+                <i *ngIf="row[col.field]==true" style="color: darkgrey" class="material-icons">check_circle</i>
+                <i *ngIf="row[col.field]==false" style="color: darkgrey" class="material-icons" aria-hidden="true">error</i>
+            </ng-template>
+        </p-column>
+
+    </p-dataTable>
+    <md-paginator *ngIf="processSetupRecordsLength>0" [length]="processSetupRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page"
+        (page)="onPaginateChange($event)">
+    </md-paginator>
+
+
+    <!-- Dialog to display details and update -->
+    <div class="custom-dialog">
+        <div class="custom-dialog-header ui-widget-header">
+            <span style="padding-left:10px">Process Details</span>
+            <i class="material-icons dialogEditBtn" *ngIf="!editable" (click)="editProcessSetupDetails()">mode_edit</i>
+            <i class="material-icons dialogcloseBtn" (click)="closeReconDialog()">close</i>
+        </div>
+        <div class="custom-dialog-body">
+            <div *ngIf="!editable">
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray">
+                    <p class="materialLabelProcess">Name:</p>
+                    <span>{{processesDetails.processName}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.desc">
+                    <p class="materialLabelProcess">Description:</p>
+                    <span>{{processesDetails.desc}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray">
+                    <p class="materialLabelProcess">Start Date:</p>
+                    <span>{{processesDetails.startDate | date:'mediumDate'}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.endDate">
+                    <p class="materialLabelProcess">End Date:</p>
+                    <span>{{processesDetails.endDate | date:'mediumDate'}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.spList?.length > 0">
+                    <p class="materialLabelProcess">Source Profile:</p>
+                    <ul>
+                        <li *ngFor="let srcPrf of processesDetails.spList">{{srcPrf.sourceProfileName}}</li>
+                    </ul>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.reconcRuleGroupName">
+                    <p class="materialLabelProcess">Reconciliation Rule Group:</p>
+                    <span>{{processesDetails.reconcRuleGroupName}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex" *ngIf="processesDetails.actRuleGroupName">
+                    <p class="materialLabelProcess">Accounting Rule Group:</p>
+                    <span>{{processesDetails.actRuleGroupName}}</span>
+                </div>
+            </div>
+            
+            <form novalidate #f="ngForm">
+                <div *ngIf="editable">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="processesDetails.processName" placeholder="Name" id="name" name="name" [ngClass]="{'color-black' : !editable}"
+                                    [disabled]="!editable" required (blur)="processDuplicateCheck(processesDetails.processName, processesDetails.id)">
+                            </md-input-container>
+                            <md-error class="prcsMdError" *ngIf="prsNameDup">Process Name Already Exists</md-error>
+                        </div>
+                        <div class="col-md-6">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="processesDetails.desc" placeholder="Description" name="description" [ngClass]="{'color-black' : !editable}"
+                                    [disabled]="!editable">
+                            </md-input-container>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-6">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="processesDetails.startDate" placeholder="Start date" [max]="processesDetails.endDate" name="startDate"
+                                    required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                        <div class="col-md-6">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="edpicker" [min]="processesDetails.startDate" [(ngModel)]="processesDetails.endDate" placeholder="End date"
+                                    name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-6">
+                            <md-select [(ngModel)]="processesDetails.spListIds" placeholder="Source Profile" name="sourceProfile" multiple [disabled]="!editable">
+                                <md-option *ngFor="let col of sourceProfile" [(value)]="col.id">
+                                    <span>{{ col.sourceProfileName }} - </span>
+                                    <span *ngIf="col.enabledFlag" class="badge badge-success">Active</span>
+                                    <span *ngIf="!col.enabledFlag" class="badge badge-danger">In Active</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                        <div class="col-md-6">
+                            <md-select [(ngModel)]="processesDetails.reconcRuleGroupId" placeholder="Reconciliation Rule Group" name="reconRuleGroup"
+                                [disabled]="!editable">
+                                <md-option *ngFor="let col of reconRuleGroup" [(value)]="col.id">
+                                    <span>{{ col.name }} - </span>
+                                    <span *ngIf="col.enableFlag" class="badge badge-success">Active</span>
+                                    <span *ngIf="!col.enableFlag" class="badge badge-danger">In Active</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <md-select [(ngModel)]="processesDetails.actRuleGroupId" placeholder="Accounting Rule Group" name="accRuleGroup" [disabled]="!editable">
+                                <md-option *ngFor="let col of accRuleGroup" [(value)]="col.id">
+                                    <span>{{ col.name }} - </span>
+                                    <span *ngIf="col.enableFlag" class="badge badge-success">Active</span>
+                                    <span *ngIf="!col.enableFlag" class="badge badge-danger">Active</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="custom-dialog-footer" *ngIf="editable">
+            <button md-raised-button (click)="saveOrUpdateProcess()" class="pull-right" style="margin-bottom: 10px;" [disabled]="!f.valid">{{createNewProcess ? 'Save':'Update'}}</button>
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<!-- <div>
+    <h2>
+        <span jhiTranslate="agreeGatewayV1App.processes.home.title">Processes</span>
+        <button class="btn btn-primary float-right jh-create-entity create-processes" [routerLink]="['/', { outlets: { popup: ['processes-new'] } }]">
+            <span class="fa fa-plus"></span>
+            <span class="hidden-sm-down"  jhiTranslate="agreeGatewayV1App.processes.home.createLabel">
+            Create new Processes
+            </span>
+        </button>
+    </h2>
+    <jhi-alert></jhi-alert>
+    <div class="row">
+        <div class="col-sm-12">
+            <form name="searchForm" class="form-inline">
+                <div class="input-group w-100 mt-3">
+                    <input type="text" class="form-control" [(ngModel)]="currentSearch" id="currentSearch" name="currentSearch" placeholder="{{ 'agreeGatewayV1App.processes.home.search' | translate }}">
+                    <button class="input-group-addon btn btn-info" (click)="search(currentSearch)">
+                        <span class="fa fa-search"></span>
+                    </button>
+                    <button class="input-group-addon btn btn-danger" (click)="clear()" *ngIf="currentSearch">
+                        <span class="fa fa-trash-o"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <br/>
+    <div class="table-responsive" *ngIf="processes">
+        <table class="table table-striped">
+            <thead>
+            <tr jhiSort [(predicate)]="predicate" [(ascending)]="reverse" [callback]="transition.bind(this)">
+            <th jhiSortBy="id"><span jhiTranslate="global.field.id">ID</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="processName"><span jhiTranslate="agreeGatewayV1App.processes.processName">Process Name</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="desc"><span jhiTranslate="agreeGatewayV1App.processes.desc">Desc</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="tenantId"><span jhiTranslate="agreeGatewayV1App.processes.tenantId">Tenant Id</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="startDate"><span jhiTranslate="agreeGatewayV1App.processes.startDate">Start Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="endDate"><span jhiTranslate="agreeGatewayV1App.processes.endDate">End Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="enable"><span jhiTranslate="agreeGatewayV1App.processes.enable">Enable</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="createdDate"><span jhiTranslate="agreeGatewayV1App.processes.createdDate">Created Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="createdBy"><span jhiTranslate="agreeGatewayV1App.processes.createdBy">Created By</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lastUpdatedDate"><span jhiTranslate="agreeGatewayV1App.processes.lastUpdatedDate">Last Updated Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lastUpdatedBy"><span jhiTranslate="agreeGatewayV1App.processes.lastUpdatedBy">Last Updated By</span> <span class="fa fa-sort"></span></th>
+            <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let processes of processes ;trackBy: trackId">
+                <td><a [routerLink]="['../processes', processes.id ]">{{processes.id}}</a></td>
+                <td>{{processes.processName}}</td>
+                <td>{{processes.desc}}</td>
+                <td>{{processes.tenantId}}</td>
+                <td>{{processes.startDate | date:'mediumDate'}}</td>
+                <td>{{processes.endDate | date:'mediumDate'}}</td>
+                <td>{{processes.enable}}</td>
+                <td>{{processes.createdDate | date:'medium'}}</td>
+                <td>{{processes.createdBy}}</td>
+                <td>{{processes.lastUpdatedDate | date:'medium'}}</td>
+                <td>{{processes.lastUpdatedBy}}</td>
+                <td class="text-right">
+                    <div class="btn-group flex-btn-group-container">
+                        <button type="submit"
+                                [routerLink]="['../processes', processes.id ]"
+                                class="btn btn-info btn-sm">
+                            <span class="fa fa-eye"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.view">View</span>
+                        </button>
+                        <button type="submit"
+                                [routerLink]="['/', { outlets: { popup: 'processes/'+ processes.id + '/edit'} }]"
+                                replaceUrl="true"
+                                class="btn btn-primary btn-sm">
+                            <span class="fa fa-pencil"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.edit">Edit</span>
+                        </button>
+                        <button type="submit"
+                                [routerLink]="['/', { outlets: { popup: 'processes/'+ processes.id + '/delete'} }]"
+                                replaceUrl="true"
+                                class="btn btn-danger btn-sm">
+                            <span class="fa fa-remove"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.delete">Delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+        Pager is not implemented yet, so this is normal pagination instead
+        <div *ngIf="processes && processes.length">
+            <div class="row justify-content-center">
+                <jhi-item-count [page]="page" [total]="queryCount" [itemsPerPage]="itemsPerPage"></jhi-item-count>
+            </div>
+            <div class="row justify-content-center">
+                <ngb-pagination [collectionSize]="totalItems" [(page)]="page"  (pageChange)="loadPage(page)"></ngb-pagination>
+            </div>
+        </div>
+</div>
+ -->

@@ -1,0 +1,269 @@
+<div class="component-body accounting-main">
+    <div class="row component-title botom-dotted-blue-border">
+        <div class="col-lg-11 col-md-11 col-sm-11 col-xs-11 pageTitle">
+			<h2>Accounting Work Queue <i style="font-size:20px;" *ngIf="!isVisibleA">({{ruleGroupName}})</i></h2>
+		</div>
+        <div class="col-lg-1 col-md-1 col-sm-1 col-xs-1">
+			<button style="font-size:16px;margin-top:20px;" class="pull-right" md-icon-button *ngIf="isVisibleA" (click)="toggleSB()"
+			 mdTooltip="Toggle Query"><i  class="material-icons">keyboard_arrow_up</i></button>
+			<button style="font-size:16px;margin-top:20px;" class="pull-right" md-icon-button *ngIf="!isVisibleA" (click)="toggleSB()"
+			 mdTooltip="Toggle Query"><i  class="material-icons">keyboard_arrow_down</i></button>
+		</div>
+    </div>
+    <div class="col-md-12">
+        <horizontal-split-pane primary-component-minsize="25" primary-component-initialratio="0.2" [primary-component-toggled-off]="!isVisibleA">
+            <div class="split-pane-content-primary">
+                <div class="upper acct-query-window row">
+                    <div class="col-md-4">
+                        <md-select placeholder="Rule Group Name" class="example-full-width" [(ngModel)]="acctRuleGroupId" required name="ruleName"
+                            (change)="fetchAmountandCountByRuleGroupId(acctRuleGroupId)">
+
+                            <md-option *ngFor="let ruleName of acctRuleGroups" [value]="ruleName.id">
+                                {{ruleName.name}}</md-option>
+                        </md-select>
+                    </div>
+                </div>
+            </div>
+            <div *ngIf="isAccProcess" class="split-pane-content-secondary">
+                <div class="lower">
+                    <div class="acct-process-window row">
+                        <div class="col-lg-3 text-center">
+                            <p-chart type="pie" width="200" height="200" [data]="pieChartMetrics" [options]="pieChartOptions" (onDataSelect)="selectedData($event,dataViewId)"></p-chart>
+                        </div>
+                        <div class="col-lg-9">
+                            <div class="col-md-12 table-responsive" style="height: 160px;">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="tableheader" style="background-color: #f6f7f9;">
+                                        <tr>
+                                            <th>View Name</th>
+                                            <th colspan="2" class="text-center">Total</th>
+                                            <th colspan="2" class="text-center">Accounted</th>
+                                            <th colspan="2" class="text-center">Un-Accounted</th>
+                                            <th colspan="2" class="text-center">Partially-Accounted</th>
+                                        </tr>
+                                        <tr>
+                                            <th></th>
+                                            <th class="text-center">Count</th>
+                                            <th class="text-center">Amount</th>
+                                            <th class="text-center">Count</th>
+                                            <th class="text-center">Amount</th>
+                                            <th class="text-center">Count</th>
+                                            <th class="text-center">Amount</th>
+                                            <th class="text-center">Count</th>
+                                            <th class="text-center">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+
+                                        </tr>
+                                        <!-- *ngFor="let col of sourceDataViews" -->
+                                        <tr *ngFor="let col of dataViewDetails">
+                                            <td><a (click)="fetchAllAccRecordsByViewId(col.viewId,acctRuleGroupId);">{{col.viewName}}</a></td>
+                                            <td class="text-right">{{col.total.count}}</td>
+                                            <td class="text-right">{{col.total.amount}}</td>
+                                            <td class="text-right">{{col.accounted.count}}</td>
+                                            <td class="text-right">{{col.accounted.amount}}</td>
+                                            <td class="text-right">{{col.unAccounted.count}}</td>
+                                            <td class="text-right">{{col.unAccounted.amount}}</td>
+                                            <td class="text-right">{{col.partiallyAccounted.count}}</td>
+                                            <td class="text-right">{{col.partiallyAccounted.amount}}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="recon-main-actions row">
+                        <div class="col-md-12" style="text-align:right;">
+                            <input class="mySearchBox" #gb placeholder="search">
+                            <button md-icon-button class="ripple color-gray target-filter-button" aria-hidden="true" (click)="toggleFilter = true;fetchDataViewColumns(dataViewId)">
+							    <i class="fa fa-filter fa-2x" aria-hidden="true" mdTooltip="Advanced Search"></i>
+                            </button>
+                            <button md-raised-button (click)="getChartofAccounts('CHART_OF_ACCOUNTS');">Account</button>
+                            <button md-raised-button (click)="buildRule()">Build Rule</button>
+                            <button md-raised-button (click)="editAccountedRecords('CHART_OF_ACCOUNTS');">Edit</button>
+                            <button md-raised-button (click)="unAccountRecords();">UnAccount</button>
+                        </div>
+                        <div class="col-md-12 custom-filter">
+                                <p-dialog header="Advanced Filter" [(visible)]="toggleFilter">
+                                    <div id="custom_filter">
+                                        <div class="table-responsive">
+                                            <table id="customFilterTable" class="table">
+                                                <thead class="tableheader">
+                                                    <tr>
+                                                        <th>Column Name</th>
+                                                        <th>Select Operation</th>
+                                                        <th>Value</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="createmode">
+                                                    <tr *ngFor="let col of accFilterColumns;let i = index;" id="hideIconTable">
+                                                        <td>
+                                                            <div>
+                                                                <md-select [(ngModel)]="col.columnName" name="columnName" #colDataType="ngModel" (change)="onSelectColumnName(i,col.columnName);">
+                                                                    <md-option *ngFor="let columnName of columnsOfDataView" [value]="columnName" required> {{columnName}} </md-option>
+                                                                </md-select>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                <md-select [(ngModel)]="col.operator" name="operator_{{i}}" #operator="ngModel">
+                                                                    <md-option *ngFor="let operator of operatorsList[i]" [value]="operator.lookUpCode"> {{ operator.meaning }} </md-option>
+                                                                </md-select>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div>
+                                                                <input mdInput [(ngModel)]="col.columnValue" name="columnValue">
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <div id="showIcon" class="display-flex">
+                                                                <div *ngIf="accFilterColumns.length > 1" style="color: red; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+                                                                    <button md-icon-button class="color-dark-red pull-right" mdTooltip="Delete Line" (click)="removeLine(i);">
+																	<md-icon>delete</md-icon>
+																</button>
+                                                                </div>
+                                                                <div style="color: grey; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+                                                                    <button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add New Line" (click)="addColumn();">
+													<md-icon>exposure_plus_1</md-icon>
+												</button>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                            <div class="pull-right">
+                                                <button md-raised-button class="pull-right" aria-hidden="true" mdTooltip="apply" (click)="fetchAcctRecordsByCustomFilter(dataViewId,'unaccounted');">
+                                                              Apply</button>
+                                                <button md-raised-button class="pull-right" aria-hidden="true" mdTooltip="clear" (click)="clearFilter();fetchAllAccRecordsByViewId(dataViewId,acctRuleGroupId);">
+													Clear<!-- <i class="fa fa-filter" aria-hidden="true" style="font-size: 24px;color:grey;"></i>
+													<i class="fa fa-times" aria-hidden="true" style="font-size: 13px;color:grey;position:relative;left:-9px;top:6px;"></i> -->
+												</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </p-dialog>
+                        </div>
+                    </div>
+                    <div class="recon-source-tables" *ngIf="showAccDataTables">
+                        <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="!isVisibleB">
+                            <div id="sticky" class="leftpane split-pane-content-primary">
+                                <div class="narrowpad">
+                                    <div class="sub-side-navbar recon-sidebar">
+                                        <md-radio-group class="example-radio-group customStatuses" [(ngModel)]="customFilterStatus">
+                                            <md-radio-button class="example-radio-button col-md-12 all" [value]="" (click)="sideBarFilteringData(dataViewId, acctRuleGroupId)">
+                                                All
+                                            </md-radio-button>
+                                            <md-radio-button class="example-radio-button col-md-12 accounted" value="accounted" (click)="onClickRadioCheck(dataViewId, acctRuleGroupId,'accounted')">Accounted</md-radio-button>
+                                            <md-radio-button class="example-radio-button col-md-12 unaccounted" value="unaccounted" (click)="onClickRadioCheck(dataViewId, acctRuleGroupId,'unaccounted')">Un-Accounted</md-radio-button>
+                                            <md-radio-button class="example-radio-button col-md-12 partiallyaccounted" value="partiallyaccounted" (click)="onClickRadioCheck(dataViewId, acctRuleGroupId,'partiallyaccounted')">Partially-Accounteded</md-radio-button>
+                                        </md-radio-group>
+                                        <perfect-scrollbar>
+                                            <p-accordion [multiple]="false" (onOpen)="onTabOpen($event)">
+                                                <p-accordionTab header="{{filterList.columnName}}" *ngFor="let filterList of sideBarFilters; let i = index">
+                                                    <ul>
+                                                        <li *ngFor="let col of sideBarFilters[i].columnValuesSet; let j = index">
+                                                            <p-checkbox label="{{col.name}}" [(ngModel)]="asideBarFiltersColumnValue" value="{{col.name}}"></p-checkbox>({{col.count}})
+                                                            <!-- <md type="checkbox" class="example-margin" [(ngModel)]="sideBarFiltersColumnValue[j]" name="sideBarFiltersColumnValue{{i}}" value="col.name" #sideBarFiltersColumnValue{{i}}="ngModel"><span>{{col.name}} ({{col.count}})</span> -->
+                                                        </li>
+                                                    </ul>
+                                                </p-accordionTab>
+                                            </p-accordion>
+                                        </perfect-scrollbar>
+                                        <div class="pull-right" *ngIf="isVisibleB"><button *ngIf="asideBarFiltersColumnValue.length > 0" md-raised-button (click)="fetchRecordsSidebarFilter(dataViewId)">Apply</button></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="split-pane-content-secondary rightpane">
+                                <div style="text-align:right;">
+									<span class="recon-inners-toggle fa fa-bars hand ripple Rsbclose" (click)="toggleSideBar()" mdTooltip="Toggle Sidebar"></span>
+									<p-multiSelect [options]="dataColumnOptions" [(ngModel)]="dataHeaderColumns"></p-multiSelect>
+								</div>
+                                <div class="data-view-table table-responsive">
+                                    <p-dataTable [value]="dataViewAllRecords" [responsive]="true" scrollHeight="500px" reorderableColumns="true" scrollable="true"
+                                        columnResizeMode="expand" resizableColumns="true" [(selection)]="selectedDataLinesToAccount"
+                                        [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="10">
+
+                                        <p-column *ngIf="dataHeaderColumns.length > 0" [style]="{'width':'50px','text-align':'left'}" selectionMode="multiple"></p-column>
+                                        <p-column *ngFor="let col of dataHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+                                            [sortable]="true"> </p-column>
+                                    </p-dataTable>
+                                </div>
+                                <div class="pull-right" *ngIf="recordsLength > itemsPerPage">
+                                    <md-paginator [length]="recordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page" (page)="onPaginateChange($event)">
+                                    </md-paginator>
+                                </div>
+                            </div>
+                        </vertical-split-pane>
+                    </div>
+                </div>
+
+
+
+
+
+
+                <div class="account-modal">
+                    <p-dialog header="Accounting Rule Definition" [(visible)]="accountModalTog">
+                        <div class="col-md-12" style="display: flex;">
+                            <label style="width:222px;">Select Chart of Accounts :</label>
+                            <md-select [(ngModel)]="coaName" style="padding-top:0px !important;" class="example-full-width" name="chartofaccounts" (change)="onSelectCOA(coaName)">
+                                <md-option *ngFor="let type of chartOfAccounts" [value]="type.lookUpCode"> {{type.meaning}} </md-option>
+                            </md-select>
+                        </div>
+                        <div *ngIf="showSegments" class="segments-list">
+                            <hr>
+                            <form novalidate #accountForm="ngForm">
+                                <div class="col-md-12 debit-line">
+                                    <label style="padding-right:4px;">Debit Line Item :</label>
+                                    <span *ngFor="let code of coaSegmentsList;let i = index;"><input [(ngModel)]="debitLineCode[i]" name="debitLineCode{{i}}"  #debitLineCode{{i}}="ngModel" placeholder="0000*" required><b>-</b>
+                                            <!-- <span style="z-index:1;height:10px;width:10px;background:white;position:absolute;margin-top:10px;margin-left:-6px;"></span>                                    -->
+                                    </span>
+
+                                </div>
+                                <div class="col-md-12 credit-line">
+                                    <label>Credit Line Item :</label>
+                                    <span *ngFor="let code of coaSegmentsList; let i = index;"><input [(ngModel)]="creditLineCode[i]"  name="creditLineCode{{i}}"  #creditLineCode{{i}}="ngModel"  placeholder="0000*" required><b>-</b>
+                                        </span>
+
+                                </div>
+                            </form>
+                            <div class="col-md-12 action-buttons">
+                                <button *ngIf="accountForm.valid" md-raised-button class="pull-right" (click)="recordsToAccounting(dataViewId);">save</button>
+                                <button md-raised-button class="pull-right" (click)="codeCombinationClear();">Clear</button>
+                            </div>
+
+                        </div>
+                    </p-dialog>
+
+			</div>
+				<div class="acct-build-rule">
+					<p-dialog header="Build Rule" [resizable]="true" [responsive]="true" [modal] ="true"
+					[(visible)]="reconcileService.ENABLE_RULE_BLOCK">
+				<div id="target_data_view" style="position: relative; z-index: 999;">
+					<div *ngIf="reconcileService.ENABLE_RULE_BLOCK">
+						<!-- <button md-icon-button class="pull-right color-green"
+							aria-hidden="true" mdTooltip="save" (click)="postRule()">
+							<md-icon>save</md-icon>
+						</button> -->
+						<!-- <button md-icon-button class="pull-right color-gray" mdTooltip="Close" aria-hidden="true" (click)="enableruleBlock = false;">
+							<md-icon>clear</md-icon>
+						</button> -->
+						<hr>
+						<jhi-rule-group-accounting [accountingMode]="create"></jhi-rule-group-accounting>
+					</div>
+				</div>
+
+
+
+				</p-dialog>
+			</div>
+            </div>
+        </horizontal-split-pane>
+    </div>
+</div>
+

@@ -1,0 +1,127 @@
+package com.nspl.app.web.rest;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.Functionality;
+
+import com.nspl.app.repository.FunctionalityRepository;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+import io.swagger.annotations.ApiParam;
+import io.github.jhipster.web.util.ResponseUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * REST controller for managing Functionality.
+ */
+@RestController
+@RequestMapping("/api")
+public class FunctionalityResource {
+
+    private final Logger log = LoggerFactory.getLogger(FunctionalityResource.class);
+
+    private static final String ENTITY_NAME = "functionality";
+
+    private final FunctionalityRepository functionalityRepository;
+
+    public FunctionalityResource(FunctionalityRepository functionalityRepository) {
+        this.functionalityRepository = functionalityRepository;
+    }
+
+    /**
+     * POST  /functionalities : Create a new functionality.
+     *
+     * @param functionality the functionality to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new functionality, or with status 400 (Bad Request) if the functionality has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/functionalities")
+    @Timed
+    public ResponseEntity<Functionality> createFunctionality(@RequestBody Functionality functionality) throws URISyntaxException {
+        log.debug("REST request to save Functionality : {}", functionality);
+        if (functionality.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new functionality cannot already have an ID")).body(null);
+        }
+        Functionality result = functionalityRepository.save(functionality);
+        return ResponseEntity.created(new URI("/api/functionalities/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /functionalities : Updates an existing functionality.
+     *
+     * @param functionality the functionality to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated functionality,
+     * or with status 400 (Bad Request) if the functionality is not valid,
+     * or with status 500 (Internal Server Error) if the functionality couldn't be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/functionalities")
+    @Timed
+    public ResponseEntity<Functionality> updateFunctionality(@RequestBody Functionality functionality) throws URISyntaxException {
+        log.debug("REST request to update Functionality : {}", functionality);
+        if (functionality.getId() == null) {
+            return createFunctionality(functionality);
+        }
+        Functionality result = functionalityRepository.save(functionality);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, functionality.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /functionalities : get all the functionalities.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of functionalities in body
+     */
+    @GetMapping("/functionalities")
+    @Timed
+    public ResponseEntity<List<Functionality>> getAllFunctionalities(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of Functionalities");
+        Page<Functionality> page = functionalityRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/functionalities");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /functionalities/:id : get the "id" functionality.
+     *
+     * @param id the id of the functionality to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the functionality, or with status 404 (Not Found)
+     */
+    @GetMapping("/functionalities/{id}")
+    @Timed
+    public ResponseEntity<Functionality> getFunctionality(@PathVariable Long id) {
+        log.debug("REST request to get Functionality : {}", id);
+        Functionality functionality = functionalityRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(functionality));
+    }
+
+    /**
+     * DELETE  /functionalities/:id : delete the "id" functionality.
+     *
+     * @param id the id of the functionality to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/functionalities/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteFunctionality(@PathVariable Long id) {
+        log.debug("REST request to delete Functionality : {}", id);
+        functionalityRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+}

@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { RuleUsages } from './rule-usages.model';
+import { RuleUsagesService } from './rule-usages.service';
+
+@Injectable()
+export class RuleUsagesPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private ruleUsagesService: RuleUsagesService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.ruleUsagesService.find(id).subscribe((ruleUsages) => {
+                    ruleUsages.creationDate = this.datePipe
+                        .transform(ruleUsages.creationDate, 'yyyy-MM-ddThh:mm');
+                    ruleUsages.lastUpdatedDate = this.datePipe
+                        .transform(ruleUsages.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.ruleUsagesModalRef(component, ruleUsages);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.ruleUsagesModalRef(component, new RuleUsages());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    ruleUsagesModalRef(component: Component, ruleUsages: RuleUsages): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.ruleUsages = ruleUsages;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

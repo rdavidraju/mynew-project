@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { AccountingDataMapping } from './accounting-data-mapping.model';
+import { AccountingDataMappingService } from './accounting-data-mapping.service';
+
+@Component({
+    selector: 'jhi-accounting-data-mapping-detail',
+    templateUrl: './accounting-data-mapping-detail.component.html'
+})
+export class AccountingDataMappingDetailComponent implements OnInit, OnDestroy {
+
+    accountingDataMapping: AccountingDataMapping;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private accountingDataMappingService: AccountingDataMappingService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInAccountingDataMappings();
+    }
+
+    load(id) {
+        this.accountingDataMappingService.find(id).subscribe((accountingDataMapping) => {
+            this.accountingDataMapping = accountingDataMapping;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInAccountingDataMappings() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'accountingDataMappingListModification',
+            (response) => this.load(this.accountingDataMapping.id)
+        );
+    }
+}

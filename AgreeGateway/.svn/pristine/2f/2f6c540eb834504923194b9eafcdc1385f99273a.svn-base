@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { FileTemplateLines } from './file-template-lines.model';
+import { FileTemplateLinesService } from './file-template-lines.service';
+
+@Injectable()
+export class FileTemplateLinesPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private fileTemplateLinesService: FileTemplateLinesService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.fileTemplateLinesService.find(id).subscribe((fileTemplateLines) => {
+                    fileTemplateLines.createdDate = this.datePipe
+                        .transform(fileTemplateLines.createdDate, 'yyyy-MM-ddThh:mm');
+                    fileTemplateLines.lastUpdatedDate = this.datePipe
+                        .transform(fileTemplateLines.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.fileTemplateLinesModalRef(component, fileTemplateLines);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.fileTemplateLinesModalRef(component, new FileTemplateLines());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    fileTemplateLinesModalRef(component: Component, fileTemplateLines: FileTemplateLines): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.fileTemplateLines = fileTemplateLines;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

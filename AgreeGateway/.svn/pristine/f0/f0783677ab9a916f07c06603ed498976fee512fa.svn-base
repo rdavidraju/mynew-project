@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { SchedulerDetails } from './scheduler-details.model';
+import { SchedulerDetailsService } from './scheduler-details.service';
+
+@Component({
+    selector: 'jhi-scheduler-details-detail',
+    templateUrl: './scheduler-details-detail.component.html'
+})
+export class SchedulerDetailsDetailComponent implements OnInit, OnDestroy {
+
+    schedulerDetails: SchedulerDetails;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private schedulerDetailsService: SchedulerDetailsService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInSchedulerDetails();
+    }
+
+    load(id) {
+        this.schedulerDetailsService.find(id).subscribe((schedulerDetails) => {
+            this.schedulerDetails = schedulerDetails;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInSchedulerDetails() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'schedulerDetailsListModification',
+            (response) => this.load(this.schedulerDetails.id)
+        );
+    }
+}

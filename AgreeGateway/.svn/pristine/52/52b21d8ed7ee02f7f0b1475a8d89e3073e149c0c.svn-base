@@ -1,0 +1,101 @@
+import { Injectable } from '@angular/core';
+import { Http, Response,URLSearchParams } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+
+import { User } from './user.model';
+import { ResponseWrapper } from '../model/response-wrapper.model';
+import { createRequestOption } from '../model/request-util';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class UserService {
+    private resourceUrl = 'api/users';
+    private usersByTenantIdUrl = 'api/usersListWithRolesAndFunctions';
+    private getUserByIdUrl = 'api/userById';
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private userCreationUrl = 'api/userAndUserRoleAssignmentCreation';
+    private getListOfRolesUrl = 'api/rolesAndFunctionsByUserId';
+    private getLoggedInUserRolesDetailsUrl = 'api/getLoggedInUserRolesDetails';
+    
+    constructor(private http: Http,
+     private $sessionStorage: SessionStorageService) { }
+
+    create(user: User): Observable<ResponseWrapper> {
+        user.tenantId = this.UserData.tenantId;
+        console.log('in service ' + JSON.stringify(user));
+        return this.http.post(this.resourceUrl, user)
+            .map((res: Response) => {
+                return res.json();
+            });
+    }
+
+    update(user: User): Observable<ResponseWrapper> {
+        return this.http.put(this.resourceUrl, user)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    find(login: string): Observable<User> {
+        return this.http.get(`${this.resourceUrl}/${login}`).map((res: Response) => res.json());
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(login: string): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${login}`);
+    }
+
+    authorities(): Observable<string[]> {
+        return this.http.get('api/users/authorities').map((res: Response) => {
+            const json = res.json();
+            return <string[]> json;
+        });
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+     fetchUsersByTenant(): Observable<any> {
+        return this.http.get(this.usersByTenantIdUrl).map((res: Response) => {
+            return res.json();
+        }
+            
+            );
+    }
+
+    /* service to fetch user details by user id */
+    userById(id:any): Observable<any> {
+        console.log('in service ' + id);
+        return this.http.get(`${this.getUserByIdUrl}?id=${id}`).map((res: Response) => {
+            return res.json();
+        });
+    }
+    
+    /* Service function to fetch getLoggedInUserRolesDetails */
+    getUserRolesDetails(): Observable<any> {
+        return this.http.get(`${this.getLoggedInUserRolesDetailsUrl}`).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    /* service to create user */
+    createUser(user: User): Observable<ResponseWrapper> {
+        user.tenantId = this.UserData.tenantId;
+        console.log('in service ' + JSON.stringify(user));
+        return this.http.post(`${this.userCreationUrl}?userId=${this.UserData.id}`, user)
+            .map((res: Response) => {
+                return res.json();
+            });
+    }
+    
+    getListOfRoles(id:any){
+        return this.http.get(`${this.getUserByIdUrl}?id=${id}`).map((res: Response) => {
+            return res.json();
+        });
+    }
+    
+}

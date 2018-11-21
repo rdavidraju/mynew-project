@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { LinkedDataViews } from './linked-data-views.model';
+import { LinkedDataViewsService } from './linked-data-views.service';
+
+@Injectable()
+export class LinkedDataViewsPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private linkedDataViewsService: LinkedDataViewsService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.linkedDataViewsService.find(id).subscribe((linkedDataViews) => {
+                    linkedDataViews.creationDate = this.datePipe
+                        .transform(linkedDataViews.creationDate, 'yyyy-MM-ddThh:mm');
+                    linkedDataViews.lastUpdatedDate = this.datePipe
+                        .transform(linkedDataViews.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.linkedDataViewsModalRef(component, linkedDataViews);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.linkedDataViewsModalRef(component, new LinkedDataViews());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    linkedDataViewsModalRef(component: Component, linkedDataViews: LinkedDataViews): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.linkedDataViews = linkedDataViews;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

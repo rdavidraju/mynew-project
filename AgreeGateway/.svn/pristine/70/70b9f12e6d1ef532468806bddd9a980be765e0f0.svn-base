@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { BatchHeader } from './batch-header.model';
+import { BatchHeaderService } from './batch-header.service';
+
+@Component({
+    selector: 'jhi-batch-header-detail',
+    templateUrl: './batch-header-detail.component.html'
+})
+export class BatchHeaderDetailComponent implements OnInit, OnDestroy {
+
+    batchHeader: BatchHeader;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private batchHeaderService: BatchHeaderService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInBatchHeaders();
+    }
+
+    load(id) {
+        this.batchHeaderService.find(id).subscribe((batchHeader) => {
+            this.batchHeader = batchHeader;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInBatchHeaders() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'batchHeaderListModification',
+            (response) => this.load(this.batchHeader.id)
+        );
+    }
+}

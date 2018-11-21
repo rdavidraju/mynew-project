@@ -1,0 +1,542 @@
+<div class="component-body reportDefination">
+	<div class="botom-dotted-blue-border component-title">
+		<div class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+			<h2>Report Definition Wizard</h2>
+		</div>
+		<div class="col-lg-4 col-md-4 col-sm-4 col-xs-4">
+			<div class="row float-right">
+				
+				<!-- <button md-icon-button md-button mdTooltip="Edit" mdTooltipPosition="below" (click)="testMethod()">
+					<md-icon style="top: 10px;">mode_edit</md-icon>
+				</button> -->
+				<!-- <button *ngIf="isEdit" md-icon-button md-button class="pull-right color-gray" mdTooltip="Close" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': [report.id]+'/details'}}]">
+					<md-icon style="top: 10px;">clear</md-icon>
+				</button> -->
+				<button *ngIf="isViewOnly" md-icon-button md-button class="pull-right" [mdTooltip]="'Run '+report.reportName" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': [report.id]+'/run-reports'}}]">
+					<md-icon style="top: 10px;" style="top: 10px;">play_circle_filled</md-icon>
+				</button>
+				<button *ngIf="isCreateNew" md-icon-button md-button class="pull-right" mdTooltip="Reports List" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': ['report-list']}}]">
+					<md-icon style="top: 10px;" style="top: 10px;">view_list</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button md-button mdTooltip="Go Back" mdTooltipPosition="below" [routerLink]="['/reports', {outlets: {'content': ['report-list']}}]">
+					<md-icon  style="top: 10px;">undo</md-icon>
+				</button>
+			</div>
+		</div>
+	</div>
+	<br> 
+	<form novalidate #reportDefinition="ngForm">
+		<md-card style="margin-top: -10px; margin-bottom: 10px;">
+		<div class="row leftmargin-20" style="padding-top: 25px;">
+			<div class="col-md-3 col-md-4 col-sm-2">
+				<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="selReportType"
+				(change)="reportTypeChanged()" name="reportType" placeholder="Report Type" required>
+				<md-option *ngFor="let reportType of srcReportTypes" [value]="reportType">{{reportType.typeDisplayName}}</md-option>
+				</md-select>
+			</div>
+			<div class="col-md-3 col-md-4 col-sm-2" style="padding-right: 15px;">
+				<md-input-container class="example-full-width">
+					<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" (blur)="checkReportName()" [(ngModel)]="report.reportName"
+					 name="reportName" placeholder="Report Name" required>
+				</md-input-container>
+			</div>
+			<div class="col-md-3 col-md-4 col-sm-2 flex" style="padding-right: 15px;">
+				<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || !selReportType.id" placeholder="Data View"
+				[(ngModel)]="report.sourceViewId" (change)="viewChanged()" name="selectDataView" required>
+					<md-option *ngFor="let view of srcViews" [value]="view.id">{{view.dataViewDispName}}</md-option>
+				</md-select>
+				<button md-icon-button md-button mdTooltip="Show/Hide Desc & Dates" mdTooltipPosition="below" id="showDate" class="pull-right" (click)="showRptDates=!showRptDates;">
+					<md-icon style="top: 9px;">more_vert</md-icon>
+				</button>
+			</div>
+		</div>
+		<br>
+		<div class="row leftmargin-20" *ngIf="showRptDates" style="padding-bottom: 10px;">
+			<div class="col-md-3 col-md-4 col-sm-2">
+				<md-input-container class="example-full-width">
+					<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.reportDesc" placeholder="Report Description" name="reportDesc">
+				</md-input-container>
+			</div>
+			<div class="col-md-3 col-md-4 col-sm-2">
+				<md-form-field> 
+					<input mdInput	[mdDatepicker]="rptStpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+					[disabled]="isViewOnly" [(ngModel)]="report.startDate" name="rptStartDate" [min]="today"> 
+					<md-datepicker-toggle mdSuffix [for]="rptStpicker"	*ngIf="!isViewOnly"></md-datepicker-toggle> 
+					<md-datepicker #rptStpicker></md-datepicker>
+				</md-form-field>
+			</div>
+			<div class="col-md-3 col-md-4 col-sm-2">
+				<md-form-field> 
+					<input mdInput	[mdDatepicker]="rptEdpicker" placeholder="End Date" [ngClass]="{'color-black' : isViewOnly}"
+					[disabled]="isViewOnly" [(ngModel)]="report.endDate" name="rptEndDate" [min]="report.startDate"> 
+					<md-datepicker-toggle mdSuffix [for]="rptEdpicker"	*ngIf="!isViewOnly"></md-datepicker-toggle> 
+					<md-datepicker #rptEdpicker></md-datepicker>
+				</md-form-field>
+			</div>
+		</div>
+		
+		<p-accordion [multiple]="true">
+			<p-accordionTab header="Additional Details" [selected]="true" *ngIf="report.reportName && selReportType.id && report.sourceViewId">
+				<div class="accordioncontenet">
+					<div class="row">
+						<div class="col-lg-3 col-md-3 col-sm-2" *ngIf="selReportType.show">
+							<div class="optionTitle">Accounting Process :</div>
+							<div class="show-list-items">
+								<md-radio-group [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.show" name="reportViewType"
+								 required>
+									<md-radio-button value="Accounted">Accounted</md-radio-button>
+									<md-radio-button value="Un-Accounted">Un-Accounted</md-radio-button>
+									<md-radio-button value="Both">Both</md-radio-button>
+								</md-radio-group>
+							</div>
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-2" *ngIf="selReportType.reconcile">
+							<div class="optionTitle">Reconcile Process :</div>
+							<div class="show-list-items">
+								<md-radio-group [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.reconcile" name="reconType"
+								 required>
+									<md-radio-button value="Reconciled">Reconciled</md-radio-button>
+									<md-radio-button value="Un-Reconciled">Un-Reconciled</md-radio-button>
+									<md-radio-button value="Both">Both</md-radio-button>
+								</md-radio-group>
+							</div>
+						</div> 
+						<div class="col-lg-3 col-md-3 col-sm-2" style="padding-right: 50px;">
+							<div *ngIf="report.reportType == 'AGING_REPORT'" class="optionTitle">Bucket :</div>
+							<span class="md-no-placeholder" style="display: flex;">
+								<md-select *ngIf="report.reportType == 'AGING_REPORT'" class="example-full-width" style="margin-left: 0px !important;margin-top: -13px !important;"
+								 [disabled]="isViewOnly" [(ngModel)]="report.agingBucketId" [ngClass]="{'color-black' : isViewOnly}" name="agingbuckets"
+								 #bucketselection="ngModel" (change)="bucketChanged()" required>
+									<perfect-scrollbar style="max-height: 200px;">
+										<md-option *ngFor="let bucket of srcAgingBuckets; let i=index;" [value]="bucket.id"> {{bucket.bucketName}} &nbsp;&nbsp;&nbsp;
+											<button md-icon-button md-button mdTooltip="Show Definition" mdTooltipPosition="below" id="showDef" class="pull-right" (click)="showBucketDef(bucket.id); $event.stopPropagation();">
+												<i class="fa fa-eye" aria-hidden="true" style="top: 9px;"></i>
+											</button>
+										</md-option>
+									</perfect-scrollbar>
+									<md-option (click)="showBucketDialog();false" class="create-connection-divider" [value]="-1">Create New</md-option>
+								</md-select>
+								<button *ngIf="report.agingBucketId && report.reportType == 'AGING_REPORT'" md-icon-button md-button mdTooltip="Show Definition" mdTooltipPosition="below" id="showDef"
+								class="pull-right" (click)="showBucketDef(report.agingBucketId); $event.stopPropagation();">
+								  <i class="fa fa-eye pull-right" aria-hidden="true" style="top: 9px; margin-right: 9px;"></i>
+								</button>
+							</span>
+							<!-- <div *ngIf="selReportType.coa" class="optionTitle">Chart of Account :</div>
+							<span class="md-no-placeholder">
+								<md-select *ngIf="selReportType.coa" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.coa"
+								 class="example-full-width" name="coaSelection" placeholder="" required>
+									<md-option *ngFor="let coa of selReportType.coaList" [value]="coa">{{coa}}</md-option>
+								</md-select>
+							</span> -->
+							<span *ngIf="report.reportType == 'ROLL_BACK_REPORT'">
+								<div class="optionTitle" style="margin-bottom: 10px;">Roll Back :</div>
+								<md-radio-group [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.rollBackType" name="seqType1"
+								 required>
+									<md-radio-button value="Days">Days</md-radio-button>
+									<md-radio-button value="Months">Months</md-radio-button>
+									<md-radio-button value="Years">Years</md-radio-button>
+								</md-radio-group>
+								<md-input-container>
+									<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" type="number" [(ngModel)]="report.rollBackCount"
+									 placeholder="Count" name="seqCount" (blur)="updateOffset()" required>
+								</md-input-container>
+								<!-- <div>
+												<md-checkbox [disabled]="isViewOnly" [(ngModel)]="report.allowSequence" name="allowSequence">Allow Sequence</md-checkbox>
+											</div> -->
+							</span>
+							<!-- <div *ngIf="selReportType.allowDrillDown" style="padding-top: 5px;margin-left: 15px;">
+											<md-checkbox [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.allowDrilldown" name="allowDrilldown">Allow Drilldown</md-checkbox>
+										</div> -->
+						</div>
+						<div class="col-lg-3 col-md-3 col-sm-2" *ngIf="report.reportType == 'AGING_REPORT' || report.reportType == 'ROLL_BACK_REPORT'">
+							<div class="optionTitle">Agregate Column :</div>
+							<md-select *ngIf="!isViewOnly" class="example-full-width md-no-placeholder" style="margin-left: 0px !important;margin-top: -13px !important;"
+							 [(ngModel)]="report.agregator" name="agregatorCol"
+							 required>
+								<md-option *ngFor="let col of srcDecimalCols; let i=index;" [value]="col">{{col.viewColDisplayName}}</md-option>
+							</md-select>
+							<span *ngIf="isViewOnly">{{report.agregator.viewColDisplayName}}</span>
+							<span *ngIf="report.reportType == 'ROLL_BACK_REPORT' || (report.bucketType && report.bucketType=='AGE')">
+								<div class="optionTitle" style="padding-top: 2px;">Date Qualifier :</div>
+								<md-select *ngIf="!isViewOnly" class="example-full-width md-no-placeholder" style="margin-left: 0px !important;margin-top: -13px !important;"
+								[(ngModel)]="report.dateQualifier" name="dateQualCol"
+								required>
+									<md-option *ngFor="let col of srcDateCols; let i=index;" [value]="col">{{col.viewColDisplayName}}</md-option>
+								</md-select>
+								<span *ngIf="isViewOnly">{{report.dateQualifier.viewColDisplayName}}</span>
+							</span>
+						</div>
+					</div>
+				</div>
+			</p-accordionTab>
+		</p-accordion>
+		</md-card>
+	<md-card *ngIf="(report.reportType&&report.reportName&&report.sourceViewId)&&((report.show && report.reportViewType) || 
+	(report.reportViewType))||isViewOnly">
+		<p-accordion [multiple]="true">
+			<p-accordionTab header="Columns Defination" [selected]="true">
+				<div class="accordioncontenet reportsDefinitionTab">
+					<div style="height: 100%; width: 100%;display:flex;">
+						<div *ngIf="isCreateNew" class="col-md-3 col-sm-6 col-xs-6">
+							<div id="stickyr">
+								<div class="MyPanel" *ngIf="sysColumns.length>0">
+									<h6 class="Heading BlueTitleDiv">Regular Columns</h6>
+									<perfect-scrollbar style="max-height: 300px;">
+										<div class="panel-body">
+											<div>
+												<ul class="list-group">
+													<li class="list-group-item" *ngFor="let source of sysColumns" dnd-draggable [dragEnabled]="true" [dragData]="source">{{source.viewColDisplayName}}</li>
+												</ul>
+											</div>
+										</div>
+									</perfect-scrollbar>
+								</div>
+								<br>
+								<div class="MyPanel" *ngIf="viewColumns.length>0">
+									<h6 class="Heading BlueTitleDiv">Additional Columns</h6>
+									<perfect-scrollbar style="max-height: 300px;">
+										<div class="panel-body">
+											<div>
+												<ul class="list-group">
+													<li class="list-group-item" *ngFor="let col of viewColumns" dnd-draggable [dragEnabled]="true" [dragData]="col">{{col.viewColDisplayName}}</li>
+												</ul>
+											</div>
+										</div>
+									</perfect-scrollbar>
+								</div>
+							</div>
+						</div>
+						<div [class]="dynamicClassAdder()">
+							<p-accordion [multiple]="true">
+								<p-accordionTab header="Parameter(s)" [selected]="true">
+									<div class="MyPanel" dnd-sortable-container [sortableData]="parametersList">
+										<div class="panel-body"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)">
+											<ul class="list-group">
+												<li class="list-group-item" id="hideIconTable" style="display: flex;">
+													<div class="col-md-3">
+														<H6 class="Heading BlueTitleDiv">Column Name</H6>
+													</div>
+													<div class="col-md-3">
+														<H6 class="Heading BlueTitleDiv">Parameter Name</H6>
+													</div>
+													<div class="col-md-3">
+														<H6 class="Heading BlueTitleDiv">Selection Type</H6>
+													</div>
+													<div class="col-md-3">
+														<H6 class="Heading BlueTitleDiv">Mandatory</H6>
+													</div>
+												</li>
+											</ul>
+											<perfect-scrollbar style="height: 200px;" dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)">
+												<ul class="list-group" dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)">
+													<li class="list-group-item hover-effect" id="hideIconTable" *ngFor="let col of parametersList; let i = index" dnd-sortable [sortableIndex]="i">
+														<div class="col-md-3" dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)">
+															<span>{{col.viewColDisplayName}}</span>
+														</div>
+														<div class="col-md-3" dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)" style="margin-top: -23px;">
+															<md-input-container>
+																<input mdInput [(ngModel)]="col.parameterName" [disabled]="isViewOnly" placeholder=""
+																 [ngModelOptions]="{standalone: true}" [mdTooltip]="col.viewColDisplayName+' Parameter Display Name'" mdTooltipPosition="below"
+																 (blur)="checkNameExistence(col,parametersList,'parameterName',i)" required>
+															</md-input-container>
+														</div>
+														<div class="col-md-3 text-center" [ngClass]="{'flex' : !isViewOnly}" dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)">
+															<span *ngIf="!isViewOnly" class="md-no-placeholder example-full-width">
+																<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" style="padding-top:0px;margin-top: -9px;"
+																 [(ngModel)]="col.parameterType" [ngModelOptions]="{standalone: true}" [mdTooltip]="col.viewColDisplayName+' Selection Type'" mdTooltipPosition="below"
+																 required>
+																	<md-option [value]="undefined"></md-option>
+																	<md-option *ngFor="let type of parameterTypes" [value]="type.lookUpCode">{{type.meaning}}</md-option>
+																</md-select>
+															</span>
+															<span *ngIf="isViewOnly">{{col.parameterType}}</span>
+														</div>
+														<div class="col-md-3 flex" dnd-droppable (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)">
+															<div class="col-md-6">
+																<md-checkbox class="pull-right" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.isMandatory"
+																 [ngModelOptions]="{standalone: true}"></md-checkbox>
+															</div>
+															<div class="col-md-6">
+																<button class="pull-right" *ngIf="!isViewOnly" id="showIcon" md-icon-button md-button [mdTooltip]="'Remove '+col.viewColDisplayName" mdTooltipPosition="below"
+																 style="margin-top: -18px;top: 9px;" (click)="cleanUpParametersInLayoutCols(col.ColumnId,col.columnType);columnDeleteFunction(col, i, parametersList);">
+																	<md-icon style="font-size: 20px !important;">delete</md-icon>
+																</button>
+															</div>
+														</div>
+													</li>
+													<li *ngIf="parametersList.length<1">
+														<div class="reportMsg" (onDropSuccess)="columnsDragDropSuccessParameters($event, parametersList)" style="margin-top: 70px">Drag and drop column(s) here</div>
+														<div *ngIf="isViewOnly" class="reportMsg" style="margin-top: 70px">No columns were selected</div>
+													</li>
+												</ul>
+											</perfect-scrollbar>
+										</div>
+									</div>
+								</p-accordionTab>
+								<p-accordionTab header="Conditions">
+									<div class="MyPanel" dnd-sortable-container [sortableData]="conditionsList">
+										<div class="panel-body">
+											<ul class="list-group">
+												<li class="list-group-item" id="hideIconTable" style="display: flex;">
+													<div class="col-md-4">
+														<H6 class="Heading BlueTitleDiv">Column Name</H6>
+													</div>
+													<div class="col-md-4">
+														<H6 class="Heading BlueTitleDiv">Operator</H6>
+													</div>
+													<div class="col-md-4">
+														<H6 class="Heading BlueTitleDiv">Condition</H6>
+													</div>
+												</li>
+											</ul>
+											<perfect-scrollbar style="height: 150px;"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessConditions($event, conditionsList)">
+												<ul class="list-group">
+													<li class="list-group-item hover-effect" id="hideIconTable" *ngFor="let tab of conditionsList; let i = index" dnd-sortable [sortableIndex]="i">
+														<div class="col-md-4" style="text-overflow: ellipsis;overflow: hidden;"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessConditions($event, conditionsList)">{{tab.viewColDisplayName}}</div>
+														<div class="col-md-4"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessConditions($event, conditionsList)">
+															<span class="md-no-placeholder">
+																<md-select *ngIf="!isViewOnly" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" style="padding-top:0px;margin-top: -9px;"
+																 [(ngModel)]="tab.conditionalOperator" [ngModelOptions]="{standalone: true}" required>
+																	<md-option *ngFor="let col of tab.LOV" [value]="col.lookUpCode">{{col.meaning}}</md-option>
+																</md-select>
+															</span>
+															<span *ngIf="isViewOnly">{{tab.conditionalOperator}}</span>
+														</div>
+														<div class="col-md-4" style="display: flex; margin-top: -23px;"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessConditions($event, conditionsList)">
+															<md-input-container>
+																<input mdInput [(ngModel)]="tab.conditionalValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder=""
+																[ngModelOptions]="{standalone: true}" required>
+															</md-input-container>
+															<button *ngIf="!isViewOnly" md-icon-button md-button [mdTooltip]="'Remove '+tab.viewColDisplayName" mdTooltipPosition="below" id="showIcon" style="top: 9px;"
+															 (click)="cleanUpConditionsInLayoutCols(tab.ColumnId,tab.columnType);columnDeleteFunction(tab,i, conditionsList);">
+																<md-icon style="font-size: 20px !important;">delete</md-icon>
+															</button>
+														</div>
+													</li>
+													<li *ngIf="conditionsList.length<1"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessConditions($event, conditionsList)">
+														<div *ngIf="!isViewOnly" class="reportMsg" style="margin-top: 50px;">Drag and drop column(s) here</div>
+														<div *ngIf="isViewOnly" class="reportMsg" style="margin-top: 50px">No columns were selected</div>
+													</li>
+												</ul>
+											</perfect-scrollbar>
+										</div>
+									</div>
+								</p-accordionTab>
+								<!-- <p-accordionTab header="Group By">
+									<div class="MyPanel" dnd-sortable-container [sortableData]="groupByColumnsList">
+										<div class="panel-body">
+											<ul class="list-group">
+												<li class="list-group-item" id="hideIconTable" style="display: flex;">
+													<div class="col-md-5">
+														<H6 class="Heading BlueTitleDiv">Column Name</H6>
+													</div>
+													<div class="col-md-5">
+														<H6 class="Heading BlueTitleDiv">Show Detail</H6>
+													</div>
+													<div class="col-md-2"></div>
+												</li>
+											</ul>
+											<perfect-scrollbar style="height: 150px;"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessGroupBy($event, groupByColumnsList)">
+												<ul class="list-group">
+													<li class="list-group-item hover-effect" id="hideIconTable" *ngFor="let tab of groupByColumnsList; let i = index" dnd-sortable [sortableIndex]="i"
+													 >
+														<div class="col-md-5"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessGroupBy($event, groupByColumnsList)">
+															{{tab.viewColDisplayName}}
+														</div>
+														<div class="col-md-5" style="text-align: center;"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessGroupBy($event, groupByColumnsList)">
+															<md-checkbox [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="tab.showDetail" [ngModelOptions]="{standalone: true}"></md-checkbox>
+														</div>
+														<div class="col-md-2"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessGroupBy($event, groupByColumnsList)">
+															<button *ngIf="!isViewOnly" md-icon-button md-button [mdTooltip]="'Remove '+tab.viewColDisplayName" mdTooltipPosition="below" id="showIcon" (click)="columnDeleteFunction(col, i, groupByColumnsList);"
+															 class="pull-right" style="margin-top: -18px;top: 7px;">
+																<md-icon style="font-size: 20px !important;">delete</md-icon>
+															</button>
+														</div>
+													</li>
+													<li *ngIf="groupByColumnsList.length<1"  dnd-droppable (onDropSuccess)="columnsDragDropSuccessGroupBy($event, groupByColumnsList)">
+														<div class="reportMsg" style="margin-top: 35px;">Drag and drop column(s) here</div>
+														<div *ngIf="isViewOnly" class="reportMsg" style="margin-top: 35px">No columns were selected</div>
+													</li>
+												</ul>
+											</perfect-scrollbar>
+										</div>
+									</div>
+								</p-accordionTab> -->
+								<p-accordionTab header="Report Layout" class="report-layout">
+									<div>
+										<span *ngIf="!isViewOnly" class="span-text pull-right hand" style="background-color: #0275d8" (click)="tableReportColList.length=0;">
+											Clear Layout
+										</span>
+									</div><br> 
+									<div class="MyPanel" dnd-sortable-container [sortableData]="tableReportColList" style="background-color: #f2f3f270;width:100%">
+										<div class="panel-body">
+											<perfect-scrollbar style="height: 130px;" #rptLayout dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event.dragData);">
+												<ul class="list-group" style="display: -webkit-box;">
+													<li class="col-md-3 list-group-item" id="hideIconTable" *ngFor="let tab of tableReportColList; let i = index" dnd-sortable
+													 [sortableIndex]="i" dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event);"
+													 style="margin: 10px 0px;">
+														<div class="col-md-11" dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event.dragData);">
+															<div>{{tab.viewColDisplayName}}</div>
+														</div>
+														<div class="col-md-1" dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event.dragData);">
+															<button *ngIf="!isViewOnly" md-icon-button md-button mdTooltip="Remove" mdTooltipPosition="below" id="showIcon" (click)="columnDeleteFunction(col,i, tableReportColList);"
+															 class="pull-right" style="margin-top: -18px;top: 9px;">
+																<md-icon style="font-size: 20px !important;">delete</md-icon>
+															</button>
+														</div>
+														<div>
+															<md-input-container>
+																<input mdInput [(ngModel)]="tab.layoutDisplayName" [disabled]="isViewOnly" placeholder="" [ngModelOptions]="{standalone: true}"
+																 mdTooltip="Display Name" mdTooltipPosition="below" (blur)="checkNameExistence(tab,tableReportColList,'layoutDisplayName',i);checkNameExistence(tab,selctdBucketsList,'layoutDisplayName',i);checkNameExistence(tab,selctdRoleBackList,'layoutDisplayName',i)"
+																 required>
+															</md-input-container>
+														</div>
+													</li>
+													<li class="col-md-3 list-group-item" id="hideIconTable" *ngFor="let tab of selctdBucketsList; let i = index" style="margin: 10px 0px;">
+														<div class="col-md-12" dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event.dragData);">
+															<div>{{tab.viewColDisplayName}}</div>
+															<div>
+																<md-input-container>
+																<input mdInput [(ngModel)]="tab.layoutDisplayName" [disabled]="isViewOnly" placeholder=""
+																 [ngModelOptions]="{standalone: true}" mdTooltip="Display Name" mdTooltipPosition="below"
+																 (blur)="checkNameExistence(tab,tableReportColList,'layoutDisplayName',i);checkNameExistence(tab,selctdBucketsList,'layoutDisplayName',i);checkNameExistence(tab,selctdRoleBackList,'layoutDisplayName',i)"
+																 required>
+																</md-input-container>
+															</div>
+														</div>
+													</li>
+													<li class="col-md-3 list-group-item" id="hideIconTable" *ngFor="let tab of selctdRoleBackList; let i = index" style="margin: 10px 0px;">
+														<div class="col-md-12" dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event.dragData);">
+															<div>{{tab.viewColDisplayName}}</div>
+															<div>
+																<md-input-container>
+																<input mdInput [(ngModel)]="tab.layoutDisplayName" [disabled]="isViewOnly" placeholder=""
+																 [ngModelOptions]="{standalone: true}" mdTooltip="Display Name" mdTooltipPosition="below"
+																 (blur)="checkNameExistence(tab,tableReportColList,'layoutDisplayName',i);checkNameExistence(tab,selctdBucketsList,'layoutDisplayName',i);checkNameExistence(tab,selctdRoleBackList,'layoutDisplayName',i)"
+																 required>
+																</md-input-container>
+															</div>
+														</div>
+													</li>
+												</ul>
+												<ul>
+													<li *ngIf="selctdBucketsList.length<1&&tableReportColList.length<1&&selctdRoleBackList.length<1">
+														<div class="reportMsg" style="padding-top: 4% !important;" dnd-droppable (onDropSuccess)="columnsDragDropSuccess($event, tableReportColList); checkNameExistenceOnDrop($event.dragData);">Drag and drop column(s) here</div>
+														<div *ngIf="isViewOnly" class="reportMsg" style="padding-top: 4% !important;">No columns were selected</div>
+													</li>
+												</ul>
+											</perfect-scrollbar>
+										</div>
+									</div>
+								</p-accordionTab>
+							</p-accordion>
+						</div>
+					</div>
+				</div>
+				<div class="top-border" style="margin-bottom: 40px !important;">
+					<button *ngIf="!isViewOnly" class="pull-right" md-raised-button mdTooltip="Save Definition" mdTooltipPosition="below" (click)="saveReport();" [disabled]="!reportDefinition.valid">Save</button>
+				</div>
+			</p-accordionTab>
+		</p-accordion>
+	</md-card>
+	</form>
+	
+	<p-dialog [header]="currentBucket.bucketName" [(visible)]="displayBucketDialog" width="600" [responsive]="true" (onHide)="viewBcktInfo=false;">
+		<form novalidate #bucketDefinition="ngForm">
+			<div class="row">
+				<div class="col-md-6">
+					<md-input-container class="example-full-width">
+						<input mdInput [ngClass]="{'color-black' : viewBcktInfo}" [disabled]="viewBcktInfo" (blur)="checkBucketName()" [(ngModel)]="currentBucket.bucketName"
+						 placeholder="Bucket Name" name="bucketName" required>
+					</md-input-container>
+				</div>
+				<div class="col-md-3">
+					<md-select class="example-full-width" [ngClass]="{'color-black' : viewBcktInfo}" [disabled]="!currentBucket.bucketName || viewBcktInfo" placeholder="Type"
+					 [(ngModel)]="currentBucket.type" name="bucketType" mdTooltip="Bucket Type" (change)="updateBucketCount(0)"
+					 mdTooltipPosition="below" required>
+						<md-option *ngFor="let type of bucketTypes" [value]="type.lookUpCode">{{type.meaning}}</md-option>
+					</md-select>
+				</div>
+				<div class="col-md-3 flex">
+					<md-input-container class="example-full-width">
+						<input mdInput [ngClass]="{'color-black' : viewBcktInfo}" [disabled]="!currentBucket.type || viewBcktInfo" (blur)="updateBucketCount(currentBucket.count)" [(ngModel)]="currentBucket.count"
+						 value="0" placeholder="Count" mdTooltip="Bucket Count" name="bucketCount" (keypress)="keyHandlerCount($event.keyCode)" type="number" min="0" required>
+					</md-input-container>
+					<button md-icon-button md-button [disabled]="!currentBucket.bucketName" mdTooltip="Show Dates" id="showDate" class="pull-right" (click)="showDates=!showDates;">
+						<md-icon [ngClass]="{'icon-flipped' : showDates}" style="top: 9px;">more_vert</md-icon>
+					</button>
+				</div>
+			</div>
+			<div class="row" *ngIf="showDates" style="margin-top: 10px;">
+				<div class="col-md-6">
+					<md-form-field> 
+						<input mdInput	[mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : viewBcktInfo}"
+						[disabled]="viewBcktInfo" [(ngModel)]="currentBucket.startDate" name="startDate" required> 
+						<md-datepicker-toggle mdSuffix [for]="stpicker"	*ngIf="!viewBcktInfo"></md-datepicker-toggle> 
+						<md-datepicker #stpicker></md-datepicker>
+					</md-form-field>
+				</div>
+				<div class="col-md-6">
+					<md-form-field> 
+						<input mdInput	[mdDatepicker]="edpicker" placeholder="End Date" [ngClass]="{'color-black' : viewBcktInfo}"
+						[disabled]="viewBcktInfo" [(ngModel)]="currentBucket.endDate" name="endDate" [min]="currentBucket.startDate"> 
+						<md-datepicker-toggle mdSuffix [for]="edpicker"	*ngIf="!viewBcktInfo"></md-datepicker-toggle> 
+						<md-datepicker #edpicker></md-datepicker>
+					</md-form-field>
+				</div>
+			</div>
+		
+			<div class="top-border">
+				<div class="row" style="position: sticky;top: 0px;">
+					<div class="col-md-1 text-center">
+						<h6>Seq#</h6>
+					</div>
+					<div class="col-md-5 text-center">
+						<h6>From Value</h6>
+					</div>
+					<div class="col-md-5 text-center">
+						<h6>To Value</h6>
+					</div>
+					<div class="col-md-1">
+					</div>
+				</div>
+				<perfect-scrollbar style="max-height: 300px;"></perfect-scrollbar>
+					<div class="row bucket-row hover-effect" *ngFor="let bucket of bucketsList; let i=index; let first = first; let last = last" id="hideIconTable">
+						<div class="col-md-1 text-center">
+							<span [ngClass]="{'top-relative' : !viewBcktInfo}">{{i+1}}</span>
+						</div>
+						<div class="col-md-5 md-no-placeholder text-center">
+							<md-input-container *ngIf="!viewBcktInfo" class="example-full-width">
+								<input mdInput [ngClass]="{'color-black' : viewBcktInfo}" [disabled]="viewBcktInfo" type="number" [min]="i>0?bucketsList[i-1].toValue+1:undefined" [(ngModel)]="bucket.fromValue"
+								[name]="'fromValue'+i" (keypress)="keyHandlerCount($event.keyCode)" (blur)="checkBucketValue(i,bucket.toValue,true)" [required]="!first">
+							</md-input-container>
+							<span *ngIf="viewBcktInfo">{{bucket.fromValue}}</span> 
+						</div>
+						<div class="col-md-5 md-no-placeholder text-center">
+							<md-input-container *ngIf="!viewBcktInfo" class="example-full-width">
+								<input mdInput [ngClass]="{'color-black' : viewBcktInfo}" [disabled]="viewBcktInfo" type="number" [min]="bucket.fromValue" [(ngModel)]="bucket.toValue"
+								[name]="'toValue'+i" (keypress)="keyHandlerCount($event.keyCode)" (blur)="checkBucketValue(i,bucket.toValue,false)" [required]="!last">
+							</md-input-container>
+							<span *ngIf="viewBcktInfo">{{bucket.toValue}}</span> 
+						</div>
+						<div class="col-md-1 text-center" style="display: inline-flex;">
+							<button *ngIf="!viewBcktInfo" md-icon-button md-button mdTooltip="Remove" mdTooltipPosition="below" id="showIcon" style="top: 10px;"
+							 (click)="deleteBucket(i);">
+								<md-icon style="font-size: 20px !important;top: 10px;">delete</md-icon>
+							</button>
+							<button *ngIf="!viewBcktInfo && last" md-icon-button md-button mdTooltip="Add New" mdTooltipPosition="below" id="showIcon"
+							 style="top: 10px;" (click)="updateBucketCount(currentBucket.count+1)">
+								<md-icon style="font-size: 20px !important;top: 10px;">exposure_plus_1</md-icon>
+							</button>
+						</div>
+					</div>
+				</perfect-scrollbar>
+			</div>
+			<p-footer>
+				<div class="top-border">
+					<button *ngIf="!viewBcktInfo" class="pull-right" md-raised-button mdTooltip="Save Bucket Info" mdTooltipPosition="below" (click)="saveBucketsInfo();" [disabled]="!bucketDefinition.valid || bucketsList.length<1 || (bucketsList.length==1 && !bucketsList[0].fromValue && !bucketsList[0].toValue)">Save</button>
+				</div>
+			</p-footer>
+		</form>
+	</p-dialog>
+</div>

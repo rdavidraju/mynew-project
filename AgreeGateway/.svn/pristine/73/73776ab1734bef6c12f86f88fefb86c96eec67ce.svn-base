@@ -1,0 +1,234 @@
+import { Injectable } from '@angular/core';
+import { Http, Response, URLSearchParams, BaseRequestOptions } from '@angular/http';
+import { Params } from "@angular/router";
+import { Observable } from 'rxjs/Rx';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import {ReconDashBoardObject,AcctDashBoardObject} from '../shared/constants/constants.values';
+declare var $: any;
+declare var jQuery: any;
+declare var j:number;
+declare var a:number;
+// import { isFullScreen }  from '../shared';
+@Injectable()
+
+export class CommonService {
+        public recentBreadCrumbs: any[]=[]; //@Rk: Added to handle reverse navigation 
+        public tempVarNum: number = 0;
+        public tempVarStr: string = '';
+        public DYNAMIC_THEME:string;
+        public DYNAMIC_FONT:string;
+        public DYNAMIC_HEIGHT:any;
+        public reconDashBoardObject = new ReconDashBoardObject();
+        public acctDashBoardObject = new AcctDashBoardObject();
+        isFullScreen = true;
+        portlet: any;
+        callFunction() {
+            var getViewPort = function() {
+            return{
+                j : window.innerWidth
+                        || document.documentElement.clientWidth
+                        || document.body.clientWidth,
+                a : window.innerHeight
+                    || document.documentElement.clientHeight
+                    || document.body.clientHeight
+                }
+            }
+            // var scrollTo = function(el, offeset) {
+            // var pos = (el && el.size() > 0) ? el.offset().top : 0;
+
+            //         if (el) {
+            //             if ($('body').hasClass('page-header-fixed')) {
+            //                 pos = pos - $('.page-header').height();
+            //             } else if ($('body').hasClass('page-header-top-fixed')) {
+            //                 pos = pos - $('.page-header-top').height();
+            //             } else if ($('body').hasClass('page-header-menu-fixed')) {
+            //                 pos = pos - $('.page-header-menu').height();
+            //             }
+            //             pos = pos + (offeset ? offeset : -1 * el.height());
+            //         }
+
+            //         $('html,body').animate({
+            //             scrollTop: pos
+            //         }, 'slow');
+            // }
+            //      var handleAccordions = function() {
+            //         $('body').on('shown.bs.collapse', '.accordion.scrollable', function(e) {
+            //             scrollTo($(e.target));
+            //         });
+            //     };
+            console.log('j and a: '+getViewPort().j+' '+getViewPort().a);
+            // handle portlet fullscreen
+            $('body').on('click', '.portlet > .portlet-title .fullscreen', function(e) {
+                e.preventDefault();
+                this.portlet = $(this).closest(".portlet");
+                if (this.portlet.hasClass('portlet-fullscreen')) {
+                    isFullScreen = true;
+                    // console.log('FULL SCREEN ON:'+this.isFullScreen+'TYPE:'+typeof(this.isFullScreen));
+                    $(this).removeClass('on');
+                    this.portlet.removeClass('portlet-fullscreen');
+                    $('body').removeClass('page-portlet-fullscreen');
+                    this.portlet.children('.portlet-body').css('height', 'auto');
+                    this.portlet.find('.table-responsive').css('max-height', '450px');  
+                } else {
+                    isFullScreen = false;
+                    fullHeight = getViewPort().a -
+                        parseInt(this.portlet.children('.portlet-title').outerHeight()) -
+                        parseInt(this.portlet.children('.portlet-body').css('padding-top')) -
+                        parseInt(this.portlet.children('.portlet-body').css('padding-bottom'));
+                    tempHeight = fullHeight - 325;
+                    console.log('Temp Height :' + tempHeight);
+                    console.log('Full Height :' + fullHeight);
+                    $(this).addClass('on');
+                    this.portlet.addClass('portlet-fullscreen');
+                    $('body').addClass('page-portlet-fullscreen');
+                    this.portlet.children('.portlet-body').css('height', 'auto');
+                    this.portlet.find('.table-responsive').css('height', 'auto');
+                    this.portlet.find('.table-responsive').css('max-height', '');
+                    this.portlet.find('.scrollTempLines perfect-scrollbar').css('height', tempHeight);
+                }
+                if($(this).attr("callback")){
+                    eval($(this).attr("callback"));
+                }
+                 
+            });
+           
+            
+    }
+   screensize(){
+        return {
+            width : window.innerWidth
+                    || document.documentElement.clientWidth
+                    || document.body.clientWidth,
+            height : window.innerHeight
+                || document.documentElement.clientHeight
+                || document.body.clientHeight
+        }
+   }
+
+   /**List of currencies */
+   currencies = [{"cc":"USD","cv":"USD","cs":"$"},
+   {"cc":"CAD","cv":"CAD","cs":"CA$"},
+   {"cc":"EUR","cv":"EUR","cs":"€"},
+   {"cc":"AED","cv":"AED","cs":"AED"},
+   {"cc":"AFN","cv":"AFN","cs":"Af"},
+   {"cc":"ALL","cv":"ALL","cs":"ALL"},
+   {"cc":"AMD","cv":"AMD","cs":"AMD"},
+   {"cc":"ARS","cv":"ARS","cs":"AR$"},
+   {"cc":"AUD","cv":"AUD","cs":"AU$"},
+   {"cc":"AZN","cv":"AZN","cs":"man."},
+   {"cc":"BAM","cv":"BAM","cs":"KM"},
+   {"cc":"BDT","cv":"BDT","cs":"Tk"},
+   {"cc":"BGN","cv":"BGN","cs":"BGN"},
+   {"cc":"BHD","cv":"BHD","cs":"BD"},
+   {"cc":"BIF","cv":"BIF","cs":"FBu"},
+   {"cc":"BND","cv":"BND","cs":"BN$"},
+   {"cc":"BOB","cv":"BOB","cs":"Bs"},
+   {"cc":"BRL","cv":"BRL","cs":"R$"},
+   {"cc":"BWP","cv":"BWP","cs":"BWP"},
+   {"cc":"BYR","cv":"BYR","cs":"BYR"},
+   {"cc":"BZD","cv":"BZD","cs":"BZ$"},
+   {"cc":"CDF","cv":"CDF","cs":"CDF"},
+   {"cc":"CHF","cv":"CHF","cs":"CHF"},
+   {"cc":"CLP","cv":"CLP","cs":"CL$"},
+   {"cc":"CNY","cv":"CNY","cs":"CN¥"},
+   {"cc":"COP","cv":"COP","cs":"CO$"},
+   {"cc":"CRC","cv":"CRC","cs":"₡"},
+   {"cc":"CVE","cv":"CVE","cs":"CV$"},
+   {"cc":"CZK","cv":"CZK","cs":"Kč"},
+   {"cc":"DJF","cv":"DJF","cs":"Fdj"},
+   {"cc":"DKK","cv":"DKK","cs":"Dkr"},
+   {"cc":"DOP","cv":"DOP","cs":"RD$"},
+   {"cc":"DZD","cv":"DZD","cs":"DA"},
+   {"cc":"EEK","cv":"EEK","cs":"Ekr"},
+   {"cc":"EGP","cv":"EGP","cs":"EGP"},
+   {"cc":"ERN","cv":"ERN","cs":"Nfk"},
+   {"cc":"ETB","cv":"ETB","cs":"Br"},
+   {"cc":"GBP","cv":"GBP","cs":"£"},
+   {"cc":"GEL","cv":"GEL","cs":"GEL"},
+   {"cc":"GHS","cv":"GHS","cs":"GH₵"},
+   {"cc":"GNF","cv":"GNF","cs":"FG"},
+   {"cc":"GTQ","cv":"GTQ","cs":"GTQ"},
+   {"cc":"HKD","cv":"HKD","cs":"HK$"},
+   {"cc":"HNL","cv":"HNL","cs":"HNL"},
+   {"cc":"HRK","cv":"HRK","cs":"kn"},
+   {"cc":"HUF","cv":"HUF","cs":"Ft"},
+   {"cc":"IDR","cv":"IDR","cs":"Rp"},
+   {"cc":"ILS","cv":"ILS","cs":"₪"},
+   {"cc":"INR","cv":"INR","cs":"Rs"},
+   {"cc":"IQD","cv":"IQD","cs":"IQD"},
+   {"cc":"IRR","cv":"IRR","cs":"IRR"},
+   {"cc":"ISK","cv":"ISK","cs":"Ikr"},
+   {"cc":"JMD","cv":"JMD","cs":"J$"},
+   {"cc":"JOD","cv":"JOD","cs":"JD"},
+   {"cc":"JPY","cv":"JPY","cs":"¥"},
+   {"cc":"KES","cv":"KES","cs":"Ksh"},
+   {"cc":"KHR","cv":"KHR","cs":"KHR"},
+   {"cc":"KMF","cv":"KMF","cs":"CF"},
+   {"cc":"KRW","cv":"KRW","cs":"₩"},
+   {"cc":"KWD","cv":"KWD","cs":"KD"},
+   {"cc":"KZT","cv":"KZT","cs":"KZT"},
+   {"cc":"LBP","cv":"LBP","cs":"LB£"},
+   {"cc":"LKR","cv":"LKR","cs":"SLRs"},
+   {"cc":"LTL","cv":"LTL","cs":"Lt"},
+   {"cc":"LVL","cv":"LVL","cs":"Ls"},
+   {"cc":"LYD","cv":"LYD","cs":"LD"},
+   {"cc":"MAD","cv":"MAD","cs":"MAD"},
+   {"cc":"MDL","cv":"MDL","cs":"MDL"},
+   {"cc":"MGA","cv":"MGA","cs":"MGA"},
+   {"cc":"MKD","cv":"MKD","cs":"MKD"},
+   {"cc":"MMK","cv":"MMK","cs":"MMK"},
+   {"cc":"MOP","cv":"MOP","cs":"MOP$"},
+   {"cc":"MUR","cv":"MUR","cs":"MURs"},
+   {"cc":"MXN","cv":"MXN","cs":"MX$"},
+   {"cc":"MYR","cv":"MYR","cs":"RM"},
+   {"cc":"MZN","cv":"MZN","cs":"MTn"},
+   {"cc":"NAD","cv":"NAD","cs":"N$"},
+   {"cc":"NGN","cv":"NGN","cs":"₦"},
+   {"cc":"NIO","cv":"NIO","cs":"C$"},
+   {"cc":"NOK","cv":"NOK","cs":"Nkr"},
+   {"cc":"NPR","cv":"NPR","cs":"NPRs"},
+   {"cc":"NZD","cv":"NZD","cs":"NZ$"},
+   {"cc":"OMR","cv":"OMR","cs":"OMR"},
+   {"cc":"PAB","cv":"PAB","cs":"B/."},
+   {"cc":"PEN","cv":"PEN","cs":"S/."},
+   {"cc":"PHP","cv":"PHP","cs":"₱"},
+   {"cc":"PKR","cv":"PKR","cs":"PKRs"},
+   {"cc":"PLN","cv":"PLN","cs":"zł"},
+   {"cc":"PYG","cv":"PYG","cs":"₲"},
+   {"cc":"QAR","cv":"QAR","cs":"QR"},
+   {"cc":"RON","cv":"RON","cs":"RON"},
+   {"cc":"RSD","cv":"RSD","cs":"din."},
+   {"cc":"RUB","cv":"RUB","cs":"RUB"},
+   {"cc":"RWF","cv":"RWF","cs":"RWF"},
+   {"cc":"SAR","cv":"SAR","cs":"SR"},
+   {"cc":"SDG","cv":"SDG","cs":"SDG"},
+   {"cc":"SEK","cv":"SEK","cs":"Skr"},
+   {"cc":"SGD","cv":"SGD","cs":"S$"},
+   {"cc":"SOS","cv":"SOS","cs":"Ssh"},
+   {"cc":"SYP","cv":"SYP","cs":"SY£"},
+   {"cc":"THB","cv":"THB","cs":"฿"},
+   {"cc":"TND","cv":"TND","cs":"DT"},
+   {"cc":"TOP","cv":"TOP","cs":"T$"},
+   {"cc":"TRY","cv":"TRY","cs":"TL"},
+   {"cc":"TTD","cv":"TTD","cs":"TT$"},
+   {"cc":"TWD","cv":"TWD","cs":"NT$"},
+   {"cc":"TZS","cv":"TZS","cs":"TSh"},
+   {"cc":"UAH","cv":"UAH","cs":"₴"},
+   {"cc":"UGX","cv":"UGX","cs":"USh"},
+   {"cc":"UYU","cv":"UYU","cs":"$U"},
+   {"cc":"UZS","cv":"UZS","cs":"UZS"},
+   {"cc":"VEF","cv":"VEF","cs":"Bs.F."},
+   {"cc":"VND","cv":"VND","cs":"₫"},
+   {"cc":"XAF","cv":"XAF","cs":"FCFA"},
+   {"cc":"XOF","cv":"XOF","cs":"CFA"},
+   {"cc":"YER","cv":"YER","cs":"YR"},
+   {"cc":"ZAR","cv":"ZAR","cs":"R"},
+   {"cc":"ZMK","cv":"ZMK","cs":"ZK"}]
+        
+}
+console.log('FULL SCREEN before export:'+isFullScreen+'TYPE:'+typeof(isFullScreen));
+export var isFullScreen :boolean;
+export var fullHeight:number;
+export var tempHeight:number;
+export var getViewPort:any;

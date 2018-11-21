@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { ApprovalRuleAssignment } from './approval-rule-assignment.model';
+import { ApprovalRuleAssignmentService } from './approval-rule-assignment.service';
+
+@Component({
+    selector: 'jhi-approval-rule-assignment-detail',
+    templateUrl: './approval-rule-assignment-detail.component.html'
+})
+export class ApprovalRuleAssignmentDetailComponent implements OnInit, OnDestroy {
+
+    approvalRuleAssignment: ApprovalRuleAssignment;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private approvalRuleAssignmentService: ApprovalRuleAssignmentService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInApprovalRuleAssignments();
+    }
+
+    load(id) {
+        this.approvalRuleAssignmentService.find(id).subscribe((approvalRuleAssignment) => {
+            this.approvalRuleAssignment = approvalRuleAssignment;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInApprovalRuleAssignments() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'approvalRuleAssignmentListModification',
+            (response) => this.load(this.approvalRuleAssignment.id)
+        );
+    }
+}

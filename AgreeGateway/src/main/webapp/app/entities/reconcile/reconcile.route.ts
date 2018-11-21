@@ -1,0 +1,200 @@
+import { Injectable } from '@angular/core';
+import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Routes, CanActivate } from '@angular/router';
+import { UserRouteAccessService } from '../../shared';
+import { JhiPaginationUtil } from 'ng-jhipster';
+
+import { ReconcileComponent } from './reconcile.component';
+import { RWQComponent} from './rwq.component';
+import { ReconcileDetailComponent } from './reconcile-detail.component';
+import { ReconcilePopupComponent } from './reconcile-dialog.component';
+import { ReconcileDeletePopupComponent } from './reconcile-delete-dialog.component';
+import { ReconcileBreadCrumbTitles } from './reconcile.model';
+import { reconcileHomeComponent } from './reconcile.home';
+import { RWQHomeComponent } from './rwq.home';
+import { Principal } from '../../shared';
+
+@Injectable()
+export class ReconcileResolvePagingParams implements Resolve<any> {
+
+    constructor(private paginationUtil: JhiPaginationUtil) {}
+
+    resolve(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+        const page = route.queryParams['page'] ? route.queryParams['page'] : '1';
+        const sort = route.queryParams['sort'] ? route.queryParams['sort'] : 'id,asc';
+        return {
+            page: this.paginationUtil.parsePage(page),
+            predicate: this.paginationUtil.parsePredicate(sort),
+            ascending: this.paginationUtil.parseAscending(sort)
+      };
+    }
+}
+
+export const reconcileRoute: Routes = [
+{
+    path: 'reconcile',
+    component: reconcileHomeComponent,
+    data: {
+        authorities: ['ROLE_USER'],
+        pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+    },
+    children: [
+      {
+       path: 'reconcilehome',
+       component: ReconcileComponent,
+       resolve: {
+        'pagingParams': ReconcileResolvePagingParams
+      },
+       data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcile
+       },
+      outlet: 'content'
+      },
+      {
+        path: ':id/details',
+        component: ReconcileDetailComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcileDetails
+        },
+        outlet: 'content'
+      },
+      {
+       path: 'source-connection-details-new',
+       component: ReconcileDetailComponent,
+       data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcileNew
+       },
+      outlet: 'content'
+      },
+      {
+       path: ':id/edit',
+       component: ReconcileDetailComponent,
+       data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcileEdit
+       },
+      outlet: 'content'
+      }
+    ]
+  },
+{
+    path: 'reconcilewq',
+    component: RWQHomeComponent,
+    data: {
+        authorities: ['ROLE_USER'],
+        pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+    },
+    children: [
+      {
+       path: 'reconcilewqhome',
+       component: RWQComponent,
+       resolve: {
+        'pagingParams': ReconcileResolvePagingParams
+      },
+       data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcilewq,
+          lablesArray: ['Process','Reconciliation Work Queue']
+       },
+      outlet: 'content'
+      },
+      {
+        path: ':id/details',
+        component: ReconcileDetailComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcileDetails,
+          lablesArray: ['Process','Reconciliation Work Queue']
+        },
+        outlet: 'content'
+      },
+      {
+       path: 'source-connection-details-new',
+       component: ReconcileDetailComponent,
+       data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcileNew,
+          lablesArray: ['Process','Reconciliation Work Queue']
+       },
+      outlet: 'content'
+      },
+      {
+       path: ':id/edit',
+       component: ReconcileDetailComponent,
+       data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reconcile.home.title',
+          breadcrumb: ReconcileBreadCrumbTitles.reconcileEdit,
+          lablesArray: ['Process','Reconciliation Work Queue']
+       },
+      outlet: 'content'
+      }
+    ]
+  }                                     
+];
+/* 
+export const reconcileRoute: Routes = [
+    {
+        path: 'reconcile',
+        component: ReconcileComponent,
+        resolve: {
+            'pagingParams': ReconcileResolvePagingParams
+        },
+        data: {
+            authorities: ['ROLE_USER'],
+            pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+        },
+        canActivate: [UserRouteAccessService]
+    }, {
+        path: 'reconcile/:id',
+        component: ReconcileDetailComponent,
+        data: {
+            authorities: ['ROLE_USER'],
+            pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+        },
+        canActivate: [UserRouteAccessService]
+    }
+];
+
+export const reconcilePopupRoute: Routes = [
+    {
+        path: 'reconcile-new',
+        component: ReconcilePopupComponent,
+        data: {
+            authorities: ['ROLE_USER'],
+            pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+        },
+        canActivate: [UserRouteAccessService],
+        outlet: 'popup'
+    },
+    {
+        path: 'reconcile/:id/edit',
+        component: ReconcilePopupComponent,
+        data: {
+            authorities: ['ROLE_USER'],
+            pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+        },
+        canActivate: [UserRouteAccessService],
+        outlet: 'popup'
+    },
+    {
+        path: 'reconcile/:id/delete',
+        component: ReconcileDeletePopupComponent,
+        data: {
+            authorities: ['ROLE_USER'],
+            pageTitle: 'agreeGatewayV1App.reconcile.home.title'
+        },
+        canActivate: [UserRouteAccessService],
+        outlet: 'popup'
+    }
+];
+ */

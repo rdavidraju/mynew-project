@@ -1,0 +1,556 @@
+<div class="row leftmargin-20" style="border-bottom: 1px solid #eee;" *ngIf="ruleGroupRulesAndConditions.rulePurpose && ruleGroupRulesAndConditions.rulePurpose == 'RECONCILIATION' && !ruleCreationInWQ">
+	<div class="col-md-6 col-sm-6 col-xs-6">
+		<h4><b>Rules</b></h4>
+	</div>
+	<div class="col-md-6 col-sm-6 col-xs-6"  *ngIf="ruleGroupRulesAndConditions.rules && !isViewOnly ">
+		<button md-icon-button class="pull-right  md-36" mdTooltip="Confirm Tagging these rules" (click)="saveToSession()" *ngIf="!isViewOnly && f.valid  ">
+			<md-icon>local_offer</md-icon>
+		</button>
+		<button md-icon-button class="pull-right  md-36" mdTooltip="Fill mandatory fields" *ngIf="!isViewOnly && !f.valid  ">
+			<md-icon>local_offer</md-icon>
+		</button>
+		<button md-icon-button class="pull-right  md-36" mdTooltip="Add New Rule" (click)="addNewRuleObject(ruleGroupRulesAndConditions.rules.length,0)">
+			<md-icon>add</md-icon>
+		</button>
+	</div>
+</div>
+<button md-icon-button class="pull-right color-green" *ngIf="ruleCreationInWQ" (click)="saveToSession()" aria-hidden="true"
+ mdTooltip="Save Rule Group">
+					<md-icon>save</md-icon>
+</button>
+<!-- rules Block start -->
+<form novalidate #f="ngForm">
+	<div class="row sub-heading-content rule-group-reconciliation" id="hideIconTable">
+
+		<ng-template ngFor let-ruleObj [ngForOf]="ruleGroupRulesAndConditions.rules" let-i="index" *ngIf="ruleGroupRulesAndConditions.rulePurpose == 'RECONCILIATION'">
+			<p-accordion [multiple]="true" class="rule-group-recon">
+				<p-accordionTab [selected]="expandTab[i]">
+					<p-header>
+						<span *ngIf="ruleObj && ruleObj.rule.ruleCode">{{ruleObj.rule.ruleCode}}</span>
+						<span *ngIf="!ruleObj.rule.ruleCode">New Rule - {{i+1}}</span>
+						<button md-icon-button class="pull-right" style="top:-10px;" (click)="deleteRuleObject(i);false" *ngIf="!isViewOnly && !ruleCreationInWQ" mdTooltip="Delete Rule"
+						 id="showIcon">
+			<md-icon>delete</md-icon>
+		</button>
+						<button md-icon-button class="pull-right" style="top:-10px;" (click)="clearRuleObject(i);false" *ngIf="!isViewOnly && !ruleCreationInWQ" mdTooltip="Clear"
+						 id="showIcon">
+			<md-icon>clear</md-icon>
+		</button>
+					</p-header>
+					<div class="accordioncontenet">
+						<div class="row" style="display:flex;">
+								<!-- <div class="col-md-1">
+									<span class="linetext-input">{{i+1}} </span>
+								</div> -->
+								<div class="col-md-3 col-sm-6 col-xs-12">
+									<!-- <span class="linetext-input" *ngIf="!ruleCreationInWQ">{{Adhoc}} </span> -->
+									<md-select placeholder="Rule Type" #ruleType [(ngModel)]="ruleObj.rule.ruleType" (change)="SelectRuleType(i)"
+									[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="ruleType{{i}}" required #ruleType{{i}}="ngModel">
+										<md-option *ngFor="let ruletype of ruletypeLOV" [value]="ruletype.lookUpCode"> {{ ruletype.meaning}} </md-option>
+									</md-select>
+								</div>
+								<!-- <div class="col-md-3" *ngIf="isViewOnly">{{this.rules.ruleName}}</div> -->
+								<div class="col-md-3 col-sm-6 col-xs-12" *ngIf="!ruleCreationInWQ">
+									<form class="form-horizontal" [formGroup]="ruleListformArray[i]" *ngIf="!isViewOnly">
+										<md-input-container>
+											<input formControlName="data" mdInput placeholder="Rule Name " auto-complete [(ngModel)]="ruleObj.rule.ruleCode" [source]="ruleListArrays[i]"
+											[list-formatter]="autocompleListFormatter" value-property-name="rule.id" display-property-name="rule.ruleCode"
+											(valueChanged)="setRuleObject($event,i,ruleListformArray[i].value)" />
+										</md-input-container>
+									</form>
+									<md-input-container *ngIf="isViewOnly">
+										<input mdInput [(ngModel)]="ruleObj.rule.ruleCode" placeholder="Rule Name" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+										name="ruleNameDisplay{{i}}" required #ruleNameDisplay{{i}}="ngModel"> </md-input-container>
+								</div>
+								<div class="col-md-3 col-sm-6 col-xs-12" *ngIf="ruleCreationInWQ">
+									<md-input-container>
+										<input mdInput [(ngModel)]="ruleObj.rule.ruleCode" placeholder="Rule Name" name="ruleNameForWQ" required #name="ngModel">									</md-input-container>
+								</div>
+								<div class="col-md-3 col-sm-6 col-xs-12 form-group">
+									<md-form-field > <input mdInput [mdDatepicker]="stpicker" placeholder="Start date" [ngClass]="{'color-black' : isViewOnly || ruleObj.rule.id >0}"
+										[disabled]="isViewOnly ||ruleObj.rule.id>0" [(ngModel)]="ruleObj.rule.startDate" name="rulestartDate" required>
+										<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly "></md-datepicker-toggle>
+										<md-datepicker #stpicker></md-datepicker>
+									</md-form-field>
+								</div>
+								<div class="col-md-2 col-sm-6 col-xs-12 form-group">
+									<md-form-field *ngIf="ruleObj.rule.startDate"> <input mdInput [mdDatepicker]="edpicker" placeholder="End date" [min]="ruleObj.rule.startDate" [ngClass]="{'color-black' : isViewOnly || ruleObj.rule.id >0}"
+										[disabled]="isViewOnly  ||ruleObj.rule.id>0" [(ngModel)]="ruleObj.rule.endDate" name="ruleendDate">
+										<md-datepicker-toggle
+										mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+											<md-datepicker #edpicker></md-datepicker>
+									</md-form-field>
+								</div>
+								<div class="col-md-1">
+									<md-slide-toggle class="pull-right" color="primary" mdTooltip="Set Status" placeholder="status" [(ngModel)]="ruleObj.rule.assignmentFlag"
+									name="status{{i}}" *ngIf="isEdit && ruleObj.rule.id >0"> </md-slide-toggle>
+									<button md-icon-button class="pull-right  md-36" style="color: green" mdTooltip="Active" *ngIf="ruleObj.rule.assignmentFlag && isViewOnly">
+							<md-icon>check_circle</md-icon>
+						</button>
+									<button md-icon-button class="pull-right  md-36" style="color: red" mdTooltip="Inactive" *ngIf="(!ruleObj.rule.assignmentFlag || ruleObj.rule.assignment == false )&& isViewOnly">
+							<md-icon>error</md-icon>
+						</button>
+
+								</div>
+						</div>
+						<div class="row"  style="display:flex;">
+							<div class="col-md-6">
+								<!-- <md-input-container class="example-full-width " *ngIf="isViewOnly || ( ruleObj.rule.id && ruleObj.rule.id>0)">
+					<input mdInput [(ngModel)]="ruleObj.rule.sDataViewDisplayName"
+						placeholder="Source DataView" [ngClass]="{'color-black' : true}"
+						[disabled]="true" name="dvDisplay{{i}}{{j}}" required
+						#dvDisplay[i][j]="ngModel"> </md-input-container>
+						 -->
+								<md-input-container  *ngIf="ruleObj.rule.id >0"> <input mdInput [(ngModel)]="ruleObj.rule.sDataViewDisplayName" placeholder="Source DataView" [ngClass]="{'color-black' : isViewOnly || ruleObj.rule.id >0 }"
+									 [disabled]="( ruleObj.rule.id >0)" name="srcDvName{{i}}" required #srcDvName{{i}}="ngModel"> </md-input-container>
+								<form class="form-horizontal" [formGroup]="srcDataViewformsArray[i]" *ngIf="!isViewOnly && ruleObj.rule.id <=0">
+									<md-input-container>
+
+										<input formControlName="data" mdInput (ngModelChange)="changeSourceDataView($event,i)" placeholder="Select Source DataView"
+										 auto-complete [(ngModel)]="ruleObj.rule.sDataViewDisplayName" [source]="sourceDataViewsArrays[i]" [list-formatter]="autocompleteSrcDataViewListFormatter"
+										 value-property-name="id" display-property-name="dataViewDispName" (valueChanged)="fetchSrcColumns($event,i,srcDataViewformsArray[i].value)"
+										/>
+
+									</md-input-container>
+								</form>
+							</div>
+							<div class="col-md-6">
+								<md-input-container  *ngIf="ruleObj.rule.id >0"> <input mdInput [(ngModel)]="ruleObj.rule.tDataViewDisplayName" placeholder="Target DataView" [ngClass]="{'color-black' : isViewOnly || ruleObj.rule.id >0}"
+									 [disabled]="ruleObj.rule.id>0" name="targetDvName{{i}}" required #targetDvName{{i}}="ngModel"> </md-input-container>
+								<form class="form-horizontal" [formGroup]="targetDataViewformsArray[i]" *ngIf="!isViewOnly &&  ruleObj.rule.id <=0">
+									<md-input-container>
+										<input formControlName="data" mdInput (ngModelChange)="changeTargetDataView($event,i)" placeholder="Select Target DataView"
+										 auto-complete [(ngModel)]="ruleObj.rule.tDataViewDisplayName" [source]="targetDataViewsArrays[i]" [list-formatter]="autocompleteTargetDataViewListFormatter"
+										 value-property-name="id" display-property-name="dataViewDispName" (valueChanged)="fetchTargetColumns($event,i,targetDataViewformsArray[i].value)"
+										/>
+									</md-input-container>
+								</form>
+							</div>
+						</div>
+
+						<p-accordionTab header="Rule Conditions" [selected]="true">
+							<div class="accordioncontenet rule-conditions-view table-responsive">
+								<table class="table">
+									<thead class="tableheader">
+										<tr>
+											<th>Sequence</th>
+											<th>Source Column</th>
+											<th style="width:50px;"></th>
+											<th>Operator</th>
+											<th>Target Column</th>
+											<th style="width:50px;"></th>
+											<th>Logical Operator</th>
+											<th *ngIf="!isViewOnly">Actions</th>
+										</tr>
+									</thead>
+									<tbody>
+										<tr *ngFor="let condition of ruleObj.ruleConditions;let childIndex=index" (mouseover)="mouseOverRowNo = childIndex">
+											<td><span  style="top: 10px" class="linetext-input">{{childIndex+1}}</span>
+												<!-- <md-input-container> <input
+										class="inputHeight" mdInput [(ngModel)]="condition.sequenceNo"
+										[ngClass]="{'color-black' : true}" [disabled]="true"
+										name="seq{{i}}{{childIndex}}" required
+										#seq{{i}}{{childIndex}}="ngModel"> </md-input-container> -->
+												<!-- 	<span class="linetext-input">{{childIndex+1}} </span></td> -->
+												<!-- <div style="margin-top: 12px;">{{childIndex +1}}</div> -->
+											</td>
+											<td>
+												<md-select [disabled]="isViewOnly  || ruleObj.rule.id>0" (change)="selectedSourceColumn(i,childIndex,condition.sColumnId)"
+												 [(ngModel)]="condition.sColumnId" name="sColumn{{i}}{{childIndex}}" #sColumn{{i}}{{childIndex}}="ngModel">
+													<md-option size="50" *ngFor="let sourceCol of sourceColumnLOV[i]" [value]="sourceCol.id">{{sourceCol.columnName}}</md-option>
+												</md-select>
+											</td>
+											<td style="width:50px;">
+												<button md-icon-button [popover]="srcFilterPopover" *ngIf="!isViewOnly && mouseOverRowNo == childIndex && ruleObj.rule.id <= 0"
+												 mdTooltip="Add Filters">
+													<md-icon>more_vert</md-icon>
+												</button>
+												<!-- display source additional filter tagged -->
+												<i class="fa fa-filter hand" aria-hidden="true" popoverTitle="Filter" popoverPlacement="right" [popoverOnHover]="true" [popoverCloseOnMouseOutside]="true"
+												 popover="{{condition.sColumnName + ' ' + condition.sOperator + ' ' + condition.sValue}} " *ngIf="condition.sOperator"> </i>
+												<i class="hand" style="color: black; font-style: italic; font-family: cursive; font-weight: normal; font-size: 15px; visibility: visible;"
+												 popoverTitle="Expression" popoverPlacement="right" [popoverOnHover]="true" [popoverCloseOnMouseOutside]="true"
+												 popover="{{condition.sFormula}} " *ngIf="condition.sFormula">
+														<b>fx</b>
+												</i>
+												<i class="hand" style="color: black; font-style: italic; font-family: cursive; font-weight: normal; font-size: 15px; visibility: visible;"
+												 popoverTitle="Tolerance" popoverPlacement="right" [popoverOnHover]="true" [popoverCloseOnMouseOutside]="true"
+												 popover="{{condition.sToleranceType+' : '+condition.sToleranceValueFrom+' - '+condition.sToleranceValueTo}} "
+												 *ngIf="condition.sToleranceValueFrom"> <b>T</b>
+												</i>
+												<!-- End -->
+
+												<popover-content #srcFilterPopover placement="right" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:40px"
+												 [popoverCloseOnMouseOutside]="false">
+
+													<!-- *ngIf="((sFilter && sFilter[i] && sFilter[i][childIndex]) || (sFormula && sFormula[i] && sFormula[i][childIndex]) || (sTolerance && sTolerance[i] && sTolerance[i][childIndex]))" -->
+													<div class="row">
+
+														<div class="display-PopOverActions col-md-12">
+															<ul>
+																<li [class.highlight_stay]="filterAction=='srcFilter'"><a class="hand " ngbTooltip="Add Filter" (click)="addFilter(i,childIndex);filterAction='srcFilter' "><i
+													class="fa fa-filter"></i></a></li>
+																<li [class.highlight_stay]="filterAction=='srcFormula'"><a class="hand " ngbTooltip="Add Formula" (click)="addFormula(i,childIndex);filterAction='srcFormula'"><b>fx</b></a></li>
+																<li [class.highlight_stay]="filterAction=='srcTolerance'"><a class="hand " ngbTooltip="Add Tolerance" (click)="addTolerance(i,childIndex);filterAction='srcTolerance'"><b>T</b></a></li>
+																<!-- <li><md-checkbox mdTooltip="Enable many"
+													(click)="enableSMany(i,childIndex)"
+													[checked]="condition.sMany"
+													*ngIf="ruleObj.rule.ruleType == 'MANY_TO_MANY' ||  ruleObj.rule.ruleType == 'MANY_TO_ONE'">
+												</md-checkbox></li> -->
+															</ul>
+														</div>
+
+														<div class="col-md-10" *ngIf="(sFilter && sFilter[i] && sFilter[i][childIndex]) 
+												 ||( sFormula && sFormula[i] && sFormula[i][childIndex])
+												 || (sTolerance && sTolerance[i] && sTolerance[i][childIndex])">
+															<i class="pull-right fa fa-times hand" aria-hidden="true" ngbTooltip="Close" (click)="closeSrc(i,childIndex);srcFilterPopover.hide();">
+															</i>
+															<div *ngIf=" sFilter && sFilter[i] && sFilter[i][childIndex]">
+																<!-- <i class="pull-right fa fa-times hand" aria-hidden="true"
+												ngbTooltip="Close"
+												(click)="cancelsrcFilter(i,childIndex);srcFilterPopover.hide();"></i> -->
+																<table>
+																	<thead>
+																		<tr>
+																			<th>Operator</th>
+																			<th>Value</th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		<tr>
+																			<td>
+																				<md-select (change)="selectOperator();srcFilterPopover.show();" [(ngModel)]="condition.sOperator" name="sOperator{{i}}{{childIndex}}"
+																				 #sOperator{{i}}{{childIndex}}="ngModel">
+																					<md-option size="50" *ngFor="let operator of operatorList" [value]="operator.lookUpCode">{{operator.meaning}}</md-option>
+																				</md-select>
+																			</td>
+																			<td>
+																				<md-input-container class="example-full-width ">
+																					<input mdInput [(ngModel)]="condition.sValue" name="value{{i}}{{childIndex}}" required #value{{i}}{{childIndex}}="ngModel">																					</md-input-container>
+																			</td>
+																		</tr>
+
+																	</tbody>
+																</table>
+																<button md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="savesrcFilter(i,childIndex);srcFilterPopover.hide();"
+																 mdTooltip="Save">
+												<md-icon>done</md-icon>
+											</button>
+																<button md-icon-button class="pull-right color-red ripple" aria-hidden="true" (click)="cancelsrcFilter(i,childIndex)" mdTooltip="Clear">
+												<md-icon>delete</md-icon>
+											</button>
+																<!-- <i class="pull-right fa fa-trash " aria-hidden="true"
+											(click)="cancelsrcFilter(i,childIndex)" mdTooltip="Clear">
+										</i> -->
+
+															</div>
+															<div *ngIf="sFormula && sFormula[i] && sFormula[i][childIndex]">
+																<!-- <i class="pull-right fa fa-times hand" aria-hidden="true"
+												ngbTooltip="Clear Formula"
+												(click)="cancelsrcFormula(i,childIndex);srcFilterPopover.hide();"></i> -->
+																<div>
+																	<label class="control-label" style="font-size: 16px;">Select
+													Function:</label>
+																	<md-select [(ngModel)]="condition.isSFormula" style="width:230px;z-index: 100 !important;" [ngClass]="{'color-black' : isViewOnly}"
+																	 name="excelexpression{{i}}{{childIndex}}" #excelexpression{{i}}{{childIndex}}="ngModel">
+																		<md-option *ngFor="let excelexpression of excelFunctions" [value]="excelexpression.lookUpCode" (click)="showExcelFunction(excelexpression.lookUpCode, i,childIndex,excelexpression.description);srcFilterPopover.show()">
+																			{{ excelexpression.meaning }} </md-option>
+																	</md-select>
+																</div>
+																<div *ngIf="condition.isSFormula" class="data-view-query-build">
+																	<textarea mdInput [(ngModel)]="condition.sFormula" name="sFormula{{i}}{{childIndex}}" mdTooltip=""></textarea>
+																</div>
+
+																<div *ngIf="condition.isSFormula" style="padding-top: 10px;">
+																	<span>Eg: {{condition.sFormulaExpressionExample}}</span>
+																	<button md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="savesrcExpression(condition.sFormula,i,childIndex);srcFilterPopover.hide();"
+																	 mdTooltip="Save">
+													<md-icon>done</md-icon>
+												</button>
+																	<button md-icon-button class="pull-right color-red ripple" aria-hidden="true" (click)="cancelsrcFormula(i,childIndex)" mdTooltip="Clear">
+													<md-icon>delete</md-icon>
+												</button>
+																	<!-- <i class="pull-right fa fa-trash " aria-hidden="true"
+												(click)="cancelsrcFormula(i,childIndex)" mdTooltip="Clear">
+											</i> -->
+																</div>
+															</div>
+															<div class="table-responsive" *ngIf="sTolerance && sTolerance[i] && sTolerance[i][childIndex]">
+																<!-- <i class="pull-right  fa fa-times hand" aria-hidden="true"
+												ngbTooltip="Clear Tolerance"
+												(click)="cancelsrcTolerance(i,childIndex);srcFilterPopover.hide();"></i> -->
+																<table>
+																	<thead>
+																		<tr>
+																			<th>Type</th>
+																			<th>Range</th>
+																			<th></th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		<tr>
+																			<td>
+																				<md-select placeholder="Type" class="example-full-width " #ruleType [(ngModel)]="condition.sToleranceType"
+																				 name="stoleranceType{{i}}{{childIndex}}" required #stoleranceType{{i}{{childIndex}}="ngModel">
+																					<md-option *ngFor="let toleranceType of toleranceTypeLOV" [value]="toleranceType.lookUpCode"> {{ toleranceType.meaning}} </md-option>
+																				</md-select>
+																				<!-- <md-input-container class="example-full-width ">
+														<input mdInput [(ngModel)]="condition.sToleranceType" placeholder="Type"
+															name="value" required #value="ngModel"> </md-input-container> -->
+																			</td>
+																			<td style="display: inline-flex;">
+																				<md-input-container class="example-full-width"> <input mdInput [(ngModel)]="condition.sToleranceValueFrom" placeholder="From" name="sFromValue{{i}}{{childIndex}}"
+																					 required #sFromValue{{i}}{{childIndex}}="ngModel"> </md-input-container>
+																			</td>
+																			<td>
+																				<md-input-container class="example-full-width ">
+
+																					<input mdInput [(ngModel)]="condition.sToleranceValueTo" placeholder="To" name="sToValue{{i}}{{childIndex}}" required #sToValue{{i}}{{childIndex}}="ngModel">																					</md-input-container>
+																			</td>
+																		</tr>
+																	</tbody>
+																</table>
+																<button md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="savesrcTolerance(i,childIndex);srcFilterPopover.hide()"
+																 mdTooltip="Save">
+												<md-icon>done</md-icon>
+											</button>
+																<button md-icon-button class="pull-right color-red ripple" aria-hidden="true" (click)="cancelsrcTolerance(i,childIndex)"
+																 mdTooltip="Clear">
+												<md-icon>delete</md-icon>
+											</button>
+																<!-- <i class="pull-right fa fa-trash " aria-hidden="true"
+											(click)="cancelsrcTolerance(i,childIndex);" mdTooltip="Clear">
+										</i> -->
+															</div>
+														</div>
+													</div>
+												</popover-content>
+											</td>
+											<td>
+												<md-select [disabled]="isViewOnly  ||ruleObj.rule.id>0" (change)="selectedOperator()" [(ngModel)]="condition.operator"
+												 name="operator{{i}}{{childIndex}}" #operator{{i}}{{childIndex}}="ngModel" *ngIf="operatorBasedOnColumnLOV[i] && operatorBasedOnColumnLOV[i][childIndex]">
+													<md-option size="50" *ngFor="let operator of operatorBasedOnColumnLOV[i][childIndex]" [value]="operator.lookUpCode">{{operator.meaning}}</md-option>
+												</md-select>
+											</td>
+
+											<td>
+												<md-select [disabled]="isViewOnly  ||ruleObj.rule.id>0" (change)="selectedTargetColumn(i,childIndex,condition.tColumnId)"
+												 [(ngModel)]="condition.tColumnId" name="tColumn{{i}}{{childIndex}}" #tColumn{{i}}{{childIndex}}="ngModel">
+													<md-option size="50" *ngFor="let targetCol of targetColumnLOV[i]" [value]="targetCol.id">{{targetCol.columnName}}</md-option>
+												</md-select>
+											</td>
+											<td style="width:50px;">
+												<button md-icon-button [popover]="targetFilterPopover" *ngIf="!isViewOnly && mouseOverRowNo == childIndex && ruleObj.rule.id <= 0"
+												 mdTooltip="Add Filters">
+									<md-icon>more_vert</md-icon>
+								</button>
+												<!-- display Target additional filter tagged --><i class="fa fa-filter hand" aria-hidden="true" popoverTitle="Filter" popoverPlacement="right" [popoverOnHover]="true"
+												 [popoverCloseOnMouseOutside]="true" popover="{{condition.tColumnName + ' ' + condition.tOperator + ' ' + condition.tValue}} "
+												 *ngIf="condition.tOperator"> </i> <i class="hand" style="color: black; font-style: italic; font-family: cursive; font-weight: normal; font-size: 15px; visibility: visible;"
+												 ngbTooltip="Add Formula" popoverTitle="Formula" popoverPlacement="right" [popoverOnHover]="true" [popoverCloseOnMouseOutside]="true"
+												 popover="{{condition.tFormula}} " *ngIf="condition.tFormula">
+									<b>fx</b>
+							</i> <i class="hand" style="color: black; font-style: italic; font-family: cursive; font-weight: normal; font-size: 15px; visibility: visible;"
+												 popoverTitle="Tolerance" popoverPlacement="right" [popoverOnHover]="true" [popoverCloseOnMouseOutside]="true"
+												 popover="{{condition.tToleranceType+' : '+condition.tToleranceValueFrom+' - '+condition.tToleranceValueTo}} "
+												 *ngIf="condition.tToleranceValueFrom"> <b>T</b>
+							</i>
+												<!-- End -->
+												<popover-content #targetFilterPopover placement="right" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;"
+												 [popoverCloseOnMouseOutside]="false">
+													<div class="row">
+														<div class="display-PopOverActions col-md-12">
+															<ul>
+																<li [class.highlight_stay]="filterAction=='targetFilter'"><a class="hand" ngbTooltip="Add Filter" (click)="addtFilter(i,childIndex);filterAction='targetFilter' "><i
+													class="fa fa-filter"></i></a></li>
+																<li [class.highlight_stay]="filterAction=='targetFormula'"><a class="hand" ngbTooltip="Add Formula" (click)="addtFormula(i,childIndex);filterAction='targetFormula' "><b>fx</b></a></li>
+																<li [class.highlight_stay]="filterAction=='targetTolerance'"><a class="hand" ngbTooltip="Add Tolerance" (click)="addtTolerance(i,childIndex);filterAction='targetTolerance' "><b>T</b></a></li>
+																<!-- <li><md-checkbox mdTooltip="Enable many"
+													(click)="enableTMany(i,childIndex)"
+													[checked]="condition.tMany"
+													*ngIf="ruleObj.rule.ruleType == 'MANY_TO_MANY' ||  ruleObj.rule.ruleType == 'ONE_TO_MANY' "></md-checkbox>
+											</li> -->
+															</ul>
+														</div>
+
+
+														<div class="col-md-10">
+															<i class="pull-right fa fa-times hand" aria-hidden="true" ngbTooltip="Close" (click)="closeTarget(i,childIndex);targetFilterPopover.hide();"
+															 *ngIf="(tFilter && tFilter[i] && tFilter[i][childIndex])
+												 		|| 	(tFormula && tFormula[i] && tFormula[i][childIndex])
+												 		|| (tTolerance && tTolerance[i] && tTolerance[i][childIndex])">
+										</i>
+															<div *ngIf="tFilter && tFilter[i] && tFilter[i][childIndex]">
+																<!-- <i class="pull-right fa fa-times hand" aria-hidden="true"
+												ngbTooltip="Clear Filter"
+												(click)="cancelTargetFilter(i,childIndex);targetFilterPopover.hide();"></i> -->
+																<table>
+																	<thead>
+																		<tr>
+																			<th>Operator</th>
+																			<th>Value</th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		<tr>
+																			<td>
+																				<md-select (change)="selecttOperator();targetFilterPopover.show();" [(ngModel)]="condition.tOperator"
+																				 name="tOperator{{i}}{{childIndex}}" #tOperator{{i}}{{childIndex}}="ngModel">
+																					<md-option size="50" *ngFor="let operator of operatorList" [value]="operator.lookUpCode">{{operator.meaning}}</md-option>
+																				</md-select>
+																			</td>
+																			<td>
+																				<md-input-container class="example-full-width ">
+																					<input mdInput [(ngModel)]="condition.tValue" name="valuee{{i}}{{childIndex}}" required #valuee{{i}}{{childIndex}}="ngModel">																					</md-input-container>
+																			</td>
+																		</tr>
+																	</tbody>
+																</table>
+																<button md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="savetargetFilter(i, childIndex);targetFilterPopover.hide();"
+																 mdTooltip="Save">
+												<md-icon>done</md-icon>
+											</button>
+																<button md-icon-button class="pull-right color-red ripple" aria-hidden="true" (click)="cancelTargetFilter(i,childIndex)"
+																 mdTooltip="Clear">
+												<md-icon>delete</md-icon>
+											</button>
+																<!-- <i class="pull-right fa fa-trash color-red"
+												aria-hidden="true"
+												(click)="cancelTargetFilter(i,childIndex)" mdTooltip="Clear">
+											</i> -->
+															</div>
+
+															<div *ngIf="tFormula && tFormula[i] && tFormula[i][childIndex]">
+																<!-- <i class="pull-right fa fa-times hand" aria-hidden="true"
+												ngbTooltip="Clear Formula"
+												(click)="canceltargetFormula(i,childIndex);targetFilterPopover.hide();"></i> -->
+																<div>
+																	<label class="control-label" style="font-size: 16px;">Select
+													Function:</label>
+																	<md-select [(ngModel)]="condition.isTFormula" style="width:230px;z-index: 100 !important;" [ngClass]="{'color-black' : isViewOnly}"
+																	 name="excelexpression{{i}}{{childIndex}}" #excelexpression{{i}}{{childIndex}}="ngModel">
+																		<md-option *ngFor="let excelexpression of excelFunctions" [value]="excelexpression.lookUpCode" (click)="showExcelFunction(excelexpression.lookUpCode, i,childIndex,excelexpression.description);srcFilterPopover.show()">
+																			{{ excelexpression.meaning }} </md-option>
+																	</md-select>
+																</div>
+																<div *ngIf="condition.isTFormula" class="data-view-query-build">
+																	<textarea mdInput [(ngModel)]="condition.tFormula" name="sFormula{{i}}{{childIndex}}" mdTooltip=""></textarea>
+																</div>
+
+																<div *ngIf="condition.isTFormula" style="padding-top: 10px;">
+																	<span>Eg: {{condition.sFormulaExpressionExample}}</span>
+																	<button md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="savetargetExpression(condition.tFormula,i, childIndex);targetFilterPopover.hide();"
+																	 mdTooltip="Save">
+													<md-icon>done</md-icon>
+												</button>
+																	<button md-icon-button class="pull-right color-red ripple" aria-hidden="true" (click)="canceltargetFormula(i,childIndex)"
+																	 mdTooltip="Clear">
+												<md-icon>delete</md-icon>
+											</button>
+																	<!-- <i class="pull-right fa fa-trash" aria-hidden="true"
+													(click)="canceltargetFormula(i,childIndex)"
+													mdTooltip="Clear"> </i> -->
+																</div>
+															</div>
+															<div class="table-responsive" *ngIf="tTolerance && tTolerance[i] && tTolerance[i][childIndex]">
+																<!-- <i class="pull-right fa fa-times hand" aria-hidden="true"
+												ngbTooltip="Clear Tolerance"
+												(click)="canceltargetTolerance(i,childIndex);srcFilterPopover.hide();"></i> -->
+																<table>
+																	<thead>
+																		<tr>
+																			<th>Type</th>
+																			<th>Range</th>
+																		</tr>
+																	</thead>
+																	<tbody>
+																		<tr>
+																			<td>
+																				<md-select placeholder="Type" class="example-full-width " #ruleType [(ngModel)]="condition.tToleranceType"
+																				 name="toleranceType{{i}}{{childIndex}}" required #toleranceType{{i}{{childIndex}}="ngModel">
+																					<md-option *ngFor="let toleranceType of toleranceTypeLOV" [value]="toleranceType.lookUpCode"> {{ toleranceType.meaning}} </md-option>
+																				</md-select>
+																				<!-- <md-input-container class="example-full-width ">
+														<input mdInput [(ngModel)]="condition.tToleranceType" placeholder="Type"
+															name="value" required #value="ngModel"> </md-input-container> -->
+																			</td>
+																			<td style="display: inline-flex;">
+																				<md-input-container class="example-full-width"> <input mdInput [(ngModel)]="condition.tToleranceValueFrom" placeholder="From" name="tFromValue{{i}}{{childIndex}}"
+																					 required #tFromValue{{i}}{{childIndex}}="ngModel"> </md-input-container>
+																				<md-input-container class="example-full-width ">
+																				<input mdInput [(ngModel)]="condition.tToleranceValueTo" placeholder="To" name="tToValue{{i}}{{childIndex}}"
+																					 required #tToValue{{i}}{{childIndex}}="ngModel"> </md-input-container>
+																			</td>
+																		</tr>
+																	</tbody>
+																</table>
+																<button md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="savetargetTolerance(i,childIndex);targetFilterPopover.hide()"
+																 mdTooltip="Save">
+												<md-icon>done</md-icon>
+											</button>
+																<button md-icon-button class="pull-right color-red ripple" aria-hidden="true" (click)="canceltargetTolerance(i,childIndex)"
+																 mdTooltip="Clear">
+												<md-icon>delete</md-icon>
+											</button>
+																<!-- <i class="pull-right fa fa-trash" aria-hidden="true"
+												(click)="canceltargetTolerance(i,childIndex)"
+												mdTooltip="Clear"> </i> -->
+															</div>
+														</div>
+													</div>
+
+												</popover-content>
+											</td>
+											<td>
+												<md-select [disabled]="isViewOnly  ||ruleObj.rule.id>0" (change)="selectedLogicalOperator()" [(ngModel)]="condition.logicalOperator"
+												 name="lOperator{{i}}{{childIndex}}" #lOperator{{i}}{{childIndex}}="ngModel">
+													<md-option size="50" *ngFor="let lOperator of logicalOperatorLOV" [value]="lOperator.lookUpCode">{{lOperator.meaning}}</md-option>
+												</md-select>
+											</td>
+											<td style="width: 150px;">
+												<div class="display-flex">
+													<div *ngIf="!isViewOnly && mouseOverRowNo == childIndex" style="color: red; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+														<button md-icon-button class="color-dark-red pull-right" mdTooltip="Delete" (click)="deleteCondition(i,childIndex)">
+											<md-icon>delete</md-icon>
+										</button>
+													</div>
+													<div *ngIf="childIndex == ruleObj.ruleConditions.length-1 && condition.logicalOperator " style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+														<button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add New Condition" (click)="addNewCondition(i,childIndex+1)">
+											<md-icon>exposure_plus_1</md-icon>
+										</button>
+													</div>
+												</div>
+
+											</td>
+
+											<!-- <td *ngIf="!isViewOnly && mouseOverRowNo == childIndex"><a
+								(click)="addNewCondition(i,childIndex+1)"
+								mdTooltip="Add New Condition" mdTooltipPosition="before"
+								*ngIf="childIndex == ruleObj.ruleConditions.length-1 && condition.logicalOperator ">
+									<i class="material-icons ripple color-yellow-green">exposure_plus_1</i>
+							</a> <i
+								class="material-icons ripple color-yellow-green  hand padding-2"
+								style="font-size: 24px;"
+								(click)="addNewCondition(i,childIndex+1)"
+								mdTooltip="Add New Condition" mdTooltipPosition="before"
+								*ngIf="childIndex == ruleObj.ruleConditions.length-1 && condition.logicalOperator ">exposure_plus_1</i>
+								<a (click)="deleteCondition(i,childIndex)" mdTooltip="delete"
+								mdTooltipPosition="before"> <i
+									class="material-icons ripple color-red">delete</i>
+							</a> <i class="material-icons ripple color-red  hand padding-2"
+								style="font-size: 24px;" (click)="deleteCondition(i,childIndex)"
+								mdTooltip="delete" mdTooltipPosition="before">delete</i></td> -->
+
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</p-accordionTab>
+					</div>
+				</p-accordionTab>
+			</p-accordion>
+		</ng-template>
+
+	</div>
+</form>
+<!-- rules Block end -->

@@ -1,0 +1,164 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { FxRates } from './fx-rates.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class FxRatesService {
+   // private UserData = this.$sessionStorage.retrieve('userData');
+    private resourceUrl = 'agreeapplication/api/fx-rates';
+    private resourceSearchUrl = 'agreeapplication/api/_search/fx-rates';
+    //New API's URL
+    private getAllFxRatesUrl = 'agreeapplication/api/getAllFxRates?page=';
+    private getFxRatesAndFxRatesDetailsByIdUrl = 'agreeapplication/api/getFxRatesAndFxRatesDetailsById?id=';
+    private lookupCodesUrl = 'agreeapplication/api/lookup-codes/';
+    private postFxRatesAndFxRatesDetailsUrl = 'agreeapplication/api/postFxRatesAndFxRatesDetails';
+    private fXRatesDetailUrl  = 'agreeapplication/api/fx-rates-details';
+    private fxRatesbyTenantUrl = 'agreeapplication/api/fetchfxRatesByTenant';
+    constructor(
+        private http: Http,
+        private dateUtils: JhiDateUtils,
+        private $sessionStorage: SessionStorageService
+    ) { }
+
+    create(fxRates: FxRates): Observable<FxRates> {
+        const copy = this.convert(fxRates);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(fxRates: FxRates): Observable<FxRates> {
+        const copy = this.convert(fxRates);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<FxRates> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.startDate = this.dateUtils
+            .convertLocalDateFromServer(entity.startDate);
+        entity.endDate = this.dateUtils
+            .convertLocalDateFromServer(entity.endDate);
+        entity.createdDate = this.dateUtils
+            .convertDateTimeFromServer(entity.createdDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(fxRates: FxRates): FxRates {
+        const copy: FxRates = Object.assign({}, fxRates);
+        copy.startDate = this.dateUtils
+            .convertLocalDateToServer(fxRates.startDate);
+        copy.endDate = this.dateUtils
+            .convertLocalDateToServer(fxRates.endDate);
+
+        copy.createdDate = this.dateUtils.toDate(fxRates.createdDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(fxRates.lastUpdatedDate);
+        return copy;
+    }
+
+    /**New API's Start Here */
+
+    /**Get all FX Rates by tenantid with pagination */
+    getAllFxRates(page, size){
+        return this.http.get(this.getAllFxRatesUrl + page + '&per_page=' + size ).map((res: Response)=>{
+            return res;
+        });
+    }
+    getAllFxRatesByTenant(){
+        return this.http.get(`${this.fxRatesbyTenantUrl}`).map((res: Response)=>{
+            return res.json();
+        });
+    }
+
+    /**Get FX rate and its details by id */
+    getFxRatesAndFxRatesDetailsById(id){
+        return this.http.get(this.getFxRatesAndFxRatesDetailsByIdUrl+id).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**Get Conversion Type for FX Rates*/
+    lookupCodes(lookupType): Observable<any>{
+        return this.http.get(this.lookupCodesUrl + lookupType ).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        })
+    }
+
+    /**Post FX Rates and Its Details */
+    postFxRatesAndFxRatesDetails(fxRates){
+        return this.http.post(this.postFxRatesAndFxRatesDetailsUrl, fxRates).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**Update FX Rates */
+    updateFXRates(fxRates){
+        return this.http.put(this.resourceUrl, fxRates).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**Update FX Rates Details*/
+    updateFXRatesDetail(fxRatesDetail){
+        return this.http.put(this.fXRatesDetailUrl, fxRatesDetail).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**Delete FX Rates Details*/
+    deleteFXRatesDetail(id){
+        return this.http.delete(this.fXRatesDetailUrl+'/'+id).map((res: Response)=>{
+            /* const jsonResponse = res.json();
+            return jsonResponse; */
+        });
+    }
+
+}

@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { SourceFileInbHistory } from './source-file-inb-history.model';
+import { SourceFileInbHistoryService } from './source-file-inb-history.service';
+
+@Component({
+    selector: 'jhi-source-file-inb-history-detail',
+    templateUrl: './source-file-inb-history-detail.component.html'
+})
+export class SourceFileInbHistoryDetailComponent implements OnInit, OnDestroy {
+
+    sourceFileInbHistory: SourceFileInbHistory;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private sourceFileInbHistoryService: SourceFileInbHistoryService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInSourceFileInbHistories();
+    }
+
+    load(id) {
+        this.sourceFileInbHistoryService.find(id).subscribe((sourceFileInbHistory) => {
+            this.sourceFileInbHistory = sourceFileInbHistory;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInSourceFileInbHistories() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'sourceFileInbHistoryListModification',
+            (response) => this.load(this.sourceFileInbHistory.id)
+        );
+    }
+}

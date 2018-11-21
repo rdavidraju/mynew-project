@@ -1,0 +1,354 @@
+<div class="container-fluid component-body">
+    <div class="row botom-dotted-blue-border component-title margin-left-22">
+        <div class="col-md-6 pageTitle">
+            <h2 *ngIf="isCreateNew">Journal Template Builder:</h2>
+            <h2 *ngIf="!isCreateNew">{{journalsHeader.templateName}} Template Details</h2>
+        </div>
+        <div class="col-md-6">
+            <div class="row float-right">
+                <button *ngIf="!isViewOnly && journalsForm.valid" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save Data View"
+                     (click)="saveJournalData();"><md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !journalsForm.valid" md-icon-button class="pull-right color-gray" aria-hidden="true" mdTooltip="Fill mandatory fields"
+                     (click)="validationMsg()"><md-icon>save</md-icon>
+				</button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit"  [routerLink]="['/template-details', {outlets: {'content': [journalsHeader.id]+'/edit'}}]">
+					<md-icon>mode_edit</md-icon>
+				</button>
+                <button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close"  [routerLink]="['/template-details', {outlets: {'content': [journalsHeader.id]+'/details'}}]">
+					<md-icon>clear</md-icon>
+				</button>
+                <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/template-details', {outlets: {'content': ['template-details-home']}}]">
+					<md-icon>clear</md-icon>
+				</button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Template List" [routerLink]="['/template-details', {outlets: {'content': ['template-details-home']}}]">
+					<md-icon>undo</md-icon>
+				</button>
+            </div>
+        </div>
+    </div>
+    <br>
+    <form novalidate #journalsForm="ngForm">
+        <div class="row leftmargin-20">
+            <!-- <div class="col-md-12" style="display:flex;margin-top: 11px;"> -->
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalsHeader.templateName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                            placeholder="Journal Template Name" name="templateName" required>
+                    </md-input-container>
+                    <!-- <span class="help-block errorFont" style="margin-top: 32px;">Journal Template Name already exists.</span> -->
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalsHeader.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                            placeholder="Description" name="description">
+                    </md-input-container>
+                </div>
+                <div class="col-md-2  col-xs-6 form-group">
+                    <md-form-field class="example-full-width"> <input mdInput [mdDatepicker]="stpicker" placeholder="Start date" [ngClass]="{'color-black' : isViewOnly}"
+                            [disabled]="isViewOnly" [(ngModel)]="journalsHeader.startDate" name="startDate" required>
+                        <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #stpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+                <div class="col-md-2 col-xs-6 form-group" *ngIf="journalsHeader.startDate">
+                    <md-form-field class="example-full-width"> <input mdInput [mdDatepicker]="edpicker" placeholder="End date" [min]="journalsHeader.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                            [disabled]="isViewOnly" [(ngModel)]="journalsHeader.endDate" name="endDate">
+                        <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #edpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+                <div class="col-md-2 col-xs-6" *ngIf="isEdit" style="top: 6px;">
+                    <span *ngIf="journalsHeader.enable">Active </span> <span *ngIf="!journalsHeader.enable">Inactive </span>
+                    <md-slide-toggle class="pull right example-margin" color="primary" [disabled]="!isEdit" mdTooltip="set status" placeholder="status"
+                    [(ngModel)]="journalsHeader.enable" name="status">
+                    </md-slide-toggle>
+
+                </div>
+                <div class="col-md-2 col-xs-6" *ngIf="isViewOnly" style="top: 6px;">
+                    <span class="badge badge-success"  *ngIf="journalsHeader.enable">Active</span>
+                    <span class="badge badge-warning" *ngIf="!journalsHeader.enable" >Inactive</span>
+                </div>
+                
+            <!-- </div> -->
+            <div class="col-md-6 col-xs-6 form-group" style="display:flex;">
+                <!-- <div class="col-md-2 col-xs-6" style="top: 8px;" *ngIf="journalsHeader.selectedView">
+                    <span>Selected View :</span>
+                </div>
+                <div class="col-md-4 col-xs-6"> -->
+                    <div *ngIf="journalsHeader.selectedView" style="margin-top: 9px;padding-right: 21px;">Selected View :</div>
+                    <angular2-multiselect [data]="dataViewList" [(ngModel)]="journalsHeader.selectedView" [settings]="limitSelectionSettings1"
+                        (onSelect)="onViewSelect(journalsHeader.selectedView)" (onDeSelect)="OnViewDeSelect(journalsHeader.selectedView)"
+                        name="viewList" [disabled]="isViewOnly">
+                    </angular2-multiselect>
+                <!-- </div> -->
+                <!-- <div class="col-md-2" *ngIf="!this.isCreateNew" style="padding-top: 11px;">
+                    <md-slide-toggle class="example-margin" color="primary" [disabled]="!isEdit" [(ngModel)]="journalsHeader.enable" name="status"> </md-slide-toggle>
+                        <span *ngIf="journalsHeader.enable">Active</span>	
+                        <span *ngIf="!journalsHeader.enable">Inactive</span>
+                </div> -->
+            </div>
+            
+        </div>
+        <p-accordion [multiple]="true" *ngIf="journalsHeader.selectedView">
+            <div style="margin-left: 20px;margin-top: 14px;">
+                <p-accordionTab header="Journal Header Derivation Rules" [selected]="true">
+                    <div class="row accordioncontenet" style="margin-left:0px !important;padding-left: 10px!important;margin-right:0px !important;">
+                        <div class="table-responsive">
+                            <table id="selectedColumnTable" class="journal-view-creation">
+                                <!-- <thead class="tableheader">
+                                    <tr>
+                                        <th class="text-center">Name</th>
+                                        <th class="text-center">Mapping Type</th>
+                                        <th class="text-center">Mapping Value</th>
+                                        <th class="text-center">Value</th>
+                                    </tr>
+                                </thead> -->
+                                <tbody>
+                                    <tr *ngFor="let myobj of journalHeaders; let i=index;" id="hideIconTable" id="disp_{{i}}" style="border-bottom: 1px solid #eee;" (change)="testChange(myobj,i);">
+                                        <td>
+                                            <div>{{myobj.meaning}}</div>
+                                        </td>
+                                        <td style="width: 200px;">
+                                            <div style="display: flex;height: 42px;" *ngIf="!myobj.mappingType">
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.mappingType" style="margin-left: 0px !important;margin-top: 8px !important;"
+                                                    placeholder="Select Mapping Type" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}"
+                                                    name="mappingType_{{i}}" [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let mapping of mappingTypesa[i]" [value]="mapping.lookUpCode" (click)="getType(mapping.lookUpCode,myobj.meaning, i)">
+                                                        {{ mapping.meaning }} </md-option>
+                                                </md-select>
+                                            </div>
+                                            <div style="display: flex;height: 42px;" *ngIf="myobj.mappingType">
+                                                <!-- <span class="help-block errorFont" *ngIf="myobj.showErrorMsg" >*Mapping Type '{{myobj.mappingType}}' does not exist for '{{myobj.meaning}}'</span> -->
+                                                <md-input-container floatPlaceholder="always" *ngIf="myobj.mappingType == 'User Value'" class="example-full-width" style="top: -9px;margin-left: 12px !important;">
+                                                    <input mdInput [(ngModel)]="myobj.value" placeholder="{{myobj.mappingType}}" [ngClass]="{'color-black' : isViewOnly}" name="value_{{i}}"
+                                                        [disabled]="isViewOnly" focused required (ngModelChange)="testChange(myobj,i);">
+                                                </md-input-container>
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.value" style="margin-top: 8px !important;" *ngIf="(myobj.mappingType == 'MAPPING_SET') && (myobj.meaning == 'Ledger' || myobj.meaning == 'Source' || myobj.meaning == 'Category')"
+                                                    placeholder="{{myobj.mappingType}}" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}"
+                                                    name="mappingValue_{{i}}" [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let val of mappingValue[i]" [value]="val.name">
+                                                        {{ val.name }}
+                                                    </md-option>
+                                                </md-select>
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.value" *ngIf="myobj.mappingType == 'LOOKUP_CODE' && myobj.meaning == 'GL Date'"
+                                                    style="margin-top: 8px !important;" placeholder="{{myobj.mappingType}}"
+                                                    class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="glDate"
+                                                    [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let glDateDerivations of glDateDerivationList" [value]="glDateDerivations.lookUpCode">
+                                                        {{ glDateDerivations.meaning }}
+                                                    </md-option>
+                                                </md-select>
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.value" *ngIf="myobj.mappingType == 'LOOKUP_CODE' && myobj.meaning == 'Period'"
+                                                    style="margin-top: 8px !important;" placeholder="{{myobj.mappingType}}"
+                                                    class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="period"
+                                                    [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let periods of periodList" [value]="periods.lookUpCode">
+                                                        {{ periods.meaning }}
+                                                    </md-option>
+                                                </md-select>
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.value" *ngIf="myobj.mappingType == 'LOOKUP_CODE' && myobj.meaning == 'Conversion Type'"
+                                                    style="margin-top: 8px !important;" placeholder="{{myobj.mappingType}}"
+                                                    class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="conversionType"
+                                                    [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let conversionType of conversionTypeList" [value]="conversionType.lookUpCode">
+                                                        {{ conversionType.meaning }}
+                                                    </md-option>
+                                                </md-select>
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.value" *ngIf="myobj.mappingType == 'LOOKUP_CODE' && myobj.meaning == 'Debit and Credit Should Balance'"
+                                                    style="margin-top: 8px !important;" placeholder="{{myobj.mappingType}}"
+                                                    class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="journalBalance"
+                                                    [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let jourList of journalBalanceList" [value]="jourList.lookUpCode">
+                                                        {{ jourList.meaning }}
+                                                    </md-option>
+                                                </md-select>
+                                                <md-select floatPlaceholder="always" [(ngModel)]="myobj.value" *ngIf="myobj.mappingType == 'LOOKUP_CODE' && myobj.meaning == 'Journal Generation Level'"
+                                                    style="margin-top: 8px !important;" placeholder="{{myobj.mappingType}}"
+                                                    class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" name="journalGenerationLevel"
+                                                    [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let jourList of journalGenerationLevelList" [value]="jourList.lookUpCode">
+                                                        {{ jourList.meaning }}
+                                                    </md-option>
+                                                </md-select>
+                                            </div>
+                                            <div class="help-block errorFont" *ngIf="myobj.mappingType && !myobj.value" style="position: relative;top: 6px;left: 11px;">
+                                                <span *ngIf="myobj.mappingType == 'User Value'">Please enter user value</span>
+                                                <span *ngIf="myobj.mappingType == 'MAPPING_SET'">Please select mapping set</span>
+                                                <span *ngIf="myobj.mappingType == 'LOOKUP_CODE'">Please select lookUpCode</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span>
+                                                <button md-icon-button *ngIf="myobj.mappingType && !isViewOnly" class="pull-right" id="showIcon" [popover]="myPopover"
+                                                    [popoverOnHover]="false" mdTooltip="View/Change Mapping Type">
+                                                    <md-icon style="font-size: 18px !important;">mode_edit</md-icon>
+                                                </button>
+                                                <popover-content #myPopover title="Selected Mapping Type" placement="bottom" [animation]="true" [closeOnClickOutside]="true"
+                                                    [popoverCloseOnMouseOutside]="false">
+                                                        <div>
+                                                            <md-select [(ngModel)]="myobj.mappingType" floatPlaceholder="always" placeholder="" (mouseenter)="mapval(myobj.meaning,i)"
+                                                                style="margin-left: 0px !important;margin-top: 0px !important;" [ngClass]="{'color-black' : isViewOnly}"
+                                                                name="mappingType_{{i}}" #mappingType="ngModel" focus (change)="testChange(myobj,i);">
+                                                                <md-option *ngFor="let mapping of mappingTypesa[i]" [value]="mapping.lookUpCode" (click)="myobj.value = '';getType(mapping.lookUpCode,myobj.meaning, i);">
+                                                                    {{ mapping.meaning }} </md-option>
+                                                            </md-select>
+                                                        </div>
+                                                </popover-content>
+                                            </span>
+                                        </td>
+                                        <td style="width: 200px;">
+                                            <div *ngIf="myobj.mappingType == 'MAPPING_SET' && myobj.value" style="display: flex;height: 42px;">
+                                                <md-select floatPlaceholder="always" placeholder="Reference Column" style="margin-top: 8px !important;"
+                                                    class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="myobj.sourceViewColumnId"
+                                                    name="sourceViewColId_{{i}}" [disabled]="isViewOnly" focused required (change)="testChange(myobj,i);">
+                                                    <md-option *ngFor="let item of dataViewCols" [value]="item.id">{{item.columnName}}</md-option>
+                                                </md-select>
+                                            </div>
+                                            <div class="help-block errorFont" *ngIf="myobj.mappingType == 'MAPPING_SET' && myobj.value && !myobj.sourceViewColumnId" style="position: relative;top: 6px;left: 11px;">
+                                                <span>Please select reference value</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </p-accordionTab>
+                <p-accordionTab header="Journal Line Derivation Rules" [selected]="true" *ngIf="journalHeaders[10].value != null;">
+                    <div class="row accordioncontenet" style="padding-left: 0px;">
+                        <div class="table-responsive">
+                            <button *ngIf="!isViewOnly" md-icon-button class="color-yellow-green pull-right" mdTooltip="Add Column"
+                                (click)="addColumn();">
+                                <md-icon>exposure_plus_1</md-icon>
+                            </button>
+                            <table class="col-md-12 table templateLines data-view-creation">
+                                <thead class="tableheader">
+                                    <tr>
+                                        <th class="text-center">S.No</th>
+                                        <th class="text-center">Column Name</th>
+                                        <th class="text-center">Operator</th>
+                                        <th class="text-center">Value</th>
+                                        <th *ngIf="!isViewOnly"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let viewCol of jeLineDerivations; let i=index;" id="hideIconTable">
+                                        <td class="text-center">
+                                            <div style="margin-top: 9px;">{{i+1}}</div>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-select class="example-full-width" [(ngModel)]="viewCol.sViewColumn" [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" style="margin-top: -1%;"
+                                                [disabled]="isViewOnly" required>
+                                                <md-option *ngFor="let col of dataViewCols;" [value]="col.columnName">
+                                                    {{col.columnName}}
+                                                </md-option>
+                                            </md-select>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-select class="example-full-width" [(ngModel)]="viewCol.operator" style="margin-top: -1%;" [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}"
+                                                [disabled]="isViewOnly" required>
+                                                <md-option *ngFor="let myOpe of operatorList" [value]="myOpe.lookUpCode">
+                                                    {{ myOpe.meaning }}
+                                                </md-option>
+                                            </md-select>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-input-container class="example-full-width" style="margin-top: -13px !important;">
+                                                <input mdInput [(ngModel)]="viewCol.value" [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" [disabled]="isViewOnly"
+                                                    required>
+                                            </md-input-container>
+                                        </td>
+                                        <td *ngIf="!isViewOnly">
+                                            <div id="showIcon">
+                                                <button md-icon-button mdTooltip="delete" (click)="deleteColumn(viewCol);">
+                                                    <md-icon>delete</md-icon>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </p-accordionTab>
+            </div>
+        </p-accordion>
+    </form>
+</div>
+
+
+<!-- 
+<div *ngIf="templateDetails">
+    <h2><span jhiTranslate="agreeGatewayV1App.templateDetails.detail.title">Template Details</span> {{templateDetails.id}}</h2>
+    <hr>
+    <jhi-alert-error></jhi-alert-error>
+    <dl class="row-md jh-entity-details">
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.tenantId">Tenant Id</span></dt>
+        <dd>
+            <span>{{templateDetails.tenantId}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.targetAppSource">Target App Source</span></dt>
+        <dd>
+            <span>{{templateDetails.targetAppSource}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.templateName">Template Name</span></dt>
+        <dd>
+            <span>{{templateDetails.templateName}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.description">Description</span></dt>
+        <dd>
+            <span>{{templateDetails.description}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.viewId">View Id</span></dt>
+        <dd>
+            <span>{{templateDetails.viewId}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.viewName">View Name</span></dt>
+        <dd>
+            <span>{{templateDetails.viewName}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.startDate">Start Date</span></dt>
+        <dd>
+            <span>{{templateDetails.startDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.endDate">End Date</span></dt>
+        <dd>
+            <span>{{templateDetails.endDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.enable">Enable</span></dt>
+        <dd>
+            <span>{{templateDetails.enable}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.createdBy">Created By</span></dt>
+        <dd>
+            <span>{{templateDetails.createdBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.lastUpdatedBy">Last Updated By</span></dt>
+        <dd>
+            <span>{{templateDetails.lastUpdatedBy}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.createdDate">Created Date</span></dt>
+        <dd>
+            <span>{{templateDetails.createdDate | date:'medium'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.templateDetails.lastUpdatedDate">Last Updated Date</span></dt>
+        <dd>
+            <span>{{templateDetails.lastUpdatedDate | date:'medium'}}</span>
+        </dd>
+    </dl>
+
+    <button type="submit"
+            (click)="previousState()"
+            class="btn btn-info">
+        <span class="fa fa-arrow-left"></span>&nbsp;<span jhiTranslate="entity.action.back"> Back</span>
+    </button>
+
+    <button type="button"
+            [routerLink]="['/', { outlets: { popup: 'template-details/'+ templateDetails.id + '/edit'} }]"
+            replaceUrl="true"
+            class="btn btn-primary">
+        <span class="fa fa-pencil"></span>&nbsp;<span jhiTranslate="entity.action.edit"> Edit</span>
+    </button>
+</div>
+ -->

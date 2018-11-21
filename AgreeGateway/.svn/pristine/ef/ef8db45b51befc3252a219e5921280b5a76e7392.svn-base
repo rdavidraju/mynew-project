@@ -1,0 +1,376 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeGatewayV1App;
+
+import com.nspl.app.domain.RoleFunctionAssignment;
+import com.nspl.app.repository.RoleFunctionAssignmentRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.LocalDate;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the RoleFunctionAssignmentResource REST controller.
+ *
+ * @see RoleFunctionAssignmentResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeGatewayV1App.class)
+public class RoleFunctionAssignmentResourceIntTest {
+
+    private static final Long DEFAULT_ROLE_ID = 1L;
+    private static final Long UPDATED_ROLE_ID = 2L;
+
+    private static final Long DEFAULT_FUNCTION_ID = 1L;
+    private static final Long UPDATED_FUNCTION_ID = 2L;
+
+    private static final Long DEFAULT_ASSIGNED_BY = 1L;
+    private static final Long UPDATED_ASSIGNED_BY = 2L;
+
+    private static final Boolean DEFAULT_ACTIVE_FLAG = false;
+    private static final Boolean UPDATED_ACTIVE_FLAG = true;
+
+    private static final Boolean DEFAULT_DELETE_FLAG = false;
+    private static final Boolean UPDATED_DELETE_FLAG = true;
+
+    private static final LocalDate DEFAULT_START_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate UPDATED_START_DATE = LocalDate.now(ZoneId.systemDefault());
+
+    private static final LocalDate DEFAULT_END_DATE = LocalDate.ofEpochDay(0L);
+    private static final LocalDate UPDATED_END_DATE = LocalDate.now(ZoneId.systemDefault());
+
+    private static final Boolean DEFAULT_CAN_VIEW = false;
+    private static final Boolean UPDATED_CAN_VIEW = true;
+
+    private static final Boolean DEFAULT_CAN_INSERT = false;
+    private static final Boolean UPDATED_CAN_INSERT = true;
+
+    private static final Boolean DEFAULT_CAN_UPDATE = false;
+    private static final Boolean UPDATED_CAN_UPDATE = true;
+
+    private static final Boolean DEFAULT_CAN_EXECUTE = false;
+    private static final Boolean UPDATED_CAN_EXECUTE = true;
+
+    private static final Boolean DEFAULT_CAN_DELETE = false;
+    private static final Boolean UPDATED_CAN_DELETE = true;
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final Long DEFAULT_LAST_UPDATE_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATE_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATION_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATION_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private RoleFunctionAssignmentRepository roleFunctionAssignmentRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restRoleFunctionAssignmentMockMvc;
+
+    private RoleFunctionAssignment roleFunctionAssignment;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        RoleFunctionAssignmentResource roleFunctionAssignmentResource = new RoleFunctionAssignmentResource(roleFunctionAssignmentRepository);
+        this.restRoleFunctionAssignmentMockMvc = MockMvcBuilders.standaloneSetup(roleFunctionAssignmentResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static RoleFunctionAssignment createEntity(EntityManager em) {
+        RoleFunctionAssignment roleFunctionAssignment = new RoleFunctionAssignment()
+            .roleId(DEFAULT_ROLE_ID)
+            .functionId(DEFAULT_FUNCTION_ID)
+            .assignedBy(DEFAULT_ASSIGNED_BY)
+            .activeFlag(DEFAULT_ACTIVE_FLAG)
+            .deleteFlag(DEFAULT_DELETE_FLAG)
+            .startDate(DEFAULT_START_DATE)
+            .endDate(DEFAULT_END_DATE)
+            .canView(DEFAULT_CAN_VIEW)
+            .canInsert(DEFAULT_CAN_INSERT)
+            .canUpdate(DEFAULT_CAN_UPDATE)
+            .canExecute(DEFAULT_CAN_EXECUTE)
+            .canDelete(DEFAULT_CAN_DELETE)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lastUpdateBy(DEFAULT_LAST_UPDATE_BY)
+            .creationDate(DEFAULT_CREATION_DATE)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return roleFunctionAssignment;
+    }
+
+    @Before
+    public void initTest() {
+        roleFunctionAssignment = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createRoleFunctionAssignment() throws Exception {
+        int databaseSizeBeforeCreate = roleFunctionAssignmentRepository.findAll().size();
+
+        // Create the RoleFunctionAssignment
+        restRoleFunctionAssignmentMockMvc.perform(post("/api/role-function-assignments")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(roleFunctionAssignment)))
+            .andExpect(status().isCreated());
+
+        // Validate the RoleFunctionAssignment in the database
+        List<RoleFunctionAssignment> roleFunctionAssignmentList = roleFunctionAssignmentRepository.findAll();
+        assertThat(roleFunctionAssignmentList).hasSize(databaseSizeBeforeCreate + 1);
+        RoleFunctionAssignment testRoleFunctionAssignment = roleFunctionAssignmentList.get(roleFunctionAssignmentList.size() - 1);
+        assertThat(testRoleFunctionAssignment.getRoleId()).isEqualTo(DEFAULT_ROLE_ID);
+        assertThat(testRoleFunctionAssignment.getFunctionId()).isEqualTo(DEFAULT_FUNCTION_ID);
+        assertThat(testRoleFunctionAssignment.getAssignedBy()).isEqualTo(DEFAULT_ASSIGNED_BY);
+        assertThat(testRoleFunctionAssignment.isActiveFlag()).isEqualTo(DEFAULT_ACTIVE_FLAG);
+        assertThat(testRoleFunctionAssignment.isDeleteFlag()).isEqualTo(DEFAULT_DELETE_FLAG);
+        assertThat(testRoleFunctionAssignment.getStartDate()).isEqualTo(DEFAULT_START_DATE);
+        assertThat(testRoleFunctionAssignment.getEndDate()).isEqualTo(DEFAULT_END_DATE);
+        assertThat(testRoleFunctionAssignment.isCanView()).isEqualTo(DEFAULT_CAN_VIEW);
+        assertThat(testRoleFunctionAssignment.isCanInsert()).isEqualTo(DEFAULT_CAN_INSERT);
+        assertThat(testRoleFunctionAssignment.isCanUpdate()).isEqualTo(DEFAULT_CAN_UPDATE);
+        assertThat(testRoleFunctionAssignment.isCanExecute()).isEqualTo(DEFAULT_CAN_EXECUTE);
+        assertThat(testRoleFunctionAssignment.isCanDelete()).isEqualTo(DEFAULT_CAN_DELETE);
+        assertThat(testRoleFunctionAssignment.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testRoleFunctionAssignment.getLastUpdateBy()).isEqualTo(DEFAULT_LAST_UPDATE_BY);
+        assertThat(testRoleFunctionAssignment.getCreationDate()).isEqualTo(DEFAULT_CREATION_DATE);
+        assertThat(testRoleFunctionAssignment.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void createRoleFunctionAssignmentWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = roleFunctionAssignmentRepository.findAll().size();
+
+        // Create the RoleFunctionAssignment with an existing ID
+        roleFunctionAssignment.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restRoleFunctionAssignmentMockMvc.perform(post("/api/role-function-assignments")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(roleFunctionAssignment)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<RoleFunctionAssignment> roleFunctionAssignmentList = roleFunctionAssignmentRepository.findAll();
+        assertThat(roleFunctionAssignmentList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllRoleFunctionAssignments() throws Exception {
+        // Initialize the database
+        roleFunctionAssignmentRepository.saveAndFlush(roleFunctionAssignment);
+
+        // Get all the roleFunctionAssignmentList
+        restRoleFunctionAssignmentMockMvc.perform(get("/api/role-function-assignments?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(roleFunctionAssignment.getId().intValue())))
+            .andExpect(jsonPath("$.[*].roleId").value(hasItem(DEFAULT_ROLE_ID.intValue())))
+            .andExpect(jsonPath("$.[*].functionId").value(hasItem(DEFAULT_FUNCTION_ID.intValue())))
+            .andExpect(jsonPath("$.[*].assignedBy").value(hasItem(DEFAULT_ASSIGNED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].activeFlag").value(hasItem(DEFAULT_ACTIVE_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].deleteFlag").value(hasItem(DEFAULT_DELETE_FLAG.booleanValue())))
+            .andExpect(jsonPath("$.[*].startDate").value(hasItem(DEFAULT_START_DATE.toString())))
+            .andExpect(jsonPath("$.[*].endDate").value(hasItem(DEFAULT_END_DATE.toString())))
+            .andExpect(jsonPath("$.[*].canView").value(hasItem(DEFAULT_CAN_VIEW.booleanValue())))
+            .andExpect(jsonPath("$.[*].canInsert").value(hasItem(DEFAULT_CAN_INSERT.booleanValue())))
+            .andExpect(jsonPath("$.[*].canUpdate").value(hasItem(DEFAULT_CAN_UPDATE.booleanValue())))
+            .andExpect(jsonPath("$.[*].canExecute").value(hasItem(DEFAULT_CAN_EXECUTE.booleanValue())))
+            .andExpect(jsonPath("$.[*].canDelete").value(hasItem(DEFAULT_CAN_DELETE.booleanValue())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdateBy").value(hasItem(DEFAULT_LAST_UPDATE_BY.intValue())))
+            .andExpect(jsonPath("$.[*].creationDate").value(hasItem(sameInstant(DEFAULT_CREATION_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getRoleFunctionAssignment() throws Exception {
+        // Initialize the database
+        roleFunctionAssignmentRepository.saveAndFlush(roleFunctionAssignment);
+
+        // Get the roleFunctionAssignment
+        restRoleFunctionAssignmentMockMvc.perform(get("/api/role-function-assignments/{id}", roleFunctionAssignment.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(roleFunctionAssignment.getId().intValue()))
+            .andExpect(jsonPath("$.roleId").value(DEFAULT_ROLE_ID.intValue()))
+            .andExpect(jsonPath("$.functionId").value(DEFAULT_FUNCTION_ID.intValue()))
+            .andExpect(jsonPath("$.assignedBy").value(DEFAULT_ASSIGNED_BY.intValue()))
+            .andExpect(jsonPath("$.activeFlag").value(DEFAULT_ACTIVE_FLAG.booleanValue()))
+            .andExpect(jsonPath("$.deleteFlag").value(DEFAULT_DELETE_FLAG.booleanValue()))
+            .andExpect(jsonPath("$.startDate").value(DEFAULT_START_DATE.toString()))
+            .andExpect(jsonPath("$.endDate").value(DEFAULT_END_DATE.toString()))
+            .andExpect(jsonPath("$.canView").value(DEFAULT_CAN_VIEW.booleanValue()))
+            .andExpect(jsonPath("$.canInsert").value(DEFAULT_CAN_INSERT.booleanValue()))
+            .andExpect(jsonPath("$.canUpdate").value(DEFAULT_CAN_UPDATE.booleanValue()))
+            .andExpect(jsonPath("$.canExecute").value(DEFAULT_CAN_EXECUTE.booleanValue()))
+            .andExpect(jsonPath("$.canDelete").value(DEFAULT_CAN_DELETE.booleanValue()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdateBy").value(DEFAULT_LAST_UPDATE_BY.intValue()))
+            .andExpect(jsonPath("$.creationDate").value(sameInstant(DEFAULT_CREATION_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingRoleFunctionAssignment() throws Exception {
+        // Get the roleFunctionAssignment
+        restRoleFunctionAssignmentMockMvc.perform(get("/api/role-function-assignments/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateRoleFunctionAssignment() throws Exception {
+        // Initialize the database
+        roleFunctionAssignmentRepository.saveAndFlush(roleFunctionAssignment);
+        int databaseSizeBeforeUpdate = roleFunctionAssignmentRepository.findAll().size();
+
+        // Update the roleFunctionAssignment
+        RoleFunctionAssignment updatedRoleFunctionAssignment = roleFunctionAssignmentRepository.findOne(roleFunctionAssignment.getId());
+        updatedRoleFunctionAssignment
+            .roleId(UPDATED_ROLE_ID)
+            .functionId(UPDATED_FUNCTION_ID)
+            .assignedBy(UPDATED_ASSIGNED_BY)
+            .activeFlag(UPDATED_ACTIVE_FLAG)
+            .deleteFlag(UPDATED_DELETE_FLAG)
+            .startDate(UPDATED_START_DATE)
+            .endDate(UPDATED_END_DATE)
+            .canView(UPDATED_CAN_VIEW)
+            .canInsert(UPDATED_CAN_INSERT)
+            .canUpdate(UPDATED_CAN_UPDATE)
+            .canExecute(UPDATED_CAN_EXECUTE)
+            .canDelete(UPDATED_CAN_DELETE)
+            .createdBy(UPDATED_CREATED_BY)
+            .lastUpdateBy(UPDATED_LAST_UPDATE_BY)
+            .creationDate(UPDATED_CREATION_DATE)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restRoleFunctionAssignmentMockMvc.perform(put("/api/role-function-assignments")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedRoleFunctionAssignment)))
+            .andExpect(status().isOk());
+
+        // Validate the RoleFunctionAssignment in the database
+        List<RoleFunctionAssignment> roleFunctionAssignmentList = roleFunctionAssignmentRepository.findAll();
+        assertThat(roleFunctionAssignmentList).hasSize(databaseSizeBeforeUpdate);
+        RoleFunctionAssignment testRoleFunctionAssignment = roleFunctionAssignmentList.get(roleFunctionAssignmentList.size() - 1);
+        assertThat(testRoleFunctionAssignment.getRoleId()).isEqualTo(UPDATED_ROLE_ID);
+        assertThat(testRoleFunctionAssignment.getFunctionId()).isEqualTo(UPDATED_FUNCTION_ID);
+        assertThat(testRoleFunctionAssignment.getAssignedBy()).isEqualTo(UPDATED_ASSIGNED_BY);
+        assertThat(testRoleFunctionAssignment.isActiveFlag()).isEqualTo(UPDATED_ACTIVE_FLAG);
+        assertThat(testRoleFunctionAssignment.isDeleteFlag()).isEqualTo(UPDATED_DELETE_FLAG);
+        assertThat(testRoleFunctionAssignment.getStartDate()).isEqualTo(UPDATED_START_DATE);
+        assertThat(testRoleFunctionAssignment.getEndDate()).isEqualTo(UPDATED_END_DATE);
+        assertThat(testRoleFunctionAssignment.isCanView()).isEqualTo(UPDATED_CAN_VIEW);
+        assertThat(testRoleFunctionAssignment.isCanInsert()).isEqualTo(UPDATED_CAN_INSERT);
+        assertThat(testRoleFunctionAssignment.isCanUpdate()).isEqualTo(UPDATED_CAN_UPDATE);
+        assertThat(testRoleFunctionAssignment.isCanExecute()).isEqualTo(UPDATED_CAN_EXECUTE);
+        assertThat(testRoleFunctionAssignment.isCanDelete()).isEqualTo(UPDATED_CAN_DELETE);
+        assertThat(testRoleFunctionAssignment.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testRoleFunctionAssignment.getLastUpdateBy()).isEqualTo(UPDATED_LAST_UPDATE_BY);
+        assertThat(testRoleFunctionAssignment.getCreationDate()).isEqualTo(UPDATED_CREATION_DATE);
+        assertThat(testRoleFunctionAssignment.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingRoleFunctionAssignment() throws Exception {
+        int databaseSizeBeforeUpdate = roleFunctionAssignmentRepository.findAll().size();
+
+        // Create the RoleFunctionAssignment
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restRoleFunctionAssignmentMockMvc.perform(put("/api/role-function-assignments")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(roleFunctionAssignment)))
+            .andExpect(status().isCreated());
+
+        // Validate the RoleFunctionAssignment in the database
+        List<RoleFunctionAssignment> roleFunctionAssignmentList = roleFunctionAssignmentRepository.findAll();
+        assertThat(roleFunctionAssignmentList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteRoleFunctionAssignment() throws Exception {
+        // Initialize the database
+        roleFunctionAssignmentRepository.saveAndFlush(roleFunctionAssignment);
+        int databaseSizeBeforeDelete = roleFunctionAssignmentRepository.findAll().size();
+
+        // Get the roleFunctionAssignment
+        restRoleFunctionAssignmentMockMvc.perform(delete("/api/role-function-assignments/{id}", roleFunctionAssignment.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate the database is empty
+        List<RoleFunctionAssignment> roleFunctionAssignmentList = roleFunctionAssignmentRepository.findAll();
+        assertThat(roleFunctionAssignmentList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(RoleFunctionAssignment.class);
+        RoleFunctionAssignment roleFunctionAssignment1 = new RoleFunctionAssignment();
+        roleFunctionAssignment1.setId(1L);
+        RoleFunctionAssignment roleFunctionAssignment2 = new RoleFunctionAssignment();
+        roleFunctionAssignment2.setId(roleFunctionAssignment1.getId());
+        assertThat(roleFunctionAssignment1).isEqualTo(roleFunctionAssignment2);
+        roleFunctionAssignment2.setId(2L);
+        assertThat(roleFunctionAssignment1).isNotEqualTo(roleFunctionAssignment2);
+        roleFunctionAssignment1.setId(null);
+        assertThat(roleFunctionAssignment1).isNotEqualTo(roleFunctionAssignment2);
+    }
+}

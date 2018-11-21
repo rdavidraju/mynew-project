@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { SourceProfileFileAssignments } from './source-profile-file-assignments.model';
+import { SourceProfileFileAssignmentsPopupService } from './source-profile-file-assignments-popup.service';
+import { SourceProfileFileAssignmentsService } from './source-profile-file-assignments.service';
+
+@Component({
+    selector: 'jhi-source-profile-file-assignments-dialog',
+    templateUrl: './source-profile-file-assignments-dialog.component.html'
+})
+export class SourceProfileFileAssignmentsDialogComponent implements OnInit {
+
+    sourceProfileFileAssignments: SourceProfileFileAssignments;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private sourceProfileFileAssignmentsService: SourceProfileFileAssignmentsService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.sourceProfileFileAssignments.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.sourceProfileFileAssignmentsService.update(this.sourceProfileFileAssignments));
+        } else {
+            this.subscribeToSaveResponse(
+                this.sourceProfileFileAssignmentsService.create(this.sourceProfileFileAssignments));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<SourceProfileFileAssignments>) {
+        result.subscribe((res: SourceProfileFileAssignments) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: SourceProfileFileAssignments) {
+        this.eventManager.broadcast({ name: 'sourceProfileFileAssignmentsListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-source-profile-file-assignments-popup',
+    template: ''
+})
+export class SourceProfileFileAssignmentsPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private sourceProfileFileAssignmentsPopupService: SourceProfileFileAssignmentsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.sourceProfileFileAssignmentsPopupService
+                    .open(SourceProfileFileAssignmentsDialogComponent as Component, params['id']);
+            } else {
+                this.sourceProfileFileAssignmentsPopupService
+                    .open(SourceProfileFileAssignmentsDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

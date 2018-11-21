@@ -1,0 +1,74 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { JobDetails } from './job-details.model';
+import { JobDetailsService } from './job-details.service';
+
+@Injectable()
+export class JobDetailsPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private jobDetailsService: JobDetailsService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.jobDetailsService.find(id).subscribe((jobDetails) => {
+                    if (jobDetails.startDate) {
+                        jobDetails.startDate = {
+                            year: jobDetails.startDate.getFullYear(),
+                            month: jobDetails.startDate.getMonth() + 1,
+                            day: jobDetails.startDate.getDate()
+                        };
+                    }
+                    if (jobDetails.endDate) {
+                        jobDetails.endDate = {
+                            year: jobDetails.endDate.getFullYear(),
+                            month: jobDetails.endDate.getMonth() + 1,
+                            day: jobDetails.endDate.getDate()
+                        };
+                    }
+                    jobDetails.creationDate = this.datePipe
+                        .transform(jobDetails.creationDate, 'yyyy-MM-ddThh:mm');
+                    jobDetails.lastUpdatedDate = this.datePipe
+                        .transform(jobDetails.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.jobDetailsModalRef(component, jobDetails);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.jobDetailsModalRef(component, new JobDetails());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    jobDetailsModalRef(component: Component, jobDetails: JobDetails): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.jobDetails = jobDetails;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

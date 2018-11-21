@@ -1,0 +1,209 @@
+<!-- <p-blockUI [blocked]="blockUI" [target]="reportsRunWiz"></p-blockUI> -->
+<form novalidate #reportParams="ngForm">
+    <div class="reports" id="reportsRunWiz">
+        <div *ngIf="reportInfo.fields" class="row report-parameters flex">
+            <div class="col-md-4 control-div" *ngFor="let field of reportInfo.fields; let i=index;" style="min-width: 250px;">
+                <div *ngIf="reportInfo.reportTypeCode=='TRAIL_BALANCE_REPORT' && field.fieldName=='Ledger Name'; then splFlow else nrmlFlow"></div>
+                <ng-template #splFlow>
+                    <div class="head-field">
+                        <span class="field-title">{{field.fieldName}}* :</span>
+                        <md-select class="md-no-placeholder control" [(ngModel)]="field.selectedValue" [name]="'singleSelect'+i" [required]="field.isMandatory"
+                            (change)="ledgerChanged(field.selectedValue)">
+                            <md-option *ngFor="let eachValue of field.fieldValuesList" [value]="eachValue">{{eachValue}}</md-option>
+                        </md-select>
+                    </div>
+                </ng-template>
+                <ng-template #nrmlFlow>
+                    <span *ngIf="field.fieldType === 'SINGLE_SELECT_LOV'">
+                        <div class="head-field">
+                            <span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+                            <span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+                            <md-select class="md-no-placeholder control" [(ngModel)]="field.selectedValue" [name]="'singleSelect'+i" [required]="field.isMandatory">
+                                <md-option *ngFor="let eachValue of field.fieldValuesList" [value]="eachValue">{{eachValue}}</md-option>
+                            </md-select>
+                        </div>
+                    </span>
+
+                    <span class="section-select" *ngIf="field.fieldType === 'MULTI_SELECT_LOV'">
+                        <div class="head-field">
+                            <span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+                            <span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+                            <angular2-multiselect *ngIf="field.fieldValuesList.length>1" [data]="field.fieldValuesList" [(ngModel)]="field.selectedValue"
+                                [settings]="limitFieldsSelectionSettings" [name]="'multiSelect'+i" [required]="field.isMandatory">
+                            </angular2-multiselect>
+                            <angular2-multiselect *ngIf="field.fieldValuesList.length<2" [data]="field.fieldValuesList" [(ngModel)]="field.selectedValue"
+                                [settings]="singleValueSelectionSettings" [name]="'multiSelect'+i" [required]="field.isMandatory">
+                            </angular2-multiselect>
+                        </div>
+                    </span>
+
+                    <span class="section-select" *ngIf="field.fieldType === 'SINGLE_SELECTION'">
+                        <span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+                        <span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+                        <div>
+                            <md-radio-group class="list-view" [(ngModel)]="field.selectedValue" [name]="'radioGroup'+i" [required]="field.isMandatory"
+                                [disabled]="field.fieldValuesList.length<2">
+                                <md-radio-button *ngFor="let val of field.fieldValuesList" [value]="val" style="padding-right: 10px;">{{val}}</md-radio-button>
+                            </md-radio-group>
+                        </div>
+                    </span>
+
+                    <span *ngIf="field.fieldType === 'TEXT_BOX'">
+                        <span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+                        <span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+                        <md-input-container>
+                            <input mdInput [(ngModel)]="field.selectedValue" [name]="'textInput'+i" [required]="field.isMandatory">
+                        </md-input-container>
+                    </span>
+
+                    <span *ngIf="field.fieldType === 'DATE_RANGE'">
+                        <div class="row date-range">
+                            <div class="col-lg-6 col-md-6 col-md-12">
+                                <span class="field-title" *ngIf="!field.isMandatory">From Date :</span>
+                                <span class="field-title" *ngIf="field.isMandatory">From Date}* :</span>
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="field.selectedValue.fromDate" [name]="'fromDate'+i" [required]="field.isMandatory">
+                                    <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                    <md-datepicker #stpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                            <div class="col-lg-6 col-md-6 col-md-12">
+                                <span class="field-title">To Date :</span>
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="field.selectedValue.toDate" [name]="'toDate'+i" [min]="field.selectedValue.fromDate"
+                                        [required]="field.isMandatory">
+                                    <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                    <md-datepicker #edpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                        </div>
+                    </span>
+
+                    <span *ngIf="field.fieldType === 'MONTH_RANGE'">
+                        <div class="row period-group">
+                            <div class="col-lg-6 col-md-6 col-md-12">
+                                <span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+                                <span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}} *:</span>
+                                <period-picker (change)="field.selectedValue.fromDate = $event.target.value" [name]="'fromPeriod'+i" [required]="field.isMandatory"></period-picker>
+                            </div>
+                            <div class="col-lg-6 col-md-6 col-md-12">
+                                <span class="field-title">To Period :</span>
+                                <period-picker (change)="field.selectedValue.toDate = $event.target.value" [name]="'toPeriod'+i" [required]="field.isMandatory"></period-picker>
+                            </div>
+                        </div>
+                    </span>
+
+                    <span *ngIf="field.fieldType === 'BOOLEAN'">
+                        <md-checkbox class="example-margin control" [(ngModel)]="field.selectedValue" [name]="'booleanSelect'+i" [required]="field.isMandatory">{{field.fieldName}}</md-checkbox>
+                    </span>
+
+                    <span *ngIf="field.fieldType === 'AMOUNT_RANGE'">
+                        <span class="field-title" *ngIf="!field.isMandatory">Amount Range :</span>
+                        <span class="field-title" *ngIf="field.isMandatory">Amount Range* :</span>
+                        <div class="row">
+                            <div class="col-lg-6 col-md-6 col-md-12">
+                                <md-input-container class="example-full-width">
+                                    <input mdInput placeholder="From" [(ngModel)]="field.selectedValue.fromValue" type="number" [name]="'fromAmount'+i" [required]="field.isMandatory">
+                                </md-input-container>
+                            </div>
+                            <div class="col-lg-6 col-md-6 col-md-12">
+                                <md-input-container *ngIf="field.selOperator=='Between'" class="example-full-width">
+                                    <input mdInput placeholder="To" [(ngModel)]="field.selectedValue.fromValue" type="number" [name]="'toAmount'+i" [required]="field.isMandatory">
+                                </md-input-container>
+                            </div>
+                        </div>
+                    </span>
+                </ng-template>
+            </div>
+            <div class="col-md-4 control-div rpt-date" *ngIf="reportInfo.reportTypeCode!='ROLL_BACK_REPORT' && reportInfo.reportTypeCode!='TRAIL_BALANCE_REPORT'">
+                <div class="head-field">
+                    <span class="field-title">As Of Date :</span>
+                    <md-form-field class="as-of-date">
+                        <input mdInput [mdDatepicker]="rptDtpicker" [(ngModel)]="reportInfo.dateTimeVal" name="rptDate" required (focus)="rptDtpicker.open()">
+                        <md-datepicker-toggle mdSuffix [for]="rptDtpicker" *ngIf="reportInfo.fields" (dateChange)="asofDateChange=true;"></md-datepicker-toggle>
+                        <md-datepicker #rptDtpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+            </div>
+            <div class="col-md-4 control-div rpt-date" *ngIf="reportInfo.reportTypeCode=='TRAIL_BALANCE_REPORT'">
+                <div class="head-field">
+                    <span class="field-title">Period* :</span>
+                    <md-select class="md-no-placeholder control" [(ngModel)]="reportInfo.selPeriod" name="periodName" required>
+                        <md-option *ngFor="let eachPeriod of periodsList" [value]="eachPeriod">{{eachPeriod.periodName}}</md-option>
+                    </md-select>
+                </div>
+            </div>
+            <div class="col-md-4 control-div rpt-date" *ngIf="reportInfo.reportTypeCode=='ROLL_BACK_REPORT'">
+                <div class="head-field">
+                    <span class="field-title">Month* :</span>
+                    <period-picker (change)="reportInfo.dateTimeVal = $event.target.value" name="periodselection" required></period-picker>
+                </div>
+            </div>
+        </div>
+
+        <div class="row report-parameters" style="padding-top: 25px; display: -webkit-inline-box; display: -webkit-box;">
+            <div class="col-md-3" *ngIf="reportInfo.reportTypeCode=='AGING_REPORT'||reportInfo.reportTypeCode=='ROLL_BACK_REPORT'" style="min-width: 160px;">
+                <div class="field-title">Categorize By :</div>
+                <div class="show-list-items">
+                    <md-radio-group [(ngModel)]="reportInfo.categorizeBy" name="categorizeby" required>
+                        <md-radio-button value="RECONCILIATION">Reconciliation</md-radio-button>
+                        <md-radio-button value="ACCOUNTING">Accounting</md-radio-button>
+                        <md-radio-button value="JE_POST">JE Posting</md-radio-button>
+                    </md-radio-group>
+                </div>
+            </div>
+            <div class="col-md-3" *ngIf="reportInfo.accVal" style="min-width: 160px;">
+                <div class="field-title">Accounting Status :</div>
+                <div class="show-list-items">
+                    <md-radio-group [disabled]="disableAccStatus" [(ngModel)]="reportInfo.accVal" name="reportViewType" (change)="reconcileAccStatusChange(true);">
+                        <md-radio-button value="Both" [disabled]="disableAccStatusAll">All</md-radio-button>
+                        <md-radio-button *ngFor="let type of accStatusList" [value]="type.lookUpCode">{{type.meaning}}</md-radio-button>
+                    </md-radio-group>
+                </div>
+            </div>
+            <div class="col-md-3" *ngIf="reportInfo.reconcile" style="min-width: 160px;">
+                <div class="field-title">Reconcile Status :</div>
+                <div class="show-list-items">
+                    <md-radio-group [disabled]="disableRecStatus" [(ngModel)]="reportInfo.reconcile" name="reconType" required (change)="reconcileAccStatusChange(false);">
+                        <md-radio-button value="Both" [disabled]="disableRecStatusAll">All</md-radio-button>
+                        <md-radio-button *ngFor="let type of recStatusList" [value]="type.lookUpCode">{{type.meaning}}</md-radio-button>
+                    </md-radio-group>
+                </div>
+            </div>
+            <div class="col-md-3" *ngIf="reportInfo.reconcile" style="min-width: 160px;">
+                <div class="head-field" style="margin-top: 25px;">
+                    <div class="optionTitle" style="margin-bottom: -5px;">Target Data View*</div>
+                    <angular2-multiselect [data]="srcViews" [(ngModel)]="selectedviewTemp" [settings]="singleSlectSettings" (onSelect)="trgtViewChanged();"
+                        name="selectDataView" required></angular2-multiselect>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8" *ngIf="reportInfo.segmentInfo && reportInfo.segmentInfo.length>0" style="margin-top: 15px;margin-bottom: 15px;min-width: 700px;">
+            <span class="field-title hand segment-filters" (click)="showSegFilters=!showSegFilters">Ledger Segments Filter :</span>
+            <div class="row" *ngIf="showSegFilters" style="max-height: 200px;max-width: 700px;">
+                <div class="col-md-6" *ngFor="let eachSegment of reportInfo.segmentInfo; let index=index;" style="display: flex;margin-bottom: 2px;">
+                    <div class="col-md-4 col-sm-4" style="display: flex;">
+                        <p style="font-size: 16px;margin-bottom: 2px;margin-top: 7px;padding-right: 5px;">{{eachSegment.segName}}:</p>
+                    </div>
+                    <div class="col-md-8">
+                        <angular2-multiselect *ngIf="eachSegment.flexValues1.length>1" class="control" [data]="eachSegment.flexValues1" [(ngModel)]="eachSegment.selFlexValues1"
+                            [settings]="limitFieldsSelectionSettings" [name]="eachSegment.segName">
+                        </angular2-multiselect>
+                        <angular2-multiselect *ngIf="eachSegment.flexValues1.length<2" class="control" [data]="eachSegment.flexValues1" [(ngModel)]="eachSegment.selFlexValues1"
+                            [settings]="singleValueSelectionSettings" [name]="eachSegment.segName">
+                        </angular2-multiselect>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>
+<div *ngIf="reportInfo.fields" class="submit-schedule">
+    <button md-raised-button class="pull-right" *ngIf="!scheduleInitiated" (click)="runReport(true);" [disabled]="!reportParams.valid || rptSubmitted">Run Now</button>
+</div>
+<p-dialog header="Processing" [(visible)]="showProcessing" [modal]="true" [resizable]="false" [closable]="!showProcessing" (onHide)="cancelRequest();" positionTop="200">
+	Please wait request is processing....
+	<p-footer>
+		<button md-raised-button (click)="cancelRequest();">Cancel</button>
+	</p-footer>
+</p-dialog>

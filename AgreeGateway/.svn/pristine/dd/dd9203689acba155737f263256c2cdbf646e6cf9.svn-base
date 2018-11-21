@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { FileTemplateLines } from './file-template-lines.model';
+import { FileTemplateLinesService } from './file-template-lines.service';
+
+@Component({
+    selector: 'jhi-file-template-lines-detail',
+    templateUrl: './file-template-lines-detail.component.html'
+})
+export class FileTemplateLinesDetailComponent implements OnInit, OnDestroy {
+
+    fileTemplateLines: FileTemplateLines;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private fileTemplateLinesService: FileTemplateLinesService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInFileTemplateLines();
+    }
+
+    load(id) {
+        this.fileTemplateLinesService.find(id).subscribe((fileTemplateLines) => {
+            this.fileTemplateLines = fileTemplateLines;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInFileTemplateLines() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'fileTemplateLinesListModification',
+            (response) => this.load(this.fileTemplateLines.id)
+        );
+    }
+}

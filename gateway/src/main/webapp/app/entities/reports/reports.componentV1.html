@@ -1,0 +1,205 @@
+<div class="component-title">
+    <div class="col-lg-4" style="margin:auto;">
+    <div class="headingIcons">
+                    <i class="rec-font-file-chart-line iconStyle"></i>
+                </div>
+        <md-icon style="font-size:35px; margin-right: 10px; margin-top: 2px;color: #da9c03" *ngIf="listType=='Favourite Reports List'">star_border</md-icon>
+        <md-icon style="font-size:35px; margin-right: 10px; margin-top: 2px;" *ngIf="listType=='Recent Reports List'">schedule</md-icon>
+        <h4>{{listType}}</h4>
+        <div class="custom-Lov-picker" (mouseleave)="displayCustLov=false;">
+            <button md-icon-button mdTooltip="Select List Type" [mdMenuTriggerFor]="options">
+                <md-icon style="margin-left: -12px;font-size: 35px;">expand_more</md-icon>
+            </button>
+            <md-menu [overlapTrigger]="false" #options="mdMenu" yPosition="below" xPosition="before">
+                <ul>
+                    <li *ngFor="let item of listsLov" (click)="listTypeChange(item);displayCustLov=false;">
+                        {{item}}
+                    </li>
+                </ul>
+            </md-menu>
+        </div>
+        <!-- <button md-button (click)="myTestMethod();">Test</button> -->
+    </div>
+    <div class="col-lg-8 flex-end" style="align-items:center;">
+        <div class="customToggleTabs">
+            <md-button-toggle-group (change)="tabChange($event.value)">
+                <md-button-toggle value="0" checked="true">All Types</md-button-toggle>
+                <md-button-toggle *ngFor="let reportType of srcReportTypes; let i=index" [value]="i+1">{{reportType.typeDisplayName1}}</md-button-toggle>
+            </md-button-toggle-group>
+        </div>
+        <button md-icon-button (click)="addReport()" class="pull-right add-item md-36" mdTooltip="Add Report" mdTooltipPosition="below">
+            <md-icon style="margin-top: -4px;font-weight: bold;">add</md-icon>
+        </button>
+        <button md-icon-button class="pull-right add-item md-36" (click)="loadReportsList();" mdTooltip="Refresh List" mdTooltipPosition="below">
+            <md-icon style="margin-top: -4px;">cached</md-icon>
+        </button>
+    </div>
+</div>
+<div class="component-body">
+        <div class="d-flex justify-content-between sr-pg-con">
+            <input [(ngModel)]="rptSearchStr" type="text" placeholder="Search.." name="search" (keyup.enter)="globalSearch();" class="form-control search-input mr-2">
+            <md-paginator class="sr-pg-con" [disabled]="length<=pageSizeOptions[0]" *ngIf="length>0" [length]="length" [pageSize]="pageEvent.pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex"
+                (page)="pageEvent = $event; loadReportsList()">
+            </md-paginator>
+        </div>
+    
+        <div class="position-relative">
+            <div class="show-hide-class">
+            </div>
+            <div class="list-table">
+                <p-dataTable class="reports-list-table list-table" scrollable="true" columnResizeMode="expand" [value]="reports" (onSort)="loadSortedReportList($event);" #dt resizableColumns="true" 
+                (onRowSelect)="showReportOutput($event)" selectionMode="single">
+                    <p-column field="reportName" header="Report Name" styleClass="left" sortable="true" [style]="{'width':'20%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">
+                            <a [routerLink]="['/reports', {outlets: {'content': [row['id']]+'/details'}}]">{{row[col.field]}}</a>
+                            <button id="showIcon" *ngIf="!row['isFavourite']" md-icon-button (click)="setFavReport(row);$event.stopPropagation();">
+                                <md-icon>star_border</md-icon>
+                            </button>
+                            <button md-icon-button *ngIf="row['isFavourite']" (click)="removeFavRpt(row); $event.stopPropagation();">
+                                <md-icon style="color: #da9c03 !important;">star_border</md-icon>
+                            </button>
+                        </ng-template>
+                    </p-column>
+                    <p-column field="lastRun" header="Last Run" styleClass="left" sortable="true" [style]="{'width':'10%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">
+                            <span *ngIf="row[col.field]">
+                                {{row[col.field] | date:'medium'}}
+                            </span>
+                        </ng-template>
+                    </p-column>
+                    <p-column field="lastRunBy" header="Submitted By" styleClass="left" sortable="true" [style]="{'width':'10%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+                    </p-column>
+                    <p-column field="sourceView" header="Data Source" styleClass="left" sortable="true" [style]="{'width':'14%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+                    </p-column>
+                    <p-column *ngIf="!fltrdRpt" field="reportTypeName" header="Report Type" styleClass="left" sortable="true" [style]="{'width':'13%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field]}}</ng-template>
+                    </p-column>
+                    <p-column field="firstParam" header="Parameters" styleClass="left" [style]="{'width':'13%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">
+                            <a *ngIf="(row['lastRun']&&row['lastRun'].length>0)" (click)="buildParameters(row['requestId'],row['reportTypeCode']); $event.stopPropagation();">{{row[col.field]}}</a>
+                            <!-- <span class="hand" *ngIf="(row['lastRun']&&row['lastRun'].length>0)" (click)="buildParameters(row['requestId'],row['reportTypeCode']); $event.stopPropagation();">{{row[col.field]}}</span> -->
+                        </ng-template>
+                    </p-column>
+                    <p-column field="description" header="Description" styleClass="left" [style]="{'width':'20%'}">
+                        <ng-template let-col let-row="rowData" pTemplate="body">
+                            <div style="display:flex;justify-content: space-between;">
+                                <div style="white-space: nowrap;overflow: hidden;text-overflow: ellipsis;margin-top: 8px;">{{row[col.field]}}</div>
+                                <div class="icons-list">
+                                    <button class="editIcon" [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+                                        md-icon-button mdTooltip="Recent Output" (click)="$event.stopPropagation();" [routerLink]="['/reports', {outlets: {'content': ['run-reports',row['requestId'],row['id']]}}]">
+                                        <md-icon>remove_red_eye</md-icon>
+                                    </button>
+                                    <button [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+                                        class="editIcon" md-icon-button mdTooltip="Download" (click)="$event.stopPropagation();" [mdMenuTriggerFor]="downLoadMenu">
+                                        <md-icon>system_update_alt</md-icon>
+                                    </button>
+                                    <md-menu #downLoadMenu="mdMenu" yPosition="below" xPosition="before" (click)="$event.stopPropagation();">
+                                        <button md-menu-item (click)="downloadReport(row['requestId'],'excel',row['reportName']);$event.stopPropagation();">
+                                            <i class="fa fa-file-excel-o" aria-hidden="true"></i>
+                                            <span>Download As Excel</span>
+                                        </button>
+                                        <button md-menu-item (click)="downloadReport(row['requestId'],'csv',row['reportName']);$event.stopPropagation();">
+                                            <i class="rec-font-csv" aria-hidden="true"></i>
+                                            <span>Download As CSV</span>
+                                        </button>
+                                    </md-menu>
+                                    <button class="editIcon" mdTooltip="Report History" [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+                                        md-icon-button (click)="selRptId=row['id'];reqTabChange(requestType);$event.stopPropagation();">
+                                        <md-icon>history</md-icon>
+                                    </button>
+                                    <button class="editIcon" mdTooltip="Refresh As Of Now" [disabled]="!(row['lastRun']&&row['lastRun'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['lastRun']&&row['lastRun'].length>0)}"
+                                        md-icon-button (click)="refreshAsOfNow(row['id'],row['requestId']);$event.stopPropagation();">
+                                        <md-icon>cached</md-icon>
+                                    </button>
+                                    <button class="editIcon" md-icon-button (click)="$event.stopPropagation();" [mdTooltip]="'Run '+row['reportName']" [routerLink]="['/reports', {outlets: {'content': [row['id']]+'/run-reports'}}]">
+                                        <md-icon>play_circle_filled</md-icon>
+                                    </button>
+                                </div>
+                            </div>
+                        </ng-template>
+                    </p-column>
+                </p-dataTable>
+            </div>
+        </div>
+        <md-paginator [disabled]="length<=pageSizeOptions[0]" *ngIf="length>0" class="sr-pg-con" [length]="length" [pageSize]="pageEvent.pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex"
+            (page)="pageEvent = $event; loadReportsList()">
+        </md-paginator>
+    </div>
+    <p-dialog header="Parameters" [(visible)]="displayParameters" modal="modal" minWidth="500" responsive="true">
+        <p-dataTable [(value)]="parametersSubmited" class="parameters-definition" [style]="{'width':'450px'}">
+            <p-column field="Parameter" header="Name" sortable="true" [style]="{'width':100}"></p-column>
+            <p-column field="Value" header="Value" sortable="true" [style]="{'width':350}"></p-column>
+        </p-dataTable>
+    </p-dialog>
+
+    <p-dialog header="Report Run History" [(visible)]="showRequestsList" [modal]="true" [resizable]="false" [responsive]="false">
+        <div class="customToggleTabs">
+            <md-button-toggle-group (change)="reqTabChange($event.value)">
+                <md-button-toggle value="all" checked="true">All</md-button-toggle>
+                <md-button-toggle value="run">Manual Runs</md-button-toggle>
+                <md-button-toggle value="request">Scheduled Runs</md-button-toggle>
+            </md-button-toggle-group>
+        </div>
+        <div class="source-view-table table-responsive">
+            <p-dataTable class="list-table" [value]="reportReqList" (onSort)="sortReqTable($event);" scrollable="true" columnResizeMode="expand" [scrollHeight]="TemplatesHeight" [emptyMessage]="'No requests found'"
+                #dtRptRequests resizableColumns="true" columnResizeMode="expand">
+                <p-column field="reqName" sortable="true" header="Request Name" [style]="{'width':'40%'}">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span>{{row[col.field]}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="status" sortable="true" header="Status" [style]="{'width':'10%'}">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span>{{row[col.field]}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="submittedTime" sortable="true" header="Submitted On" [style]="{'width':'25%'}">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span>{{row[col.field] | date:'medium'}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="generatedTime" header="Generated On" [style]="{'width':'25%'}">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <!-- <span>{{row[col.field] | date:'medium'}}</span> -->
+                        <div style="display:flex;justify-content: space-between;">
+                            <div style="white-space: nowrap;overflow: hidden;text-overflow: ellipsis;margin-top: 8px;">{{row[col.field] | date:'medium'}}</div>
+                            <div class="icons-list">
+                                <button class="editIcon" [disabled]="!(row['generatedTime']&&row['generatedTime'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['generatedTime']&&row['generatedTime'].length>0)}"
+                                    md-icon-button mdTooltip="View Output" (click)="$event.stopPropagation();" [routerLink]="['/reports', {outlets: {'content': ['run-reports',row['reqId'],row['reportId']]}}]">
+                                    <md-icon>remove_red_eye</md-icon>
+                                </button>
+                                <button [disabled]="!(row['generatedTime']&&row['generatedTime'].length>0)" [ngClass]="{'reduce-opacity disabled-item' : !(row['generatedTime']&&row['generatedTime'].length>0)}"
+                                    class="editIcon" md-icon-button mdTooltip="Download" (click)="$event.stopPropagation();" [mdMenuTriggerFor]="downLoadMenu">
+                                    <md-icon>system_update_alt</md-icon>
+                                </button>
+                                <md-menu #downLoadMenu="mdMenu" yPosition="below" xPosition="before" (click)="$event.stopPropagation();">
+                                    <button md-menu-item (click)="downloadReport(row['reqId'],'excel',row['reqName']);$event.stopPropagation();">
+                                        <i class="fa fa-file-excel-o" aria-hidden="true"></i>
+                                        <span>Download As Excel</span>
+                                    </button>
+                                    <button md-menu-item (click)="downloadReport(row['reqId'],'csv',row['reqName']);$event.stopPropagation();">
+                                        <i class="rec-font-csv" aria-hidden="true"></i>
+                                        <span>Download As CSV</span>
+                                    </button>
+                                </md-menu>
+                            </div>
+                        </div>
+                    </ng-template>
+                </p-column>
+            </p-dataTable>
+        </div>
+        <md-paginator [disabled]="requestsLength<=pageSizeOptions[0]" *ngIf="requestsLength>0" [length]="requestsLength" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" #reqListPaginator
+         (page)="reqListpageEvent=$event;getRequestsList();">
+        </md-paginator>
+        
+    </p-dialog>
+
+
+    <p-dialog header="Processing" [(visible)]="showProcessing">
+        Please wait request is processing....
+        <p-footer>
+            <button md-raised-button (click)="cancelRequest();">Cancel</button>
+        </p-footer>
+    </p-dialog>

@@ -1,0 +1,211 @@
+<div class="component-title">
+    <div class="col-md-6">
+        <div class="headingIcons">
+            <i class="fa fa-superpowers iconStyle"></i>
+        </div>
+        <h4>Project(s)</h4>
+    </div>
+    <div class="col-md-6">
+        <div class="pull-right">
+            <button md-icon-button mdTooltip="Add Project" (click)="addProcessSetup(f)">
+                <md-icon>add</md-icon>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="component-body">
+    <div class="d-flex justify-content-between sr-pg-con">
+        <input class="form-control search-input" type="text" #gb placeholder="Search..">
+        <md-paginator *ngIf="processSetupRecordsLength>0" [length]="processSetupRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+            [pageIndex]="page" (page)="onPaginateChange($event)">
+        </md-paginator>
+    </div>
+    <div class="list-table">
+        <p-dataTable [value]="processes" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+            [responsive]="true" [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt (onRowSelect)="onRowSelect($event)" selectionMode="single">
+
+            <p-column field="processName" header="Name" styleClass="left" [style]="{'width':'25%'}">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <span class="d-block">{{row[col.field]}}</span>
+                </ng-template>
+            </p-column>
+
+            <p-column field="startDate" header="Start Date" [style]="{'width':'20%'}" styleClass="left" [sortable]="true">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <span *ngIf="row[col.field]">{{row[col.field] | date: 'mediumDate'}}</span>
+                </ng-template>
+            </p-column>
+            
+            <p-column field="endDate" header="End Date" [style]="{'width':'20%'}" styleClass="left" [sortable]="true">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <span *ngIf="row[col.field]">{{row[col.field] | date: 'mediumDate'}}</span>
+                </ng-template>
+            </p-column>
+
+            <p-column [style]="{'width':'5%' }" field="jhiEnable" header="Status" styleClass="text-center" styleClass="center">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <i *ngIf="row[col.field]==true" style="color: darkgrey" class="material-icons" mdTooltip="Active">check_circle</i>
+                    <i *ngIf="row[col.field]==false" style="color: darkgrey" class="material-icons" aria-hidden="true" mdTooltip="In Active">error</i>
+                </ng-template>
+            </p-column>
+
+            <p-column [style]="{'width':'30%'}" field="jhiDesc" header="Description" styleClass="text-center overflow-visible" resizableColumns="false">
+                <ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+                    <div class="v-c-h-b">
+                        <span>{{row[col.field]}}</span>
+                        <div class="icons-list editIcon">
+                            <button md-icon-button mdTooltip="View" (click)="processSetupDetail(row);$event.stopPropagation()">
+                                <md-icon>remove_red_eye</md-icon>
+                            </button>
+                            <button md-icon-button mdTooltip="Edit" (click)="editProcessSetupDetails(row);$event.stopPropagation()">
+                                <md-icon>edit</md-icon>
+                            </button>
+                        </div>
+                    </div>
+                </ng-template>
+            </p-column>
+
+        </p-dataTable>
+    </div>
+    <md-paginator *ngIf="processSetupRecordsLength>0" [length]="processSetupRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+        [pageIndex]="page" (page)="onPaginateChange($event)" class="sr-pg-con">
+    </md-paginator>
+
+
+    <!-- Dialog to display details and update -->
+    <div class="custom-dialog">
+        <div class="custom-dialog-header ui-widget-header">
+            <span style="padding-left:10px">Process Details</span>
+            <i class="material-icons dialogEditBtn" *ngIf="!editable" (click)="editProcessSetupDetails()">mode_edit</i>
+            <i class="material-icons dialogcloseBtn" (click)="closeReconDialog()">close</i>
+        </div>
+        <div class="custom-dialog-body">
+            <div *ngIf="!editable">
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray">
+                    <p class="materialLabelProcess">Name:</p>
+                    <span>{{processesDetails.processName}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.desc">
+                    <p class="materialLabelProcess">Description:</p>
+                    <span>{{processesDetails.desc}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray">
+                    <p class="materialLabelProcess">Start Date:</p>
+                    <span>{{processesDetails.startDate | date:'mediumDate'}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.endDate">
+                    <p class="materialLabelProcess">End Date:</p>
+                    <span>{{processesDetails.endDate | date:'mediumDate'}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.spList?.length > 0">
+                    <p class="materialLabelProcess">Source Profile:</p>
+                    <ul>
+                        <li *ngFor="let srcPrf of processesDetails.spList">{{srcPrf.sourceProfileName}}</li>
+                    </ul>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.reconcRuleGroupName">
+                    <p class="materialLabelProcess">Reconciliation Process:</p>
+                    <span>{{processesDetails.reconcRuleGroupName}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.actRuleGroupName">
+                    <p class="materialLabelProcess">Accounting Process:</p>
+                    <span>{{processesDetails.actRuleGroupName}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex borBot1pxligray" *ngIf="processesDetails.calendar">
+                    <p class="materialLabelProcess">Calendar:</p>
+                    <span>{{processesDetails.calendarName}}</span>
+                </div>
+                <div style="padding:10px 0px;" class="display-flex" *ngIf="processesDetails.violation">
+                    <p class="materialLabelProcess">Violation Period:</p>
+                    <span>{{processesDetails.violation}}</span>
+                </div>
+            </div>
+            <form novalidate #f="ngForm">
+                <div *ngIf="editable">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="processesDetails.processName" placeholder="Name" id="name" name="name" [ngClass]="{'color-black' : !editable}"
+                                    [disabled]="!editable" required (ngModelChange)="processDuplicateCheck(processesDetails.processName, processesDetails.id)">
+                            </md-input-container>
+                            <md-error class="prcsMdError" *ngIf="prsNameDup" style="padding-top: 6px;">Process Name Already Exists</md-error>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-12">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="processesDetails.desc" placeholder="Description" name="description" [ngClass]="{'color-black' : !editable}"
+                                    [disabled]="!editable">
+                            </md-input-container>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-6">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="processesDetails.startDate" placeholder="Start date" [max]="processesDetails.endDate"
+                                    name="startDate" required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                        <div class="col-md-6">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="edpicker" [min]="processesDetails.startDate" [(ngModel)]="processesDetails.endDate" placeholder="End date"
+                                    name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-12">
+                            <md-select [(ngModel)]="processesDetails.spListIds" placeholder="Source Profile" name="sourceProfile" multiple [disabled]="!editable"
+                                required>
+                                <md-option *ngFor="let col of sourceProfile" [(value)]="col.idForDisplay">
+                                    <span>{{ col.sourceProfileName }}</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-6">
+                            <md-select [(ngModel)]="processesDetails.reconcRuleGroupId" placeholder="Reconciliation  Process" name="reconRuleGroup" [disabled]="!editable">
+                                <md-option *ngFor="let col of reconRuleGroup" [(value)]="col.id">
+                                    <span>{{ col.name }}</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                        <div class="col-md-6">
+                            <md-select [(ngModel)]="processesDetails.actRuleGroupId" placeholder="Accounting  Process" name="accRuleGroup" [disabled]="!editable">
+                                <md-option *ngFor="let col of accRuleGroup" [(value)]="col.id">
+                                    <span>{{ col.name }}</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-6">
+                            <md-select [(ngModel)]="processesDetails.calendar" placeholder="Calendar" name="calendar" [disabled]="!editable" required>
+                                <md-option *ngFor="let col of calendarList" [(value)]="col.id">
+                                    <span>{{ col.name }}</span>
+                                </md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                    <div class="row" style="margin:15px">
+                        <div class="col-md-6">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="processesDetails.violation" type="number" placeholder="Violation Period" name="violation" [ngClass]="{'color-black' : !editable}"
+                                    [disabled]="!editable" required>
+                            </md-input-container>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="custom-dialog-footer" *ngIf="editable">
+            <button md-raised-button (click)="saveOrUpdateProcess()" class="pull-right" style="margin-bottom: 10px;" [disabled]="!f.valid || prsNameDup">{{createNewProcess ? 'Save':'Update'}}</button>
+        </div>
+    </div>
+</div>

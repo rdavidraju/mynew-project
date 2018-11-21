@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { SourceProfileFileAssignments } from './source-profile-file-assignments.model';
+import { SourceProfileFileAssignmentsService } from './source-profile-file-assignments.service';
+
+@Injectable()
+export class SourceProfileFileAssignmentsPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private sourceProfileFileAssignmentsService: SourceProfileFileAssignmentsService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.sourceProfileFileAssignmentsService.find(id).subscribe((sourceProfileFileAssignments) => {
+                    sourceProfileFileAssignments.createdDate = this.datePipe
+                        .transform(sourceProfileFileAssignments.createdDate, 'yyyy-MM-ddThh:mm');
+                    sourceProfileFileAssignments.lastUpdatedDate = this.datePipe
+                        .transform(sourceProfileFileAssignments.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.sourceProfileFileAssignmentsModalRef(component, sourceProfileFileAssignments);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.sourceProfileFileAssignmentsModalRef(component, new SourceProfileFileAssignments());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    sourceProfileFileAssignmentsModalRef(component: Component, sourceProfileFileAssignments: SourceProfileFileAssignments): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.sourceProfileFileAssignments = sourceProfileFileAssignments;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

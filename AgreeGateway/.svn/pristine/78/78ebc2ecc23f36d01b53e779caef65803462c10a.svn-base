@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { LedgerDefinition } from './ledger-definition.model';
+import { LedgerDefinitionService } from './ledger-definition.service';
+
+@Component({
+    selector: 'jhi-ledger-definition-detail',
+    templateUrl: './ledger-definition-detail.component.html'
+})
+export class LedgerDefinitionDetailComponent implements OnInit, OnDestroy {
+
+    ledgerDefinition: LedgerDefinition;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private ledgerDefinitionService: LedgerDefinitionService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInLedgerDefinitions();
+    }
+
+    load(id) {
+        this.ledgerDefinitionService.find(id).subscribe((ledgerDefinition) => {
+            this.ledgerDefinition = ledgerDefinition;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInLedgerDefinitions() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'ledgerDefinitionListModification',
+            (response) => this.load(this.ledgerDefinition.id)
+        );
+    }
+}

@@ -1,0 +1,562 @@
+<div style="height: 100%; width: 100%">
+    <!--  *ngIf="(!isCreateNew && tenantConfigModule && tenantDetails) || isCreateNew" -->
+    <form novalidate #f="ngForm" *ngIf="loadDocument">
+        <div class="component-title">
+            <div class="col-md-6 col-sm-6 col-xs-6" style="padding-left: 0px;">
+                <!-- <h4 *ngIf="isCreateNew">Enter Organization Details</h4> -->
+                <h4>Organization Details</h4>
+                <!--  *ngIf="!isCreateNew" -->
+            </div>
+            <div class="col-md-6 col-sm-6 col-xs-6">
+                <div class="row float-right">
+                    <div *ngIf="isCreateNew">
+                        <button *ngIf="!isViewOnly && f.valid" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save Organization"
+                            (click)="logoReq = false;saveTenantDetails();">
+                            <!-- [disabled]="f.valid" -->
+                            <md-icon>save</md-icon>
+                        </button>
+                        <button md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Fill Mandatory Fields" *ngIf="!isViewOnly && (!f.valid || domainExist || emailDuplicate)"
+                            (click)="logoReq = true;testForm(f);">
+                            <md-icon>save</md-icon>
+                        </button>
+                    </div>
+                    <div *ngIf="isCreateNew">
+                        <div *jhiHasAnyAuthority="'TENANT_EDIT'">
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/tenant-details', {outlets: {'content': [tenantDetails.id]+'/edit'}}]">
+                                <md-icon>mode_edit</md-icon>
+                            </button>
+                        </div>
+                    </div>
+                    <div *ngIf="isCreateNew">
+                        <button *ngIf="isCreateNew || isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/tenant-details', {outlets: {'content': ['tenant-details-home']}}]">
+                            <md-icon>clear</md-icon>
+                        </button>
+                    </div>
+                    <div *jhiHasAnyAuthority="'TENANTS_LIST'">
+                        <button *ngIf="!isCreateNew" md-icon-button mdTooltip="View List" [routerLink]="['/tenant-details', {outlets: {'content': ['tenant-details-home']}}]">
+                            <md-icon>close</md-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <notification-block [message]="notificationMessage" *ngIf="commonService.showErrorBlock"></notification-block>
+        <!--  [formObject]="f" [show]="showErrorBlock" -->
+        <!-- <div class="errorComponent" *ngIf="(showErrorBlock || (!isViewOnly && (!f.valid && (f.touched' || f.submitted))))">
+            <div class="info-msg">
+                <div class="errorMsgs">
+                    <h6>Error!</h6>
+                    <p *ngIf="f.touched || f.submitted">Fill Mandatory Fields</p>
+                </div>
+                <div style="position: absolute;right: 30px;top: 2px;">
+                    <button md-icon-button class="pull-right color-gray" mdTooltip="Close" (click)="showErrorBlock = false;">
+                        <md-icon>clear</md-icon>
+                    </button>
+                </div>
+            </div>
+        </div> -->
+        <div class="component-body tenantDetailsForm">
+            <div class="row info-msg" *ngIf="tenantDetails && tenantDetails.userDetails && !tenantDetails.userDetails[0].activated && !isCreateNew">
+                <div class="col-md-12">
+                    <h6>This Tenant Is Not Activated</h6>
+                    <p style="color: #484848 !important;">An email has been sent to "{{tenantDetails.userDetails[0].email}}", If user have not received the email
+                        <span class="linkActionStyle" (click)="validateUser();">click here</span> to resend</p>
+                </div>
+                <!-- <div class="col-md-4">
+                    <button type="button" md-raised-button (click)="validateUser();">Resend Activation Email</button>
+                </div> -->
+            </div>
+            <div style="box-shadow: 0 2px 2px rgba(0,0,0,.24), 0 0 2px rgba(0,0,0,.12);">
+                <!-- margin: 6px 0px;padding: 10px; -->
+                <div class="row float-right" *ngIf="!isCreateNew">
+                    <div>
+                        <button *ngIf="!isViewOnly && f.valid" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save Tenant"
+                            (click)="logoReq = false;saveTenantDetails();">
+                            <!-- [disabled]="f.valid" -->
+                            <md-icon>save</md-icon>
+                        </button>
+                        <button md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Fill Mandatory Fields" *ngIf="!isViewOnly && (!f.valid || domainExist || emailDuplicate)"
+                            (click)="logoReq = true;">
+                            <md-icon>save</md-icon>
+                        </button>
+                    </div>
+                    <div *jhiHasAnyAuthority="'TENANT_EDIT'">
+                        <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/tenant-details', {outlets: {'content': [tenantDetails.id]+'/edit'}}]">
+                            <md-icon>mode_edit</md-icon>
+                        </button>
+                    </div>
+                    <div>
+                        <button *ngIf="isCreateNew || isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/tenant-details', {outlets: {'content': ['tenant-details-home']}}]">
+                            <md-icon>clear</md-icon>
+                        </button>
+                    </div>
+                    <!-- <div *jhiHasAnyAuthority="'TENANTS_LIST'">
+                        <button *ngIf="!isCreateNew" md-icon-button mdTooltip="View List" [routerLink]="['/tenant-details', {outlets: {'content': ['tenant-details-home']}}]">
+                            <md-icon>view_list</md-icon>
+                        </button>
+                    </div> -->
+                </div>
+                <div class="theme-text tenantSubHeadingStyles">Personal Details</div>
+                <div class="row m-0">
+                    <div class="col-md-6 br768" style="padding-top: 10px !important">
+                        <div class="row" style="margin:0">
+                            <div class="pb10px col-md-6">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="tenantDetails.tenantName" [ngClass]="{'color-black' : isViewOnly}" placeholder="Organization Name"
+                                            name="tenantName" #tenantName="ngModel" [disabled]="isViewOnly" required>
+                                    </md-input-container>
+                                </div>
+                                <span class="help-block errorFont" *ngIf="f?.tenantName?.error.required">Organization Name Is Mandatory</span>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="tenantDetails.website" [ngClass]="{'color-black' : isViewOnly}" placeholder="Website" name="website"
+                                            #website="ngModel" [disabled]="isViewOnly" pattern="[a-zA-Z0-9][a-zA-Z0-9-]{1,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+"
+                                            required>
+                                    </md-input-container>
+                                </div>
+                                <span class="help-block errorFont" *ngIf="website?.errors?.pattern">Invalid Website Name</span>
+                            </div>
+                        </div>
+
+                        <div class="row pb10px" style="margin:0;">
+                            <div class="col-md-6">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="tenantDetails.domainNamedis" [ngClass]="{'color-black' : isViewOnly}" placeholder="Domain Name"
+                                            name="domainNamedis" [disabled]="isViewOnly" [pattern]="isCreateNew ? '^[a-zA-Z0-9]+$' : '^[a-z0-9]+\.glbyte\.com($|\n)'"
+                                            required #dName="ngModel" (blur)="isDomainNameExist(tenantDetails.domainNamedis,tenantDetails.id)"
+                                            (ngModelChange)="domainExist = undefined">
+                                        <div style="cursor:default;" class="theme-color" *ngIf="isCreateNew">.glbyte.com</div>
+                                    </md-input-container>
+                                </div>
+                                <div style="display: grid;">
+                                    <span style="position: relative;top: 4px;font-size: 11px !important;padding: 5px 0px;color: #4885ed;white-space: nowrap;"
+                                        *ngIf="!isViewOnly">This will be your application url. You can use letters & numbers</span>
+                                    <span *ngIf="dName?.errors?.pattern" class="help-block errorFont" style="white-space: nowrap;">
+                                        <span *ngIf="isCreateNew">Domain should not contain spaces and special characters</span>
+                                        <span *ngIf="isEdit">Domain should not contain spaces, special characters and should end with
+                                            <b>".glbyte.com"</b> suffix</span>
+                                    </span>
+                                    <span class="help-block errorFont" *ngIf="domainExist">{{domainExist}}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6" style="padding:10px 0px !important;">
+                        <div class="display-flex text-center row" style="justify-content:space-around;">
+                            <div class="col-md-6">
+                                <div class="tenantLogoHover" (click)="openUploadDialog('logo')" *ngIf="tenantDetails.tenantSubLogo" [ngClass]="isViewOnly ? 'disableClick' : ''">
+                                    <img src="{{'data:image/jpeg;base64,'+tenantDetails.tenantSubLogo}}" alt="Sub logo" class="tenantLogo1">
+                                    <span style="display:block;margin-top: 5px;">Logo</span>
+                                </div>
+                                <div *ngIf="!tenantDetails.tenantSubLogo" style="margin-top: 40px;">
+                                    <button type="button" md-icon-button (click)="openUploadDialog('logo')" #uploadLogoBtn [disabled]="isViewOnly">
+                                        <md-icon>cloud_upload</md-icon>
+                                    </button>
+                                    <span style="display:block;">Logo</span>
+                                    <span class="help-block errorFont" *ngIf="logoReq && !tenantDetails.tenantSubLogo">Logo Is Mandatory</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div *ngIf="!tenantDetails.tenantLogo" style="margin-top: 40px;">
+                                    <button type="button" md-icon-button (click)="openUploadDialog('fullLogo')" #uploadLogoBtn [disabled]="isViewOnly">
+                                        <md-icon>cloud_upload</md-icon>
+                                    </button>
+                                    <span style="display:block;">Full Logo</span>
+                                </div>
+                                <div class="tenantFullLogoHover" (click)="openUploadDialog('fullLogo')" *ngIf="tenantDetails.tenantLogo" [ngClass]="isViewOnly ? 'disableClick' : ''">
+                                    <img src="{{'data:image/jpeg;base64,'+tenantDetails.tenantLogo}}" alt="Full logo" class="tenantFullLogo">
+                                    <span style="display:block;margin-top: 5px;">Full Logo</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="theme-text tenantSubHeadingStyles">Address Details</div>
+                <div class="row m-0">
+                    <div class="col-md-6" style="padding-top: 10px !important">
+                        <div class="col-md-12 pb10px">
+                            <div class="mat-c-input-wrapper">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="tenantDetails.corporateAddress" [ngClass]="{'color-black' : isViewOnly}" placeholder="Corporate Address"
+                                        name="corporateAddress" [disabled]="isViewOnly" required>
+                                </md-input-container>
+                            </div>
+                        </div>
+                        <div class="row pb10px" style="margin:0;">
+                            <div class="col-md-4">
+                                <md-select placeholder="Country" [(ngModel)]="tenantDetails.country" [disabled]="isViewOnly" [ngClass]="{'color-black' : isViewOnly}"
+                                    [materialFilter]="country" #country name="country" [materialFilterModel]="countrySearchModel"
+                                    [materialFilterInput]="countrySearchInput" required>
+                                    <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="countrySearch" name="countrySearch" #countrySearchModel="ngModel"
+                                        #countrySearchInput>
+                                    <md-option *ngFor="let col of countriesList | searchFilter:countrySearch" [value]="col.name" (click)="getStates(col.id);"
+                                        (keydown.enter)="getStates(col.id);">
+                                        {{ col.name }} </md-option>
+                                </md-select>
+                            </div>
+                            <div class="col-md-4" *ngIf="tenantDetails.country" [@displayAnimation]>
+                                <md-select placeholder="State" [(ngModel)]="tenantDetails.state" [disabled]="isViewOnly" [ngClass]="{'color-black' : isViewOnly}"
+                                    [materialFilter]="state" #state name="state" [materialFilterModel]="stateSearchModel" [materialFilterInput]="stateSearchInput"
+                                    required>
+                                    <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="stateSearch" name="stateSearch" #stateSearchModel="ngModel"
+                                        #stateSearchInput>
+                                    <md-option *ngFor="let col of statesList | searchFilter:stateSearch" [value]="col.name" (click)="getCities(col.id);" (keydown.enter)="getCities(col.id);">
+                                        {{ col.name }} </md-option>
+                                </md-select>
+                            </div>
+                            <div class="col-md-4" *ngIf="tenantDetails.state" [@displayAnimation]>
+                                <md-select placeholder="City" [(ngModel)]="tenantDetails.city" [disabled]="isViewOnly" [ngClass]="{'color-black' : isViewOnly}"
+                                    [materialFilter]="city" #city name="city" [materialFilterModel]="citySearchModel" [materialFilterInput]="citySearchInput"
+                                    required>
+                                    <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="citySearch" name="citySearch" #citySearchModel="ngModel"
+                                        #citySearchInput>
+                                    <md-option *ngFor="let col of citiesList | searchFilter:citySearch" [value]="col.name"> {{ col.name }}
+                                    </md-option>
+                                </md-select>
+                            </div>
+                        </div>
+                        <div class="row pb10px" style="margin:0;" *ngIf="tenantDetails.city" [@displayAnimation]>
+                            <div [ngClass]="isCreateNew ? 'col-md-3' : 'col-md-4'">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="tenantDetails.primaryContact" [ngClass]="{'color-black' : isViewOnly}" placeholder="Primary Contact"
+                                            name="primaryContact" [disabled]="isViewOnly" numberOnly required>
+                                    </md-input-container>
+                                </div>
+                            </div>
+                            <div [ngClass]="isCreateNew ? 'col-md-3' : 'col-md-4'">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container *ngIf="!isViewOnly">
+                                        <input mdInput [(ngModel)]="tenantDetails.secondaryContact" placeholder="Secondary Contact" name="secondaryContact" numberOnly>
+                                    </md-input-container>
+                                    <md-input-container *ngIf="isViewOnly">
+                                        <input mdInput [(ngModel)]="tenantDetails.secondaryContact" [ngClass]="{'color-black' : isViewOnly && tenantDetails.secondaryContact != '-', 'no-input-val': tenantDetails.secondaryContact == '-'}"
+                                            placeholder="Secondary Contact" name="secondaryContact" [disabled]="isViewOnly">
+                                    </md-input-container>
+                                </div>
+                            </div>
+                            <div [ngClass]="isCreateNew ? 'col-md-3' : 'col-md-4'">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="tenantDetails.pincode" [ngClass]="{'color-black' : isViewOnly}" placeholder="Pincode" name="pincode"
+                                            [disabled]="isViewOnly" required>
+                                    </md-input-container>
+                                </div>
+                            </div>
+                            <div *ngIf="isCreateNew" [ngClass]="isCreateNew ? 'col-md-3' : 'col-md-4'">
+                                <div class="mat-c-input-wrapper">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="tempContractNum" placeholder="Contract Number" name="contNum" required>
+                                    </md-input-container>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="box-shadow: 0 2px 2px rgba(0,0,0,.24), 0 0 2px rgba(0,0,0,.12);">
+                <div class="row m-0">
+                    <div class="col-md-12" style="padding: 0px;">
+                        <div class="theme-text tenantSubHeadingStyles">System Administrator</div>
+                        <div class="table-responsive" *ngIf="!isCreateNew">
+                            <table class="table theme-table nowrap-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:30%;">First Name</th>
+                                        <th style="width:30%;">Last Name</th>
+                                        <th style="width:18%;">Email</th>
+                                        <th style="width:6%;">Start Date</th>
+                                        <th style="width:6%;">End Date</th>
+                                        <th style="width:6%;">Status(Y/N)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let ud of tenantDetails.userDetails">
+                                        <td>
+                                            <img class="usr-img" style="margin-right: 10px;" *ngIf="!ud.image" src="../../../content/images/user.svg" alt="Image">
+                                            <img class="usr-img" style="margin-right: 10px;" *ngIf="ud.image" [src]="'data:image/png;base64,'+ud.image" alt="Image"> {{ud.firstName}}
+                                        </td>
+                                        <td>{{ud.lastName}}</td>
+                                        <td>{{ud.email}}</td>
+                                        <td>{{ud.startDate | date:'mediumDate'}}</td>
+                                        <td>{{ud.endDate | date:'mediumDate'}}</td>
+                                        <td>
+                                            <i *ngIf="ud.activated>0" style="color: darkgrey;top: 7px;position: relative;" class="material-icons" mdTooltip="Active">check_circle</i>
+                                            <i *ngIf="ud.activated<1" style="color: darkgrey;top: 7px;position: relative;" class="material-icons" aria-hidden="true"
+                                                mdTooltip="In Active">error</i>
+                                            <button md-icon-button mdTooltip="Edit" (click)="commonService.editUserFromTenant = true;commonService.editUserFromTenantId = ud.tenantId"
+                                                [routerLink]="['/user-management', {outlets: {'content': ud.id+'/edit'}}]">
+                                                <md-icon>edit</md-icon>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div *ngIf="isCreateNew">
+                            <div class="row pb10px" style="margin:0;padding-top: 10px;">
+                                <div class="col-md-6">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="tenantDetails.firstName" [ngClass]="{'color-black' : isViewOnly}" placeholder="First Name" name="firstName"
+                                                [disabled]="!isCreateNew" required #fName="ngModel">
+                                        </md-input-container>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="tenantDetails.lastName" [ngClass]="{'color-black' : isViewOnly && tenantDetails.lastName != '-', 'no-input-val': tenantDetails.lastName == '-'}"
+                                                placeholder="Last Name" name="lastName" [disabled]="!isCreateNew">
+                                        </md-input-container>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row pb10px" style="margin:0;">
+                                <div class="col-md-6">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="tenantDetails.emailId" [ngClass]="{'color-black' : isViewOnly && tenantDetails.emailId != 'No Email Id', 'no-input-val': tenantDetails.emailId == 'No Email Id'}"
+                                                placeholder="Email Id" name="emailId" #emailId="ngModel" [disabled]="!isCreateNew"
+                                                required (blur)="checkEmailDuplicate(tenantDetails.emailId, tenantDetails.id)"
+                                                (ngModelChange)="emailDuplicate = undefined" pattern="[a-zA-Z0-9._%+-]+@[a-z.]+\.[a-z]{2,3}$">
+                                        </md-input-container>
+                                    </div>
+                                    <span class="help-block errorFont" *ngIf="emailId?.errors?.pattern">Invalid Email Id</span>
+                                    <span class="help-block errorFont" *ngIf="emailDuplicate">{{emailDuplicate}}</span>
+                                </div>
+                                <div class="col-md-3" *jhiHasAnyAuthority="'APPLICATION_ADMINISTRATOR'">
+                                    <md-select placeholder="System Administration" [(ngModel)]="tenantDetails.userDetails.id" name="systemAdmin" #systemAdmin="ngModel"
+                                        [disabled]="isViewOnly && !changeSysAdminButton">
+                                        <md-option *ngFor="let col of usersListByTenant" [value]="col.id">{{ col.firstName }}
+                                        </md-option>
+                                    </md-select>
+                                </div>
+                                <div class="col-md-3" style="margin-top: auto;" *jhiHasAnyAuthority="'APPLICATION_ADMINISTRATOR'">
+                                    <button *ngIf="!changeSysAdminButton && usersListByTenant" md-raised-button (click)="changeSysAdminButton = true;">Change System Admin</button>
+                                    <button *ngIf="changeSysAdminButton && usersListByTenant" md-raised-button (click)="changeSysAdmin()">Update System Admin</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="box-shadow: 0 2px 2px rgba(0,0,0,.24), 0 0 2px rgba(0,0,0,.12);margin: 6px 0px;" [@displayAnimation]>
+                <!-- *ngIf="(isCreateNew && (tempContractNum != null || tempContractNum != undefined)) || !isCreateNew" -->
+                <!-- padding: 10px; -->
+                <div class="row m-0">
+                    <div class="col-md-12" style="padding: 0;">
+                        <!--  style="padding:10px 0px !important;" -->
+                        <div class="theme-text tenantSubHeadingStyles">Modules Information</div>
+                        <div class="table-responsive">
+                            <button md-icon-button mdTooltip="Add Module" (click)="addModule();hideButtonIcons = true;" *ngIf="!isCreateNew && !hideButtonIcons"
+                                style="position: absolute;right: 2px;top: 1px;z-index: 1;">
+                                <md-icon>add</md-icon>
+                            </button>
+                            <table class="table theme-table" style="margin-bottom: 1rem;">
+                                <thead>
+                                    <tr>
+                                        <th class="text-center" *ngIf="isCreateNew" style="width:7%;">Enable(Y/N)</th>
+                                        <th style="width: 45%;">Module</th>
+                                        <th style="width: 10%;">Start Date
+                                            <span>*</span>
+                                        </th>
+                                        <th style="width: 10%;">End Date
+                                            <span>*</span>
+                                        </th>
+                                        <th *ngIf="!isCreateNew" style="white-space: nowrap;width:14%;">Contract Number
+                                            <span>*</span>
+                                        </th>
+                                        <th class="text-center" style="width: 7%;">Mandatory</th>
+                                        <th class="text-center" *ngIf="!isCreateNew" style="width: 7%;">Status</th>
+                                        <th *ngIf="!isCreateNew" style="width:7%;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let col of tenantConfigModule;let i = index;" id="hideIconTable">
+                                        <td style="padding-left:10px !important;" class="text-center chkbox-mid-table" *ngIf="isCreateNew">
+                                            <div *ngIf="isCreateNew">
+                                                <md-checkbox name="checkBox{{i}}" [(ngModel)]="col.checkBox" (change)="addStrtDate(col)" [disabled]="col.lookUpCode == 'DATA_EXTRACTION' || col.lookUpCode == 'DATA_TRANSFORMATION'"></md-checkbox>
+                                            </div>
+                                        </td>
+                                        <td style="vertical-align:middle;">
+                                            <div *ngIf="(isCreateNew && !col.columnEdit)">{{col.modules}}</div>
+                                            <div *ngIf="(!isCreateNew)">{{col.purpose}}</div>
+                                            <md-select class="md-no-placeholder" [(ngModel)]="col.modules" [disabled]="!col.columnEdit" style="padding-top: 0;margin-top:-3.5px;"
+                                                [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" *ngIf="(col.columnEdit && !isCreateNew && !col.enabledFlag)"
+                                                [materialFilter]="modules" #modules name="modules" [materialFilterModel]="modulesSearchModel" [materialFilterInput]="modulesSearchInput"
+                                                required>
+                                                <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="modulesSearch" name="modulesSearch" #modulesSearchModel="ngModel"
+                                                    #modulesSearchInput>
+                                                <md-option *ngFor="let col of tenantConfigModule1 | searchFilter:modulesSearch" [value]="col.lookUpCode" (click)="displayColumns(col,i);"> {{ col.meaning }} </md-option>
+                                            </md-select>
+                                        </td>
+                                        <td>
+                                            <div *ngIf="!isCreateNew && !col.columnEdit">{{col.startDate | date:'mediumDate'}}</div>
+                                            <md-form-field *ngIf="((isCreateNew) && col.checkBox) || (col.columnEdit && !isCreateNew && col.modules && col.tempMinDate)">
+                                                <input mdInput [min]="col.tempMinDate" [mdDatepicker]="stpicker" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="col.startDate"
+                                                    name="startDate{{i}}" required (dateChange)="addDateEvent(i);" required>
+                                                <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                                <md-datepicker #stpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td>
+                                            <div *ngIf="!isCreateNew && !col.columnEdit">{{col.endDate | date:'mediumDate'}}</div>
+                                            <md-form-field *ngIf="((col.columnEdit || isCreateNew) && col.checkBox) || (col.columnEdit && !isCreateNew && col.modules)">
+                                                <input mdInput [min]="col.startDate" [mdDatepicker]="edpicker" [(ngModel)]="col.endDate" name="endDate{{i}}" [ngClass]="{'color-black' : isViewOnly}"
+                                                    required>
+                                                <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                                <md-datepicker #edpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td *ngIf="!isCreateNew">
+                                            <div *ngIf="col.id">{{col.contractNum}}</div>
+                                            <div *ngIf="!col.id && col.modules">
+                                                <md-input-container>
+                                                    <input mdInput [(ngModel)]="col.contractNum" [ngClass]="{'color-black' : isViewOnly}" name="contractNum" required>
+                                                </md-input-container>
+                                            </div>
+                                        </td>
+                                        <td class="text-center chkbox-mid-table">
+                                            <div *ngIf="isCreateNew && col.checkBox">
+                                                <md-checkbox class="example-margin" name="mandatory{{i}}" [(ngModel)]="col.mandatory" [disabled]="(!isCreateNew && !col.columnEdit) || (col.lookUpCode == 'DATA_EXTRACTION' || col.lookUpCode == 'DATA_TRANSFORMATION')"></md-checkbox>
+                                            </div>
+                                            <div *ngIf="!isCreateNew && col.modules">
+                                                <md-checkbox class="example-margin" name="mandatory{{i}}" [(ngModel)]="col.mandatory" [disabled]="(!isCreateNew && !col.columnEdit) || (col.lookUpCode == 'DATA_EXTRACTION' || col.lookUpCode == 'DATA_TRANSFORMATION')"></md-checkbox>
+                                            </div>
+                                        </td>
+                                        <td class="text-center" *ngIf="!isCreateNew">
+                                            <div *ngIf="!isCreateNew && !col.columnEdit">
+                                                <i *ngIf="col.enabledFlag == 1 || col.enabledFlag == true" class="material-icons" mdTooltip="Active">check_circle</i>
+                                                <i *ngIf="col.enabledFlag == 0 || col.enabledFlag == false" class="material-icons" aria-hidden="true" mdTooltip="InActive">error</i>
+                                            </div>
+                                            <div *ngIf="!isCreateNew && col.columnEdit && col.id">
+                                                <md-slide-toggle class="pull right example-margin" color="primary" mdTooltip="Set Status" placeholder="status" [(ngModel)]="col.enabledFlag"
+                                                    name="enabledFlag">
+                                                </md-slide-toggle>
+                                            </div>
+                                            <div class="topmargin-10" *ngIf="isCreateNew">
+                                                <md-checkbox class="example-margin" name="enabledFlag{{i}}" [(ngModel)]="col.enabledFlag"></md-checkbox>
+                                            </div>
+                                        </td>
+                                        <td *ngIf="!isCreateNew">
+                                            <div id="showIcon" class="mat-sml-btn display-flex" [ngClass]="col.columnEdit ? 'edit-mode' : ''">
+                                                <button md-icon-button *ngIf="!col.columnEdit && !hideButtonIcons" (click)="col.columnEdit = true;hideButtonIcons = true;testEdit(i);"
+                                                    mdTooltip="Edit">
+                                                    <md-icon>mode_edit</md-icon>
+                                                </button>
+                                                <button md-icon-button class="pull-right color-green" *ngIf="col.columnEdit && f.valid" aria-hidden="true" (click)="col.columnEdit = false;hideButtonIcons = false;updateTenantConfig(col);"
+                                                    mdTooltip="Update">
+                                                    <md-icon>save</md-icon>
+                                                </button>
+                                                <button md-icon-button mdTooltip="Delete" *ngIf="col.modules != 'DATA_EXTRACTION' && col.modules != 'DATA_TRANSFORMATION' && !col.columnEdit && !hideButtonIcons"
+                                                    (click)="deleteTenantConfig(col);">
+                                                    <md-icon>delete</md-icon>
+                                                </button>
+                                                <button md-icon-button class="pull-right color-gray" *ngIf="col.columnEdit" (click)="col.columnEdit = false;hideButtonIcons = false;cancelChanges(i);"
+                                                    mdTooltip="Cancel">
+                                                    <md-icon>clear</md-icon>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- <md-tab-group class="borderTab">
+                <md-tab label="System Administrator">
+                    <div class="table-responsive" *ngIf="!isCreateNew">
+                        <table class="table theme-table nowrap-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:auto;">First Name</th>
+                                    <th style="width:auto;">Last Name</th>
+                                    <th>Email</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let ud of tenantDetails.userDetails">
+                                    <td>
+                                        <img class="usr-img" style="margin-right: 10px;" *ngIf="!ud.image" src="../../../content/images/user.svg" alt="Image">
+                                        <img class="usr-img" style="margin-right: 10px;" *ngIf="ud.image" [src]="'data:image/png;base64,'+ud.image" alt="Image"> {{ud.firstName}}
+                                    </td>
+                                    <td>{{ud.lastName}}</td>
+                                    <td>{{ud.email}}</td>
+                                    <td>{{ud.startDate | date:'mediumDate'}}</td>
+                                    <td>{{ud.endDate | date:'mediumDate'}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="padding: 10px;" *ngIf="isCreateNew">
+                        <div class="row pb10px" style="margin:0;">
+                            <div class="col-md-6">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="tenantDetails.firstName" [ngClass]="{'color-black' : isViewOnly}" placeholder="First Name" name="firstName"
+                                        [disabled]="!isCreateNew" required #fName="ngModel">
+                                </md-input-container>
+                            </div>
+                            <div class="col-md-6">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="tenantDetails.lastName" [ngClass]="{'color-black' : isViewOnly && tenantDetails.lastName != '-', 'no-input-val': tenantDetails.lastName == '-'}"
+                                        placeholder="Last Name" name="lastName" [disabled]="!isCreateNew">
+                                </md-input-container>
+                            </div>
+                        </div>
+                        <div class="row pb10px" style="margin:0;">
+                            <div class="col-md-6">
+                                <md-input-container>
+                                    <input mdInput [(ngModel)]="tenantDetails.emailId" [ngClass]="{'color-black' : isViewOnly && tenantDetails.emailId != 'No Email Id', 'no-input-val': tenantDetails.emailId == 'No Email Id'}"
+                                        placeholder="Email Id" name="emailId" email [disabled]="!isCreateNew" required (blur)="checkEmailDuplicate(tenantDetails.emailId, tenantDetails.id)"
+                                        (ngModelChange)="emailDuplicate = undefined">
+                                </md-input-container>
+                                <span class="help-block errorFont" *ngIf="emailDuplicate">{{emailDuplicate}}</span>
+                            </div>
+                            <div class="col-md-3" *jhiHasAnyAuthority="'APPLICATION_ADMINISTRATOR'">
+                                <md-select placeholder="System Administration" [(ngModel)]="tenantDetails.userDetails.id" name="systemAdmin" #systemAdmin="ngModel"
+                                    [disabled]="isViewOnly && !changeSysAdminButton">
+                                    <md-option *ngFor="let col of usersListByTenant" [value]="col.id">{{ col.firstName }}
+                                    </md-option>
+                                </md-select>
+                            </div>
+                            <div class="col-md-3" style="margin-top: auto;" *jhiHasAnyAuthority="'APPLICATION_ADMINISTRATOR'">
+                                <button *ngIf="!changeSysAdminButton && usersListByTenant" md-raised-button (click)="changeSysAdminButton = true;">Change System Admin</button>
+                                <button *ngIf="changeSysAdminButton && usersListByTenant" md-raised-button (click)="changeSysAdmin()">Update System Admin</button>
+                            </div>
+                        </div>
+                    </div>
+                </md-tab>
+                <md-tab label="Modules Information" >
+                    <div>
+                        
+                    </div>
+                </md-tab>
+            </md-tab-group> -->
+
+
+            <p-dialog header="Tenant Logo" [(visible)]="tenantImgUploadDial" modal="true" [resizable]="false" [closeOnEscape]="false"
+                [closable]="false" [draggable]="false">
+                <div #ngxImgContainer>
+                    <ngx-img (onSelect)="onTenantLogoUpload($event)" (onReset)="onReset()" [config]="{ crop: [ { ratio: null, maxWidth: 500, maxHeight: 200 } ] }"></ngx-img>
+                </div>
+                <p-footer>
+                    <button class="action-button" md-raised-button (click)="tenantImgUploadDial = false">
+                        Done
+                    </button>
+                    <button class="action-button" md-raised-button (click)="onReset();tenantImgUploadDial = false">
+                        Cancel
+                    </button>
+                </p-footer>
+            </p-dialog>
+        </div>
+    </form>
+</div>

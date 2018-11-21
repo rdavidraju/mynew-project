@@ -1,0 +1,281 @@
+<div style="height: 100%; width: 100%">
+    <div class="component-title">
+        <div class="col-md-6">
+            <h4>
+                <span *ngIf="!mappingSet.name">{{isValueSet ? 'Value Set' : 'Lookup Set'}} {{isCreateNew ? 'Creation' : 'Detail'}}</span>
+                <span *ngIf="mappingSet.name">
+                    <span>{{isValueSet ? 'Value Set' : 'Lookup Set'}}: </span>
+                    <span style="color:black">{{mappingSet.name}}</span>
+                </span>
+            </h4>
+        </div>
+        <div class="col-md-6">
+            <div class="pull-right">
+                <button *ngIf="!isViewOnly && f.valid && !hideSaveBtn" md-icon-button aria-hidden="true" mdTooltip="Save {{isValueSet ? 'Value' : 'Lookup'}} Set" (click)="saveMappingSet();">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !f.valid && !hideSaveBtn" md-icon-button aria-hidden="true" mdTooltip="Fill Mandatory Fields"
+                    (click)="validationMsg()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="isViewOnly && !isValueSet" md-icon-button mdTooltip="Edit" [routerLink]="['/mapping-set', {outlets: {'content': [mappingSet.id]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button>
+                <button *ngIf="isViewOnly && isValueSet" md-icon-button mdTooltip="Edit" [routerLink]="['/value-set', {outlets: {'content': [mappingSet.id]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button>
+                <button *ngIf="isEdit && !isValueSet" md-icon-button mdTooltip="Close" [routerLink]="['/mapping-set', {outlets: {'content': [mappingSet.id]+'/details'}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isEdit && isValueSet" md-icon-button mdTooltip="Close" [routerLink]="['/value-set', {outlets: {'content': [mappingSet.id]+'/details'}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isCreateNew && !isValueSet" md-icon-button mdTooltip="Close" [routerLink]="['/mapping-set', {outlets: {'content': ['mapping-set-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isCreateNew && isValueSet" md-icon-button mdTooltip="Close" [routerLink]="['/value-set', {outlets: {'content': ['value-set-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button md-icon-button (click)="exportMappingSet(mappingSet.id, 'csv')" *ngIf="mappingSet.id && isViewOnly">
+                    <i class="rec-font-csv" style="font-size:24px;"></i>
+                </button>
+                <button md-icon-button (click)="exportMappingSet(mappingSet.id, 'excel')" *ngIf="mappingSet.id && isViewOnly">
+                    <i class="fa fa-file-excel-o" style="font-size:24px;"></i>
+                </button>
+                <button *ngIf="isViewOnly && !isValueSet" md-icon-button mdTooltip="Go Back" [routerLink]="['/mapping-set', {outlets: {'content': ['mapping-set-home']}}]">
+                    <md-icon>undo</md-icon>
+                </button>
+                <button *ngIf="isViewOnly && isValueSet" md-icon-button mdTooltip="Go Back" [routerLink]="['/value-set', {outlets: {'content': ['value-set-home']}}]">
+                    <md-icon>undo</md-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="component-body mapping-set">
+        <form novalidate #f="ngForm">
+            <div style="padding-top:10px;">
+                <div class="row m-0">
+                    <div class="col-md-2">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="mappingSet.name" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Name"
+                                    name="mappingSetName" required #mappingSetName="ngModel" id="mappingSetName">
+                            </md-input-container>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2" *ngIf="mappingSet.description || !isViewOnly">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="mappingSet.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Description"
+                                    name="mappingSetDescription" #mappingSetDescription="ngModel">
+                            </md-input-container>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2">
+                        <div class="mat-c-input-wrapper">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="!isCreateNew" [(ngModel)]="mappingSet.startDate" name="mappingSetStartDate" [min]="currentDate" required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2" *ngIf="mappingSet.startDate">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container *ngIf="mappingSet.endDate == '-'">
+                                <input mdInput [(ngModel)]="mappingSet.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="End Date"
+                                    name="endDate">
+                            </md-input-container>
+                            <md-form-field  *ngIf="mappingSet.endDate != '-'">
+                                <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="mappingSet.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" [(ngModel)]="mappingSet.endDate" name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 angular2-c-select-wrapper" *ngIf="!isValueSet">
+                        <angular2-multiselect [data]="purposeArray" [(ngModel)]="selectedPurpose" [settings]="dropdownSettings" name="mappingSetPurpose" required #mappingSetPurpose="ngModel" mdTooltip="Purpose">
+                        </angular2-multiselect>
+                    </div>
+
+                    <div class="col-md-2" *ngIf="isValueSet">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Segment Length" [(ngModel)]="mappingSet.segmentLength" (change)="segLenChange(mappingSet.segmentLength)" name="segmentLength" [disabled]="!isCreateNew" required>
+                                <md-option *ngFor="let col of segLengthList" [(value)]="col.segLen">{{col.segLen}}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div *ngIf="!isCreateNew" class="col-md-2">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Status" [(ngModel)]="mappingSet.enabledFlag" name="status" [disabled]="isViewOnly" required>
+                                <md-option *ngFor="let sts of statuses" [(value)]="sts.code">{{ sts.value }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mapping Values Table -->
+                <!-- <div class="row m-0">
+                    <div id="grid-box" class="col-md-3 p-1" *ngFor="let col of mappingValue; let i = index;">
+                        <div class="box-shadow-hover" style="border: 1px solid lightgray;padding: 0 0.1rem;">
+                            <div class="pull-right" id="grid-box-icons">
+                                <button *ngIf="col.columnEdit && isViewOnly" md-icon-button aria-hidden="true" mdTooltip="Save"
+                                    (click)="col.columnEdit = false;updateMapSetsVal(col, i)">
+                                    <md-icon>save</md-icon>
+                                </button>
+                                <button *ngIf="col.columnEdit && isViewOnly" (click)="col.columnEdit = false;cancelEdit()" md-icon-button mdTooltip="Cancel">
+                                    <md-icon>clear</md-icon>
+                                </button>
+                                <button md-icon-button mdTooltip="Edit" (click)="col.columnEdit = true" *ngIf="!col.columnEdit && isViewOnly">
+                                    <md-icon>mode_edit</md-icon>
+                                </button>
+                                <button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" (click)="deleteMapValue(col)">
+                                    <md-icon>delete</md-icon>
+                                </button>
+                                <button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew" (click)="deleteRow(i)">
+                                    <md-icon>delete</md-icon>
+                                </button>
+                                <button *ngIf="i == (mappingValue.length - 1)" md-icon-button mdTooltip="Add {{isValueSet ? 'Value' : 'Mapping Value'}}" (click)="addRowMappingValue()">
+                                    <md-icon>exposure_plus_1</md-icon>
+                                </button>
+                            </div>
+                            <div class="row m-0 clear-both">
+                                <div class="col-md-6 p-2">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input placeholder="{{isValueSet ? 'Code' : 'Source Value'}}" mdInput [(ngModel)]="col.sourceValue"
+                                                [pattern]="segLenVald" [ngClass]="{'color-black' : isViewOnly}" required [ngModelOptions]="{standalone: true}"
+                                                #segLen="ngModel" [disabled]="!col.columnEdit">
+                                        </md-input-container>
+                                    </div>
+                                    <span style="color: red;font-size: 10px;" *ngIf="segLen.errors?.pattern">Code should be number and
+                                        length should be segment length.</span>
+                                </div>
+                                <div class="col-md-6 p-2">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input placeholder="{{isValueSet ? 'Name' : 'Mapping Value'}}" mdInput [(ngModel)]="col.targetValue"
+                                                [ngClass]="{'color-black' : isViewOnly}" required [ngModelOptions]="{standalone: true}" [disabled]="!col.columnEdit">
+                                        </md-input-container>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 p-2">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-form-field>
+                                            <input placeholder="Start Date" mdInput [mdDatepicker]="stpicker" [ngClass]="{'color-black' : isViewOnly}"
+                                                [(ngModel)]="col.startDate" [max]="col.endDate" required [ngModelOptions]="{standalone: true}" [disabled]="!col.columnEdit">
+                                            <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                            <md-datepicker #stpicker></md-datepicker>
+                                        </md-form-field>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 p-2">
+                                    <div class="mat-c-input-wrapper">
+                                        <md-form-field>
+                                            <input placeholder="End Date" mdInput [mdDatepicker]="edpicker" [min]="col.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                                [(ngModel)]="col.endDate" [ngModelOptions]="{standalone: true}" [disabled]="!col.columnEdit">
+                                            <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                            <md-datepicker #edpicker></md-datepicker>
+                                        </md-form-field>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div> -->
+
+
+                <div class="table-responsive" style="overflow-y:hidden;padding: 0 5px;">
+                    <table class="table theme-table">
+                        <thead>
+                            <tr>
+                                <th *ngIf="!isValueSet">S. No</th>
+                                <th>{{isValueSet ? 'Code' : 'Source Value'}}*</th>
+                                <th>{{isValueSet ? 'Name' : 'Mapping Value'}}*</th>
+                                <th>Start Date*</th>
+                                <th>End Date</th>
+                                <th>
+                                    <button type="button" md-icon-button class="pull-right" mdTooltip="Add {{isValueSet ? 'Value' : 'Mapping Value'}}" (click)="addRowMappingValue()">
+                                        <md-icon>exposure_plus_1</md-icon>
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let col of mappingValue; let i = index;" id="hideIconTable">
+                                <td *ngIf="!isValueSet">
+                                    <div class="text-center">{{i+1}}</div>
+                                </td>
+                                <td>
+                                    <div *ngIf="!col.columnEdit && !isCreateNew">{{col.sourceValue}}</div>
+                                    <div class="mat-c-input-wrapper" *ngIf="col.columnEdit || isCreateNew">
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="col.sourceValue" [pattern]="segLenVald" [ngClass]="{'color-black' : isViewOnly}" required [ngModelOptions]="{standalone: true}" #segLen="ngModel" (blur)="checkDuplicate($event, col.sourceValue, i, 'sourceValue', segLen.errors?.pattern);">
+                                        </md-input-container>
+                                        <span style="color: red;font-size: 10px;margin-top: 7px;" *ngIf="segLen.errors?.pattern">Code should be number and length should be segment length.</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div *ngIf="!col.columnEdit && !isCreateNew">{{col.targetValue}}</div>
+                                    <div class="mat-c-input-wrapper" *ngIf="col.columnEdit || isCreateNew">
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="col.targetValue" [ngClass]="{'color-black' : isViewOnly}" required [ngModelOptions]="{standalone: true}" (blur)="checkDuplicate($event, col.targetValue, i, 'targetValue')">
+                                        </md-input-container>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div *ngIf="!col.columnEdit && !isCreateNew">{{col.startDate | date : "MM/dd/y"}}</div>
+                                    <div class="mat-c-input-wrapper" *ngIf="col.columnEdit || isCreateNew">
+                                        <md-form-field>
+                                            <input mdInput [mdDatepicker]="stpicker" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="col.startDate" [disabled]="!isCreateNew && !col.isNew" [min]="currentDate" required [ngModelOptions]="{standalone: true}">
+                                            <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew || col.isNew"></md-datepicker-toggle>
+                                            <md-datepicker #stpicker></md-datepicker>
+                                        </md-form-field>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div *ngIf="!col.columnEdit && !isCreateNew">{{col.endDate | date : "MM/dd/y"}}</div>
+                                    <div class="mat-c-input-wrapper" *ngIf="col.columnEdit || isCreateNew">
+                                        <md-form-field>
+                                            <input mdInput [mdDatepicker]="edpicker" [min]="col.startDate" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="col.endDate"
+                                                [ngModelOptions]="{standalone: true}">
+                                            <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                            <md-datepicker #edpicker></md-datepicker>
+                                        </md-form-field>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="display-flex pull-right" id="showIcon" [ngClass]="col.columnEdit ? 'edit-mode' : ''">
+                                        <button *ngIf="col.columnEdit && isViewOnly" md-icon-button style="font-size: 24px;" aria-hidden="true"
+                                            mdTooltip="Save" (click)="col.columnEdit = false;updateMapSetsVal(col, i)">
+                                            <md-icon>save</md-icon>
+                                        </button>
+                                        <button *ngIf="col.columnEdit && isViewOnly" (click)="col.columnEdit = false;cancelEdit()" md-icon-button style="font-size: 24px;" mdTooltip="Cancel">
+                                            <md-icon>clear</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Edit" (click)="col.columnEdit = true" *ngIf="!col.columnEdit && isViewOnly">
+                                            <md-icon>mode_edit</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" deleteConfirmation (deleteIt)="deleteMapValue(col)">
+                                            <md-icon>delete</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew" (click)="deleteRow(i)">
+                                            <md-icon>delete</md-icon>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>

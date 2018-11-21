@@ -1,0 +1,406 @@
+import { Injectable } from '@angular/core';
+import { Http, Headers, Response,RequestOptions, URLSearchParams, BaseRequestOptions } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+
+import { DataViews } from './data-views.model';
+import { DataViewsColumns } from '../data-views-columns/data-views-columns.model';
+import { JhiDateUtils } from 'ng-jhipster';
+import { SessionStorageService } from 'ng2-webstorage';
+
+
+@Injectable()
+export class DataViewsService {
+
+    private resourceUrl = 'agreeapplication/api/data-views';
+    private resourceSearchUrl = 'agreeapplication/api/_search/data-views';
+    private getDataViewListUrl = 'agreeapplication/api/dataViewsByTenanat';
+    private getDataViewListWithColumns = 'agreeapplication/api/getDataViewsNColsByTenant';
+    private getfileTemplateListUrl = 'agreeapplication/api/fileTemplatesByTenantId';
+    private getViewColumnsOrTemplateLinesUrl = 'agreeapplication/api/getViewColumnsOrTemplateLines';
+    private dataViewColumn = 'agreeapplication/api/data-views-columns';
+    private postDataViewColumnUrl = 'agreeapplication/api/postDataViewsColumns';
+    private postDataView = 'agreeapplication/api/postViewColumnsOrTemplateLines';
+    private operatorsList = 'agreeapplication/api/lookup-codes';
+    private createDataViewList = 'agreeapplication/api/createDataView';
+    private dataViewsAndcolumnsUrl = 'agreeapplication/api/getDataViewsNColsByTenant';
+    //private UserData = this.$sessionStorage.retrieve('userData');
+    private conditionUpdateUrl = 'agreeapplication/api/data-view-conditions';
+    private postUnionDataViewColumnUrl = 'agreeapplication/api/updateDataViewColsNUnions';
+    private deleteUnionViewColumn = 'agreeapplication/api/dataViewsColumnAndUnionDelete';
+    private getDataViewsDataUrl = 'agreeapplication/api/getDataViewsData';
+    private sideBarDataViewListsUrl = 'agreeapplication/api/dataViewsSideBarData';
+    private dvListWithTypeUrl = 'agreeapplication/api/fetchDataViewsByType'; 
+    private dvColumnsByType = 'agreeapplication/api/getDecimalColumnsByViewIdNType';
+    private checkDataViewIsExistUrl = 'agreeapplication/api/checkDataViewIsExist';
+    private getTemplateLinesUrl = 'agreeapplication/api/getTemplateLines';
+    private dataViewsByRuleGroupUrl = 'agreeapplication/api/getDVNameByRuleGroupId';
+    private validateCurrentTemplateUrl = 'agreeapplication/api/validateCurrentTemplate';
+     searchData:any;
+    constructor(private http: Http, private dateUtils: JhiDateUtils,
+    private $sessionStorage: SessionStorageService) { }
+
+    create(dataViews: DataViews): Observable<DataViews> {
+        let copy: DataViews = Object.assign({}, dataViews);
+        copy.creationDate = this.dateUtils.toDate(dataViews.creationDate);
+        copy.lastUpdatedDate = this.dateUtils.toDate(dataViews.lastUpdatedDate);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    //postViewColumnsOrTemplateLines?tenantId=4&userId=3
+    //POST http://localhost:8080/agreeapplication/api/postViewColumnsOrTemplateLines?tenantId=4&userId=3
+    //postViewColumnsOrTemplateLines?tenantId=4&userId=3
+    postDataViews(dataViews: DataViews): Observable<DataViews> {
+        /* let copy: DataViews = Object.assign({}, dataViews[0]);
+        console.log('data ' + JSON.stringify(dataViews[0]));
+        copy.startDate = this.dateUtils.convertLocalDateToServer(copy.startDate);
+        copy.endDate = this.dateUtils.convertLocalDateToServer(copy.endDate);
+        console.log('data ' + JSON.stringify(dataViews[0])); */
+        /* 
+        console.log('in service while posting :' + JSON.stringify(dataViews[0].startDate));
+        dataViews[0].startDate = this.dateUtils.convertLocalDateFromServer(dataViews[0].startDate); */
+        //createDataView?viewId=
+       // console.log('in service while posting :' + JSON.stringify(dataViews));
+        return this.http.post(this.postDataView, dataViews).map((res: Response) => {
+            return res.json();
+        });
+    }
+    createDataView(id: any): Observable<Response> {
+        return this.http.get(`${this.createDataViewList}?viewId=${id}`).map((res: any) => res);
+    }
+    update(dataViews: DataViews): Observable<DataViews> {
+        let copy: DataViews = Object.assign({}, dataViews);
+
+        /* copy.creationDate = this.dateUtils.toDate(dataViews.creationDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(dataViews.lastUpdatedDate); */
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    find(id: number): Observable<DataViews> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            jsonResponse.creationDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse.creationDate);
+            jsonResponse.lastUpdatedDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse.lastUpdatedDate);
+            return jsonResponse;
+        });
+    }
+
+    /* service to create and update dataview columns */
+    updateDataViewCol(data: any): Observable<Response> {
+       // console.log('data service '+JSON.stringify(data));
+        let copy: DataViewsColumns = Object.assign({}, data);
+        copy.creationDate = this.dateUtils.toDate(data.creationDate);
+        copy.lastUpdatedDate = this.dateUtils.toDate(data.lastUpdatedDate);
+       // console.log('data service '+JSON.stringify(data));
+        if(data.id != null){
+        //    console.log('inside update :');
+            return this.http.post(this.postDataViewColumnUrl, copy).map((res: Response) => {
+                return res.json();
+            });
+        }else{
+          //  console.log('inside creation :');
+            return this.http.post(this.postDataViewColumnUrl, copy).map((res: Response) => {
+                return res.json();
+            });    
+        }
+    }
+
+    updateUnionDataViewCol(data: any): Observable<Response> {
+      //  console.log('data service union '+JSON.stringify(data));
+        let copy: DataViewsColumns = Object.assign({}, data);
+            //console.log('inside update :');
+            return this.http.post(this.postUnionDataViewColumnUrl, copy).map((res: Response) => {
+                return res.json();
+            });
+    }
+
+    /* service to delete dataview columns */
+    deleteDataViewCol(id: number): Observable<Response> {
+        return this.http.delete(`${this.dataViewColumn}/${id}`);
+    }
+
+    /* serview to delete union columns */
+    deleteUnionDataViewCol(id: number): Observable<Response> {
+        return this.http.delete(`${this.deleteUnionViewColumn}?id=${id}`).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    getDataViewById(id: string): Observable<DataViews> {
+        return this.http.get(`${this.getDataViewListWithColumns}?dataViewId=${id}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            if(jsonResponse[0] && jsonResponse[0].startDate)
+            jsonResponse[0].startDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse[0].startDate);
+            if( jsonResponse[0] && jsonResponse[0].endDate)
+            jsonResponse[0].endDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse[0].endDate);
+            if( jsonResponse[0] && jsonResponse.creationDate)
+            jsonResponse.creationDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse.creationDate);
+            if(jsonResponse[0] && jsonResponse.lastUpdatedDate)
+            jsonResponse.lastUpdatedDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse.lastUpdatedDate);
+             //   console.log('fetch : ' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<Response> {
+        let options = this.createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: any) => this.convertResponse(res))
+        ;
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<Response> {
+        let options = this.createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res))
+        ;
+    }
+    sideBarDataViewLists() :Observable<Response>
+    {
+                return this.http.get(this.sideBarDataViewListsUrl).map((res: Response)=>{
+                    let jsonResponse = res.json();
+                    console.log('data view from service :' + JSON.stringify(jsonResponse.length));
+                    return jsonResponse;
+                });
+    }
+    
+    dataViewsWithType(page:number, per_page:number ,relation : any,sortCol ?:any ,sortOrder ?: any) :Observable<Response>
+    {
+        console.log('page ' + page+'per_page'+per_page+'relation'+relation);
+        if(relation === 'Single Template')
+            {
+            relation ='';
+            }
+            if(relation &&relation != undefined)
+            {
+                relation = relation.toUpperCase();
+            }
+            else{
+                relation = '';
+            }
+        console.log('after relation'+relation);
+        return this.http.get(`${this.dvListWithTypeUrl}?page=${page}&per_page=${per_page}&relation=${relation}&sortDirection=${sortOrder}&sortCol=${sortCol}`).map((res: Response)=>{
+            let jsonResponse = res.json();
+            console.log('data view list has :' + JSON.stringify(jsonResponse.length));
+            return jsonResponse;
+        });
+    }
+    allDataViewLists(page:number) :Observable<Response>
+    {
+        console.log('page ' + page);
+                return this.http.get(`${this.getDataViewListUrl}?page=${page}`).map((res: Response)=>{
+                    let jsonResponse = res.json();
+                    console.log('data view from service :' + JSON.stringify(jsonResponse.length));
+                    return jsonResponse;    
+                });
+    }
+    dataViewLists(page:number,per_page:number) :Observable<Response>
+    {
+                return this.http.get(`${this.getDataViewListUrl}?page=${page}&per_page=${per_page}`).map((res: Response)=>{
+                    //let jsonResponse = res.json();
+                    //console.log('data view from service :' + JSON.stringify(jsonResponse));
+                    return res;
+                });
+    }
+
+    dataViewList() :Observable<Response>
+    {
+       // console.log('tenant id ' + this.UserData.tenantId);
+         return this.http.get(this.getDataViewListUrl).map((res: Response)=>{
+            let jsonResponse = res.json();
+            //console.log('data view from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+            
+        });
+    
+    }
+
+    dataViewColTempList(data: any) :Observable<Response>
+    {   
+         return this.http.post(`${this.getViewColumnsOrTemplateLinesUrl}`, data).map((res: Response)=>{
+            let jsonResponse = res.json();
+          //  console.log('col temp data :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+            
+        });
+    
+    }
+    
+    /* fileTemplateList(req?: any): Observable<Response> {
+        let options = this.createRequestOption(req);
+        return this.http.get(`${this.getfileTemplateListUrl}/{tenantId}?tenantId=${UserData.tenantId}`, options)
+            .map((res: any) => this.convertResponse(res))
+        ;
+    } */
+
+   /*  fileTemplateList(req?: any): Observable<Response> {
+        let options = this.createRequestOption(req);
+        return this.http.get(this.getfileTemplateListUrl, options)
+            .map((res: any) => this.convertResponse(res))
+        ;
+    } */
+
+    fileTemplateList(formType): Observable<Response> {
+        return this.http.get(`${this.getfileTemplateListUrl}?page=1&per_page=0&formType=${formType}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    operators(data: any): Observable<DataViews> {
+        return this.http.get(`${this.operatorsList}/${data}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    
+
+    private convertResponse(res: any): any {
+        let jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            jsonResponse[i].creationDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse[i].creationDate);
+            jsonResponse[i].lastUpdatedDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse[i].lastUpdatedDate);
+        }
+        res._body = jsonResponse;
+        return res;
+    }
+
+    private createRequestOption(req?: any): BaseRequestOptions {
+        let options: BaseRequestOptions = new BaseRequestOptions();
+        if (req) {
+            let params: URLSearchParams = new URLSearchParams();
+            params.set('page', req.page);
+            params.set('size', req.size);
+            if (req.sort) {
+                params.paramsMap.set('sort', req.sort);
+            }
+            params.set('query', req.query);
+
+            options.search = params;
+        }
+        return options;
+    }
+    /**
+     * Author : Shobha
+     */
+    fetchDataViewsAndColumns(dataViewId?: any): Observable<any> {
+        if(dataViewId){
+            return this.http.get(`${this.dataViewsAndcolumnsUrl}?dataViewId=${dataViewId}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });    
+        } else {
+            return this.http.get(this.dataViewsAndcolumnsUrl).map((res: Response) => {
+                let jsonResponse = res.json();
+                return jsonResponse;
+            });
+        }
+    }
+
+    /* service to update conditions */
+    conditionUpdate(val: any): Observable<DataViews> {
+        let copy: DataViews = Object.assign({}, val);
+        return this.http.put(this.conditionUpdateUrl, copy).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    /* service to get data views */
+    getViewDetails(id:any,page:number,per_page:number) :Observable<Response>
+    {
+        console.log('id in service ' + id );
+         return this.http.get(`${this.getDataViewsDataUrl}?viewId=${id}&pageNumber=${page}&pageSize=${per_page}`).map((res: Response)=>{
+            let jsonResponse = res;
+          
+            return jsonResponse;
+            
+        });
+    
+    }
+
+
+    /* Fetch Dv Columns By Type */
+    /* AUTHOR: BHAGTAH */
+
+    fetchDvColumnsByType(viewId:any,dataType:any) :Observable<Response>
+    {
+         return this.http.get(this.dvColumnsByType + '?viewId=' + viewId + "&dataType=" + dataType).map((res: Response)=>{
+            let jsonResponse = res.json();
+          
+            return jsonResponse;
+            
+        });
+    
+    }
+
+    /**
+     * Author: Sameer
+     * Purpose: Check data view name duplicate
+     */
+    checkDataViewIsExist(name, id) {
+        return this.http.get(`${this.checkDataViewIsExistUrl}?name=${name}${id ? '&id='+id : ''}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**
+     * Author: Sameer
+     * Purpose: Get Template Lines, array of array [[{}], [{}], [{}]]
+     */
+    getTemplateLines(data) {
+        return this.http.post(this.getTemplateLinesUrl, data).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    fetchDataViewsByRuleGroup(ruleGrpId)
+    {
+        return this.http.get(this.dataViewsByRuleGroupUrl + '?ruleGroupId='+ruleGrpId ).map((res: Response)=>{
+            let jsonResponse = res.json();
+            return jsonResponse;
+            
+        });
+    }
+
+    /**
+     * @author: Sameer
+     * @description: Check Current Template in formula
+     * @param: formula
+     * @param: curTempName
+     */
+    validateCurrentTemplate(formula, curTempName) {
+        return this.http.get(`${this.validateCurrentTemplateUrl}?formula=${formula}&currentTemplate=${curTempName}`).map(res => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**
+    * @author: Sameer
+    * @description: Physical View Export
+    * @param: viewId
+    */ 
+   getDataViewsDataCSVUrl = 'agreeapplication/api/getDataViewsDataCSV';
+    getDataViewsDataCSV(id) {
+        return this.http.get(`${this.getDataViewsDataCSVUrl}?viewId=${id}`).map(res => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+}

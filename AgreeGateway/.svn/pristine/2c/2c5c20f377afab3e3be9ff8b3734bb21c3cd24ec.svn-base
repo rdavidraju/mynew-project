@@ -1,0 +1,307 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit, Inject } from '@angular/core';
+import { Response } from '@angular/http';
+import { ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService } from 'ng-jhipster';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { User, UserService } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { SelectItem, MultiSelectModule } from 'primeng/primeng';
+import { PerfectScrollbarComponent } from 'angular2-perfect-scrollbar';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { JhiDateUtils } from 'ng-jhipster';
+import { AngularMultiSelectModule } from 'angular2-multiselect-dropdown/angular2-multiselect-dropdown';
+import { CommonService } from '../../entities/common.service';
+import { UserMgmtBreadCrumbTitles } from './user-management.model';
+import { UserModalService } from './user-modal.service';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+import { Roles } from '../../entities/roles/roles.model';
+import { RolesService } from '../../entities/roles/roles.service';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-user-mgmt-detail',
+    templateUrl: './user-management-detail.component.html'
+})
+export class UserMgmtDetailComponent implements OnInit, OnDestroy {
+
+    users = new User();
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    presentUrl: any;
+    tagRoles: any = 'Yes';
+    tagRoles1:any = 'No';
+    rolesTagged = [];
+    allRoles: any = [];
+    curUserRolesList = [];
+    selectedRoles = [];
+    unassignedRoles = [];
+    display: boolean = false;
+    userRoleAssignments = [];
+    displayTaggedRoles: boolean = false;
+    constructor(
+        private userService: UserService,
+        private route: ActivatedRoute,
+        private eventManager: JhiEventManager,
+        private parseLinks: JhiParseLinks,
+        private paginationUtil: JhiPaginationUtil,
+        private jhiLanguageService: JhiLanguageService,
+        private alertService: JhiAlertService,
+        private principal: Principal,
+        private paginationConfig: PaginationConfig,
+        private router: Router,
+        private config: NgbDatepickerConfig,
+        private notificationsService: NotificationsService,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        private userModalService: UserModalService,
+        public dialog: MdDialog,
+        private rolesService: RolesService,
+    ) {
+        /*  this.config.minDate = { year: 1950, month: 1, day: 1 };
+         this.config.maxDate = { year: 2099, month: 12, day: 31 }; */
+    }
+
+    ngOnInit() {
+        this.userRoleAssignments = [];
+        this.commonService.screensize();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 161) + 'px'
+        });
+
+        this.subscription = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentUrl = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "user-management") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+            if (params['id']) {
+                console.log('in params if ' + params['id']);
+                this.userService.getUserRolesDetails().subscribe((res: any) => {
+                    this.users = res;
+                    this.userRoleAssignments = this.users.userRoleAssignments;
+                    this.userRoleAssignments.forEach(element => {
+                        element.startDate = this.dateUtils
+                            .convertLocalDateFromServer(element.startDate);
+                        element.endDate = this.dateUtils
+                            .convertLocalDateFromServer(element.endDate);
+                    });
+                    this.curUserRolesList = this.userRoleAssignments;
+                    if(this.userRoleAssignments != null){
+                        this.displayTaggedRoles = true;
+                    }
+                    this.getAllRolesList();
+                    console.log('user details ' + JSON.stringify(this.users));
+                    this.isCreateNew = false;
+                    if (url.endsWith('edit')) {
+                        this.isEdit = true;
+                    } else {
+                        this.isViewOnly = true;
+
+                    }
+                });
+                
+
+            } else {
+                this.isCreateNew = true;
+            }
+        });
+    }
+
+    /* Function to fetch All roles list */
+    getAllRolesList() {
+        this.rolesService.fetchAllRolesByTenantId().subscribe((res: any) => {
+            this.allRoles = res;
+            console.log('all roles List :' + JSON.stringify(this.allRoles));
+            this.allRoles.forEach(role => {
+                if (role.activeInd == "TRUE") {
+                    role.activeFlag = true;
+                } else {
+                    role.activeFlag = false;
+                }
+                role.roleId = role.id;
+
+                role.startDate = this.dateUtils
+                    .convertLocalDateFromServer(role.startDate);
+                role.endDate = this.dateUtils
+                    .convertLocalDateFromServer(role.endDate);
+                let occured: boolean = false;
+                this.curUserRolesList.forEach(assignedRole => {
+                    if (role.id === assignedRole.id) {
+                        occured = true;
+                    }
+                });
+                if (occured) {
+
+                }
+                else {
+                    this.unassignedRoles.push(role);
+                }
+            });
+        });
+    }
+
+    openDialog(): void {
+        let dialogRef = this.dialog.open(DialogOverviewExampleDialog, {
+            width: '250px',
+            data: { tagRoles: this.tagRoles, tagRoles1: this.tagRoles1 }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            console.log('The dialog was closed' + result);
+            if(result == 'Yes'){
+                console.log('yes ' + result);
+                this.unassignedRoles = [];
+                this.getAllRolesList();
+                this.selectedRoles = [];
+                this.display = true;
+            }else if(result == 'No'){
+                console.log('no ' + result);
+                this.saveUserDetails();
+            }
+        });
+    }
+    saveUserDetails() {
+        let link: any = '';
+        delete this.users.id;
+        this.userService.createUser(this.users).subscribe((res: any) => {
+            this.users = res;
+            this.notificationsService.success(
+                'Success!',
+                'User created successfully'
+            )
+            console.log('after save ' + JSON.stringify(this.users));
+            if (this.users.id) {
+                link = ['/user-management', { outlets: { 'content': this.users.id + '/details' } }];
+                if (this.isEdit) {
+                    this.isEdit = false;
+                }
+                if (this.isCreateNew) {
+                    this.isCreateNew = false;
+                }
+                this.isViewOnly = true;
+                this.router.navigate(link);
+            }
+        });
+    }
+    /* Function to save users */
+    saveUser() {
+        let link: any = '';
+        this.users['userRoleAssignments'] = this.userRoleAssignments;
+        this.users['authorities'] = [
+            {
+                "name": "ROLE_USER"
+            }
+        ];
+        this.users['activated'] = true;
+        this.users['password'] = 'welcome';
+        console.log('user to save ' + JSON.stringify(this.users));
+        if (this.users.id) {
+            this.userService.createUser(this.users).subscribe((res: any) => {
+                this.users = res;
+                console.log('after save ' + JSON.stringify(this.users));
+                this.notificationsService.success(
+                    'Success!',
+                    'User details updated successfully'
+                )
+                if (this.users.id) {
+                    link = ['/user-management', { outlets: { 'content': this.users.id + '/details' } }];
+                    this.router.navigate(link);
+                }
+            });
+
+        } else {
+            if (this.userRoleAssignments.length > 0) {
+                delete this.users.id;
+                this.userService.createUser(this.users).subscribe((res: any) => {
+                    this.users = res;
+                    this.notificationsService.success(
+                        'Success!',
+                        'User created successfully'
+                    )
+                    console.log('after save ' + JSON.stringify(this.users));
+                    if (this.users.id) {
+                        link = ['/user-management', { outlets: { 'content': this.users.id + '/details' } }];
+                        if (this.isEdit) {
+                            this.isEdit = false;
+                        }
+                        if (this.isCreateNew) {
+                            this.isCreateNew = false;
+                        }
+                        this.isViewOnly = true;
+                        this.router.navigate(link);
+                    }
+                });
+            } else {
+                this.openDialog();
+            }
+
+        }
+    }
+
+
+
+
+    tagSelectedRoles() {
+        this.userRoleAssignments = [];
+        console.log('selected roles ' + JSON.stringify(this.selectedRoles));
+        this.selectedRoles.forEach(element => {
+            this.userRoleAssignments.push(element);
+        });
+       //this.userRoleAssignments = this.userRoleAssignments.filter(function(item, i, ar){ return ar.indexOf(item) === i; });
+        //this.userRoleAssignments = this.selectedRoles;
+        this.displayTaggedRoles = true;
+    }
+
+    /* function to get assigned roles and functions for selected user */
+    getAssignedRolesList() {
+        if (!this.isCreateNew) {
+            this.userService.getListOfRoles(this.users.id).subscribe((res: any) => {
+                this.curUserRolesList = res;
+                console.log('curUserRolesList ' + JSON.stringify(this.curUserRolesList));
+            });
+        }
+    }
+    /*   load(login) {
+          this.userService.find(login).subscribe((user) => {
+              this.user = user;
+          });
+      } */
+
+    ngOnDestroy() {
+        /* this.subscription.unsubscribe(); */
+    }
+
+}
+@Component({
+    selector: 'dialog-overview-example-dialog',
+    templateUrl: 'dialog-overview-example-dialog.component.html',
+})
+export class DialogOverviewExampleDialog {
+    constructor(
+        public dialogRef: MdDialogRef<DialogOverviewExampleDialog>,
+        public dialog: MdDialog,
+        @Inject(MD_DIALOG_DATA) public data: any) { }
+
+    onNoClick(): void {
+        this.dialogRef.close();
+    }
+
+
+}

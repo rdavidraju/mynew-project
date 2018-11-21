@@ -1,0 +1,41 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.FxRates;
+import com.nspl.app.domain.FxRatesDetails;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the FxRates entity.
+ */
+@SuppressWarnings("unused")
+public interface FxRatesRepository extends JpaRepository<FxRates,Long> {
+
+	Page<FxRates> findByTenantIdOrderByIdDesc(Long tenantId,
+			Pageable generatePageRequest2);
+
+	List<FxRates> findByTenantIdOrderByIdDesc(Long tenantId);
+	
+	FxRates findByTenantIdAndName(Long tenantId, String name);
+	
+	FxRates findByIdAndNameAndTenantId(Long id, String name, Long tenantId);
+	
+	@Query(value =  "SELECT * FROM t_fx_rates where tenant_id = :tenantId and name = :name",nativeQuery=true)
+	List<FxRates> fetchByTenantIdAndName(@Param("tenantId") Long tenantId, @Param("name") String name);
+
+	FxRates findByTenantIdAndIdForDisplay(Long tenantId, String idForDisplay);
+	
+	@Query(value="select distinct(name) from t_fx_rates where tenant_id = :tenantId ",nativeQuery=true)
+	List<String> fetchDistinctNamesByTenantId(@Param(value = "tenantId") Long tenantId);
+	
+	FxRates findByIdForDisplayAndNameAndTenantId(String idForDisplay, String name, Long tenantId);
+
+	
+	@Query(value="select * from t_fx_rates where tenant_id=:tenantId and ((enabled_flag =1 AND (DATEDIFF(CURDATE(),start_date)) >= 0) and if(end_date is null, sysdate()+1,(DATEDIFF(end_date,CURDATE())) >= 0)) order by id asc", nativeQuery=true)
+	List<FxRates> findByTenantIdAndActiveOrderByIdDesc(@Param(value = "tenantId") Long tenantId);
+}

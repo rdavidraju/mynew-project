@@ -1,0 +1,803 @@
+<div style="height: 100%; width: 100%">
+    <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+        <div id="sticky" class="leftpane split-pane-content-primary" *ngIf="!isCreateNew">
+            <user-management-side-bar></user-management-side-bar>
+        </div>
+        <div class="split-pane-content-secondary rightpane">
+            <span class="fa fa-bars hand ripple sbclose" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew"></span>
+            <div class="component-body">
+                <div class="botom-dotted-blue-border component-title" *ngIf="isCreateNew">
+                    <div *ngIf="isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+                        <h3 class="pageListTitle">User Creation</h3>
+                    </div>
+                    <!-- <div *ngIf="!isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle">
+						<h3 *ngIf="!isCreateNew">{{dataViews.dataViewDispName}}</h3>
+					</div> -->
+                    <div class="col-lg-4 col-md-4 col-sm-4 col-xs-4">
+                        <div class="row float-right">
+                            <button *ngIf="!isViewOnly && !duplicateEmail" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save User" (click)="saveUser();" [disabled]="!f.valid">
+                                <md-icon>save</md-icon>
+                            </button>
+                            <button  *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/user-management', {outlets: {'content': [users.id]+'/edit'}}]"
+                                (click)="selectedTab = 1;">
+                                <md-icon>mode_edit</md-icon>
+                            </button>
+                            <button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/user-management', {outlets: {'content': [users.id]+'/details'}}]">
+                                <md-icon>clear</md-icon>
+                            </button>
+                            <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/user-management', {outlets: {'content': ['user-management-home']}}]">
+                                <md-icon>clear</md-icon>
+                            </button>
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back" [routerLink]="['/user-management', {outlets: {'content': ['user-management-home']}}]">
+                                <md-icon>undo</md-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="component-title" *ngIf="!isCreateNew">
+                    <div class="col-md-4 col-sm-4 col-xs-4 pageTitle" style="padding-top: 20px !important;">
+                        <h5 *ngIf="!isCreateNew" style="margin-bottom: 0px;">{{users.firstName}} {{users.lastName}}</h5>
+                        <div *ngIf="!isCreateNew" style="color: #7a7a7a;">{{users.businessTile}}</div>
+                        <div *ngIf="!isCreateNew && users.managerName" style="display:flex;">
+                            <div style="color: #7a7a7a;text-align: center; margin-bottom: auto; margin-top: auto;">
+                                <!-- <span>(M)</span> --><div style="display: grid;">{{users.managerName}}<span style="font-size: 10px; text-align: right; margin-top: -5px;">(Manager)</span></div></div><img *ngIf="users.managerImage" src="data:image/png;base64,{{users.managerImage}}"
+                                style="width: 40px; height: 40px; border-radius: 100%;margin-left: 5px;"><img *ngIf="!users.managerImage" src="userImages/user.svg" style="width: 40px; height: 40px; border-radius: 100%;margin-left: 5px;"></div>
+                        <!-- <h3 *ngIf="isCreateNew">User Creation</h3> -->
+                        <!-- <h3 *ngIf="!isCreateNew">User Details</h3>  -->
+                    </div>
+                    <div class="col-md-4 col-sm-4 col-xs-4 pageTitle" *ngIf="!isCreateNew">
+                        <div style="color: #7a7a7a;margin-top: 30px">{{users.email}}</div>
+                        <div style="color: #7a7a7a;">{{contactNumber}}</div>
+                    </div>
+                    <div class="col-md-4 col-sm-4 col-xs-4 pageTitle">
+                        <!-- <img *ngIf="!isCreateNew" src="data:image/png;base64,{{users.image}}" style="width: 90px; height: 90px; border-radius: 100%;"> -->
+                        <div>
+                            <div *ngIf="!isViewOnly">
+                                <div ng2FileDrop [ngClass]="{'nv-file-over': hasBaseDropZoneOver}" (fileOver)="fileOverBase($event)" (onFileDrop)="onFileDrop($event)"
+                                    (click)="singleFile.click()" [uploader]="uploader" class="well my-drop-zone hand" mdTooltip="Click or Drop Files Here"
+                                    style="width: 90px; height: 90px; border-radius: 100%; position: absolute; z-index: 1;">
+                                </div>
+                                <input type="file" ng2FileSelect [uploader]="uploader" #singleFile #file (change)="fileChange(file)" style="display: none;"
+                                />
+                            </div>
+                            <div><img style="width: 90px; height: 90px; border-radius: 100%; position: absolute;" id="myImage"
+                                    alt=""></div>
+                            <div *ngIf="!isCreateNew && !dispImg && users.image"><img src="data:image/png;base64,{{users.image}}" style="width: 90px; height: 90px; border-radius: 100%; position: absolute;"></div>
+                            <div [ngStyle]="{'visibility':dispImg === true ? 'hidden': ''}" *ngIf="!users.image"><img src="userImages/user.svg" style="width: 90px; height: 90px; border-radius: 100%; position: absolute;"></div>
+                        </div>
+                        <div class="row float-right" style="margin-right: 0px !important;">
+                            <button *ngIf="!isViewOnly && !duplicateEmail" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save User" (click)="saveUser();" [disabled]="!f.valid">
+                                <md-icon>save</md-icon>
+                            </button>
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/user-management', {outlets: {'content': [users.id]+'/edit'}}]">
+                                <md-icon>mode_edit</md-icon>
+                            </button>
+                            <button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/user-management', {outlets: {'content': [users.id]+'/details'}}]">
+                                <md-icon>clear</md-icon>
+                            </button>
+                            <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/user-management', {outlets: {'content': ['user-management-home']}}]">
+                                <md-icon>clear</md-icon>
+                            </button>
+                            <button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back" [routerLink]="['/user-management', {outlets: {'content': ['user-management-home']}}]">
+                                <md-icon>undo</md-icon>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <form novalidate #f="ngForm" style="margin-top: 40px;">
+                    <div class="row leftmargin-20" *ngIf="isCreateNew">
+                        <!-- <div class="col-md-3 col-xs-6 form-group" style="display: inline-block;">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="users.login" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Login Name"
+                                    name="login" required #login="ngModel"></md-input-container>
+                        </div> -->
+                        <div class="col-md-3  col-xs-6 form-group">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="users.firstName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="First Name"
+                                    name="firstName" #firstName="ngModel" required> </md-input-container>
+                        </div>
+
+                        <div class="col-md-3  col-xs-6 form-group">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="users.lastName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Last Name"
+                                    name="lastName" #lastName="ngModel"> </md-input-container>
+                        </div>
+                        <div class="col-md-3  col-xs-6 form-group" style="display: inline-block;">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="users.email" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Email Id"
+                                    pattern="[a-zA-Z0-9._%+-]+@[a-z.]+\.[a-z]{2,3}$" name="email" #email="ngModel" required (blur)="validateEmail(users.email);">                                
+                            </md-input-container>
+                            <!-- <span class="help-block errorFont" *ngIf="!f.valid.pattern">Invalid Email Id</span>  -->
+                            <span class="help-block errorFont" *ngIf="duplicateEmail">Email already in use</span>
+                        </div>
+                        <div class="col-md-3  col-xs-6 form-group">
+                            <div style="margin-left: 35%;">
+                                <div *ngIf="!isViewOnly">
+                                    <div ng2FileDrop [ngClass]="{'nv-file-over': hasBaseDropZoneOver}" (fileOver)="fileOverBase($event)" (onFileDrop)="onFileDrop($event)"
+                                        (click)="singleFile.click()" [uploader]="uploader" class="well my-drop-zone hand" mdTooltip="Click or Drop Files Here"
+                                        style="width: 121px !important; position: absolute; height: 121px; z-index: 1;">
+                                    </div>
+                                    <input type="file" ng2FileSelect [uploader]="uploader" #singleFile #file (change)="fileChange(file)" style="display: none;"
+                                    />
+                                </div>
+                                <div><img style="width: 121px; height: 121px; position: absolute;" id="myImage" alt=""></div>
+                                <div *ngIf="!isCreateNew && !dispImg"><img src="data:image/png;base64,{{users.image}}" style="width: 121px; height: 121px; position: absolute;"></div>
+                                <div [ngStyle]="{'visibility':dispImg === true ? 'hidden': ''}" *ngIf="!users.image"><img src="userImages/user.svg" style="width: 121px; height: 121px; position: absolute;"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3  col-xs-6 form-group">
+                            <md-form-field> <input mdInput [mdDatepicker]="dobpicker" placeholder="DOB" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" [(ngModel)]="users.dateOfBirth" name="dateOfBirth" required>
+                                <md-datepicker-toggle mdSuffix [for]="dobpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #dobpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                        <div class="col-md-3 col-xs-6 form-group">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="users.contactNum" type="number" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                    placeholder="Contact Number" name="contactNumber" required>
+                            </md-input-container>
+                        </div>
+                        <div class="col-md-3 col-xs-6 form-group">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="users.address" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Address"
+                                    name="address">
+                            </md-input-container>
+                        </div>
+                        <div style="margin-left:1%;"></div>
+                        <div class="col-md-3 col-xs-6 form-group">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [max]="users.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                    [(ngModel)]="users.startDate" name="startDate" required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                        <div class="col-md-3 col-xs-6 form-group">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="users.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" [(ngModel)]="users.endDate" name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                        <!-- <div class="col-md-3  col-xs-6 form-group">
+                            <md-select placeholder="Language" [(ngModel)]="users.langKey" name="langKey" #langKey="ngModel" [disabled]="isViewOnly">
+                                <md-option *ngFor="let lang of languages" [value]="lang.value">{{ lang.name }}</md-option>
+                            </md-select>
+                        </div> -->
+                        <div class="col-md-2  col-xs-6" *ngIf="isEdit">
+                            <span *ngIf="users.activated">Active</span> <span *ngIf="!users.activated">Inactive</span>
+                            <md-slide-toggle class="pull right example-margin" color="primary" [disabled]="!isEdit" mdTooltip="set status" placeholder="status"
+                                [(ngModel)]="users.activated" name="status">
+                            </md-slide-toggle>
+
+                        </div>
+                        <div class="col-md-2 col-xs-6" *ngIf="isViewOnly">
+                            <span class="badge badge-success" *ngIf="users.activated">Active</span>
+                            <span class="badge badge-warning" *ngIf="!users.activated">Inactive</span>
+                        </div>
+                    </div>
+                    <md-tab-group [selectedIndex]="selectedTab">
+                        <md-tab label="Personal Details" *ngIf="!isCreateNew">
+                            <br>
+                            <div class="row leftmargin-20">
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.firstName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="First Name"
+                                            name="firstName" #firstName="ngModel"> </md-input-container>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.lastName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Last Name"
+                                            name="lastName" #lastName="ngModel"> </md-input-container>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group" style="display:inline-block;">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.email" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Email Id"
+                                            pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,3}$" name="email" #email="ngModel" required></md-input-container>
+                                    <span class="help-block errorFont" *ngIf="duplicateEmail">Email Id already in use</span>
+                                    <div class="help-block errorFont" [hidden]="email.valid || email.untouched">
+                                        <div *ngIf="email.errors && email.errors.required">
+                                            Email is required
+                                        </div>
+                                        <div *ngIf="email.errors && email.errors.pattern">
+                                            Email is invalid
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-form-field> <input mdInput [mdDatepicker]="dobpicker" placeholder="DOB" [ngClass]="{'color-black' : isViewOnly}"
+                                            [disabled]="isViewOnly" [(ngModel)]="users.dateOfBirth" name="dateOfBirth" required>
+                                        <md-datepicker-toggle mdSuffix [for]="dobpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                        <md-datepicker #dobpicker></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [max]="users.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                            [(ngModel)]="users.startDate" name="startDate" required>
+                                        <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                        <md-datepicker #stpicker></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="users.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                            [disabled]="isViewOnly" [(ngModel)]="users.endDate" name="endDate">
+                                        <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                        <md-datepicker #edpicker></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.address" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Address"
+                                            name="address">
+                                    </md-input-container>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.contactNum" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Contact Number"
+                                            name="contactNum">
+                                    </md-input-container>
+                                </div>
+                            </div>
+                                <p-accordion [multiple]="true">
+                                    <div style="margin-left:15px;">
+                                        <p-accordionTab header="Managerial Chain" [selected]="true">
+                                            <div class="accordioncontenet">
+                                                <div class="col-md-6 table-responsive tableView">
+                                                    <table class="table data-view-creation">
+                                                        <thead class="tableheader">
+                                                            <tr>
+                                                                <th>Manager Name</th>
+                                                                <th>Designation</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr *ngFor="let col of managerialChain;let i = index;" id="hideIconTable">
+                                                                <td>
+                                                                    <div>{{col.managerName}}</div>
+                                                                </td>
+                                                                <td>
+                                                                    <div>{{col.designation}}</div>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        </p-accordionTab>
+                                    </div>
+                                </p-accordion>
+                        </md-tab>
+                        <md-tab label="Job Details">
+                            <br>
+                            <div class="row leftmargin-20">
+                                <div class="col-md-3 col-sm-4 col-xs-6 form-group" *ngIf="users.organizationName">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.organizationName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Organization"
+                                            name="organization" required readonly></md-input-container>
+                                </div>
+                                <div class="col-md-3 col-sm-4 col-xs-6 form-group">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.businessTile" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Business Title"
+                                            name="businessTitle" required></md-input-container>
+                                </div>
+                                <div class="col-md-3 col-sm-4 col-xs-6 form-group">
+                                    <button md-icon-button style="color: rgb(173, 216, 230);top: 2px;">
+                                        <md-icon>location_on</md-icon>
+                                    </button>
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="users.workLocation" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Work Location"
+                                            name="workLocation" required></md-input-container>
+                                </div>
+                                <div class="col-md-3 col-sm-4 col-xs-6 form-group" *ngIf="isViewOnly">
+                                    <md-form-field> <input mdInput [mdDatepicker]="effectiveDate" placeholder="Effective Date" [ngClass]="{'color-black' : isViewOnly}"
+                                            [disabled]="!isCreateNew" [(ngModel)]="users.createdDate" name="effectiveDate" required>
+                                        <md-datepicker-toggle mdSuffix [for]="effectiveDate" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                        <md-datepicker #effectiveDate></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                                <div class="col-md-3 col-sm-4 col-xs-6 form-group" *ngIf="managersList.length>0">
+                                    <md-select placeholder="Manager" [(ngModel)]="users.managerId" name="manager" #manager="ngModel" [disabled]="isViewOnly"
+                                        required>
+                                        <md-option *ngFor="let col of managersList" [value]="col.id">{{ col.firstName }} {{ col.lastName }}</md-option>
+                                    </md-select>
+                                </div>
+                            </div>
+
+
+                        </md-tab>
+                        <md-tab label="Preferences" *ngIf="!isCreateNew">
+                            <br>
+                            <div class="row leftmargin-20">
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-select placeholder="Language" [(ngModel)]="users.langKey" name="langKey" #langKey="ngModel" [disabled]="isViewOnly">
+                                        <md-option *ngFor="let lang of languages" [value]="lang.value">{{ lang.name }}</md-option>
+                                    </md-select>
+                                </div>
+                                <div class="col-md-3 col-xs-6 form-group">
+                                    <md-input-container>
+                                        <input mdInput [(ngModel)]="timeZone" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Time Zone"
+                                            name="timeZone">
+                                    </md-input-container>
+                                </div>
+                            </div>
+                        </md-tab>
+                        <md-tab label="Role(s)">
+                            <div *ngIf="userRoleAssnmt.length<1" style="margin-left: 24px; padding-bottom: 10px;padding-top: 10px;display:flex;">
+                                <div *ngIf="isViewOnly" style="margin-top: auto; margin-bottom: auto; padding: 5px 5px 5px 5px;">No Role(s) Tagged </div>
+                                <button md-raised-button mdTooltip="Tag New Role" (click)="display = true;addRoles();" style="margin-left: 42px;">Tag New Role(s)</button>
+                            </div>
+                            <div  *ngIf="userRoleAssnmt.length>0">
+                            <div class="row">
+                                <div class="col-md-6">
+
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="row float-right" *ngIf="displayTaggedRoles">
+                                        <button *ngIf="!isEdit" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Tag New Role" (click)="display = true;addRoles();">
+                                            <md-icon>exposure_plus_1</md-icon>
+                                        </button>
+                                        <button *ngIf="tableView && !isCreateNew" md-icon-button class="pull-right  md-36" mdTooltip="Grid View" (click)="changeView('roles');">
+                                            <md-icon>grid_on</md-icon>
+                                        </button>
+                                        <button *ngIf="!tableView && !isCreateNew" md-icon-button class="pull-right  md-36" mdTooltip="Table View" (click)="changeView('roles');">
+                                            <md-icon>view_headline</md-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-left:2px;padding: 5px 5px 5px 5px;" *ngIf="!isCreateNew && !tableViews">
+                                <p-dataGrid [value]="userRoleAssnmt" class="displayRoles">
+                                    <ng-template let-user pTemplate="item">
+                                        <div style="padding:10px;border-radius: 10px;" class="ui-lg-3 ui-md-4 ui-g-6 usersGrid">
+                                            <!-- ui-g-12 ui-md-3 -->
+                                            <p-panel [style]="{'text-align':'center'}">
+                                                <!-- <div class="ui-lg-4 ui-md-4 ui-g-4" style="text-align: center; margin-top: auto; margin-bottom: auto;">
+                                                    <img src="userImages/user.svg" width="60" height="60">
+                                                </div> -->
+                                                <div style="overflow: hidden;">
+                                                    <div style="text-overflow: ellipsis;overflow: hidden;">
+                                                        <div class="col-md-12" style="display: flex;">
+                                                            <div class="col-md-10">
+                                                                <h5>{{user.roleName}}</h5>
+                                                            </div>
+                                                            <div class="col-md-2" style="text-align: center; margin-bottom: auto; margin-top: auto;top: -6px;">
+                                                                <span class="badge badge-success pull-right" *ngIf="user.activeFlag">Active</span>
+                                                                <span class="badge badge-warning pull-right" *ngIf="!user.activeFlag">Inactive</span>
+                                                            </div>
+                                                        </div>
+                                                        <div style="display:flex;" class="col-md-12">
+                                                            <div style="display:grid;" class="col-md-6">
+                                                                <span style="color: #7a7a7a; font-size: 14px; text-align: -webkit-left; margin-top: auto;">Start Date</span>
+                                                                <span style="text-overflow: ellipsis;overflow: hidden;color: #7a7a7a;">{{user.startDate | date:"mediumDate"}}</span>
+                                                            </div>
+                                                            <div style="display:grid;padding-left: 10px;" class="col-md-6">
+                                                                <span style="color: #7a7a7a; font-size: 14px; text-align: -webkit-left; margin-top: auto;">End Date</span>
+                                                                <span style="text-overflow: ellipsis;overflow: hidden;color: #7a7a7a;">{{user.endDate | date:"mediumDate"}}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </p-panel>
+                                        </div>
+                                    </ng-template>
+                                </p-dataGrid>
+                            </div>
+                            <div class="col-md-12 table-responsive tableView" *ngIf="(displayTaggedRoles && tableViews) || isCreateNew">
+                                <table class="table data-view-creation">
+                                    <thead class="tableheader">
+                                        <tr>
+                                            <th style="width: 30%;">Role Name</th>
+                                            <th style="width: 30%;">Start Date</th>
+                                            <th style="width: 30%;">End Date</th>
+                                            <th style="width: 10%;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr *ngFor="let col of userRoleAssnmt;let i = index;" id="hideIconTable">
+                                            <td>
+                                                <div class="topmargin-10">{{col.roleName}}</div>
+                                            </td>
+                                            <td>
+                                                <div class="topmargin-10" *ngIf="!isCreateNew && !col.columnEdit">{{col.startDate  | date:"mediumDate"}}</div>
+                                                <md-form-field style="top: -6px;" *ngIf="col.columnEdit || isCreateNew">
+                                                    <input mdInput [mdDatepicker]="stpicker" placeholder="" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="col.startDate" [max]="col.endDate"
+                                                        name="rulestartDate{{i}}" required>
+                                                    <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                                    <md-datepicker #stpicker></md-datepicker>
+                                                </md-form-field>
+                                            </td>
+                                            <td>
+                                                <div class="topmargin-10" *ngIf="!isCreateNew && !col.columnEdit">{{col.endDate  | date:"mediumDate"}}</div>
+                                                <md-form-field style="top: -6px;" *ngIf="col.columnEdit || isCreateNew">
+                                                    <input mdInput [mdDatepicker]="edpicker" placeholder="" [(ngModel)]="col.endDate" [min]="col.startDate" name="endDate{{i}}" [ngClass]="{'color-black' : isViewOnly}">
+                                                    <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                                    <md-datepicker #edpicker></md-datepicker>
+                                                </md-form-field>
+                                            </td>
+                                            <td>
+                                                <div class="display-flex" id="showIcon" *ngIf="!isEdit">
+                                                    <button md-icon-button *ngIf="!col.columnEdit && !isCreateNew" (click)="col.columnEdit = true;" mdTooltip="Edit">
+                                                        <md-icon>mode_edit</md-icon>
+                                                    </button>
+                                                    <button md-icon-button class="pull-right color-green" *ngIf="col.columnEdit && f.valid" aria-hidden="true" (click)="col.columnEdit = false;updateUserRole(col);"
+                                                        mdTooltip="Update">
+                                                        <md-icon>save</md-icon>
+                                                    </button>
+                                                    <button md-icon-button mdTooltip="delete" *ngIf="!col.columnEdit || !isViewOnly" (click)="deleteColumn(col,i);">
+                                                        <md-icon>delete</md-icon>
+                                                    </button>
+                                                    <button md-icon-button class="pull-right color-gray" *ngIf="col.columnEdit" (click)="col.columnEdit = false;cancelColumnChanges(i);"
+                                                        mdTooltip="Cancel">
+                                                        <md-icon>clear</md-icon>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                        </md-tab>
+                        <md-tab label="Group(s)">
+                        <div *ngIf="groupUser.length<1" style="text-align: center; padding-bottom: 10px;padding-top: 10px;display:flex;">
+                            <div *ngIf="isViewOnly" style="margin-top: auto; margin-bottom: auto; padding: 5px 5px 5px 5px;">No Group(s) assigned to this user</div>
+                            <button md-raised-button (click)="assignGroup()">Assign Group(s)</button>
+                            <button *ngIf="isViewOnly" md-raised-button (click)="createGroup()">Create Group</button>
+                        </div>
+                        <div *ngIf="groupUser.length>0">
+                            <div class="row">
+                                <div class="col-md-6"></div>
+                                <div class="col-md-6">
+                                    <div class="row float-right">
+                                        <button md-icon-button class="pull-right color-green" *ngIf="!isCreateNew" aria-hidden="true" mdTooltip="Create Group" (click)="createGroup()" style="padding-right:10px;">
+                                            <md-icon>add</md-icon>
+                                        </button>
+                                        <button md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Assign Group" (click)="assignGroup()" style="padding-right:10px;">
+                                            <i style="font-size:17px;" class="rec-font-groups-assign"></i>
+                                        </button>
+                                        <button *ngIf="groupSwitchView && !isCreateNew" md-icon-button class="pull-right  md-36" mdTooltip="Grid View" (click)="changeView('groups');">
+                                            <md-icon>grid_on</md-icon>
+                                        </button>
+                                        <button *ngIf="!groupSwitchView && !isCreateNew" md-icon-button class="pull-right  md-36" mdTooltip="Table View" (click)="changeView('groups');">
+                                            <md-icon>view_headline</md-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-left:2px;padding: 5px;" *ngIf="!groupSwitchView">
+                                <p-dataGrid [value]="groupUser" class="displayRoles">
+                                    <ng-template let-group pTemplate="item">
+                                        <div style="padding:10px;border-radius: 10px;" class="ui-lg-3 ui-md-4 ui-g-6 usersGrid">
+                                            <p-panel [style]="{'text-align':'center'}">
+                                                <div style="overflow: hidden;">
+                                                    <div style="text-overflow: ellipsis;overflow: hidden;">
+                                                        <div class="col-md-12" style="display: flex;">
+                                                            <div class="col-md-10">
+                                                                <h5>{{group.groupName}}</h5>
+                                                            </div>
+                                                            <!-- <div class="col-md-2" style="text-align: center; margin-bottom: auto; margin-top: auto;top: -6px;">
+                                                                <span class="badge badge-success pull-right" *ngIf="group.enabledFlag">Active</span>
+                                                                <span class="badge badge-warning pull-right" *ngIf="!group.enabledFlag">Inactive</span>
+                                                            </div> -->
+                                                        </div>
+                                                        <div style="display:flex;" class="col-md-12">
+                                                            <div style="display:grid;" class="col-md-6">
+                                                                <span style="color: #7a7a7a; font-size:12px; text-align: -webkit-left; margin-top: auto;">Start Date</span>
+                                                                <span style="text-overflow: ellipsis;overflow: hidden;color: #7a7a7a;font-size:12px;">{{group.startDate | date:"mediumDate"}}</span>
+                                                            </div>
+                                                            <div style="display:grid;padding-left: 10px;" class="col-md-6">
+                                                                <span style="color: #7a7a7a; font-size:12px; text-align: -webkit-left; margin-top: auto;">End Date</span>
+                                                                <span style="text-overflow: ellipsis;overflow: hidden;color: #7a7a7a;font-size:12px;">{{group.endDate | date:"mediumDate"}}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </p-panel>
+                                        </div>
+                                    </ng-template>
+                                </p-dataGrid>
+                            </div>
+                            <div class="table-responsive" *ngIf="groupSwitchView">
+                                <perfect-scrollbar style="max-height:300px;">
+                                    <table class="table tableView">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Start Date</th>
+                                                <th>End Date</th>
+                                                <!-- <th>Status</th> -->
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr *ngFor="let col of groupUser;let i = index;" id="hideIconTable">
+                                                <td style="padding-top:8px !important">
+                                                    <div>{{col.groupName}}</div>
+                                                </td>
+                                                <td class="matbasictabletd">
+                                                    <div *ngIf="isViewOnly && !col.columnEdit" style="margin-top:5px">{{col.startDate  | date:"mediumDate"}}</div>
+                                                    <md-form-field *ngIf="col.columnEdit || isCreateNew">
+                                                        <input mdInput [mdDatepicker]="grpstpicker" [(ngModel)]="col.startDate" [max]="col.endDate" name="startDate{{i}}" required [ngModelOptions]="{standalone: true}">
+                                                        <md-datepicker-toggle mdSuffix [for]="grpstpicker"></md-datepicker-toggle>
+                                                        <md-datepicker #grpstpicker></md-datepicker>
+                                                    </md-form-field>
+                                                </td>
+                                                <td class="matbasictabletd">
+                                                    <div *ngIf="isViewOnly && !col.columnEdit" style="margin-top:5px">{{col.endDate  | date:"mediumDate"}}</div>
+                                                    <md-form-field *ngIf="col.columnEdit || isCreateNew">
+                                                        <input mdInput [mdDatepicker]="grpedpicker" [(ngModel)]="col.endDate" [min]="col.startDate" name="endDate{{i}}" [min]="col.startDate" [ngModelOptions]="{standalone: true}">
+                                                        <md-datepicker-toggle mdSuffix [for]="grpedpicker"></md-datepicker-toggle>
+                                                        <md-datepicker #grpedpicker></md-datepicker>
+                                                    </md-form-field>
+                                                </td>
+                                                <!-- <td *ngIf="!isCreateNew">
+                                                    <div *ngIf="!col.columnEdit">
+                                                        <i *ngIf="col.enabledFlag == true" style="color: darkgrey" class="material-icons">check_circle</i> 
+                                                        <i *ngIf="col.enabledFlag == false" style="color: darkgrey" class="material-icons" aria-hidden="true">error</i> 
+                                                    </div>
+                                                    <md-slide-toggle color="primary" *ngIf="col.columnEdit" mdTooltip="set status" placeholder="status"
+                                                        [(ngModel)]="col.enabledFlag" name="enabledFlag-{{i}}" [ngModelOptions]="{standalone: true}">
+                                                    </md-slide-toggle>
+                                                </td> -->
+                                                <td>
+                                                    <div class="display-flex pull-right" id="showIcon">
+                                                        <button *ngIf="col.columnEdit && isViewOnly" md-icon-button class="color-green" style="font-size: 24px;" aria-hidden="true"
+                                                            mdTooltip="Save" (click)="updateGrpUser(col)">
+                                                            <md-icon>save</md-icon>
+                                                        </button>
+                                                        <button *ngIf="col.columnEdit && isViewOnly" (click)="cancelEdit()" md-icon-button class="pull-right color-gray" style="font-size: 24px;"
+                                                            mdTooltip="Cancel">
+                                                            <md-icon>clear</md-icon>
+                                                        </button>
+                                                        <button md-icon-button mdTooltip="Edit" (click)="editGrpUser(i)" *ngIf="!col.columnEdit && isViewOnly">
+                                                            <md-icon>mode_edit</md-icon>
+                                                        </button>
+                                                        <button md-icon-button mdTooltip="delete" *ngIf="!col.columnEdit && isViewOnly" (click)="deleteGrpUser(col)">
+                                                            <md-icon>delete</md-icon>
+                                                        </button>
+                                                        <button md-icon-button mdTooltip="delete" *ngIf="isCreateNew" (click)="deleteRow(i)">
+                                                            <md-icon>delete</md-icon>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </perfect-scrollbar>
+                            </div>
+                        </md-tab>
+                    </md-tab-group>
+
+                </form>
+            </div>
+            <div class="target-data">
+                <p-dialog header="Assign Role(s)" [(visible)]="display" [resizable]="true" [responsive]="true">
+                    <p style="margin-bottom: 0px !important;">
+                        <perfect-scrollbar style="max-height: 400px;">
+                        <h5>Drag and Drop desired role(s)</h5>
+                        <div class="row rolesassignModal">
+                            <div class="col-md-6">
+
+                                <div class="MyPanel" dnd-sortable-container [sortableData]="unassignedRoles">
+                                    <div class="Heading BlueTitleDiv">List of available Roles</div>
+                                    <perfect-scrollbar class="table-responsive" style="height: 250px;">
+                                        <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                            <ul class="list-group">
+                                                <li *ngFor="let source of unassignedRoles; let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true"
+                                                    [dragData]="source">{{source.roleName}}</li>
+                                            </ul>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+
+                            </div>
+                            <div class="col-md-6">
+
+                                <div class="MyPanel" dnd-sortable-container [sortableData]="selectedRoles">
+                                    <div class="Heading BlueTitleDiv">Selected Roles</div>
+                                    <perfect-scrollbar class="table-responsive" style="height: 250px;">
+                                        <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                            <ul class="list-group">
+                                                <li *ngFor="let target of curUserRolesList;" class="list-group-item" style="color:gray;"><b *ngIf="target && target.roleName">{{target.roleName}}</b></li>
+                                                <li *ngFor="let role of selectedRoles let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true"><b *ngIf="role && role.roleName">{{role.roleName}}</b></li>
+                                            </ul>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+
+                            </div>
+                        </div>
+                        <div class="col-md-12 table-responsive tableView" *ngIf="selectedRoles.length>0 && !isCreateNew" style="padding-top: 8px;">
+                            <perfect-scrollbar style="max-height: 150px;">
+                                <table class="table  data-view-creation">
+                                    <thead class="tableheader">
+                                        <tr>
+                                            <th>Role Name</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr *ngFor="let col of selectedRoles;let i = index;" id="hideIconTable">
+                                            <td>
+                                                <div class="topmargin-10">{{col.roleName}}</div>
+                                            </td>
+                                            <td style="width: 100px;">
+                                                <md-form-field style="top: -6px;">
+                                                    <input mdInput [mdDatepicker]="stpicker" placeholder="" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="col.startDate" [max]="col.endDate"
+                                                        name="rulestartDate{{i}}" required>
+                                                    <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                                    <md-datepicker #stpicker></md-datepicker>
+                                                </md-form-field>
+                                            </td>
+                                            <td style="width: 100px;">
+                                                <md-form-field style="top: -6px;">
+                                                    <input mdInput [mdDatepicker]="edpicker" placeholder="" [(ngModel)]="col.endDate" [min]="col.startDate" name="endDate{{i}}" [ngClass]="{'color-black' : isViewOnly}">
+                                                    <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                                    <md-datepicker #edpicker></md-datepicker>
+                                                </md-form-field>
+                                            </td>
+                                            <td>
+
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </perfect-scrollbar>
+                        </div>
+                        </perfect-scrollbar>
+                    </p>
+                    <p-footer>
+                        <button md-raised-button (click)="display=false;tagSelectedRoles();" *ngIf="isCreateNew">Confirm</button>
+                        <button md-raised-button (click)="display=false;tagNewSelectedRoles();" *ngIf="!isCreateNew && selectedRoles.length>0">Assign</button>
+                        <!-- <button type="button" pButton icon="fa-check" (click)="display=false;tagSelectedRoles();" label="Confirm" *ngIf="isCreateNew"></button>
+                        <button type="button" pButton icon="fa-check" (click)="display=false;tagNewSelectedRoles();" label="Save" *ngIf="!isCreateNew"></button> -->
+                    </p-footer>
+                </p-dialog>
+                
+                <!-- Drag and drop assign group to user-->
+                <div class="dialogCenter groups-assignment">
+                        <div class="target-data">
+                            <p-dialog header="Groups Assignment" [(visible)]="groupAssignmentDialog" [resizable]="true" [responsive]="true" [dismissableMask]="true">
+                                    <div class="row" *ngIf="!dndgrp">
+                                        <div class="col-md-6">
+                                            <div class="MyPanel" dnd-sortable-container [sortableData]="groupsList">
+                                                <div class="Heading BlueTitleDiv">List of available Groups</div>
+                                                <perfect-scrollbar class="table-responsive" style="height: 300px;">
+                                                    <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                                        <ul class="list-group">
+                                                            <p style="margin-top:40%;text-align:center;color:gray" *ngIf="groupsList && groupsList.length < 1">No Groups</p>
+                                                            <li *ngFor="let unGroup of groupsList; let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true"
+                                                                [dragData]="unGroup">{{unGroup.groupName}}</li>
+                                                        </ul>
+                                                    </div>
+                                                </perfect-scrollbar>
+                                            </div>
+                                        </div>
+                                
+                                        <div class="col-md-6">
+                                            <div class="MyPanel" dnd-sortable-container [sortableData]="selectedGroups">
+                                                <div class="Heading BlueTitleDiv">Selected Groups</div>
+                                                <perfect-scrollbar class="table-responsive" style="height: 300px;">
+                                                    <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                                        <ul class="list-group">
+                                                            <li *ngFor="let selgrp of selectedGroups;let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true">
+                                                                <b *ngIf="selgrp && selgrp.groupName">{{selgrp.groupName}}</b>
+                                                            </li>
+                                                            <li *ngFor="let assignedGrp of groupUser; let j = index" class="list-group-item" style="color:gray;">
+                                                                <b *ngIf="assignedGrp && assignedGrp.groupName">{{assignedGrp.groupName}}</b>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </perfect-scrollbar>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="table-responsive" *ngIf="dndgrp">
+                                        <perfect-scrollbar style="max-height:300px;">
+                                            <table class="table tableView">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Name</th>
+                                                        <th>Start Date</th>
+                                                        <th>End Date</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr *ngFor="let col of selectedGroups;let i = index;">
+                                                        <td style="padding-top:8px !important">
+                                                            <div>{{col.groupName}}</div>
+                                                        </td>
+                                                        <td class="matbasictabletd">
+                                                            <md-form-field>
+                                                                <input mdInput [mdDatepicker]="grpstpicker" [(ngModel)]="col.startDate" [max]="col.endDate" name="startDate{{i}}" required>
+                                                                <md-datepicker-toggle mdSuffix [for]="grpstpicker"></md-datepicker-toggle>
+                                                                <md-datepicker #grpstpicker></md-datepicker>
+                                                            </md-form-field>
+                                                        </td>
+                                                        <td class="matbasictabletd">
+                                                            <md-form-field>
+                                                                <input mdInput [mdDatepicker]="grpedpicker" [(ngModel)]="col.endDate" [min]="col.startDate" name="endDate{{i}}" [min]="col.startDate">
+                                                                <md-datepicker-toggle mdSuffix [for]="grpedpicker"></md-datepicker-toggle>
+                                                                <md-datepicker #grpedpicker></md-datepicker>
+                                                            </md-form-field>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </perfect-scrollbar>
+                                    </div>
+                                <p-footer>
+                                    <div class="flex-container">
+                                        <div class="display-flex">
+                                            <button md-icon-button class="hand md-48" *ngIf="dndgrp" mdTooltip="Assign More" (click)="dndgrp = false" aria-hidden="true">
+                                                <md-icon>chevron_left</md-icon>
+                                            </button>
+                                        </div>
+                                        <div class="display-flex">
+                                            <button *ngIf="!dndgrp" md-icon-button class="hand md-48" aria-hidden="true" mdTooltip="Next" (click)="dndgrp = true" [disabled]="selectedGroups.length<1">
+                                                <md-icon>chevron_right</md-icon>
+                                            </button>
+                                            <button *ngIf="dndgrp" md-raised-button (click)="saveAssignedGrp();">{{isCreateNew ? 'Confirm' : 'Assign'}}</button>
+                                        </div>
+                                    </div>
+                                </p-footer>
+                            </p-dialog>
+                        </div>
+                    </div>
+
+            </div>
+        </div>
+    </vertical-split-pane>
+
+</div>
+<!-- <div *ngIf="user">
+    <h2>
+        <span jhiTranslate="userManagement.detail.title">User</span> [<b>{{user.login}}</b>]
+    </h2>
+    <dl class="row-md jh-entity-details">
+        <dt><span jhiTranslate="userManagement.login">Login</span></dt>
+        <dd>
+            <span>{{user.login}}</span>
+            <span class="badge badge-danger" *ngIf="!user.activated"
+                  jhiTranslate="userManagement.deactivated">Deactivated</span>
+            <span class="badge badge-success" *ngIf="user.activated"
+                  jhiTranslate="userManagement.activated">Activated</span>
+        </dd>
+        <dt><span jhiTranslate="userManagement.firstName">First Name</span></dt>
+        <dd>{{user.firstName}}</dd>
+        <dt><span jhiTranslate="userManagement.lastName">Last Name</span></dt>
+        <dd>{{user.lastName}}</dd>
+        <dt><span jhiTranslate="userManagement.email">Email</span></dt>
+        <dd>{{user.email}}</dd>
+        <dt><span jhiTranslate="userManagement.langKey">Lang Key</span></dt>
+        <dd>{{user.langKey}}</dd>
+        <dt><span jhiTranslate="userManagement.createdBy">Created By</span></dt>
+        <dd>{{user.createdBy}}</dd>
+        <dt><span jhiTranslate="userManagement.createdDate">Created Date</span></dt>
+        <dd>{{user.createdDate | date:'dd/MM/yy HH:mm' }}</dd>
+        <dt><span jhiTranslate="userManagement.lastModifiedBy">Last Modified By</span></dt>
+        <dd>{{user.lastModifiedBy}}</dd>
+        <dt><span jhiTranslate="userManagement.lastModifiedDate">Last Modified Date</span></dt>
+        <dd>{{user.lastModifiedDate | date:'dd/MM/yy HH:mm'}}</dd>
+        <dt><span jhiTranslate="userManagement.profiles">Profiles</span></dt>
+        <dd>
+            <ul class="list-unstyled">
+                <li *ngFor="let authority of user.authorities">
+                    <span class="badge badge-info">{{authority}}</span>
+                </li>
+            </ul>
+        </dd>
+    </dl>
+    <button type="submit"
+            routerLink="/user-management"
+            class="btn btn-info">
+        <span class="fa fa-arrow-left"></span>&nbsp;<span jhiTranslate="entity.action.back"> Back</span>
+    </button>
+</div>
+ -->

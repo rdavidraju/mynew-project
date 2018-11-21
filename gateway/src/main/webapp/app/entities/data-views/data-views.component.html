@@ -1,0 +1,114 @@
+<div class="component-title">
+    <div class="col-lg-4" style="margin:auto;">
+        <div class="headingIcons">
+            <i class="fa fa-database iconStyle"></i>
+        </div>
+        <h4 class="no-mb">Data View(S)</h4>
+    </div>
+    <div class="col-lg-8 flex-end" style="align-items:center;">
+        <div class="customToggleTabs">
+            <md-button-toggle-group (change)="relationChange($event)">
+                <md-button-toggle *ngFor="let rel of relations; let i=index" [value]="i" [checked]="rel.relation == relation">{{rel.relation}}({{rel.count}})</md-button-toggle>
+            </md-button-toggle-group>
+        </div>
+        <button md-icon-button [routerLink]="['/data-views', {outlets: { 'content': ['data-views-new']}}]" mdTooltip="Add Data View" *jhiHasAnyAuthority="['DATA_SRC_CREATE']">
+            <md-icon>add</md-icon>
+        </button>
+    </div>
+</div>
+<div class="component-body">
+    <div class="d-flex justify-content-between sr-pg-con">
+        <input type="text" [(ngModel)]="dataViewsService.searchData" placeholder="Search.." (keyup.enter)="searchText()" class="form-control search-input mr-2">
+        <md-paginator *ngIf="dataViewRecordsLength>0" [length]="dataViewRecordsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+            [pageIndex]="page" (page)="onPaginateChange($event)"></md-paginator>
+    </div>
+
+    <div class="position-relative">
+        <div class="show-hide-class">
+            <p-multiSelect [options]="viewColumnOptions" [(ngModel)]="viewTableColumns" title="Show/Hide Columns"></p-multiSelect>
+        </div>
+        <div class="list-table">
+            <p-dataTable [value]="dataViews" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+                [responsive]="false" [headerCheckboxToggleAllPages]="true" #dt (onSort)="changeSourceSort($event)" (onRowSelect)="onRowSelect($event)" selectionMode="single">
+                <p-column field="dataViewDispName" header="View Name" styleClass="left" [sortable]="true">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span class="d-block">{{row[col.field]}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="type" header="Type" styleClass="left" [sortable]="true">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span *ngIf="row[col.field]">{{row[col.field]}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="startDate" header="Start Date" styleClass="left" [sortable]="true">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span *ngIf="row[col.field]">{{row[col.field] | date: 'mediumDate'}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="endDate" header="End Date" styleClass="left" [sortable]="true">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <span *ngIf="row[col.field]">{{row[col.field] | date: 'mediumDate'}}</span>
+                    </ng-template>
+                </p-column>
+                <p-column field="enabledFlag" header="Status" styleClass="text-center" styleClass="center" [sortable]="true">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        <i *ngIf="row[col.field]>0" class="material-icons default-cursor" mdTooltip="Active">check_circle</i>
+                        <i *ngIf="row[col.field]<1" class="material-icons default-cursor" aria-hidden="In Active" mdTooltip="In Active">error</i>
+                    </ng-template>
+                </p-column>
+                <p-column field="description" header="Description" styleClass="left" [sortable]="true">
+                    <ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+                        <div class="v-c-h-b">
+                            <span>{{row[col.field]}}</span>
+                            <div class="icons-list editIcon">
+                                <button md-icon-button mdTooltip="View" [routerLink]="['/data-views', {outlets: {'content': [row['id']]+'/details'}}]" (click)="$event.stopPropagation()">
+                                    <md-icon>remove_red_eye</md-icon>
+                                </button>
+                                <button md-icon-button mdTooltip="Edit" [routerLink]="['/data-views', {outlets: {'content': [row['id']]+'/edit'}}]" (click)="$event.stopPropagation()">
+                                    <md-icon>edit</md-icon>
+                                </button>
+                                <button md-icon-button (click)="showView($event,row);$event.stopPropagation()" mdTooltip="Preview Data" *jhiHasAnyAuthority="['DATA_SRC_PREVIEW']">
+                                    <md-icon>pageview</md-icon>
+                                </button>
+                            </div>
+                        </div>
+                    </ng-template>
+                </p-column>
+            </p-dataTable>
+        </div>
+    </div>
+    <md-paginator class="sr-pg-con" *ngIf="dataViewRecordsLength>0" [length]="dataViewRecordsLength" [pageSize]="itemsPerPage"
+        [pageSizeOptions]="pageSizeOptions" [pageIndex]="page" (page)="onPaginateChange($event)">
+    </md-paginator>
+</div>
+
+
+<div class="dataViewDisplay">
+    <p-dialog header="{{selectedViewName}} - View" [(visible)]="display" [resizable]="false">
+        <p-header>
+            <button md-icon-button (click)="physicalViewExport('csv')" *ngIf="viewsList.length" mdTooltip="Export to CSV">
+                <i class="rec-font-csv"></i>
+            </button>
+            <button md-icon-button (click)="physicalViewExport('excel')" *ngIf="viewsList.length" mdTooltip="Export to Excel">
+                <i class="fa fa-file-excel-o"></i>
+            </button>
+        </p-header>
+        <div style="text-align:right">
+            <p-multiSelect [options]="viewColumnOptions" [(ngModel)]="viewTableColumns" title="Show/Hide Columns"></p-multiSelect>
+        </div>
+        <div class="list-table">
+            <p-dataTable [value]="viewsList" selectionMode="multiple" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+                scrollable="true" [responsive]="true" [headerCheckboxToggleAllPages]="true" #dt [rows]="15" [paginator]="false"
+                [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]" scrollHeight="calc(100vh - 350px)">
+                <p-column *ngFor="let cols of viewTableColumns" styleClass="left" [style]="{'text-align':cols.align, 'width': '300px'}" [field]="cols.field"
+                    [header]="cols.header" [sortable]="true">
+                </p-column>
+            </p-dataTable>
+        </div>
+        <p-footer>
+            <md-paginator [length]="selectedViewRecordsLength" [pageSize]="viewitemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page1"
+                (page)="onPaginateChangeView($event)">
+            </md-paginator>
+        </p-footer>
+    </p-dialog>
+</div>

@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { TemplAttributeMapping } from './templ-attribute-mapping.model';
+import { TemplAttributeMappingPopupService } from './templ-attribute-mapping-popup.service';
+import { TemplAttributeMappingService } from './templ-attribute-mapping.service';
+
+@Component({
+    selector: 'jhi-templ-attribute-mapping-delete-dialog',
+    templateUrl: './templ-attribute-mapping-delete-dialog.component.html'
+})
+export class TemplAttributeMappingDeleteDialogComponent {
+
+    templAttributeMapping: TemplAttributeMapping;
+
+    constructor(
+        private templAttributeMappingService: TemplAttributeMappingService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.templAttributeMappingService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'templAttributeMappingListModification',
+                content: 'Deleted an templAttributeMapping'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-templ-attribute-mapping-delete-popup',
+    template: ''
+})
+export class TemplAttributeMappingDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private templAttributeMappingPopupService: TemplAttributeMappingPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.templAttributeMappingPopupService
+                .open(TemplAttributeMappingDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { SourceProfiles } from './source-profiles.model';
+import { SourceProfilesPopupService } from './source-profiles-popup.service';
+import { SourceProfilesService } from './source-profiles.service';
+
+@Component({
+    selector: 'jhi-source-profiles-delete-dialog',
+    templateUrl: './source-profiles-delete-dialog.component.html'
+})
+export class SourceProfilesDeleteDialogComponent {
+
+    sourceProfiles: SourceProfiles;
+
+    constructor(
+        private sourceProfilesService: SourceProfilesService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.sourceProfilesService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'sourceProfilesListModification',
+                content: 'Deleted an sourceProfiles'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-source-profiles-delete-popup',
+    template: ''
+})
+export class SourceProfilesDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private sourceProfilesPopupService: SourceProfilesPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.sourceProfilesPopupService
+                .open(SourceProfilesDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        //this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,512 @@
+
+import { Component, OnInit, OnDestroy, OnChanges, Input } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { Subscription } from 'rxjs/Subscription';
+import { Router, NavigationEnd } from '@angular/router';
+import { SourceProfileFileAssignments } from '../source-profile-file-assignments/source-profile-file-assignments.model';
+import { SourceProfilesService } from '../source-profiles/source-profiles.service';
+import { SourceProfileswithConnections } from './source-profiles.model';
+import { JhiDateUtils } from 'ng-jhipster';
+import { SourceProfileFileAssignmentsService } from '../source-profile-file-assignments/source-profile-file-assignments.service';
+import { FileTemplates } from '../file-templates/file-templates.model';
+import { FileTemplatesService } from '../file-templates/file-templates.service';
+import { SourceConnectionDetails } from '../source-connection-details/source-connection-details.model';
+import { SourceConnectionDetailsService } from '../source-connection-details/source-connection-details.service';
+import {UserData} from '../../home/home.component';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { currentRoute } from '../../breadcrumb.component';
+import { CommonService } from '../common.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+@Component({
+    selector: 'jhi-source-profiles-edit',
+    templateUrl: './source-profiles-edit.component.html'
+})
+export class SourceProfilesEditComponent implements OnInit, OnDestroy {
+    routeSub: any;
+    mouseOverRowNo: number = -1;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    sourceProfile = new SourceProfileswithConnections();
+    profileFileAssignments: SourceProfileFileAssignments[];
+    fileTemplates: FileTemplates[];
+    expandConnection: boolean = false;
+
+    connectionDetails: SourceConnectionDetails[];
+    selectedConnection: any = {};
+    connectionTypesList = [];
+    finalCols = [];
+    displayColumns = [];
+    presentPath: any;
+    sourceProfilesList: any = [];
+    duplicateProfileName: boolean = false;
+    dsplyFiletmplts: boolean = true;
+    dsplyConnections: boolean = true;
+    extraction =[];
+    constructor(
+        private config: NgbDatepickerConfig,
+        private router: Router,
+        private sourceProfilesService: SourceProfilesService,
+        private route: ActivatedRoute,
+        private dateUtils: JhiDateUtils,
+        private sourceProfileAssignmentService: SourceProfileFileAssignmentsService,
+        private fileTemplateService: FileTemplatesService,
+        private sourceConnectionDetailsService: SourceConnectionDetailsService,
+        private notificationsService: NotificationsService,
+        private cs: CommonService,
+        private sessionStorage: SessionStorageService,
+        private commonService: CommonService,
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+    changeMinDate() {
+        this.config.minDate = this.sourceProfile.startDate;
+    }
+
+    resetMinDate() {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+    }
+
+    
+    ngOnInit() {
+        
+        $(".split-example").css({'height':'auto','min-height':(this.commonService.screensize().height - 130)+'px'});
+        //      Load unassigned file templates
+       /* this.sourceProfileAssignmentService.fetchUnassignedFileTemplates().subscribe((res: FileTemplates[]) => {
+            this.fileTemplates = res;
+            //console.log('this.fileTemplates unassigned are'+JSON.stringify(this.fileTemplates ));
+        });*/
+        this.routeSub = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+
+            this.presentPath = this.route.snapshot.url;
+
+            if (this.presentPath == "source-profiles-new") {
+                //console.log('current path : '+this.presentPath);
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+
+            if (params['id']) {
+
+                if (url.endsWith('new')) {
+                    this.isCreateNew = true;
+                    this.expandConnection = true;
+                    this.profileFileAssignments = [new SourceProfileFileAssignments()];
+                    this.profileFileAssignments[0].edit = true;
+                    //fetch source con0nection by id
+                    this.sourceConnectionDetailsService.find(params['id']).subscribe((res: any) => {
+                        let resp = res;
+                        this.sourceProfile.connectionId = resp.id;
+                        this.sourceProfile.connectionType = resp.connectionType;
+                        //Load all available connections
+                        this.sourceConnectionDetailsService.fetchSourceconnectionsAndDetails().subscribe((res: any) => {
+                            this.connectionTypesList = res;
+                            if (this.sourceProfile.connectionType) {
+                                this.connectionTypesList.forEach(con => {
+                                    if (con.connectionTypeCode === this.sourceProfile.connectionType) {
+                                        this.connectionDetails = con.sourceConnectionDetails;
+                                        this.displayColumns = con.displayColumns;
+                                    }
+                                });
+
+                                this.getConnections();
+                                this.getConnectionDetails();
+                            }
+                        });
+
+                    });
+                }
+                else {
+                    if (this.sessionStorage.retrieve('recentRoutes')['fileTemplatesRoute']) {
+                        this.dsplyFiletmplts = false
+                    }
+                    if (this.sessionStorage.retrieve('recentRoutes')['connectionProfileRoute']) {
+                        this.dsplyConnections = false;
+                    }
+                    if (this.sessionStorage.retrieve('connectionType')) {
+                        this.sourceProfile = this.sessionStorage.retrieve('profilesInfo');
+                        this.expandConnection = true;
+                        this.sourceProfile.connectionType = this.sessionStorage.retrieve('connectionType');
+                        this.sourceProfile.connectionId = this.sessionStorage.retrieve('connectionId');
+                        this.sessionStorage.clear('connectionType');
+                        this.sessionStorage.clear('connectionId');
+                        this.sessionStorage.clear('profilesInfo');
+                        this.sourceConnectionDetailsService.fetchSourceconnectionsAndDetails().subscribe((res: any) => {
+                            this.connectionTypesList = res;
+                            if (this.sourceProfile.connectionType) {
+                                this.connectionTypesList.forEach(con => {
+                                    if (con.connectionTypeCode === this.sourceProfile.connectionType) {
+                                        this.connectionDetails = con.sourceConnectionDetails;
+                                        this.displayColumns = con.displayColumns;
+                                    }
+                                });
+                                this.getConnections();
+                                this.getConnectionDetails();
+                                this.getUnassignedList(this.sourceProfile);
+                            }
+                        });
+                       
+                        this.isEdit = true;
+                    }else{
+                        this.sourceProfilesService.getProfilesAndConnectionsByProfileId(params['id']).subscribe(
+                        (res: any) => {
+
+                            this.sourceProfile = res;
+                            //get connection list
+                            this.getConnectionsList();
+//                            Load file assignments
+                            this.sourceProfileAssignmentService.getFileAssignments(params['id']).subscribe((res: any) => {
+                                this.profileFileAssignments = res;
+                                if (url.endsWith('edit')) {
+                                    this.profileFileAssignments.forEach(item => {
+                                        item.edit = true;
+                                    })
+                                    this.isEdit = true;
+                                    this.getUnassignedList(this.sourceProfile);
+                                }else {
+                                    this.isViewOnly = true;
+                                }
+                            });
+                        });
+                    }
+                    
+                }
+            }
+            else {
+                this.getConnectionsList();
+                this.isCreateNew = true;
+                this.profileFileAssignments = [new SourceProfileFileAssignments()];
+                this.profileFileAssignments[0].edit = true;
+                if (this.sessionStorage.retrieve('recentRoutes')['fileTemplatesRoute']) {
+                    this.dsplyFiletmplts = false
+                }
+                if (this.sessionStorage.retrieve('recentRoutes')['connectionProfileRoute']) {
+                    this.getUnassignedList( this.sourceProfile );
+                    this.dsplyConnections = false;
+                }
+                if (this.sessionStorage.retrieve('connectionType')) {
+                    this.sourceProfile = this.sessionStorage.retrieve('profilesInfo');
+                    this.expandConnection = true;
+                    this.sourceProfile.connectionType = this.sessionStorage.retrieve('connectionType');
+                    this.sourceProfile.connectionId = this.sessionStorage.retrieve('connectionId');
+                    this.sessionStorage.clear('connectionType');
+                    this.sessionStorage.clear('connectionId');
+                    this.sessionStorage.clear('profilesInfo');
+                    this.sourceConnectionDetailsService.fetchSourceconnectionsAndDetails().subscribe((res: any) => {
+                            this.connectionTypesList = res;
+                            if (this.sourceProfile.connectionType) {
+                                this.connectionTypesList.forEach(con => {
+                                    if (con.connectionTypeCode === this.sourceProfile.connectionType) {
+                                        this.connectionDetails = con.sourceConnectionDetails;
+                                        this.displayColumns = con.displayColumns;
+                                    }
+                                });
+                                this.getConnections();
+                                this.getConnectionDetails();
+                            }
+                        });
+                }
+            }
+        });
+    };
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+    getConnectionsList() {
+        this.sourceConnectionDetailsService.fetchSourceconnectionsAndDetails().subscribe((res: any) => {
+            this.connectionTypesList = res;
+            if (this.sourceProfile.connectionType) {
+                this.connectionTypesList.forEach(con => {
+                    if (con.connectionTypeCode === this.sourceProfile.connectionType) {
+                        this.connectionDetails = con.sourceConnectionDetails;
+                    }
+                });
+                this.getConnections();
+            }
+        });
+    }
+    getConnections() {
+        this.connectionDetails = [];
+        this.displayColumns = [];
+        this.finalCols = [];
+        if (this.sourceProfile.connectionType) {
+            this.connectionTypesList.forEach(con => {
+                if (con.connectionTypeCode === this.sourceProfile.connectionType) {
+                    this.connectionDetails = con.sourceConnectionDetails;
+                    this.displayColumns = con.displayColumns;
+                }
+                else {
+                    //console.log('not matched');
+                }
+            });
+            //this.getUnassignedList(this.sourceProfile);
+
+        }
+    }
+
+    addNewAssignment() {
+        let newAssignment = new SourceProfileFileAssignments();
+        newAssignment.edit = true;
+        this.profileFileAssignments.push(newAssignment);
+    }
+
+    removeAssignment(id: any, index: number) {
+        if (this.isCreateNew || this.isEdit) {
+            //isnew 
+            this.profileFileAssignments.splice(index, 1);
+            //integrate serv    
+            if (this.profileFileAssignments.length < 1) {
+                this.addNewAssignment();
+            }
+        }
+        else if (this.isViewOnly) {
+            //call api to delete
+            this.sourceProfileAssignmentService.delete(id).subscribe((res: Response) => {
+                this.sourceProfileAssignmentService.getFileAssignments(this.sourceProfile.id).subscribe((res: any) => {
+                    this.profileFileAssignments = res;
+                });
+            });
+        }
+
+    }
+
+    saveOneAssignment(fileAssignment: any) {
+        //console.log(fileAssignment);
+        fileAssignment.sourceProfileId = this.sourceProfile.id;
+        if (fileAssignment.id) {
+            this.sourceProfileAssignmentService.update(fileAssignment).subscribe((res: any) => {
+            });
+        }
+        else {
+            this.sourceProfileAssignmentService.create(fileAssignment).subscribe((res: any) => {
+            });
+        }
+
+
+    }
+
+    getConnectionDetails() {
+        this.finalCols = [];
+        if (this.sourceProfile.connectionId == -1) {
+            let recentRoutes = this.sessionStorage.retrieve('recentRoutes');    // Get existing routes object from session storage
+            if(recentRoutes == undefined){  // If object is undefined create new object
+                recentRoutes = {};
+            }
+            Object.assign(recentRoutes,{profilesRoute: {    // Assign new item to existing routes json
+                parentRoute: currentRoute.parent.snapshot.url.map(segment => segment.path).join("/"),
+                childRoute: currentRoute.snapshot.url.map(segment => segment.path).join("/")}});
+            
+            
+            this.sessionStorage.store('recentRoutes',recentRoutes);  // Store object into session storage
+            let keysByIndex = Object.keys(recentRoutes);    // TO get all keys into one array
+            this.sessionStorage.store('profilesInfo',this.sourceProfile);
+            this.router.navigate(['/source-connection-details', { outlets: { 'content': ['source-connection-details-new'] } }]);
+        } else {
+            this.connectionTypesList.forEach(con => {
+                let srcConfig: any = [];
+                srcConfig = con.sourceConnectionDetails;
+                srcConfig.forEach(connectionObj => {
+                    if (connectionObj.id === this.sourceProfile.connectionId) {
+                        this.selectedConnection = connectionObj;
+                        this.displayColumns.forEach(column => {
+                            for (let key in this.selectedConnection) {
+                                if (this.selectedConnection.hasOwnProperty(key)) {
+                                    if (column.code === key) {
+                                        let obj = {
+                                            "display": column.meaning,
+                                            "value": this.selectedConnection[key]
+                                        };
+                                        this.finalCols.push(obj);
+                                    }
+                                }
+                            }
+                        });
+                       this.getUnassignedList(this.sourceProfile);
+                    }
+                });
+            });
+        }
+    }
+
+    saveProfile() {
+        this.sourceProfile.description = this.sourceProfile.profileDescription;
+        this.sourceProfile.enabledFlag = true;
+        let sourceProfileToSave = {
+            "sourceProfiles": this.sourceProfile,
+            "sourceProfileFileAssignments": this.profileFileAssignments
+        };
+        this.sourceProfilesService.postSrcProfileAndAssignments(sourceProfileToSave).
+            subscribe((res: Response) => {
+                let tasks: any = [];
+                tasks = res;
+                let id = tasks[0].details;
+                this.sourceProfilesService.getProfilesAndConnectionsByProfileId(id).subscribe(
+                    (res: any) => {
+                        let recentRoutes = this.sessionStorage.retrieve('recentRoutes');
+                        let keysByIndex = Object.keys(recentRoutes);    // TO get all keys into one array
+                        if (recentRoutes == undefined || keysByIndex.length < 1) {
+                            this.sourceProfile = res;
+                            this.getConnections();
+                            //                      Load file assignments
+                            this.sourceProfileAssignmentService.getFileAssignments(id).subscribe((res: any) => {
+                                this.profileFileAssignments = res;
+                            })
+                             this.isViewOnly = true;
+                            this.isCreateNew = false;
+                            this.isEdit = false;
+                            let link :any= '';
+                            link = ['/source-profiles', {outlets: {'content': this.sourceProfile.id +'/details'}}];
+                            this.router.navigate(link);
+                           
+                        } else {
+                            this.sessionStorage.store('profileId',id);
+                            this.sessionStorage.store('sourceProfileName',this.sourceProfile.sourceProfileName);
+                            let routerParent = recentRoutes[keysByIndex[keysByIndex.length-1]].parentRoute;
+                            let routerChild = recentRoutes[keysByIndex[keysByIndex.length-1]].childRoute;
+                            delete recentRoutes[keysByIndex[keysByIndex.length-1]];
+                            this.sessionStorage.store('recentRoutes',recentRoutes);
+                            if(routerChild.search('/')==-1){
+                                this.router.navigate([`/${routerParent}`, { outlets: { 'content': [routerChild] } }]);
+                            }else{
+                                let routeLink = ['/'+routerParent, { outlets: { 'content': routerChild.split('/')[0] + '/'+routerChild.split('/')[1] } }];
+                                this.router.navigate(routeLink);
+                            }
+                        }
+                        this.notificationsService.success(
+                            'Saved!',
+                            this.sourceProfile.sourceProfileName + ' saved successfully!'
+                        )
+                    });
+            });
+    }
+    /*Functionality to check source profile name*/
+    checkSourceProfileName(val) {
+        //console.log('val :' + val);
+        var count = 0;
+        this.sourceProfilesService.getAllProfilesAndConnections().subscribe((res: ResponseWrapper) => {
+            this.sourceProfilesList = res.json();
+            console.log('profiles for tenant id areeeee ' + this.sourceProfilesList.length);
+            this.sourceProfilesList.forEach(element => {
+                //console.log('inside for');
+               let  enteredName :string;
+                enteredName = val.toLowerCase( );
+                let existingName:string ;
+                existingName = element.sourceProfileName.toLowerCase( );
+               
+                if ( existingName == enteredName) {
+                    count++;
+                    //console.log('inside if');
+                }
+            });
+            //console.log('count ' + count);
+            if (count > 0) {
+                this.duplicateProfileName = true;
+            } else {
+                this.duplicateProfileName = false;
+            }
+        }
+        );
+    }
+    /*Function to show validation message*/
+    profileValidationMsg() {
+        if (this.duplicateProfileName == true) {
+            this.notificationsService.error(
+                'Warning!',
+                'Profile Name already exists'
+            )
+        } else {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill Mandatory Fields'
+            )
+        }
+    }
+
+    
+    execute(fileAssignmentId : any,i:any)
+    {
+        console.log('FA Id:'+fileAssignmentId);
+        this.extraction[i]=true;
+        this.sourceProfileAssignmentService.MoveFilesFromCloudToLocal(fileAssignmentId).subscribe((res: ResponseWrapper) => {
+            let resp:any =res;
+            console.log('resp:'+JSON.stringify(resp));
+            if(resp.Status == 'Success' )
+            {
+                if(resp.Number_of_files == 0)
+                    {
+                    this.notificationsService.success(
+                            'No Files To Move',
+                            ''
+                    )
+                    this.extraction[i]=false;
+                    }
+                else
+                {
+                    //process moved local files
+                    this.sourceProfileAssignmentService.processFilesFromLocalPath(fileAssignmentId).subscribe((res: any) => {
+                        let resp1:any =res;
+                    console.log('resp1'+JSON.stringify(resp1));
+                    if(resp)
+                    {
+                        this.notificationsService.success(
+                                'Extraction Successful',
+                                ''
+                        )
+                        this.extraction[i]=false;
+                    }
+                    else
+                    {
+                        this.notificationsService.error(
+                                'Warning!',
+                                'Extraction Failed'
+                        )
+                        this.extraction[i]=false;
+                    }
+                    });
+                }
+                
+            }
+            else
+            {
+                this.notificationsService.error(
+                        'Warning!',
+                        'Failed while accessing files'
+                )
+                this.extraction[i]=false;
+            }
+        });
+    }
+    getUnassignedList(sourceProfilee:any)
+    {
+        console.log('sho'+JSON.stringify(sourceProfilee)+'sourceProfile tenantid '+this.sourceProfile.tenantId);
+       if(!this.isViewOnly)
+       {
+           this.sourceProfileAssignmentService.fetchUnassignedFileTemplates( sourceProfilee).subscribe((res: FileTemplates[]) => {
+               this.fileTemplates = res;
+               //console.log('this.fileTemplates unassigned are'+JSON.stringify(this.fileTemplates ));
+           });
+       }
+        
+    }
+clearFields(i)
+    {
+        this.profileFileAssignments[i].templateId=null;
+        this.profileFileAssignments[i].fileNameFormat='';
+        this.profileFileAssignments[i].fileExtension='';
+        this.profileFileAssignments[i].fileDescription='';
+        this.profileFileAssignments[i].sourceDirectoryPath='';
+        this.profileFileAssignments[i].localDirectoryPath='';
+    }    
+}

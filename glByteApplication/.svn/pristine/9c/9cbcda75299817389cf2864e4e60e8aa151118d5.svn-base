@@ -1,0 +1,303 @@
+package com.nspl.app.web.rest;
+
+import com.nspl.app.AgreeApplicationApp;
+
+import com.nspl.app.domain.LineCriteria;
+import com.nspl.app.repository.LineCriteriaRepository;
+import com.nspl.app.web.rest.errors.ExceptionTranslator;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.MockitoAnnotations;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.transaction.annotation.Transactional;
+
+import javax.persistence.EntityManager;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.util.List;
+
+import static com.nspl.app.web.rest.TestUtil.sameInstant;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Test class for the LineCriteriaResource REST controller.
+ *
+ * @see LineCriteriaResource
+ */
+@RunWith(SpringRunner.class)
+@SpringBootTest(classes = AgreeApplicationApp.class)
+public class LineCriteriaResourceIntTest {
+
+    private static final Long DEFAULT_JE_TEMP_ID = 1L;
+    private static final Long UPDATED_JE_TEMP_ID = 2L;
+
+    private static final Integer DEFAULT_SEQ = 1;
+    private static final Integer UPDATED_SEQ = 2;
+
+    private static final Long DEFAULT_S_VIEW_COLUMN = 1L;
+    private static final Long UPDATED_S_VIEW_COLUMN = 2L;
+
+    private static final String DEFAULT_OPERATOR = "AAAAAAAAAA";
+    private static final String UPDATED_OPERATOR = "BBBBBBBBBB";
+
+    private static final String DEFAULT_VALUE = "AAAAAAAAAA";
+    private static final String UPDATED_VALUE = "BBBBBBBBBB";
+
+    private static final Long DEFAULT_CREATED_BY = 1L;
+    private static final Long UPDATED_CREATED_BY = 2L;
+
+    private static final Long DEFAULT_LAST_UPDATED_BY = 1L;
+    private static final Long UPDATED_LAST_UPDATED_BY = 2L;
+
+    private static final ZonedDateTime DEFAULT_CREATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_CREATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    private static final ZonedDateTime DEFAULT_LAST_UPDATED_DATE = ZonedDateTime.ofInstant(Instant.ofEpochMilli(0L), ZoneOffset.UTC);
+    private static final ZonedDateTime UPDATED_LAST_UPDATED_DATE = ZonedDateTime.now(ZoneId.systemDefault()).withNano(0);
+
+    @Autowired
+    private LineCriteriaRepository lineCriteriaRepository;
+
+    @Autowired
+    private MappingJackson2HttpMessageConverter jacksonMessageConverter;
+
+    @Autowired
+    private PageableHandlerMethodArgumentResolver pageableArgumentResolver;
+
+    @Autowired
+    private ExceptionTranslator exceptionTranslator;
+
+    @Autowired
+    private EntityManager em;
+
+    private MockMvc restLineCriteriaMockMvc;
+
+    private LineCriteria lineCriteria;
+
+    @Before
+    public void setup() {
+        MockitoAnnotations.initMocks(this);
+        LineCriteriaResource lineCriteriaResource = new LineCriteriaResource(lineCriteriaRepository);
+        this.restLineCriteriaMockMvc = MockMvcBuilders.standaloneSetup(lineCriteriaResource)
+            .setCustomArgumentResolvers(pageableArgumentResolver)
+            .setControllerAdvice(exceptionTranslator)
+            .setMessageConverters(jacksonMessageConverter).build();
+    }
+
+    /**
+     * Create an entity for this test.
+     *
+     * This is a static method, as tests for other entities might also need it,
+     * if they test an entity which requires the current entity.
+     */
+    public static LineCriteria createEntity(EntityManager em) {
+        LineCriteria lineCriteria = new LineCriteria()
+            .jeTempId(DEFAULT_JE_TEMP_ID)
+            .seq(DEFAULT_SEQ)
+            .sViewColumn(DEFAULT_S_VIEW_COLUMN)
+            .operator(DEFAULT_OPERATOR)
+            .value(DEFAULT_VALUE)
+            .createdBy(DEFAULT_CREATED_BY)
+            .lastUpdatedBy(DEFAULT_LAST_UPDATED_BY)
+            .createdDate(DEFAULT_CREATED_DATE)
+            .lastUpdatedDate(DEFAULT_LAST_UPDATED_DATE);
+        return lineCriteria;
+    }
+
+    @Before
+    public void initTest() {
+        lineCriteria = createEntity(em);
+    }
+
+    @Test
+    @Transactional
+    public void createLineCriteria() throws Exception {
+        int databaseSizeBeforeCreate = lineCriteriaRepository.findAll().size();
+
+        // Create the LineCriteria
+        restLineCriteriaMockMvc.perform(post("/api/line-criteria")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(lineCriteria)))
+            .andExpect(status().isCreated());
+
+        // Validate the LineCriteria in the database
+        List<LineCriteria> lineCriteriaList = lineCriteriaRepository.findAll();
+        assertThat(lineCriteriaList).hasSize(databaseSizeBeforeCreate + 1);
+        LineCriteria testLineCriteria = lineCriteriaList.get(lineCriteriaList.size() - 1);
+        assertThat(testLineCriteria.getJeTempId()).isEqualTo(DEFAULT_JE_TEMP_ID);
+        assertThat(testLineCriteria.getSeq()).isEqualTo(DEFAULT_SEQ);
+        assertThat(testLineCriteria.getsViewColumn()).isEqualTo(DEFAULT_S_VIEW_COLUMN);
+        assertThat(testLineCriteria.getOperator()).isEqualTo(DEFAULT_OPERATOR);
+        assertThat(testLineCriteria.getValue()).isEqualTo(DEFAULT_VALUE);
+        assertThat(testLineCriteria.getCreatedBy()).isEqualTo(DEFAULT_CREATED_BY);
+        assertThat(testLineCriteria.getLastUpdatedBy()).isEqualTo(DEFAULT_LAST_UPDATED_BY);
+        assertThat(testLineCriteria.getCreatedDate()).isEqualTo(DEFAULT_CREATED_DATE);
+        assertThat(testLineCriteria.getLastUpdatedDate()).isEqualTo(DEFAULT_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void createLineCriteriaWithExistingId() throws Exception {
+        int databaseSizeBeforeCreate = lineCriteriaRepository.findAll().size();
+
+        // Create the LineCriteria with an existing ID
+        lineCriteria.setId(1L);
+
+        // An entity with an existing ID cannot be created, so this API call must fail
+        restLineCriteriaMockMvc.perform(post("/api/line-criteria")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(lineCriteria)))
+            .andExpect(status().isBadRequest());
+
+        // Validate the Alice in the database
+        List<LineCriteria> lineCriteriaList = lineCriteriaRepository.findAll();
+        assertThat(lineCriteriaList).hasSize(databaseSizeBeforeCreate);
+    }
+
+    @Test
+    @Transactional
+    public void getAllLineCriteria() throws Exception {
+        // Initialize the database
+        lineCriteriaRepository.saveAndFlush(lineCriteria);
+
+        // Get all the lineCriteriaList
+        restLineCriteriaMockMvc.perform(get("/api/line-criteria?sort=id,desc"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.[*].id").value(hasItem(lineCriteria.getId().intValue())))
+            .andExpect(jsonPath("$.[*].jeTempId").value(hasItem(DEFAULT_JE_TEMP_ID.intValue())))
+            .andExpect(jsonPath("$.[*].seq").value(hasItem(DEFAULT_SEQ)))
+            .andExpect(jsonPath("$.[*].sViewColumn").value(hasItem(DEFAULT_S_VIEW_COLUMN.toString())))
+            .andExpect(jsonPath("$.[*].operator").value(hasItem(DEFAULT_OPERATOR.toString())))
+            .andExpect(jsonPath("$.[*].value").value(hasItem(DEFAULT_VALUE.toString())))
+            .andExpect(jsonPath("$.[*].createdBy").value(hasItem(DEFAULT_CREATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].lastUpdatedBy").value(hasItem(DEFAULT_LAST_UPDATED_BY.intValue())))
+            .andExpect(jsonPath("$.[*].createdDate").value(hasItem(sameInstant(DEFAULT_CREATED_DATE))))
+            .andExpect(jsonPath("$.[*].lastUpdatedDate").value(hasItem(sameInstant(DEFAULT_LAST_UPDATED_DATE))));
+    }
+
+    @Test
+    @Transactional
+    public void getLineCriteria() throws Exception {
+        // Initialize the database
+        lineCriteriaRepository.saveAndFlush(lineCriteria);
+
+        // Get the lineCriteria
+        restLineCriteriaMockMvc.perform(get("/api/line-criteria/{id}", lineCriteria.getId()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON_UTF8_VALUE))
+            .andExpect(jsonPath("$.id").value(lineCriteria.getId().intValue()))
+            .andExpect(jsonPath("$.jeTempId").value(DEFAULT_JE_TEMP_ID.intValue()))
+            .andExpect(jsonPath("$.seq").value(DEFAULT_SEQ))
+            .andExpect(jsonPath("$.sViewColumn").value(DEFAULT_S_VIEW_COLUMN.toString()))
+            .andExpect(jsonPath("$.operator").value(DEFAULT_OPERATOR.toString()))
+            .andExpect(jsonPath("$.value").value(DEFAULT_VALUE.toString()))
+            .andExpect(jsonPath("$.createdBy").value(DEFAULT_CREATED_BY.intValue()))
+            .andExpect(jsonPath("$.lastUpdatedBy").value(DEFAULT_LAST_UPDATED_BY.intValue()))
+            .andExpect(jsonPath("$.createdDate").value(sameInstant(DEFAULT_CREATED_DATE)))
+            .andExpect(jsonPath("$.lastUpdatedDate").value(sameInstant(DEFAULT_LAST_UPDATED_DATE)));
+    }
+
+    @Test
+    @Transactional
+    public void getNonExistingLineCriteria() throws Exception {
+        // Get the lineCriteria
+        restLineCriteriaMockMvc.perform(get("/api/line-criteria/{id}", Long.MAX_VALUE))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @Transactional
+    public void updateLineCriteria() throws Exception {
+        // Initialize the database
+        lineCriteriaRepository.saveAndFlush(lineCriteria);
+        int databaseSizeBeforeUpdate = lineCriteriaRepository.findAll().size();
+
+        // Update the lineCriteria
+        LineCriteria updatedLineCriteria = lineCriteriaRepository.findOne(lineCriteria.getId());
+        updatedLineCriteria
+            .jeTempId(UPDATED_JE_TEMP_ID)
+            .seq(UPDATED_SEQ)
+            .sViewColumn(UPDATED_S_VIEW_COLUMN)
+            .operator(UPDATED_OPERATOR)
+            .value(UPDATED_VALUE)
+            .createdBy(UPDATED_CREATED_BY)
+            .lastUpdatedBy(UPDATED_LAST_UPDATED_BY)
+            .createdDate(UPDATED_CREATED_DATE)
+            .lastUpdatedDate(UPDATED_LAST_UPDATED_DATE);
+
+        restLineCriteriaMockMvc.perform(put("/api/line-criteria")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(updatedLineCriteria)))
+            .andExpect(status().isOk());
+
+        // Validate the LineCriteria in the database
+        List<LineCriteria> lineCriteriaList = lineCriteriaRepository.findAll();
+        assertThat(lineCriteriaList).hasSize(databaseSizeBeforeUpdate);
+        LineCriteria testLineCriteria = lineCriteriaList.get(lineCriteriaList.size() - 1);
+        assertThat(testLineCriteria.getJeTempId()).isEqualTo(UPDATED_JE_TEMP_ID);
+        assertThat(testLineCriteria.getSeq()).isEqualTo(UPDATED_SEQ);
+        assertThat(testLineCriteria.getsViewColumn()).isEqualTo(UPDATED_S_VIEW_COLUMN);
+        assertThat(testLineCriteria.getOperator()).isEqualTo(UPDATED_OPERATOR);
+        assertThat(testLineCriteria.getValue()).isEqualTo(UPDATED_VALUE);
+        assertThat(testLineCriteria.getCreatedBy()).isEqualTo(UPDATED_CREATED_BY);
+        assertThat(testLineCriteria.getLastUpdatedBy()).isEqualTo(UPDATED_LAST_UPDATED_BY);
+        assertThat(testLineCriteria.getCreatedDate()).isEqualTo(UPDATED_CREATED_DATE);
+        assertThat(testLineCriteria.getLastUpdatedDate()).isEqualTo(UPDATED_LAST_UPDATED_DATE);
+    }
+
+    @Test
+    @Transactional
+    public void updateNonExistingLineCriteria() throws Exception {
+        int databaseSizeBeforeUpdate = lineCriteriaRepository.findAll().size();
+
+        // Create the LineCriteria
+
+        // If the entity doesn't have an ID, it will be created instead of just being updated
+        restLineCriteriaMockMvc.perform(put("/api/line-criteria")
+            .contentType(TestUtil.APPLICATION_JSON_UTF8)
+            .content(TestUtil.convertObjectToJsonBytes(lineCriteria)))
+            .andExpect(status().isCreated());
+
+        // Validate the LineCriteria in the database
+        List<LineCriteria> lineCriteriaList = lineCriteriaRepository.findAll();
+        assertThat(lineCriteriaList).hasSize(databaseSizeBeforeUpdate + 1);
+    }
+
+    @Test
+    @Transactional
+    public void deleteLineCriteria() throws Exception {
+        // Initialize the database
+        lineCriteriaRepository.saveAndFlush(lineCriteria);
+        int databaseSizeBeforeDelete = lineCriteriaRepository.findAll().size();
+
+        // Get the lineCriteria
+        restLineCriteriaMockMvc.perform(delete("/api/line-criteria/{id}", lineCriteria.getId())
+            .accept(TestUtil.APPLICATION_JSON_UTF8))
+            .andExpect(status().isOk());
+
+        // Validate the database is empty
+        List<LineCriteria> lineCriteriaList = lineCriteriaRepository.findAll();
+        assertThat(lineCriteriaList).hasSize(databaseSizeBeforeDelete - 1);
+    }
+
+    @Test
+    @Transactional
+    public void equalsVerifier() throws Exception {
+        TestUtil.equalsVerifier(LineCriteria.class);
+    }
+}

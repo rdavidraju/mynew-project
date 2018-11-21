@@ -1,0 +1,74 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { SchedulerDetails } from './scheduler-details.model';
+import { SchedulerDetailsService } from './scheduler-details.service';
+
+@Injectable()
+export class SchedulerDetailsPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private schedulerDetailsService: SchedulerDetailsService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.schedulerDetailsService.find(id).subscribe((schedulerDetails) => {
+                    if (schedulerDetails.startDate) {
+                        schedulerDetails.startDate = {
+                            year: schedulerDetails.startDate.getFullYear(),
+                            month: schedulerDetails.startDate.getMonth() + 1,
+                            day: schedulerDetails.startDate.getDate()
+                        };
+                    }
+                    if (schedulerDetails.endDate) {
+                        schedulerDetails.endDate = {
+                            year: schedulerDetails.endDate.getFullYear(),
+                            month: schedulerDetails.endDate.getMonth() + 1,
+                            day: schedulerDetails.endDate.getDate()
+                        };
+                    }
+                    schedulerDetails.creationDate = this.datePipe
+                        .transform(schedulerDetails.creationDate, 'yyyy-MM-ddThh:mm');
+                    schedulerDetails.lastUpdatedDate = this.datePipe
+                        .transform(schedulerDetails.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.schedulerDetailsModalRef(component, schedulerDetails);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.schedulerDetailsModalRef(component, new SchedulerDetails());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    schedulerDetailsModalRef(component: Component, schedulerDetails: SchedulerDetails): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.schedulerDetails = schedulerDetails;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

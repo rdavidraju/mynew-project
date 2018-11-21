@@ -1,0 +1,63 @@
+import { Injectable } from '@angular/core';
+import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Routes, CanActivate } from '@angular/router';
+
+import { UserRouteAccessService } from '../../shared';
+import { JhiPaginationUtil } from 'ng-jhipster';
+
+//import { DataViewsColumnsComponent } from './data-views-columns.component';
+//import { DataViewsColumnsDetailComponent } from './data-views-columns-detail.component';
+//import { DataViewsColumnsPopupComponent } from './data-views-columns-dialog.component';
+//import { DataViewsColumnsDeletePopupComponent } from './data-views-columns-delete-dialog.component';
+
+export const dataViewsColumnsRoute: Routes = [
+    // {
+    //     path: 'data-views-columns',
+    //     component: DataViewsColumnsComponent,
+    //     data: {
+    //         authorities: ['ROLE_USER'],
+    //         pageTitle: 'agreeGatewayV1App.dataViewsColumns.home.title'
+    //     },
+    //     canActivate: [UserRouteAccessService]
+    // }, {
+    //     path: 'data-views-columns/:id',
+    //     component: DataViewsColumnsDetailComponent,
+    //     data: {
+    //         authorities: ['ROLE_USER'],
+    //         pageTitle: 'agreeGatewayV1App.dataViewsColumns.home.title'
+    //     },
+    //     canActivate: [UserRouteAccessService]
+    // }
+]; 
+
+export const dataViewsColumnsPopupRoute: Routes = [
+    // {
+    //     path: 'data-views-columns-new',
+    //     component: DataViewsColumnsPopupComponent,
+    //     data: {
+    //         authorities: ['ROLE_USER'],
+    //         pageTitle: 'agreeGatewayV1App.dataViewsColumns.home.title'
+    //     },
+    //     canActivate: [UserRouteAccessService],
+    //     outlet: 'popup'
+    // },
+    // {
+    //     path: 'data-views-columns/:id/edit',
+    //     component: DataViewsColumnsPopupComponent,
+    //     data: {
+    //         authorities: ['ROLE_USER'],
+    //         pageTitle: 'agreeGatewayV1App.dataViewsColumns.home.title'
+    //     },
+    //     canActivate: [UserRouteAccessService],
+    //     outlet: 'popup'
+    // },
+    // {
+    //     path: 'data-views-columns/:id/delete',
+    //     component: DataViewsColumnsDeletePopupComponent,
+    //     data: {
+    //         authorities: ['ROLE_USER'],
+    //         pageTitle: 'agreeGatewayV1App.dataViewsColumns.home.title'
+    //     },
+    //     canActivate: [UserRouteAccessService],
+    //     outlet: 'popup'
+    // }
+];

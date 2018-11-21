@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { DataViewsSrcMappings } from './data-views-src-mappings.model';
+import { DataViewsSrcMappingsService } from './data-views-src-mappings.service';
+
+@Component({
+    selector: 'jhi-data-views-src-mappings-detail',
+    templateUrl: './data-views-src-mappings-detail.component.html'
+})
+export class DataViewsSrcMappingsDetailComponent implements OnInit, OnDestroy {
+
+    dataViewsSrcMappings: DataViewsSrcMappings;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private dataViewsSrcMappingsService: DataViewsSrcMappingsService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInDataViewsSrcMappings();
+    }
+
+    load(id) {
+        this.dataViewsSrcMappingsService.find(id).subscribe((dataViewsSrcMappings) => {
+            this.dataViewsSrcMappings = dataViewsSrcMappings;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInDataViewsSrcMappings() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'dataViewsSrcMappingsListModification',
+            (response) => this.load(this.dataViewsSrcMappings.id)
+        );
+    }
+}

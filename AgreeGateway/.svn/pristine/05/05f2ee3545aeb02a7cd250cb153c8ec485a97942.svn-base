@@ -1,0 +1,1202 @@
+<div class="row leftmargin-20" style="border-bottom: 1px solid #eee;" *ngIf="!ruleCreationInWQ">
+	<div class="col-md-6 col-sm-6 col-xs-6">
+		<h4 style="margin-top: 6px;">
+			<b>Rules</b>
+		</h4>
+	</div>
+	<div class="col-md-6 col-sm-6 col-xs-6" *ngIf="ruleGroupService.accountingRuleGroup.rules && !isViewOnly ">
+		<!-- <button md-icon-button class="pull-right  md-36" mdTooltip="Confirm Tagging these rules" (click)="saveToSession()" *ngIf="!isViewOnly">
+			<md-icon>local_offer</md-icon>
+		</button> -->
+		<button md-icon-button class="pull-right  md-36" mdTooltip="Add New Rule" (click)="addNewRuleObject(ruleGroupService.accountingRuleGroup.rules.length,0)"
+		 mdTooltip="New Rule">
+			<md-icon>add</md-icon>
+		</button>
+	</div>
+</div>
+<button md-icon-button class="pull-right" *ngIf="ruleCreationInWQ" (click)="saveAdhocRule()" aria-hidden="true" mdTooltip="Save Rule Group">
+	<md-icon>save</md-icon>
+</button>
+<form novalidate #accRuleForm="ngForm">
+	<div class="row sub-heading-content rule-group-accounting displayAcc-popoverbody" id="hideIconTable">
+		<ng-template ngFor let-ruleObj [ngForOf]="ruleGroupService.accountingRuleGroup.rules" let-i="index" ;>
+			<p-accordion [multiple]="true">
+				<p-accordionTab [selected]="true" (mouseover)="mouseOverRule = i" (mouseleave)="mouseOverRule=-1">
+					<p-header>
+						<span *ngIf="ruleObj && ruleObj.ruleCode">{{ruleObj.ruleCode}}</span>
+						<span *ngIf="!ruleObj.ruleCode">New Rule - {{i+1}}</span>
+
+						<!-- <button md-icon-button class="pull-right" style="top: -10px;" (click)="clearRuleObject(i);false" *ngIf="!isViewOnly && mouseOverRule==i && !ruleCreationInWQ && !ruleObj.ruleGroupAssignId"
+						 mdTooltip="Clear" id="showIcon">
+							<md-icon>clear</md-icon>
+						</button> -->
+						<i class="fa fa-eraser pull-right" aria-hidden="true" style="margin-top:4px" mdTooltip="Clear rule" (click)="clearRuleObject(i);false" *ngIf="!isViewOnly && mouseOverRule==i && !ruleCreationInWQ && !ruleObj.ruleGroupAssignId"
+						id="showIcon"></i>
+						<button md-icon-button class="pull-right " style="top: -10px;" (click)="deleteRuleObject(i);false" *ngIf="!isViewOnly && mouseOverRule==i && !ruleCreationInWQ && !ruleObj.ruleGroupAssignId"
+						 mdTooltip="Delete Rule" id="showIcon">
+							<md-icon>delete</md-icon>
+						</button>
+						<button md-icon-button class="pull-right  md-36" style="color: black !important" mdTooltip="Active" *ngIf="ruleObj.assignmentFlag && isViewOnly">
+							<md-icon>check_circle</md-icon>
+						</button>
+						<button md-icon-button class="pull-right  md-36" style="color: black !important" mdTooltip="Inactive" *ngIf="!ruleObj.assignmentFlag && isViewOnly">
+							<md-icon>error</md-icon>
+						</button>
+					</p-header>
+
+					<div class="accordioncontenet ">
+						<div class="row" style="display:flex;">
+
+							<div class="col-md-3 col-sm-4" *ngIf="!ruleCreationInWQ">
+								<form class="form-horizontal" [formGroup]="ruleListformArray[i]" *ngIf="!isViewOnly && !ruleObj.ruleGroupAssignId && ruleListformArray && ruleListformArray[i]">
+									<md-input-container>
+										<input formControlName="data" mdInput placeholder="Rule Name" auto-complete [(ngModel)]="ruleObj.ruleCode" [source]="ruleListArrays[i]"
+										 (onBlur)="checkIfRuleCodeisUndefined(i)" [list-formatter]="autocompleListFormatter" value-property-name="id" display-property-name="ruleCode"
+										 required (valueChanged)="setRuleObject($event,i,ruleListformArray[i].value)" />
+									</md-input-container>
+								</form>
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.ruleGroupAssignId">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.ruleCode" [ngClass]="{'color-black' : true }" [disabled]="true" placeholder="Rule Name"
+									 name="ruleCode{{i}}" required #ruleCode{{i}}="ngModel">
+								</md-input-container>
+							</div>
+							<div class="col-md-3" *ngIf="ruleCreationInWQ">
+								<md-input-container>
+									<input mdInput [(ngModel)]="ruleObj.ruleCode" placeholder="Rule Name" name="ruleNameForWQ" required #ruleNameForWQ="ngModel"> </md-input-container>
+							</div>
+
+
+							<div class="col-md-2" *ngIf="(ruleObj.purpose == 'RECONCILED_AND_ACCOUNTED') || (dispViewField ) || (ruleObj.purpose != 'RECONCILED_AND_ACCOUNTED')">
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54);padding-bottom: 3px;"
+								 *ngIf="!ruleObj.id">
+									Data source :</div>
+								<!-- <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)padding-bottom: 3px;" *ngIf="ruleObj.sourceDVId && (!ruleObj.id ) && (ruleObj.sourceDVId && ruleObj.sourceDVId.length>0)">
+									Selected data source :</div> -->
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12 " style="margin-top: -5px;" *ngIf="!ruleCreationInWQ && (!ruleObj.id ) && sourceDataViewsArrays && sourceDataViewsArrays.length>0">
+									<angular2-multiselect [data]="sourceDataViewsArrays" [(ngModel)]="ruleObj.sourceDVId"required [settings]="dropdownSettings" (onSelect)="setDataview($event,i)"
+									 name="sdv{{i}}" #sdv{{i}}="ngModel" >
+									</angular2-multiselect>
+									<span class="cuppa-single-selection-underline" *ngIf="!ruleCreationInWQ && (!ruleObj.id ) && sourceDataViewsArrays && sourceDataViewsArrays.length>0"></span>
+								</div>
+
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.sourceDataViewName" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Data View" name="sourceDataViewName{{i}}" required #sourceDataViewName{{i}}="ngModel">
+								</md-input-container>
+							</div>
+							<div class="col-md-2" *ngIf="ruleGroupService.ruleGroup.activityBased == true && (ruleGroupService .reconDataSourceArrays && ruleGroupService .reconDataSourceArrays[i] && ruleGroupService .reconDataSourceArrays[i].length>0)">
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54);padding-bottom: 3px;"
+								 *ngIf="!ruleObj.id">
+									Recon data source :</div>
+								<!-- <div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="font-size: 12px;color: rgba(0,0,0,.54)" *ngIf="isCreateNew && ruleObj.reconSourceDVId && (!ruleObj.id ) && (ruleObj.reconSourceDVId && ruleObj.reconSourceDVId.length>0)">
+									Selected recon data source :</div> -->
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-top: -5px;">
+									<angular2-multiselect [data]="ruleGroupService .reconDataSourceArrays[i]" required [(ngModel)]="ruleObj.reconSourceDVId" [settings]="reconDVdropdownSettings"
+									 (onSelect)="setReconDataSource($event,i)" [ngModelOptions]="{standalone: true}" *ngIf="ruleGroupService.ruleGroup.reconciliationGroupId && !ruleCreationInWQ && (!ruleObj.id )"
+									 (onOpen)="onOpen($event)">
+									</angular2-multiselect>
+									<span class="cuppa-single-selection-underline" *ngIf="ruleGroupService.ruleGroup.reconciliationGroupId && !ruleCreationInWQ && (!ruleObj.id )"></span>
+									<!-- <angular2-multiselect [data]="reconDataSourceArrays[i]" [(ngModel)]="ruleObj.reconDataSourceId" [settings]="reconDVdropdownSettings" 
+									 (onSelect)="setReconDataSource($event,i)" name="reconds{{i}}" #reconds{{i}}="ngModel" *ngIf="ruleGroupService.ruleGroup.reconciliationGroupId && !ruleCreationInWQ && (!ruleObj.id )">
+									</angular2-multiselect> -->
+								</div>
+
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.reconDataSourceName" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Recon Data source" name="reconDataSourceName{{i}}" required #reconDataSourceName{{i}}="ngModel">
+								</md-input-container>
+								<!-- 							   
+								<form class="form-horizontal" [formGroup]="dataViewformArray[i]" *ngIf="!isViewOnly && !ruleObj.id && dataViewformArray && dataViewformArray[i] ">
+									<md-input-container>
+										<input formControlName="data" mdInput placeholder="Data View" (ngModelChange)="ChangeDataView($event,i,dataViewformArray[i].value)"
+										 auto-complete [(ngModel)]="ruleObj.sourceDataViewName" [source]="sourceDataViewsArrays[i]" [list-formatter]="dataViewListFormatter"
+										 value-property-name="id" display-property-name="dataViewDispName" (valueChanged)="setDataview(i, dataViewformArray[i].value)"
+										 required/>
+									</md-input-container>
+								</form> -->
+							</div>
+							<div class="col-md-3">
+								<md-select placeholder="Entered Currency" class="example-full-width" [(ngModel)]="ruleObj.enterCurrencyColId" [ngClass]="{'color-black' : isViewOnly}"
+								 name="enterCurrencyColId{{i}}" required #enterCurrencyColId{{i}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id" [disabled]="!ruleObj.sourceDVId">
+									<md-option *ngFor="let dvCol of dvColumns[i]" [value]="dvCol.id" [disabled]="dvCol.qualifier != 'CURRENCYCODE'">
+										{{ dvCol.columnName}}</md-option>
+								</md-select>
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.enterCurrencyColName" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Entered Currency" name="enterCurrencyColName{{i}}" required #enterCurrencyColName{{i}}="ngModel">
+								</md-input-container>
+							</div>
+							<div class="col-md-1 col-sm-2">
+
+								<md-form-field>
+									<input mdInput [mdDatepicker]="stpicker" placeholder="From" [ngClass]="{'color-black' : true}" [disabled]="isViewOnly ||   ruleObj.id"
+									 [disabled]="isViewOnly ||   ruleObj.id" [(ngModel)]="ruleObj.startDate" [max]="ruleObj.endDate" name="rulestartDate{{i}}"
+									 [min]="today" (dateChange)="ruleGroupService.accountingRuleGroup.rules[i].startDateChange=true;startDateChanged(ruleObj.startDate,i);"
+									 required>
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly && !ruleObj.id "></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field>
+								<!-- <md-form-field *ngIf="ruleObj.endDate">
+									<input mdInput [mdDatepicker]="stpicker" placeholder="From" [ngClass]="{'color-black' : true}" [disabled]="isViewOnly ||   ruleObj.id"
+									 [disabled]="isViewOnly ||   ruleObj.id" [(ngModel)]="ruleObj.startDate" [max]="ruleObj.endDate" name="rulestartDate{{i}}"
+									 required [max]="ruleObj.endDate">
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field> -->
+
+								<!-- <md-form-field>
+									<input mdInput [mdDatepicker]="stpicker" placeholder="Start date" [ngClass]="{'color-black' : true}" [disabled]="isViewOnly ||   ruleObj.id"
+									 [(ngModel)]="ruleObj.startDate" name="rulestartDate{{i}}" required>
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly "></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field> -->
+							</div>
+							<div class="col-md-1 col-sm-2" *ngIf="!ruleObj.id  || (ruleObj.id  &&ruleObj.endDate)">
+								<md-form-field>
+									<input mdInput [mdDatepicker]="edpicker" placeholder="To" [min]="ruleObj.startDate" (dateChange)="ruleGroupService.accountingRuleGroup.rules[i].endDateChange=true"
+									 [ngClass]="{'color-black' : isViewOnly || ruleObj.id && ruleObj.id>0}" [disabled]="ruleObj.id || (isViewOnly && !ruleObj.endDate) "
+									 [(ngModel)]="ruleObj.endDate" name="endDate{{i}}">
+									<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly && !ruleObj.id "></md-datepicker-toggle>
+									<md-datepicker #edpicker></md-datepicker>
+								</md-form-field>
+							</div>
+
+							<!-- <div class="col-md-3">
+								<md-select placeholder="Chart Of Account" [(ngModel)]="ruleObj.coa" (change)="SelectCOA(i)" [ngClass]="{'color-black' : isViewOnly}"
+								 name="coa{{i}}" required #coa{{i}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+									<md-option *ngFor="let coa of chartOfAccounts" [value]="coa.id">
+										{{ coa.name}} </md-option>
+								</md-select>
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.coaMeaning" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Chart Of Account" name="coaMeaning{{i}}" required #coaMeaning{{i}}="ngModel">
+								</md-input-container>
+							</div> -->
+							<div class="col-md-3" *ngIf="ruleGroupService.ruleGroup.activityBased == true && ruleObj.reconSourceDVId">
+								<md-select placeholder="Reconciliation Status" [(ngModel)]="ruleObj.reconciliationStatus" [ngClass]="{'color-black' : isViewOnly}"
+								 [disabled]="isViewOnly || ruleObj.id" name="reconciliationStatus{{i}}" #reconciliationStatus="ngModel" [style.width]="'100%'">
+									<md-option *ngFor="let col of reconciliationList" [value]="col.lookUpCode">
+										{{ col.meaning}} </md-option>
+								</md-select>
+							</div>
+							<div class="col-md-3" *ngIf="ruleGroupService.ruleGroup.activityBased == true && ruleObj.reconSourceDVId">
+								<md-select placeholder="Accounting Status" [(ngModel)]="ruleObj.accountingStatus" [ngClass]="{'color-black' : isViewOnly}"
+								 [disabled]="isViewOnly || ruleObj.id" name="accountingStatus{{i}}" #accountingStatus="ngModel" [style.width]="'100%'">
+									<md-option *ngFor="let col of accountingList" [value]="col.lookUpCode">
+										{{ col.meaning}} </md-option>
+								</md-select>
+							</div>
+							<div class="col-md-1 col-sm-1 col-xs-1" style="top:25px;">
+								<md-slide-toggle class="pull-right" color="primary" mdTooltip="Set Status" placeholder="status" [(ngModel)]="ruleObj.assignmentFlag"
+								 name="status{{i}}" *ngIf="isEdit && ruleObj.ruleGroupAssignId">
+								</md-slide-toggle>
+
+
+
+							</div>
+
+						</div>
+						<!-- <div class="row">
+							<div class="col-md-1"> 
+							</div>
+							<div class="col-md-4">
+								<md-select placeholder="Entered Currency" class="example-full-width" [(ngModel)]="ruleObj.enterCurrencyColId" [ngClass]="{'color-black' : isViewOnly}"
+								 name="enterCurrencyColId{{i}}" required #enterCurrencyColId{{i}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+
+									<md-option *ngFor="let dvCol of dvColumns[i]" [value]="dvCol.id" [disabled]="dvCol.qualifier != 'CURRENCYCODE'">
+										{{ dvCol.columnName}}</md-option>
+
+								</md-select>
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.enterCurrencyColName" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Entered Currency" name="enterCurrencyColName{{i}}" required #enterCurrencyColName{{i}}="ngModel">
+								</md-input-container>
+							</div>
+							<div class="col-md-1">
+							</div>
+							<div class="col-md-4">
+								<md-select placeholder="Chart Of Account" [(ngModel)]="ruleObj.coa" (change)="SelectCOA(i)" [ngClass]="{'color-black' : isViewOnly}"
+								 name="coa{{i}}" required #coa{{i}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+									<md-option *ngFor="let coa of chartOfAccounts" [value]="coa.id">
+										{{ coa.name}} </md-option>
+								</md-select>
+								<md-input-container class="example-full-width" *ngIf="isViewOnly || ruleObj.id">
+									<input class="inputHeight" mdInput [(ngModel)]="ruleObj.coaMeaning" [ngClass]="{'color-black' : true }" [disabled]="true"
+									 placeholder="Chart Of Account" name="coaMeaning{{i}}" required #coaMeaning{{i}}="ngModel">
+								</md-input-container>
+							</div>
+
+						</div> -->
+						<p-accordion [multiple]="true" *ngIf="((isCreateNew && ruleObj.sourceDVId) || (!isCreateNew && ruleObj.sourceDataViewName) ) && ruleGroupService.ruleGroup.coa">
+							<p-accordionTab [selected]="true">
+								<p-header>
+									<span>Header Derivation Rules</span>
+								</p-header>
+								<div class="accordioncontenet" style="padding-left: 17px">
+
+									<div *ngIf="isViewOnly || ruleObj.id">
+										<!-- <md-card-content> -->
+										<div class="div-border-styles table-responsive" style="width: 70%;">
+											<table class="table">
+												<thead class="text-nowrap" style="text-align : center;">
+													<tr>
+														<th>Line Type</th>
+														<th>Criteria</th>
+														<th>Column</th>
+														<th>Value</th>
+													</tr>
+
+												</thead>
+												<tbody style="word-wrap: break-word;">
+													<tr *ngFor="let headerLine of ruleObj.headerDerivationRules   ;let h=index">
+														<td>
+															<span class="linetext-input">{{headerLine.accountingReferencesMeaning }}</span>
+														</td>
+														<td>
+															<span class="linetext-input">{{headerLine.criteriaMeaning }}</span>
+														</td>
+														<td>
+															<span class="linetext-input">{{headerLine.dataViewColumnName}}</span>
+														</td>
+
+														<td>
+															<span class="linetext-input">{{headerLine.segValue}}</span>
+															<i class="fa fa-filter hand" aria-hidden="true" mdTooltip="{{headerLine.operatorMeaning}}-{{headerLine.value}}" popoverTitle="Filter"
+																			popoverPlacement="left" popover="operator : {{headerLine.operatorMeaning}} - value : {{headerLine.value}} {{headerLine.mappingSetName}}"
+																			(click)="headerFilters.show()" *ngIf="headerLine.criteria == 'VIEW_COLUMN'">
+																		   </i>
+																		   <popover-content #headerFilters placement="left" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:250px;height:80px">
+																			   <div class="row">
+																				   <div class="col-md-12">
+																					   <div class="table-responsive">
+																						   <table>
+																							   <thead>
+																								   <tr>
+																									   <th>Operator</th>
+																									   <th>Value</th>
+																								   </tr>
+																							   </thead>
+																							   <tbody style="word-wrap: break-word;">
+																								   <tr>
+																									   <td>
+																										   <span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.operatorMeaning}}</span>
+																									   </td>
+																									   <td>
+																										   <span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.value}}</span>
+																										   <!-- 	<span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.mappingSetName}}</span> -->
+																									   </td>
+																								   </tr>
+																							   </tbody>
+																						   </table>
+																					   </div>
+																				   </div>
+																			   </div>
+	   
+																		   </popover-content>
+															<!-- <div class="display-flex" *ngIf="headerLine.criteria == 'VIEW_COLUMN'">
+																	
+																	<div class="col-md-10">
+																			<span class="linetext-input">{{headerLine.segValue}}</span>
+																	</div>
+																	<div class="col-md-2"  *ngIf="headerLine.criteria == 'VIEW_COLUMN'">
+																			<i class="fa fa-filter hand" aria-hidden="true" mdTooltip="{{headerLine.operatorMeaning}}-{{headerLine.value}}" popoverTitle="Filter"
+																			popoverPlacement="left" popover="operator : {{headerLine.operatorMeaning}} - value : {{headerLine.value}} {{headerLine.mappingSetName}}"
+																			(click)="headerFilters.show()">
+																		   </i>
+																		   <popover-content #headerFilters placement="left" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:250px;height:80px">
+																			   <div class="row">
+																				   <div class="col-md-12">
+																					   <div class="table-responsive">
+																						   <table>
+																							   <thead>
+																								   <tr>
+																									   <th>Operator</th>
+																									   <th>Value</th>
+																								   </tr>
+																							   </thead>
+																							   <tbody style="word-wrap: break-word;">
+																								   <tr>
+																									   <td>
+																										   <span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.operatorMeaning}}</span>
+																									   </td>
+																									   <td>
+																										   <span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.value}}</span>
+																									
+																									   </td>
+																								   </tr>
+																							   </tbody>
+																						   </table>
+																					   </div>
+																				   </div>
+																			   </div>
+	   
+																		   </popover-content>
+																	</div>
+
+
+															</div> -->
+														</td>
+													</tr>
+												</tbody>
+											</table>
+
+										</div>
+										<!-- </md-card-content> -->
+									</div>
+
+									<div class="div-border-styles" *ngIf="!isViewOnly && !ruleObj.id" style="height:180px;width: 70%;">
+										<!-- <md-card-content style="padding-top: 6px;"> -->
+										<div class="row accGroup" style="   font-weight:bold; border-bottom: solid 1px gray;margin: 0;">
+											<div class="col-md-2"  style="text-align: center;padding-bottom: 7px;padding-top: 3px;">Line Type</div>
+											<div class="col-md-2"  style="text-align: center;padding-bottom: 7px;padding-top: 3px;">Criteria</div>
+											<div class="col-md-4"  style="text-align: center;padding-bottom: 7px;padding-top: 3px;">Column</div>
+											<div class="col-md-4"  style="text-align: center;padding-bottom: 7px;padding-top: 3px;">Value</div>
+											<!-- <div class="col-md-1"></div> -->
+										</div>
+										<ng-template ngFor let-headerLine [ngForOf]="ruleObj.headerDerivationRules" let-h="index" ;>
+											<div class="row accGroup">
+												<div class="col-md-2">
+													<span class="linetext-input">{{headerLine.accountingReferencesMeaning }}</span>
+												</div>
+												<div class="col-md-2">
+													<md-select class="md-no-placeholder"[(ngModel)]="headerLine.criteria" (change)="selectHeaderCriteria(i,h)" [ngClass]="{'color-black' : isViewOnly}"
+													 [disabled]="isViewOnly || ruleObj.id " name="criteria{{i}}{{h}}" required #criteria{{i}}{{h}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+														<md-option *ngFor="let criteria of accCriterias" [value]="criteria.lookUpCode">
+															{{ criteria.meaning }} </md-option>
+													</md-select>
+													<span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.criteriaMeaning }}</span>
+												</div>
+												<div class="col-md-4">
+													<md-select class="md-no-placeholder" [(ngModel)]="headerLine.dataViewColumn" [disabled]="isViewOnly || ruleObj.id "
+													 name="enterCurrencyColId{{i}}{{h}}" required #enterCurrencyColId{{i}}{{h}}="ngModel" *ngIf="!isViewOnly &&  headerLine.criteria != 'CONSTANT' ">
+														<md-option *ngFor="let dvCol of dvColumns[i]" [value]="dvCol.id" (click)="headerLine.dataType = dvCol.colDataType;SelectColumn(i,h)">
+															{{ dvCol.columnName }} </md-option>
+													</md-select>
+													<span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.dataViewColumnName}}</span>
+												</div>
+												<div class="col-md-4">
+													<div class="row">
+														<div class="col-md-11" style="top: 27px;" *ngIf="isCreateNew &&  (!ruleObj.id) && headerLine.criteria != 'MAPPING_SET' && headerLine.accountingReferencesCode=='LEDGER_NAME' && (!ledgersBasedOnCOA || ledgersBasedOnCOA.length<=0)">
+															<span class="help-block errorFont" >
+																Select COA
+															</span>
+														</div>
+														<div class="col-md-11">
+															<md-select  class="md-no-placeholder" [(ngModel)]="headerLine.segValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || (ruleObj.id)"
+															 name="segValue{{i}}{{h}}" required #segValue{{i}}{{h}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id) && headerLine.criteria != 'MAPPING_SET' && headerLine.accountingReferencesCode=='LEDGER_NAME' && ledgersBasedOnCOA  && ledgersBasedOnCOA.length>0">
+																<md-option *ngFor="let ledger of ledgersBasedOnCOA" [value]="ledger.id">
+																	{{ ledger.name}} </md-option>
+															</md-select>
+
+															<md-select class="md-no-placeholder" [(ngModel)]="headerLine.segValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || (ruleObj.id)"
+															 name="segValue{{i}}{{h}}" required #segValue{{i}}{{h}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id) && headerLine.criteria != 'MAPPING_SET' && headerLine.accountingReferencesCode=='SOURCE'">
+																<md-option *ngFor="let source of sourceLOV" [value]="source.lookUpCode">
+																	{{ source.meaning}} </md-option>
+															</md-select>
+															<md-select class=" md-no-placeholder" [(ngModel)]="headerLine.segValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || (ruleObj.id)"
+															 name="segValue{{i}}{{h}}" required #segValue{{i}}{{h}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id) && headerLine.criteria != 'MAPPING_SET' && headerLine.accountingReferencesCode=='CATEGORY'">
+																<md-option *ngFor="let category of categoryLOV" [value]="category.lookUpCode">
+																	{{ category.meaning }} </md-option>
+															</md-select>
+
+															<span class="linetext-input" *ngIf="isViewOnly || ruleObj.id">{{headerLine.segValue}}</span>
+
+															<md-select class="md-no-placeholder" [(ngModel)]="headerLine.segValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || (ruleObj.id)"
+															 name="mappingSetId{{i}}{{h}}" placeholder="Select Mapping Set" required #mappingSetId{{i}}{{h}}="ngModel"
+															 *ngIf="!isViewOnly &&  (!ruleObj.id) && headerLine.criteria == 'MAPPING_SET'">
+																<md-option *ngFor="let mappingSet of mappingSets" [value]="mappingSet.id">
+																	{{ mappingSet.name}} </md-option>
+															</md-select>
+															<!-- 	<span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.segValue}}</span> -->
+
+														</div>
+														<div class="col-md-1" style="top:25px;">
+
+															<!-- <i class="fa fa-filter hand pull-right" aria-hidden="true" mdTooltip="Filter" popoverPlacement="left" [popover]="headerFilters" (click)="headerFilters.show()" *ngIf="headerLine.criteria == 'VIEW_COLUMN'  && !headerLine.value && headerLine.dataViewColumn">
+															</i>
+															<i class="fa fa-filter hand pull-right" aria-hidden="true" mdTooltip="{{headerLine.operatorMeaning}}-{{headerLine.value}}" popoverPlacement="left" [popover]="headerFilters" (click)="headerFilters.show()" *ngIf="headerLine.criteria == 'VIEW_COLUMN' && headerLine.value && headerLine.dataViewColumn">
+															</i> -->
+															<i class="fa fa-filter hand pull-right" aria-hidden="true" mdTooltip="Filter"  (click)="addHeaderFilter(i,h)" *ngIf="headerLine.criteria == 'VIEW_COLUMN' && !headerLine.value && headerLine.dataViewColumn">
+															</i>
+
+															<i class="fa fa-filter hand pull-right" aria-hidden="true" mdTooltip="{{headerLine.operatorMeaning }} - {{headerLine.value}}" (click)="addHeaderFilter(i,h)"
+															 *ngIf="headerLine.criteria == 'VIEW_COLUMN' && headerLine.value && headerLine.dataViewColumn">
+																</i>
+															
+
+															<!-- <span>
+																
+															</span> -->
+														</div>
+
+													</div>
+
+
+												</div>
+												
+											</div>
+										</ng-template>
+										<!-- </md-card-content> -->
+									</div>
+
+
+								</div>
+
+							</p-accordionTab>
+							<p-accordionTab [selected]="true">
+								<p-header>
+									<span>Line Derivation Rules</span>
+								</p-header>
+
+
+								<div class="accordioncontenet">
+									<div class="row" *ngIf="isCreateNew &&  !ruleGroupService.ruleGroup.coa">
+										Select COA
+									</div>
+
+									<button md-icon-button class="pull-right md-36" mdTooltip="Switch view" (click)="changeView(i)" *ngIf="ruleGroupService.ruleGroup.coa && debitCreditLineSize.search('12') == -1">
+										<md-icon>menu</md-icon>
+									</button>
+									<button md-icon-button class="pull-right md-36" mdTooltip="Switch to list" (click)="changeView(i)" *ngIf="ruleGroupService.ruleGroup.coa && debitCreditLineSize.search('12') != -1">
+										<md-icon>apps</md-icon>
+									</button>
+
+									<div class="row accounting-card" style="margin: 0px 1px !important;" *ngIf="ruleGroupService.ruleGroup.coa">
+										<div [class]="debitCreditLineSize">
+											<div class="row" style="border-bottom: dotted 1px gray; margin: 0px 14px !important;">
+												<div class="col-md-12">
+													<span>Debit Lines</span>
+													<button md-icon-button class="pull-right md-36" mdTooltip="Add Debit Line" (click)="addNewDebitLine(i,ruleObj.debitLines.length)"
+													 *ngIf="!isViewOnly && !ruleObj.id">
+														<md-icon>add</md-icon>
+													</button>
+												</div>
+											</div>
+
+											<ng-template ngFor let-lineItem [ngForOf]="ruleObj.debitLines" let-j="index" let-last="last" ;>
+												<p-accordion [multiple]="true">
+													<p-accordionTab [selected]="true">
+														<p-header>
+															<span *ngIf="lineItem.lineTypeDetailMeaning">{{lineItem.lineTypeDetailMeaning}}</span> line for
+															<span *ngIf="lineItem.enteredAmtColName"> {{lineItem.enteredAmtColName}}</span>
+															<button md-icon-button class="pull-right " style="top: -10px;" (click)="deleteDebitLineObject(i,j);false" *ngIf="!isViewOnly && mouseOverRule==i && !ruleObj.ruleGroupAssignId"
+															 mdTooltip="Delete Debit" id="showIcon">
+																<md-icon>delete</md-icon>
+															</button>
+														</p-header>
+														<div class="accordioncontenet">
+
+															<div style="padding-bottom:11px;">
+																<div class="div-border-styles">
+																	<div class="row" *ngIf="lineItem.lineType == 'DEBIT'" style=" padding-top: 5px;margin-left: 5px;">
+																		<div class="col-md-4">
+																			<md-select placeholder="Select Line Type" [(ngModel)]="lineItem.lineTypeDetail" name="DrlineType{{i}}{{j}}" required #DrlineType{{i}}{{j}}="ngModel"
+																			 *ngIf="!isViewOnly && !ruleObj.id">
+																				<md-option *ngFor="let lineType of linetypes" [value]="lineType.lookUpCode" (click)="lineItem.lineTypeDetailMeaning=lineType.meaning">
+																					{{ lineType.meaning}} </md-option>
+																			</md-select>
+
+																			<md-input-container *ngIf="isViewOnly || ruleObj.id">
+																				<input mdInput [(ngModel)]="lineItem.lineTypeDetailMeaning" placeholder="Line Type" [ngClass]="{'color-black' : true}" [disabled]="true"
+																				 name="DrlineTypedetail{{i}}{{j}}" required #DrlineTypedetail{{i}}{{j}}="ngModel">
+																			</md-input-container>
+																		</div>
+																		
+																		<div class="col-md-4">
+																			<!--  has to be decimal filtered -->
+																			<md-select placeholder="Entered Amount" [(ngModel)]="lineItem.enteredAmtColId" [ngClass]="{'color-black' : isViewOnly}" name="DrenteredAmtCol{{i}}{{j}}"
+																			 required #DrenteredAmtCol{{i}}{{j}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+																				<md-option *ngFor="let dvcol of dvColumns[i]" [value]="dvcol.id" (click)="lineItem.enteredAmtColName=dvcol.columnName" [disabled]="dvcol.colDataType != 'DECIMAL'">
+																					{{ dvcol.columnName}} </md-option>
+																			</md-select>
+
+																			<md-input-container *ngIf="isViewOnly || ruleObj.id">
+																				<input mdInput [(ngModel)]="lineItem.enteredAmtColName" placeholder="Entered Amount" [ngClass]="{'color-black' : true}" [disabled]="true"
+																				 name="DrenteredAmtCol{{i}}{{j}}" required #DrenteredAmtCol{{i}}{{j}}="ngModel">
+																			</md-input-container>
+																		</div>
+
+																		<div class="col-md-3">
+																			<button md-icon-button class="pull-right" style="top:20px;" (click)="addDebitLineCondition(i,j)" id="showIcon" *ngIf="!isViewOnly && !ruleObj.id "
+																			 mdTooltip="Build Condition">
+																				<md-icon>call_split</md-icon>
+																			</button>
+
+																			<button md-icon-button class="pull-right" style="top:20px;" popoverTitle="Conditions" (mouseenter)="debitruleConditions.show()"
+																			 [popover]=debitruleConditions *ngIf=" (isViewOnly || (!isViewOnly && ruleObj.id) ) && lineItem.accountingRuleConditions.length>0">
+																				<md-icon>info</md-icon>
+																			</button>
+
+																			<popover-content #debitruleConditions placement="left" [animation]="true" style="z-index: 999 !important;width:250px;height:200px">
+																				<div class="table-responsive">
+																					<table class="table">
+																						<thead>
+																							<tr>
+																								<th>Sequence</th>
+																								<th>Column</th>
+																								<th>Operator</th>
+																								<th>Value</th>
+																							</tr>
+
+																						</thead>
+																						<tbody class="scrolllit">
+																							<tr *ngFor="let condition of lineItem.accountingRuleConditions;let debitRC=index">
+																								<td>{{debitRC+1}}</td>
+																								<td>{{condition.sViewColumnName}}</td>
+																								<td>{{condition.operatorMeaning}}</td>
+																								<td>{{condition.value}}</td>
+																							</tr>
+																						</tbody>
+																					</table>
+																				</div>
+																			</popover-content>
+																		</div>
+
+																	</div>
+																	<br *ngIf="lineItem.lineType == 'DEBIT'">
+																	<div class="table-responsive" *ngIf="lineItem.lineType == 'DEBIT'" style="padding: 0px 10px;">
+
+																		<table class="table" *ngIf="isViewOnly || ruleObj.id>0">
+																			<thead class="text-nowrap">
+																				<tr>
+																					<th>Segment</th>
+																					<th>Criteria</th>
+																					<th>Column</th>
+																					<th>Value</th>
+																				</tr>
+
+																			</thead>
+																			<tbody class="">
+																				<tr *ngFor="let ARD of lineItem.accountingRuleDerivations; let drd = index">
+																					<td>
+																						<span class="linetext-input">{{ARD.accountingReferencesMeaning}}</span>
+																					</td>
+																					<td>
+																						<span class="linetext-input">{{ARD.criteriaMeaning}}</span>
+																					</td>
+																					<td>
+																						<span class="linetext-input">{{ARD.dataViewColumnName}}</span>
+																					</td>
+																					<!-- <td>
+																					<span class="linetext-input">{{ARD.operatorMeaning}}</span>
+																				</td>
+																				<td>
+																					<span class="linetext-input">{{ARD.value}}</span>
+																					<span class="linetext-input">{{ARD.mappingSetName}}</span>
+																				</td> -->
+																					<td>
+																						<span class="linetext-input">{{ARD.segValue}}</span>
+																						<!-- <span class="linetext-input">{{ARD.constantValue}}</span> -->
+																					</td>
+																					<td>
+																						<i class="fa fa-filter hand pull-right" aria-hidden="true" popoverPlacement="left" [popover]="lineFilters" (click)="lineFilters.show()"
+																						 mdTooltip="{{ARD.operatorMeaning}}-{{ARD.value}}" *ngIf="ARD.criteria == 'VIEW_COLUMN'">
+																						</i>
+																						<popover-content #lineFilters placement="right" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:200px;height:80px">
+
+																							<div class="row">
+																								<div class="col-md-12">
+																									<i class="pull-right fa fa-times hand" aria-hidden="true" mdTooltip="Close" (click)="lineFilters.hide();">
+																									</i>
+																									<div class="table-responsive">
+																										<table>
+																											<thead>
+																												<tr>
+																													<th>Operator</th>
+																													<th>Value</th>
+																												</tr>
+																											</thead>
+																											<tbody>
+																												<tr>
+																													<td>
+																														<span class="linetext-input">{{ARD.operatorMeaning}}</span>
+
+																													</td>
+																													<td>
+																														<span class="linetext-input">{{ARD.value}}</span>
+																														<!-- <span class="linetext-input">{{ARD.mappingSetName}}</span> -->
+																													</td>
+																												</tr>
+																											</tbody>
+																										</table>
+																									</div>
+																								</div>
+																							</div>
+
+																						</popover-content>
+																					</td>
+																				</tr>
+																			</tbody>
+																		</table>
+
+																		<table class="table" *ngIf="!isViewOnly && !ruleObj.id">
+																			<thead class="text-nowrap">
+																				<tr>
+																					<th style="width:200px;">Segment</th>
+																					<th style="width:50px;">Criteria</th>
+																					<th>Column</th>
+																					<th>Value</th>
+																				</tr>
+
+																			</thead>
+																			<tbody class="text-	nowrap">
+																				<tr *ngFor="let ARD of lineItem.accountingRuleDerivations; let drd = index">
+																					<td style="width:200px;">
+																						<span style="top: 24px" class="linetext-input">{{ARD.accountingReferencesMeaning}}</span>
+																					</td>
+																					<td style="width:50px;">
+																						<md-select  class="md-no-placeholder" [(ngModel)]="ARD.criteria" (change)="selectDebitCriteria(i,j,drd)" [disabled]="ruleObj.id " name="Drcriteria{{i}}{{j}}{{drd}}"
+																						  #Drcriteria{{i}}{{j}}{{drd}}="ngModel" *ngIf="!isViewOnly">
+																							<md-option *ngFor="let criteria of accCriterias" [value]="criteria.lookUpCode">
+																								{{ criteria.meaning }} </md-option>
+																						</md-select>
+
+
+																					</td>
+																					<td>
+																						<md-select  class="md-no-placeholder" class="inputHeight" [(ngModel)]="ARD.dataViewColumn" [disabled]="ruleObj.id" name="DrdataViewColumn{{i}}{{j}}{{drd}}"
+																						  #DrdataViewColumn{{i}}{{j}}{{drd}}="ngModel" *ngIf="!isViewOnly && ARD.criteria != 'CONSTANT'">
+																							<md-option *ngFor="let dvCol of dvColumns[i]" [value]="dvCol.id" (click)="ARD.dataType = dvCol.colDataType;SelectDebitLineLevelColumn(i,j,drd)">
+																								{{ dvCol.columnName}} </md-option>
+																						</md-select>
+																					</td>
+																					<td *ngIf="!isViewOnly && (!ruleObj.id) && ARD.criteria != 'MAPPING_SET' && (!ARD.valueSet || ARD.valueSet.length<=0)">
+																						<span class="linetext-input" style="top: 24px;">No Value Set defined</span>
+																					</td>
+
+																					<td>
+																						<!-- <md-input-container class="example-full-width" *ngIf="!isViewOnly && ARD.criteria != 'MAPPING_SET'">
+																							<input class="inputHeight" mdInput [(ngModel)]="ARD.segValue" [ngClass]="{'color-black' : true }" name="constantValue{{i}}{{j}}{{drd}}"
+																							 required #constantValue{{i}}{{j}}{{drd}}="ngModel">
+																						</md-input-container> -->
+																						<md-select  class="md-no-placeholder"[(ngModel)]="ARD.segValue" [disabled]="(ruleObj.id)" name="DrconstantValue{{i}}{{j}}{{drd}}"
+																						  #DrconstantValue{{i}}{{j}}{{drd}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id) && ARD.criteria != 'MAPPING_SET' && ARD.valueSet && ARD.valueSet.length>0">
+																							<md-option *ngFor="let value of  ARD.valueSet" [value]="value[0]">
+																								{{ value[1]}} </md-option>
+																						</md-select>
+
+																						<!-- <md-select class="example-full-width" [(ngModel)]="ARD.segValue" [disabled]="(ruleObj.id)" name="segValue{{i}}{{j}}{{drd}}"
+																					 required #segValue{{i}}{{j}}{{drd}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id) && ARD.criteria == 'VIEW_COLUMN'">
+																						<md-option *ngFor="let ledger of ledgers" [value]="ledger.id">
+																							{{ ledger.name}} </md-option>
+																					</md-select> -->
+																						<md-select  class="md-no-placeholder" [(ngModel)]="ARD.segValue" [disabled]="(ruleObj.id)" name="DrmappingSetId{{i}}{{j}}{{drd}}"
+																						 placeholder="Select Mapping Set"  #DrmappingSetId{{i}}{{j}}{{drd}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id) && ARD.criteria == 'MAPPING_SET'">
+																							<md-option *ngFor="let mappingSet of mappingSets" [value]="mappingSet.id">
+																								{{ mappingSet.name}} </md-option>
+																						</md-select>
+																					</td>
+																					<td>
+
+																						<i class="fa fa-filter hand pull-right" aria-hidden="true" popoverPlacement="left" [popover]="lineFilters" (click)="lineFilters.show()"
+																						 mdTooltip="{{ARD.operatorMeaning}}-{{ARD.value}}" *ngIf="ARD.criteria == 'VIEW_COLUMN'">
+																						</i>
+
+																						<popover-content #lineFilters placement="right" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:250px;height:80px">
+
+																							<div class="row">
+																								<div class="col-md-12">
+																									<i class="pull-right fa fa-times hand" aria-hidden="true" mdTooltip="Close" (click)="lineFilters.hide();">
+																									</i>
+																									<div class="table-responsive">
+																										<table>
+																											<thead>
+																												<tr>
+																													<th style="width:50px;">Operator</th>
+																													<th>Value</th>
+																												</tr>
+																											</thead>
+																											<tbody>
+																												<tr>
+																													<td style="width:50px;">
+
+																														<md-select  class="md-no-placeholder"[(ngModel)]="ARD.operator" [disabled]=" ruleObj.id" name="Droperator{{i}}{{j}}{{drd}}" required #Droperator{{i}}{{j}}{{drd}}="ngModel"
+																														 *ngIf="!isViewOnly && (!ruleObj.id) &&  debitLineLevelOperatorsLOV && debitLineLevelOperatorsLOV[i] && debitLineLevelOperatorsLOV[i][j] && debitLineLevelOperatorsLOV[i][j][drd] && ARD.criteria == 'VIEW_COLUMN'">
+																															<md-option *ngFor="let operator of debitLineLevelOperatorsLOV[i][j][drd]" [value]="operator.lookUpCode"> {{ operator.meaning}} </md-option>
+																														</md-select>
+																														<!-- <span class="linetext-input" *ngIf="isViewOnly || (!isViewOnly &&  ruleObj.id)">{{headerLine.operatorMeaning}}</span> -->
+																													</td>
+																													<td>
+																														<md-input-container class="example-full-width" *ngIf="!isViewOnly && ARD.criteria == 'VIEW_COLUMN'">
+																															<input class="inputHeight" mdInput [(ngModel)]="ARD.value" [ngClass]="{'color-black' : true }" name="Drvalue{{i}}{{j}}{{drd}}"
+																															 required #Drvalue{{i}}{{j}}{{drd}}="ngModel">
+																														</md-input-container>
+
+
+																													</td>
+																												</tr>
+																											</tbody>
+																										</table>
+																									</div>
+																								</div>
+																							</div>
+
+																						</popover-content>
+																					</td>
+
+																				</tr>
+																			</tbody>
+																		</table>
+
+																	</div>
+																</div>
+															</div>
+
+															<div class="ftlFunction" *ngIf="debitLineModal && debitLineModal[i] && debitLineModal[i][j]">
+																<p-dialog header="Add Condition" [resizable]="true" [responsive]="true" [(visible)]="debitLineModal[i][j]" [modal]="true">
+																	<div class="table-responsive" style="overflow-x:visible;">
+																		<table class="table">
+																			<thead class="text-nowrap">
+																				<tr>
+																					<th>Sequence</th>
+																					<th>Column</th>
+																					<th>Operator</th>
+																					<th>Value</th>
+																					<th>Actions</th>
+																				</tr>
+
+																			</thead>
+																			<tbody class="text-nowrap">
+																				<tr *ngFor="let condition of lineItem.accountingRuleConditions;let rc=index">
+																					<td>
+																						<span class="linetext-input" style="top:24px;" *ngIf="!isViewOnly && !ruleObj.id">{{rc+1}}</span>
+																					</td>
+																					<td>
+																						<md-select class="md-no-placeholder" [(ngModel)]="condition.sViewColumnId" [ngClass]="{'color-black' : true}" name="DrsViewColumnId{{i}}{{j}}{{rc}}"
+																						  #DrsViewColumnId{{i}}{{j}}{{rc}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id)">
+																							<md-option *ngFor="let col of dvColumns[i] " [value]="col.id" (click)="SelectDebitLineConditionColumn(i,j,rc,col.colDataType, col.columnName)">
+																								{{ col.columnName}} </md-option>
+																						</md-select>
+																					</td>
+																					<td>
+																						<md-select  class="md-no-placeholder" [(ngModel)]="condition.operator" [ngClass]="{'color-black' : isViewOnly}" name="DroperatorLovForConditions{{i}}{{j}}{{rc}}"
+																						 required #DroperatorLovForConditions{{i}}{{j}}{{rc}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id ) &&  operatorLovForConditions && operatorLovForConditions[i] &&  operatorLovForConditions[i][j] &&  operatorLovForConditions[i][j][rc]">
+																							<md-option *ngFor="let operator of operatorLovForConditions[i][j][rc]" [value]="operator.lookUpCode" (click)="condition.operatorMeaning=operator.meaning">
+																								{{ operator.meaning}} </md-option>
+																						</md-select>
+																					</td>
+																					<td>
+																						<md-input-container *ngIf="!isViewOnly && (!ruleObj.id || ruleObj.id  <=0)">
+																							<input class="inputHeight" mdInput [(ngModel)]="condition.value" name="Drvalue{{i}}{{j}}{{rc}}" required #Drvalue{{i}}{{j}}{{rc}}="ngModel"> </md-input-container>
+																					</td>
+																					<td>
+																						<button md-icon-button *ngIf="!isViewOnly   && (!ruleObj.id )" (click)="deleteDebitRuleCondition(i,j,rc)" mdTooltip="Delete condition"
+																						 id="showIcon">
+																							<md-icon>delete</md-icon>
+																						</button>
+																						<button md-icon-button mdTooltip="Add New Condition" (click)="addMappingCriteriaForDebitLines(i,j,lineItem.accountingRuleConditions.length)"
+																						 *ngIf="rc == lineItem.accountingRuleConditions.length-1">
+																							<md-icon>exposure_plus_1</md-icon>
+																						</button>
+																					</td>
+																				</tr>
+																			</tbody>
+																		</table>
+																	</div>
+																</p-dialog>
+															</div>
+														</div>
+													</p-accordionTab>
+												</p-accordion>
+											</ng-template>
+
+										</div>
+
+										<div [class]="debitCreditLineSize">
+											<div class="row" style="border-bottom: dotted 1px gray; margin: 0px 14px !important;">
+												<div class="col-md-12">
+													<span>Credit Lines</span>
+													<button md-icon-button class="pull-right md-36" mdTooltip="Add Credit Line" (click)="addNewCreditLine(i,ruleObj.creditLines.length)"
+													 *ngIf="!isViewOnly && !ruleObj.id">
+														<md-icon>add</md-icon>
+													</button>
+												</div>
+											</div>
+
+											<ng-template ngFor let-lineItem [ngForOf]="ruleObj.creditLines" let-k="index" let-lastIndex="last">
+												<p-accordion [multiple]="true">
+													<p-accordionTab [selected]="true">
+														<p-header>
+															<span *ngIf="lineItem.lineTypeDetailMeaning">{{lineItem.lineTypeDetailMeaning}}</span> line for
+															<span *ngIf="lineItem.enteredAmtColName"> {{lineItem.enteredAmtColName}}</span>
+															<button md-icon-button class="pull-right " style="top: -10px;" (click)="deleteCreditLineObject(i,k);false" *ngIf="!isViewOnly && mouseOverRule==i && !ruleObj.ruleGroupAssignId"
+															 mdTooltip="Delete Credit Line" id="showIcon">
+																<md-icon>delete</md-icon>
+															</button>
+														</p-header>
+														<div class="accordioncontenet">
+															<div style="padding-bottom:11px;">
+																<div class="div-border-styles">
+																	<div class="row" *ngIf="lineItem.lineType == 'CREDIT'" style=" padding-top: 5px;margin-left: 5px;">
+																		<div class="col-md-4">
+																			<md-select placeholder="Select Line Type" [(ngModel)]="lineItem.lineTypeDetail" [disabled]="ruleObj.id " name="DrlineType{{i}}{{k}}"
+																			 required #lineType{{i}}{{k}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+																				<md-option *ngFor="let lineType of linetypes" [value]="lineType.lookUpCode" (click)="lineItem.lineTypeDetailMeaning=lineType.meaning">
+																					{{ lineType.meaning}} </md-option>
+																			</md-select>
+
+																			<md-input-container *ngIf="isViewOnly || ruleObj.id">
+																				<input mdInput [(ngModel)]="lineItem.lineTypeDetailMeaning" placeholder="Line Type" [ngClass]="{'color-black' : true}" [disabled]="true"
+																				 name="lineTypeDetail{{i}}{{k}}" required #lineTypeDetail{{i}}{{k}}="ngModel">
+																			</md-input-container>
+
+																		</div>
+																	
+																		<div class="col-md-4">
+																			<!--  has to be decimal filtered -->
+																			<md-select placeholder="Entered Amount" [(ngModel)]="lineItem.enteredAmtColId"  name="crEnteredAmtCol{{i}}{{k}}"
+																			 required #crEnteredAmtCol{{i}}{{k}}="ngModel" *ngIf="!isViewOnly && !ruleObj.id">
+																				<md-option *ngFor="let dvcol of dvColumns[i]" [value]="dvcol.id" [disabled]="dvcol.colDataType != 'DECIMAL'" (click)="lineItem.enteredAmtColName=dvcol.columnName">
+																					{{ dvcol.columnName}} </md-option>
+																			</md-select>
+
+																			<md-input-container *ngIf="isViewOnly || ruleObj.id">
+																				<input mdInput [(ngModel)]="lineItem.enteredAmtColName" placeholder="Entered Amount" [ngClass]="{'color-black' : true}" [disabled]="true"
+																				 name="crEnteredAmtCol{{i}}{{k}}" required #crEnteredAmtCol{{i}}{{k}}="ngModel">
+																			</md-input-container>
+																		</div>
+
+																		<div class="col-md-3">
+																			<button md-icon-button style="top:20px;" class="pull-right" (click)="addCreditLineCondition(i,k)" id="showIcon" *ngIf="!isViewOnly && !ruleObj.id "
+																			 mdTooltip="Build Condition">
+																				<md-icon>call_split</md-icon>
+																			</button>
+																			<i class="fa fa-copy hand pull-right" style="font-size: 20px;	font-weight: bold;margin-top: 30px;" aria-hidden="true" id="showIcon"
+																			 (click)="copyLineItem(i,k)" mdTooltip="Copy from debit" *ngIf="isCreateNew || !ruleObj.id">
+																			</i>
+																			<button md-icon-button class="pull-right" style="top:20px;" popoverTitle="Conditions" (mouseenter)="creditRuleConditions.show()"
+																			 [popover]=creditRuleConditions *ngIf="( isViewOnly || (!isViewOnly && ruleObj.id>0)) && lineItem.accountingRuleConditions.length>0">
+																				<md-icon>info</md-icon>
+																			</button>
+																			<popover-content #creditRuleConditions placement="left" [animation]="true" [closeOnClickOutside]="true" style="z-index: 999 !important;height:200px">
+																				<div class="table-responsive">
+																					<table class="table">
+																						<thead style="word-wrap: break-word;">
+																							<tr>
+																								<th>Sequence</th>
+																								<th>Column</th>
+																								<th style="width:50%">Operator</th>
+																								<th>Value</th>
+																							</tr>
+
+																						</thead>
+																						<tbody style="word-wrap: break-word;">
+																							<tr *ngFor="let condition of lineItem.accountingRuleConditions;let creditRC=index">
+																								<td>{{creditRC+1}}</td>
+																								<td>{{condition.sViewColumnName}}</td>
+																								<td style="width:50%">{{condition.operatorMeaning}}</td>
+																								<td>{{condition.value}}</td>
+																							</tr>
+																						</tbody>
+																					</table>
+																				</div>
+																			</popover-content>
+
+																		</div>
+																		<div class="col-md-2">
+
+																		</div>
+																	</div>
+																	<br *ngIf="lineItem.lineType == 'CREDIT'">
+																	<div class="table-responsive" *ngIf="lineItem.lineType == 'CREDIT'" style="padding: 0px 10px;">
+																		<table class="table" *ngIf="isViewOnly || ruleObj.id>0">
+																			<thead class="text-nowrap">
+																				<tr>
+																					<th>Segment</th>
+																					<th>Criteria</th>
+																					<th>Column</th>
+																					<th>Value</th>
+																				</tr>
+
+																			</thead>
+																			<tbody>
+																				<tr *ngFor="let CARD of lineItem.accountingRuleDerivations; let crd = index">
+																					<td>
+																						<span class="linetext-input">{{CARD.accountingReferencesMeaning}}</span>
+																					</td>
+																					<td>
+																						<span class="linetext-input">{{CARD.criteriaMeaning}}</span>
+																					</td>
+																					<td>
+																						<span class="linetext-input">{{CARD.dataViewColumnName}}</span>
+																					</td>
+																					<!-- <td>
+																					<span class="linetext-input">{{CARD.operatorMeaning}}</span>
+																				</td>
+																				<td>
+																					<span class="linetext-input">{{CARD.value}}</span>
+																					<span class="linetext-input">{{CARD.mappingSetName}}</span>
+																				</td> -->
+																					<td>
+																						<span class="linetext-input">{{CARD.segValue}}</span>
+																						<!-- <span class="linetext-input">{{CARD.constantValue}}</span> -->
+																					</td>
+
+																					<td>
+																						<i class="fa fa-filter hand pull-right" aria-hidden="true" popoverPlacement="left" [popover]="lineFilters" (click)="lineFilters.show()"
+																						 mdTooltip="{{CARD.operatorMeaning}}-{{CARD.value}}" *ngIf="CARD.criteria == 'VIEW_COLUMN'">
+																						</i>
+																						<popover-content #lineFilters placement="right" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:200px;height:80px">
+
+																							<div class="row">
+																								<div class="col-md-12">
+																									<i class="pull-right fa fa-times hand" aria-hidden="true" mdTooltip="Close" (click)="lineFilters.hide();">
+																									</i>
+																									<div class="table-responsive">
+																										<table>
+																											<thead>
+																												<tr>
+																													<th>Operator</th>
+																													<th>Value</th>
+																												</tr>
+																											</thead>
+																											<tbody style="word-wrap: break-word;">
+																												<tr>
+																													<td>
+																														<span class="linetext-input">{{CARD.operatorMeaning}}</span>
+
+																													</td>
+																													<td>
+																														<span class="linetext-input">{{CARD.value}}</span>
+																														<!-- <span class="linetext-input">{{CARD.mappingSetName}}</span> -->
+																													</td>
+																												</tr>
+																											</tbody>
+																										</table>
+																									</div>
+																								</div>
+																							</div>
+
+																						</popover-content>
+																					</td>
+																				</tr>
+																			</tbody>
+																		</table>
+																		<table class="table" *ngIf="!isViewOnly && !ruleObj.id">
+																			<thead class="text-nowrap">
+																				<tr>
+																					<th style="width:200px;">Segment</th>
+																					<th style="width:50px;">Criteria</th>
+																					<th>Column</th>
+																					<th>Value</th>
+																				</tr>
+
+																			</thead>
+																			<tbody class="text-	nowrap">
+																				<tr *ngFor="let CARD of lineItem.accountingRuleDerivations; let crd = index">
+																					<td style="width:200px;">
+																						<span style="top: 24px" class="linetext-input" *ngIf="CARD.accountingReferencesMeaning">{{CARD.accountingReferencesMeaning}}</span>
+																					</td>
+																					<td style="width:50px;">
+																						<md-select  class="md-no-placeholder" [(ngModel)]="CARD.criteria" (change)="selectCreditCriteria(i,k,crd)" [ngClass]="{'color-black' : isViewOnly}"
+																						 [disabled]="isViewOnly || ruleObj.id " name="criteria{{i}}{{k}}{{crd}}" required #criteria{{i}}{{k}}{{crd}}="ngModel"
+																						 *ngIf="!isViewOnly">
+																							<md-option *ngFor="let criteria of accCriterias" [value]="criteria.lookUpCode">
+																								{{ criteria.meaning }} </md-option>
+																						</md-select>
+
+																						<md-input-container *ngIf="isViewOnly">
+																							<input mdInput [(ngModel)]="CARD.criteriaMeaning" [ngClass]="{'color-black' : true}" [disabled]="true" name="criteria{{i}}{{k}}{{crd}}"
+																							 required #criteria{{i}}{{k}}{{crd}}="ngModel">
+																						</md-input-container>
+																					</td>
+																					<td>
+																						<md-select  class="md-no-placeholder" class="inputHeight" [(ngModel)]="CARD.dataViewColumn" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || ruleObj.id"
+																						 name="dataViewColumn{{i}}{{k}}{{crd}}"  #dataViewColumn{{i}}{{k}}{{crd}}="ngModel" *ngIf="!isViewOnly && CARD.criteria != 'CONSTANT'">
+																							<md-option *ngFor="let dvCol of dvColumns[i]" [value]="dvCol.id" (click)="CARD.dataType = dvCol.colDataType;SelectCreditLineLevelColumn(i,k,crd)">
+																								{{ dvCol.columnName}} </md-option>
+																						</md-select>
+																					</td>
+																					<td *ngIf="!isViewOnly && (!ruleObj.id) && CARD.criteria != 'MAPPING_SET' && (!CARD.valueSet || CARD.valueSet.length<=0)">
+																						<span class="linetext-input" style="top: 24px;">No Value Set defined</span>
+																					</td>
+																					<td>
+																						<!-- 	<md-input-container class="example-full-width" *ngIf="!isViewOnly && CARD.criteria != 'MAPPING_SET'">
+																							<input class="inputHeight" mdInput [(ngModel)]="CARD.segValue" [ngClass]="{'color-black' : true }" [disabled]="isViewOnly"
+																							 name="constantValue{{i}}{{k}}{{crd}}" required #constantValue{{i}}{{k}}{{crd}}="ngModel">
+																						</md-input-container> -->
+																						<md-select   class="md-no-placeholder" [(ngModel)]="CARD.segValue" [disabled]="(ruleObj.id)" name="constantValue{{i}}{{k}}{{crd}}"
+																						 required #constantValue{{i}}{{k}}{{crd}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id) && CARD.criteria != 'MAPPING_SET' && CARD.valueSet && CARD.valueSet.length>0">
+																							<md-option *ngFor="let value of  CARD.valueSet" [value]="value[0]">
+																								{{ value[1]}} </md-option>
+																						</md-select>
+																						<!-- <md-select class="example-full-width" [(ngModel)]="CARD.segValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || (ruleObj.id)"
+																					 name="segValue{{i}}{{k}}{{crd}}" required #segValue{{i}}{{k}}{{crd}}="ngModel" *ngIf="!isViewOnly &&  (!ruleObj.id) && CARD.criteria == 'VIEW_COLUMN'">
+																						<md-option *ngFor="let ledger of ledgers" [value]="ledger.id">
+																							{{ ledger.name}} </md-option>
+																					</md-select> -->
+																						<md-select  class="md-no-placeholder" [(ngModel)]="CARD.segValue" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || (ruleObj.id)"
+																						 name="mappingSetId{{i}}{{k}}{{crd}}" placeholder="Select Mapping Set" required #mappingSetId{{i}}{{k}}{{crd}}="ngModel"
+																						 *ngIf="!isViewOnly &&  (!ruleObj.id) && CARD.criteria == 'MAPPING_SET'">
+																							<md-option *ngFor="let mappingSet of mappingSets" [value]="mappingSet.id">
+																								{{ mappingSet.name}} </md-option>
+																						</md-select>
+																					</td>
+
+																					<td>
+
+																						<i class="fa fa-filter hand pull-right" aria-hidden="true" popoverPlacement="left" [popover]="creditLineFilters" (click)="creditLineFilters.show()"
+																						 mdTooltip="{{CARD.operatorMeaning}}-{{CARD.value}}" *ngIf="CARD.criteria == 'VIEW_COLUMN'">
+																						</i>
+
+																						<popover-content #creditLineFilters placement="right" [animation]="true" [closeOnClickOutside]="false" style="z-index: 999 !important;width:250px;height:80px">
+
+																							<div class="row">
+																								<div class="col-md-12">
+																									<i class="pull-right fa fa-times hand" aria-hidden="true" mdTooltip="Close" (click)="creditLineFilters.hide();">
+																									</i>
+																									<div class="table-responsive">
+																										<table>
+																											<thead>
+																												<tr>
+																													<th style="width:50px;">Operator</th>
+																													<th>Value</th>
+																												</tr>
+																											</thead>
+																											<tbody>
+																												<tr>
+																													<td style="width:50px;">
+
+																														<md-select  class="md-no-placeholder" [(ngModel)]="CARD.operator" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly || ruleObj.id" name="operator{{i}}{{k}}{{crd}}"
+																														 required #operator{{i}}{{k}}{{drd}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id) && creditLineLevelOperatorsLOV&& creditLineLevelOperatorsLOV[i] && creditLineLevelOperatorsLOV[i][k] && creditLineLevelOperatorsLOV[i][k][crd] && CARD.criteria == 'VIEW_COLUMN'">
+																															<md-option *ngFor="let operator of creditLineLevelOperatorsLOV[i][k][crd]" [value]="operator.lookUpCode"> {{ operator.meaning}} </md-option>
+																														</md-select>
+																														<span class="linetext-input" *ngIf="isViewOnly || ( ruleObj.id)">{{CARD.operatorMeaning}}</span>
+																													</td>
+																													<td>
+																														<md-input-container class="example-full-width" *ngIf="!isViewOnly && CARD.criteria == 'VIEW_COLUMN'">
+																															<input class="inputHeight" mdInput [(ngModel)]="CARD.value" [ngClass]="{'color-black' : true }" [disabled]="isViewOnly" name="value{{i}}{{k}}{{crd}}"
+																															 required #value{{i}}{{k}}{{crd}}="ngModel">
+																														</md-input-container>
+																													</td>
+																												</tr>
+																											</tbody>
+																										</table>
+																									</div>
+																								</div>
+																							</div>
+
+																						</popover-content>
+
+
+
+																					</td>
+
+																				</tr>
+
+																			</tbody>
+																		</table>
+
+																	</div>
+																</div>
+																<div *ngIf="displayCreditConditions && displayCreditConditions[i] && displayCreditConditions[i][k]">
+																	<popover-content #creditRuleConditions placement="right" [animation]="true" style="z-index: 999 !important;">
+																		<div class="row">
+
+
+																			<div>
+																				<table class="table">
+																					<thead class="text-nowrap">
+																						<tr>
+																							<th>Sequence</th>
+																							<th>Column</th>
+																							<th>Operator</th>
+																							<th>Value</th>
+																						</tr>
+
+																					</thead>
+																					<tbody class="text-nowrap">
+																						<tr *ngFor="let condition of lineItem.accountingRuleConditions;let debitRC=index">
+																							<td>{{debitRC+1}}</td>
+																							<td>{{condition.sViewColumnName}}</td>
+																							<td>{{condition.operatorMeaning}}</td>
+																							<td>{{condition.value}}</td>
+																						</tr>
+																					</tbody>
+																				</table>
+																			</div>
+																		</div>
+																	</popover-content>
+																</div>
+																<div class="ftlFunction" *ngIf="creditLineModal && creditLineModal[i] && creditLineModal[i][k]">
+																	<p-dialog [resizable]="true" [responsive]="true" [(visible)]="creditLineModal[i][k]" [modal]="true">
+																		<p-header>
+																			Credit Line Conditions
+																			<i class="fa fa-copy hand pull-right" style="font-size: 15px;	font-weight: bold;margin-top: 5px;" aria-hidden="true" id="showIcon"
+																			 (click)="copyConditions(i,k)" mdTooltip="Copy from debit" *ngIf="isCreateNew || !ruleObj.id">
+																			</i>
+																		</p-header>
+																		<div class="table-responsive" style="overflow-x:visible;">
+																			<table class="table">
+																				<thead class="text-nowrap">
+																					<tr>
+																						<th>Sequence</th>
+																						<th>Column</th>
+																						<th>Operator</th>
+																						<th>Value</th>
+																						<th>Actions</th>
+																					</tr>
+
+																				</thead>
+																				<tbody class="text-nowrap">
+
+																					<tr *ngFor="let condition of lineItem.accountingRuleConditions;let crc=index">
+																						<td>
+																							<span class="linetext-input" style="top:24px;" *ngIf="!isViewOnly && !ruleObj.id">{{crc+1}}</span>
+																						</td>
+																						<td>
+																							<md-select  class="md-no-placeholder" [(ngModel)]="condition.sViewColumnId" [ngClass]="{'color-black' : true}" name="sViewColumnId{{i}}{{k}}{{crc}}"
+																							  #sViewColumnId{{i}}{{k}}{{crc}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id)">
+																								<md-option *ngFor="let col of dvColumns[i] " [value]="col.id" (click)="condition.dataType = col.colDataType;SelectCreditLineConditionColumn(i,k,crc,col.colDataType,col.columnName)">
+																									{{ col.columnName}} </md-option>
+																							</md-select>
+																						</td>
+																						<td>
+																							<md-select  class="md-no-placeholder" [(ngModel)]="condition.operator" [ngClass]="{'color-black' : isViewOnly}" name="operatorLovForConditions{{i}}{{k}}{{crc}}"
+																							  #operatorLovForConditions{{i}}{{k}}{{crc}}="ngModel" *ngIf="!isViewOnly && (!ruleObj.id ) &&  operatorLovForConditions && 
+																		  operatorLovForConditions[i] &&  operatorLovForConditions[i][k] &&  operatorLovForConditions[i][k][crc]">
+																								<md-option *ngFor="let operator of operatorLovForConditions[i][k][crc]" [value]="operator.lookUpCode"> {{ operator.meaning}} </md-option>
+																							</md-select>
+																						</td>
+																						<td>
+																							<md-input-container *ngIf="!isViewOnly && (!ruleObj.id || ruleObj.id  <=0)">
+																								<input class="inputHeight" mdInput [(ngModel)]="condition.value" name="value{{i}}{{k}}{{crc}}" required #value{{i}}{{j}}{{crc}}="ngModel"> </md-input-container>
+																						</td>
+																						<td>
+																							<button md-icon-button *ngIf="!isViewOnly   && (!ruleObj.id )" (click)="deleteCreditRuleCondition(i,k,crc)" mdTooltip="Delete condition"
+																							 id="showIcon">
+																								<md-icon>delete</md-icon>
+																							</button>
+																							<button md-icon-button mdTooltip="Add New Condition" (click)="addMappingCriteriaForCreditLines(i,k,lineItem.accountingRuleConditions.length)"
+																							 *ngIf="crc == lineItem.accountingRuleConditions.length-1">
+																								<md-icon>exposure_plus_1</md-icon>
+																							</button>
+																						</td>
+																					</tr>
+																				</tbody>
+																			</table>
+																		</div>
+																	</p-dialog>
+																</div>
+
+															</div>
+														</div>
+													</p-accordionTab>
+												</p-accordion>
+											</ng-template>
+
+										</div>
+									</div>
+								</div>
+
+
+							</p-accordionTab>
+						</p-accordion>
+					</div>
+				</p-accordionTab>
+			</p-accordion>
+
+		</ng-template>
+
+	</div>
+</form>

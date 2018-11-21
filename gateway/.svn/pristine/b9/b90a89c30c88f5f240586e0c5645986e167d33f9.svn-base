@@ -1,0 +1,970 @@
+<p-blockUI [blocked]="blockedDocument"></p-blockUI>
+<div class="component-body dashboardV7" *ngIf="noProcessList" style="padding: 10px;">
+    <md-card style="padding: 15px !important;" class="shadow">
+        <p>There is no processess to display module wise analysis.
+            <a [routerLink]="['/processes', {outlets: {'content': ['processes-home']}}]">Click here </a>to create new</p>
+    </md-card>
+</div>
+<div class="component-body dashboardV7" *ngIf="!noProcessList" style="padding: 10px;">
+    <div id="dashboardNavSticky" style="box-shadow: 0 3px 1px -2px rgba(0,0,0,.2), 0 2px 2px 0 rgba(0,0,0,.14), 0 1px 5px 0 rgba(0,0,0,.12);border-radius: 6px;padding-bottom: 0 !important;">
+        <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;padding: 5px;">
+            <div class="col-lg-2 col-md-2 col-sm-4 col-xs-4 fieldBorderStyle">
+                <md-select placeholder="Processes" class="selectionBorderBackground" [(ngModel)]="selectedProcessId" name="selectedProcessId"
+                    *ngIf="processesList && processesList.length>0">
+                    <md-option *ngFor="let col of processesList" [value]="col.id" (click)="loadall();">
+                        {{ col.processName }}
+                    </md-option>
+                </md-select>
+            </div>
+            <div class="col-lg-7 col-md-7 col-sm-8 col-xs-8 customToggleTabs" style="margin: auto;overflow-y: hidden;height: 33px;">
+                <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRange($event);">
+                    <md-button-toggle *ngFor="let range of selectedDateRangeOption;let i = index;" [value]="range.value" [checked]="range.checked" [mdTooltip]="range.title"
+                        class="hov-grow hov-sweep-to-right">
+                        {{range.name}}
+                    </md-button-toggle>
+                </md-button-toggle-group>
+                <!-- <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRange($event);">
+                    <md-button-toggle value='Today' mdTooltip="1 Day">
+                        1D
+                    </md-button-toggle>
+                    <md-button-toggle value='Last 7 Days' mdTooltip="1 Week">
+                        1W
+                    </md-button-toggle>
+                    <md-button-toggle value='Last 14 Days' mdTooltip="2 Weeks">
+                        2W
+                    </md-button-toggle>
+                    <md-button-toggle value='Last 30 Days' mdTooltip="1 Month">
+                        1M
+                    </md-button-toggle>
+                    <md-button-toggle value='Last 2Months' mdTooltip="2 Months">
+                        2M
+                    </md-button-toggle>
+                    <md-button-toggle value='Last 3Months' mdTooltip="3 Months">
+                        3M
+                    </md-button-toggle>
+                    <md-button-toggle value='Last 6Months' mdTooltip="6 Months">
+                        6M
+                    </md-button-toggle>
+                    <md-button-toggle value='Yesterday' mdTooltip="Yesterday">
+                        Yesterday
+                    </md-button-toggle>
+                    <md-button-toggle value='This Month' mdTooltip="This Month" checked>
+                        This Month
+                    </md-button-toggle>
+                    <md-button-toggle value='Custom Date Range' mdTooltip="Custom Date Range">
+                        Custom Date Range
+                    </md-button-toggle>
+                </md-button-toggle-group> -->
+                <!-- <div style="position: absolute;right: 6px;">
+                    <i class="material-icons" [mdMenuTriggerFor]="datemenu" mdTooltip="More" style="z-index: 99999;">more_vert</i>
+                    <md-menu class="rangeMenuLov" #datemenu="mdMenu" xPosition="before">
+                        <button md-menu-item *ngFor="let col of dateRangeLov;let i = index;" class="addActCls_{{i}}" (click)="dateRangeactiveItem = col;changeDateRange(col.name);"
+                            [ngClass]="{'nav-active': col == dateRangeactiveItem}">
+                            <span>{{col.name}}</span>
+                        </button>
+                    </md-menu>
+                </div> -->
+            </div>
+            <!-- <div class="customToggleTabs col-md-4 moduleOnScroll" style="margin: auto;">
+                    <md-button-toggle-group #group="mdButtonToggleGroup">
+                        <md-button-toggle value='ETL' mdTooltip="ETL">
+                            ETL
+                        </md-button-toggle>
+                        <md-button-toggle value='Reconciliation' mdTooltip="Reconciliation">
+                            Reconciliation
+                        </md-button-toggle>
+                        <md-button-toggle value='Accounting' mdTooltip="Accounting">
+                            Accounting
+                        </md-button-toggle>
+                    </md-button-toggle-group>
+                </div> -->
+            <div class="col-lg-2 col-md-2 col-sm-6 col-xs-6 navStEndPicker" style="display: flex;">
+                <div class="col-md-6 stDtcol" style="margin: auto;">
+                    <md-form-field>
+                        <input mdInput [mdDatepicker]="stpickers" placeholder="From"  [(ngModel)]="processFilter.startDate"
+                            name="startDate" (dateChange)="newrequest = true;isStartDateChanged = true;" [max]="maxDate" 
+                            (dateInput)="getmindate()" (dateChange)="getmindate();changeDateRange();"><!-- (ngModelChange)="edpickers.open()" -->
+                        <md-datepicker-toggle mdSuffix [for]="stpickers" ></md-datepicker-toggle>
+                        <md-datepicker #stpickers></md-datepicker>
+                    </md-form-field>
+                </div>
+                <div class="col-md-6" style="margin: auto;">
+                    <md-form-field>
+                        <input mdInput [mdDatepicker]="edpickers" placeholder="To"  [max]="maxDate" [min]="minDate"
+                            [(ngModel)]="processFilter.endDate" name="endDate" (dateChange)="changeDateRange();newrequest = true;isEndDateChanged = true;">
+                        <md-datepicker-toggle mdSuffix [for]="edpickers" ></md-datepicker-toggle>
+                        <md-datepicker #edpickers></md-datepicker>
+                    </md-form-field>
+                </div>
+            </div>
+            <div class="col-lg-1 col-md-1 col-sm-6 col-xs-6 center" style="margin: auto;">
+                <span style="padding-right: 5px;">
+                    <i class="material-icons hand" style="font-size: 20px;" (click)="loadall()" mdTooltip="Click here Re-submit">
+                        refresh </i>
+                </span>
+                <span style="padding-right: 5px;">
+                    <i class="material-icons layovericon hand" style="font-size: 20px;" (click)="ondrillthru()" mdTooltip="Drill through"> label </i>
+                </span>
+                <span style="padding-right: 5px;">
+                    <i class="material-icons hand" style="font-size: 20px;" mdTooltip="User Preference Setting" (click)="openDialog1('User Preference');">settings</i>
+                </span>
+            </div>
+        </div>
+    </div>
+    <div class="row col-lg-12 col-md-12 col-sm-12 col-xs-12" style="margin-left: 0px;padding: 10px 0;">
+        <!-- <div class="col-md-3">
+            <md-card class="shadow processSelectionTitle">
+                <div class="row col-md-12" style="margin-left: 0px;padding-top: 12px;">
+                    <div class="col-md-9">
+                        <md-select class="selectionBorderBackground" [(ngModel)]="selectedProcessId" name="selectedProcessId" *ngIf="processesList && processesList.length>0">
+                            <md-option *ngFor="let col of processesList" [value]="col.id" (click)="loadall();">
+                                {{ col.processName }}
+                            </md-option>
+                        </md-select>
+                    </div>
+                    <div class="col-md-3" style="margin-top: auto;margin-bottom: auto;">
+                        <span class="pull-right">
+                            <i class="material-icons layovericon" (click)="ondrillthru()" mdTooltip="Drill through"> label </i>
+                        </span>
+                        <span class="pull-right">
+                            <i class="material-icons" style="font-size: 17px;" mdTooltip="User Preference Setting" (click)="openDialog1('User Preference');">settings</i>
+                        </span>
+                    </div>
+                </div>
+                <div class="row col-md-12 span-text1" style="margin-left: 0px;margin-top: 3px;">
+                    <div class="col-md-4" style="text-overflow: ellipsis;overflow: hidden;white-space: nowrap;margin-top: auto;margin-bottom: auto;">
+                        <span>
+                            {{processFilter.startDate | date:'dd MMM, yy'}}
+                            <div class="datePickerWidth">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="stpicker" placeholder="" [(ngModel)]="processFilter.startDate" name="startDate" required (dateChange)="newrequest = true;isStartDateChanged = true;">
+                                    <md-datepicker-toggle mdSuffix [for]="stpicker" [disabled]="!selectedMoreRange"></md-datepicker-toggle>
+                                    <md-datepicker #stpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                        </span>
+                    </div>
+                    <div class="col-md-2" style="text-overflow: ellipsis;overflow: hidden;white-space: nowrap;margin-top: auto;margin-bottom: auto;text-align: center;">
+                        <span>(to)</span>
+                    </div>
+                    <div class="col-md-4" style="text-overflow: ellipsis;overflow: hidden;white-space: nowrap;margin-top: auto;margin-bottom: auto;">
+                        <span>
+                            {{processFilter.endDate | date:'dd MMM, yy'}}
+                            <div class="datePickerWidth">
+                                <md-form-field>
+                                    <input mdInput [mdDatepicker]="edpicker" placeholder="" [min]="processFilter.startDate" [(ngModel)]="processFilter.endDate"
+                                        name="endDate" (dateChange)="newrequest = true;isEndDateChanged = true;">
+                                    <md-datepicker-toggle mdSuffix [for]="edpicker" [disabled]="!selectedMoreRange"></md-datepicker-toggle>
+                                    <md-datepicker #edpicker></md-datepicker>
+                                </md-form-field>
+                            </div>
+                        </span>
+                    </div>
+                    <div class="col-md-2" style="margin-top: auto;margin-bottom: auto;">
+                        <span class="pull-right">
+                            <i class="material-icons" *ngIf="newrequest || newrequestviol" (click)="loadall()" mdTooltip="Click here Re-submit">
+                                refresh </i>
+                        </span>
+                    </div>
+                </div>
+                <div class="row col-md-12 customToggleTabs" style="margin-left: 0px;margin-top: 3px;height: 25px;">
+                    <div class="col-md-11" style="overflow-x: auto;">
+                        <md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRange($event);">
+                            <md-button-toggle value='Today' mdTooltip="1 Day">
+                                1D
+                            </md-button-toggle>
+                            <md-button-toggle value='Last 7 Days' mdTooltip="1 Week">
+                                1W
+                            </md-button-toggle>
+                            <md-button-toggle value='Last 14 Days' mdTooltip="2 Weeks">
+                                2W
+                            </md-button-toggle>
+                            <md-button-toggle value='Last 30 Days' mdTooltip="1 Month">
+                                1M
+                            </md-button-toggle>
+                            <md-button-toggle value='Last 2Months' mdTooltip="2 Months">
+                                2M
+                            </md-button-toggle>
+                            <md-button-toggle value='Last 3Months' mdTooltip="3 Months">
+                                3M
+                            </md-button-toggle>
+                            <md-button-toggle value='Last 6Months' mdTooltip="6 Months">
+                                6M
+                            </md-button-toggle>
+                        </md-button-toggle-group>
+                    </div>
+                    <div class="col-md-1">
+                        <span style="position: absolute;right: 6px;">
+                            <i class="material-icons" [mdMenuTriggerFor]="datemenu" mdTooltip="More" style="z-index: 99999;">more_vert</i>
+                            <md-menu class="rangeMenuLov" #datemenu="mdMenu" xPosition="before">
+                                <button md-menu-item *ngFor="let col of dateRangeLov;let i = index;" class="addActCls_{{i}}" (click)="dateRangeactiveItem = col;changeDateRange(col.name);"
+                                    [ngClass]="{'nav-active': col == dateRangeactiveItem}">
+                                    <span>{{col.name}}</span>
+                                </button>
+                            </md-menu>
+                        </span>
+                    </div>
+                </div>
+            </md-card>
+        </div> -->
+        <div class="col-lg-12 col-md-12" style="padding: 0;">
+            <div style="height: 123px;">
+                <div style="display: flex;justify-content: center;">
+                    <div (click)="displaySelectedProcess('extraction');" class="extractionStatusCls moduleL1" style="background: white;margin-left: 0px;">
+                        <circle-progress [percent]="moduleAnalysisList.transformation" [radius]="40" [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6"
+                            [outerStrokeColor]="'#0091EA'" [innerStrokeColor]="'#ededed'" [animation]="true" [animationDuration]="300"
+                            [showSubtitle]="true" [subtitle]="'ETL'" [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10"
+                            style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                        <div style="margin-top:-10px;">
+                            <span>{{spNames.join(" (&) ")}}</span>
+                        </div>
+                    </div>
+                    <div (click)="displaySelectedProcess('reconciliation');" class="reconciliationStatusCls moduleL1" style="background: white;"
+                        *ngIf="reconRuleGrpId">
+                        <circle-progress *ngIf="selectedReconFilterValue != 'Amount'" [percent]="moduleAnalysisList.reconCountPer" [radius]="40"
+                            [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#FF6D00'" [innerStrokeColor]="'#ededed'"
+                            [animation]="true" [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Reconciliation'"
+                            [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10" style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                        <circle-progress *ngIf="selectedReconFilterValue == 'Amount'" [percent]="moduleAnalysisList.reconAmtPer" [radius]="40" [space]="-6"
+                            [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#FF6D00'" [innerStrokeColor]="'#ededed'"
+                            [animation]="true" [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Reconciliation'"
+                            [titleFontSize]="20" [unitsFontSize]="15" [subtitleFontSize]="10" style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                        <span *ngIf="showrecon" class="customToggleTabs" style="position: absolute;right: 5px;top: 5px;">
+                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="changeReconGrpBy($event);" [value]="selectedReconFilterValue">
+                                <md-button-toggle value="Amount">
+                                    Amount
+                                </md-button-toggle>
+                                <md-button-toggle value="Count">
+                                    Count
+                                </md-button-toggle>
+                            </md-button-toggle-group>
+                        </span>
+                        <div style="margin-top:-10px;">
+                            <span>{{reconRg}}</span>
+                        </div>
+                    </div>
+                    <div (click)="displaySelectedProcess('accounting');" class="accountingStatusCls moduleL1" *ngIf="accountingRg" style="background: white;margin-right: 0px;">
+                        <circle-progress *ngIf="selectedAccountingFilterValue != 'Amount'" [percent]="moduleAnalysisList.accounting" [radius]="40"
+                            [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#23a245'" [innerStrokeColor]="'#ededed'"
+                            [animation]="true" [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Accounting'" [titleFontSize]="20"
+                            [unitsFontSize]="15" [subtitleFontSize]="10" style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                        <circle-progress *ngIf="selectedAccountingFilterValue == 'Amount'" [percent]="moduleAnalysisList.accountingAmtPer" [radius]="40"
+                            [space]="-6" [outerStrokeWidth]="6" [innerStrokeWidth]="6" [outerStrokeColor]="'#23a245'" [innerStrokeColor]="'#ededed'"
+                            [animation]="true" [animationDuration]="300" [showSubtitle]="true" [subtitle]="'Accounting'" [titleFontSize]="20"
+                            [unitsFontSize]="15" [subtitleFontSize]="10" style="margin-top: auto;margin-bottom: auto;"></circle-progress>
+                        <span *ngIf="showacc" class="customToggleTabs" style="position: absolute;right: 5px;top: 5px;">
+                            <md-button-toggle-group #group="mdButtonToggleGroup" (change)="changeAccountingGrpBy($event);" [value]="selectedAccountingFilterValue">
+                                <md-button-toggle value="Amount">
+                                    Amount
+                                </md-button-toggle>
+                                <md-button-toggle value="Count">
+                                    Count
+                                </md-button-toggle>
+                            </md-button-toggle-group>
+                        </span>
+                        <div style="margin-top:-10px;">
+                            <span>{{accountingRg}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="extractionDiv" style="margin-top: 7px;" *ngIf="showetl">
+        <div class="row col-md-12" style="margin-left: 0;padding: 0;">
+            <div class="col-md-9" style="padding-left: 0px;">
+                <!-- <div class="col-md-12"> -->
+                <md-card style="height: calc(100vh - 232px);">
+                    <div class="reconAnalysisDiv" style="height:calc(100vh - 208px);display: flex;">
+                        <div [ngClass]="!splitETLCard ? 'col-md-12 col-sm-12':'col-md-6 col-sm-12'" class="reconAnalysisDiv" style="height:calc(100vh - 280px);padding-left: 0px;">
+                            <div *ngIf="showETLPreviousButton != 'None';" class="drillDownBack" (click)="displayPreviousETLAnalysis();">
+                                <span>
+                                    <i class="material-icons">chevron_left</i>
+                                </span>
+                                <span>
+                                    back to {{showETLPreviousButton}}
+                                </span>
+                            </div>
+                            <div class="chartTypePosition">
+                                <span>
+                                    <i *ngIf="etlChartType == 'bar'" class="material-icons" (click)="etlChartType = 'line';changeETLChartColor();" mdTooltip="Line Chart">show_chart</i>
+                                    <i *ngIf="etlChartType == 'line'" class="material-icons" (click)="etlChartType = 'bar';changeETLChartColor();" mdTooltip="Bar Chart">insert_chart</i>
+                                </span>
+                            </div>
+                            <div style="display: grid;padding: 9px 0px 0px 0px;margin-bottom: 10px;">
+                                <span style="font-size: 17px;display: grid;">
+                                    {{currentETLAnalysisData}} Wise Analysis
+                                    <span style="font-size: 11px;" *ngIf="selectedPeriodForETLMonth != undefined || selectedPeriodForETLWeek != undefined">
+                                        (
+                                        <span *ngIf="selectedPeriodForETLMonth != undefined"> {{selectedPeriodForETLMonth}} -></span>
+                                        <span *ngIf="selectedPeriodForETLWeek != undefined"> {{selectedPeriodForETLWeek}}</span>
+                                        <span *ngIf="selectedPeriodForETLWeek != undefined && etltempSelectedLabel != undefined"> -> </span>
+                                        <span *ngIf="etltempSelectedLabel != undefined"> {{etltempSelectedLabel}}</span>
+                                        )
+                                    </span>
+                                </span>
+                            </div>
+                            <canvas *ngIf="showETLChart && etlChartLabels" baseChart [datasets]="etlChartData" [labels]="etlChartLabels" [options]="etlChartOptions"
+                                [colors]="etlChartColors" [legend]="etlChartLegend" [chartType]="etlChartType" (chartClick)="getETLDrillDownAnalysis($event)"></canvas>
+                        </div>
+                        <div class="col-md-6 reconViewAnalysisDiv" *ngIf="etlViewChartDisplay && etlViewSpecificChartLabels">
+                            <div class="chartTypePosition">
+                                <span>
+                                    <i *ngIf="etlViewSpecificChartType == 'pie'" class="material-icons" (click)="etlViewSpecificChartType = 'doughnut';" mdTooltip="Doughnut Chart">donut_small</i>
+                                    <i *ngIf="etlViewSpecificChartType == 'doughnut'" class="material-icons" (click)="etlViewSpecificChartType = 'pie';" mdTooltip="Pie Chart">pie_chart</i>
+                                    <span *ngIf="etlTemplatesLov != undefined">
+                                        <i class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</i>
+                                        <md-menu #menu="mdMenu" xPosition="before">
+                                            <button md-menu-item *ngFor="let col of etlTemplatesLov.tempName" (click)="fetchViewDrillDownAnalysis(col.columnAliasName, col.columnName);activeItem1 = col;"
+                                                [ngClass]="{'nav-active': col == activeItem1}">
+                                                <span>{{col.columnName}}</span>
+                                            </button>
+                                        </md-menu>
+                                    </span>
+                                </span>
+                            </div>
+                            <div style="display: grid;padding: 9px 0px 0px 9px;margin-bottom: -38px;">
+                                <span style="font-size: 17px;">
+                                    <span *ngIf="!showETLViewBackButton">Profile</span>
+                                    <span *ngIf="showETLViewBackButton">Template</span> Specific Analysis
+                                </span>
+                                <span style="font-size: 11px;" *ngIf="etlSelectedProfileName != undefined || etltempSelectedLabel != undefined">
+                                    (
+                                    <span *ngIf="etlSelectedProfileName != undefined">
+                                        {{etlSelectedProfileName}} ->
+                                    </span>
+                                    <span *ngIf="etltempSelectedLabel != undefined">
+                                        {{etltempSelectedLabel}}
+                                    </span>
+                                    <span *ngIf="etlSelectedProfileName != undefined && etlGrpByView != undefined">
+                                        -> {{etlGrpByView}}
+                                    </span>
+                                    )
+                                </span>
+                            </div>
+                            <div *ngIf="showETLViewBackButton == true;" class="drillDownBackView" (click)="fetchETLViewAnalysis();">
+                                <span>
+                                    <i class="material-icons">chevron_left</i>
+                                </span>
+                                <span>
+                                    back to profile analysis
+                                </span>
+                            </div>
+                            <div style="height:calc(100vh - 307px);position: relative;margin-top: 27px;">
+                                <canvas baseChart [data]="etlViewSpecificChartData" [labels]="etlViewSpecificChartLabels" [options]="etlViewSpecificChartOptions"
+                                    [legend]="etlViewSpecificChartLegend" [chartType]="etlViewSpecificChartType" (chartClick)="getETLViewDrillDownAnalysis($event)"
+                                    [colors]="etlViewSpecificChartColors"></canvas>
+                            </div>
+
+
+                        </div>
+                    </div>
+                </md-card>
+                <!-- </div> -->
+            </div>
+            <div class="col-md-3" style="padding-top: 7px; ">
+                <md-card class="shadow" (click)="openDialog1('test')">
+                    <div class="row progressWidget" *ngIf="etlKPIDetailList != undefined">
+                        <div class="col-md-8">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno"> {{etlKPIDetailList.totalExtractionFailedCt | amountFormat:'': 0}}</span>
+                                <span style="font-size:14px">Runs</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Extraction failed</span>
+                                    <span class="col-md-2" style="float: right;">{{etlKPIDetailList.totalExtractionFailedCtPer | amountFormat:'': 0 }}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="etlKPIDetailList.totalExtractionFailedCtPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="material-icons bgicon"> local_atm </i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget" *ngIf="etlKPIDetailList != undefined">
+                        <div class="col-md-8">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{etlKPIDetailList.totalTransformationFailedCt | amountFormat:'': 0}}</span>
+                                <span style="font-size:14px">files</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Transformation failed</span>
+                                    <span class="col-md-2" style="float: right;">{{etlKPIDetailList.totalTransformationFailedCtPer | amountFormat:'': 0}}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="etlKPIDetailList.totalTransformationFailedCtPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="bgicon rec-font-bar_chart"></i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget" *ngIf="etlKPIDetailList != undefined">
+                        <div class="col-md-8">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{etlKPIDetailList.failedRecordsCount | amountFormat:'': 0}}</span>
+                                <span style="font-size:14px">trans</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Records in Staging</span>
+                                    <span class="col-md-2" style="float: right;">{{etlKPIDetailList.failedRecordsCountPer | amountFormat:'': 0}}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="etlKPIDetailList.failedRecordsCountPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="material-icons bgicon"> list </i>
+                        </div>
+                    </div>
+                </md-card>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="reconciliationAct" class="tempRecCls reconview" style="margin-top: 7px;" *ngIf="showrecon && reconRuleGrpId">
+        <div class="row col-md-12" style="margin-left: 0;padding: 0;">
+            <div class="col-md-9" style="padding-left: 0px;">
+                <md-card style="height: calc(100vh - 232px);">
+                    <div class="reconAnalysisDiv" style="height:calc(100vh - 280px);">
+                        <div *ngIf="showReconPreviousButton != 'None';" class="drillDownBack" (click)="displayPreviousReconAnalysis();">
+                            <span>
+                                <i class="material-icons">chevron_left</i>
+                            </span>
+                            <span>
+                                back to {{showReconPreviousButton}}
+                            </span>
+                        </div>
+                        <div class="chartTypePosition">
+                            <span>
+                                <i *ngIf="reconChartType == 'bar'" class="material-icons" (click)="reconChartType = 'line';changeReconChartColor();" mdTooltip="Line Chart">show_chart</i>
+                                <i *ngIf="reconChartType == 'line'" class="material-icons" (click)="reconChartType = 'bar';changeReconChartColor();" mdTooltip="Bar Chart">insert_chart</i>
+                            </span>
+                        </div>
+                        <div style="display: grid;padding: 9px 0px 0px 0px;margin-bottom: 10px;">
+                            <span style="font-size: 17px;display: grid;">
+                                {{currentReconAnalysisData}} Wise Analysis
+                                <span style="font-size: 11px;" *ngIf="selectedPeriodForReconMonth != undefined || selectedPeriodForReconWeek != undefined">
+                                    (
+                                    <span *ngIf="selectedPeriodForReconMonth != undefined"> {{selectedPeriodForReconMonth}} -></span>
+                                    <span *ngIf="selectedPeriodForReconWeek != undefined"> {{selectedPeriodForReconWeek}}</span>
+                                    <span *ngIf="selectedPeriodForReconWeek != undefined && tempSelectedLabel != undefined "> -> </span>
+                                    <span *ngIf="tempSelectedLabel != undefined"> {{tempSelectedLabel}}</span>
+                                    )
+                                </span>
+                            </span>
+                        </div>
+                        <canvas *ngIf="showReconChart && reconChartLabels" baseChart [datasets]="reconChartData" [labels]="reconChartLabels" [options]="reconChartOptions"
+                            [colors]="reconChartColors" [legend]="reconChartLegend" [chartType]="reconChartType" (chartClick)="getReconDrillDownAnalysis($event)"></canvas>
+                    </div>
+                </md-card>
+            </div>
+            <div class="col-md-3 kpiBlockheight">
+                <md-card class="shadow">
+                    <div class="row progressWidget" *ngIf="reconViewSpecificAnalysis1 != undefined">
+                        <div class="col-md-8">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno"> {{reconViewSpecificAnalysis1.unReconItemsValue | amountFormat:'$': 2}}</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Un-Reconciled value</span>
+                                    <span class="col-md-2" style="float: right;">{{reconViewSpecificAnalysis1.unReconItemsValuePer | amountFormat:'': 0 }}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="reconViewSpecificAnalysis1.unReconItemsValuePer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="material-icons bgicon"> local_atm </i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget" *ngIf="reconViewSpecificAnalysis1 != undefined">
+                        <div class="col-md-8">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{reconViewSpecificAnalysis1.unReconItemsViolation | amountFormat:'': 2}}</span>
+                                <span style="font-size:14px">trans</span>
+                                <div *ngIf="!showReconViolationEdit">
+                                    <div class="row col-md-12 kpiLabelMargin">
+                                        <span class="col-md-10 span-text ellipsisCls">Violated By
+                                            <span (click)="showReconViolationEdit = true;">{{reconViolationPeriod}}</span>
+                                            Days
+                                        </span>
+                                        <span class="col-md-2" style="float: right;">{{reconViewSpecificAnalysis1.unReconItemsViolationPer | amountFormat:'': 0}}%</span>
+                                    </div>
+                                    <md-progress-bar mode="determinate" [value]="reconViewSpecificAnalysis1.unReconItemsViolationPer" [color]="'primary'"></md-progress-bar>
+                                </div>
+                                <div *ngIf="showReconViolationEdit" style="display: flex;margin-left: -7px;">
+                                    <md-slider class="example-margin" [disabled]="disabled" [invert]="invert" [max]="max" [min]="min" [step]="step" [thumbLabel]="thumbLabel"
+                                        [tickInterval]="tickInterval" [(ngModel)]="tempreconViolationPeriod" [vertical]="vertical">
+                                    </md-slider>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Update" (click)="updateViolationAnalysis('reconciliation');">check_circle</i>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Cancel" (click)="cancelViolationAnalysis('reconciliation');">cancel</i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="rec-font-bar_chart bgicon"></i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget" *ngIf="reconViewSpecificAnalysis1 != undefined">
+                        <div class="col-md-8">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{reconViewSpecificAnalysis1.awaitingAppCount | amountFormat:'': 0}}</span>
+                                <span style="font-size:14px">trans</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Awaiting For Approvals</span>
+                                    <span class="col-md-2" style="float: right;">{{reconViewSpecificAnalysis1.awaitingAppCountPer | amountFormat:'': 0}}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="reconViewSpecificAnalysis1.awaitingAppCountPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="material-icons bgicon"> people </i>
+                        </div>
+                    </div>
+                </md-card>
+            </div>
+        </div>
+        <div class="viewComb-list hide-mat-tab" style="margin-left: 0;padding: 0;">
+            <div class="cat-heading">
+                <span style="font-size: 17px;">{{tempSelectedLabel}} Source Analysis</span>
+            </div>
+            <md-tab-group [(selectedIndex)]="selectedReconAnalysis">
+                <md-tab *ngFor="let col of reconViewCombinationSpecificAnalysis;let i=index;">
+                    <ng-template md-tab-label *ngIf="!loadingTab">
+                        <div [ngClass]="{'disablePointerEvents':loadingKPIGrp == true}" (click)="changeReconViewOrder = !changeReconViewOrder;changeReconViewTab(i);">
+                            <div class="d-flex">
+                                <div class="srcReconOrder_{{i}}" style="order:0">
+                                    <p class="m-0" style="font-size: 12px;font-weight: normal;">Reconciliation For</p>
+                                    <div class="d-flex align-items-center">
+                                        <i class="material-icons bgicon">insert_drive_file</i>
+                                        <div>
+                                            <span *ngIf="toggleReconView && selectedReconAnalysis == i" class="d-block">{{col.combination[0].viewName}}</span>
+                                            <p *ngIf="!toggleReconView && selectedReconAnalysis == i" class="d-block" style="margin-bottom: 0;">{{col.combination[0].viewName}}</p>
+                                            <p *ngIf="selectedReconAnalysis != i" class="d-block" style="margin-bottom: 0;">{{col.combination[0].viewName}}</p>
+                                            <!-- <span class="d-block" *ngIf="toggleReconView && selectedReconAnalysis == i">{{col.combination[0].countPer | amountFormat:'': 2}}%</span> -->
+                                            <span class="d-block" *ngIf="toggleReconView && selectedReconAnalysis == i && selectedReconFilterValue == 'Amount'">
+                                                {{col.combination[0].amountPer}}%
+                                            </span>
+                                            <span class="d-block" *ngIf="toggleReconView && selectedReconAnalysis == i && selectedReconFilterValue == 'Count'">
+                                                {{col.combination[0].countPer}}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="switch-icon" style="order:1">
+                                    <i class="material-icons">compare_arrows</i>
+                                </div>
+                                <div class="trgReconOrder_{{i}}" style="order:3">
+                                    <p class="m-0" style="font-size: 12px;font-weight: normal;">Reconciliation With</p>
+                                    <div class="d-flex align-items-center" style="padding-right:7px;">
+                                        <i class="material-icons bgicon">insert_drive_file</i>
+                                        <div>
+                                            <span class="d-block" *ngIf="!toggleReconView && selectedReconAnalysis == i" style="margin-bottom: 0;">{{col.combination[1].viewName}}</span>
+                                            <p class="d-block" *ngIf="toggleReconView && selectedReconAnalysis == i" style="margin-bottom: 0;">{{col.combination[1].viewName}}</p>
+                                            <p class="d-block" *ngIf="selectedReconAnalysis != i" style="margin-bottom: 0;">{{col.combination[1].viewName}}</p>
+                                            <!-- <span class="d-block" *ngIf="!toggleReconView && selectedReconAnalysis == i">{{col.combination[1].countPer | amountFormat:'': 2}}%</span> -->
+                                            <span class="d-block" *ngIf="!toggleReconView && selectedReconAnalysis == i && selectedReconFilterValue == 'Amount'">
+                                                {{col.combination[1].amountPer}}%
+                                            </span>
+                                            <span class="d-block" *ngIf="!toggleReconView && selectedReconAnalysis == i && selectedReconFilterValue == 'Count'">
+                                                {{col.combination[1].countPer}}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+            </md-tab-group>
+        </div>
+        <div style="margin-left: 0;padding: 0;margin-top: 25px;">
+            <md-card>
+                <div class="col-md-12" style="display: flex;padding: 0px;">
+                    <div class="col-md-6" style="border-right: 1px solid #ebebeb;padding-left: 0px;">
+                        <div class="cat-heading" style="font-size: 17px;padding-top: 6px;">
+                            <span>{{tempSelectedLabel}} Analysis For {{reconSelectedViewName}}</span>
+                        </div>
+                        <div style="height:calc(100vh - 332px);position: relative;margin-top: 20px;" *ngIf="dataviewlabels && dataviewlabels.length && dataviewdataset">
+                            <canvas baseChart [datasets]="dataviewdataset" [options]="comboViewSpecificChartOptions" [labels]="dataviewlabels" [legend]="reconViewSpecificChartLegend"
+                                [chartType]="comboViewSpecificChartType" [colors]="stackedchartcolors" (chartClick)="goToRWQ($event);"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chartTypePosition">
+                            <!-- *ngIf="showGroupChart" -->
+                            <span>
+                                <i *ngIf="reconViewSpecificChartType == 'pie'" class="material-icons" (click)="reconViewSpecificChartType = 'doughnut';"
+                                    mdTooltip="Doughnut Chart">donut_small</i>
+                                <i *ngIf="reconViewSpecificChartType == 'doughnut'" class="material-icons" (click)="reconViewSpecificChartType = 'pie';"
+                                    mdTooltip="Pie Chart">pie_chart</i>
+                                <span *ngIf="reconGroupByLov != undefined">
+                                    <i class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</i>
+                                    <md-menu #menu="mdMenu" xPosition="before">
+                                        <button md-menu-item *ngFor="let col of reconGroupByLov.columnsList" (click)="fetchViewDrillDownAnalysis(col.columnAliasName, col.columnName);activeItem1 = col;"
+                                            [ngClass]="{'nav-active': col == activeItem1}">
+                                            <span>{{col.columnName}}</span>
+                                        </button>
+                                    </md-menu>
+                                </span>
+                            </span>
+                            <!-- reconGroupByLov.columnsList -->
+                        </div>
+                        <div class="cat-heading" style="font-size: 17px;padding-top: 6px;">
+                            <span *ngIf="reconSelectedViewName != undefined && reconGrpByView != undefined">
+                                View By "{{reconGrpByView}}" For
+                            </span>
+                            <span *ngIf="reconSelectedViewName != undefined">
+                                {{reconSelectedViewName}}
+                            </span>
+                        </div>
+                        <div style="height:calc(100vh - 300px);position: relative;margin-top: 38px;" *ngIf="showGroupChart">
+                            <canvas baseChart [datasets]="reconViewSpecificChartData" [labels]="reconViewSpecificChartLabels" [options]="reconViewSpecificChartOptions"
+                                [legend]="reconViewSpecificChartLegend" [chartType]="reconViewSpecificChartType" [colors]="reconViewSpecificChartColors"></canvas>
+                        </div>
+                        <div *ngIf="reconViewSpecificChartData && !reconViewSpecificChartData.length">There is no source analysis data for selected period.</div>
+                    </div>
+                </div>
+            </md-card>
+        </div>
+    </div>
+
+    <div id="accountingAct" class="tempAccCls reconview" style="margin-top: 7px;" *ngIf="showacc && accountingRg">
+        <div class="row col-md-12" style="margin-left: 0;padding: 0;">
+            <div class="col-md-9" style="padding-left: 0px;">
+                <md-card style="height: calc(100vh - 232px);">
+                    <div class="reconAnalysisDiv" style="height:calc(100vh - 280px);">
+                        <div *ngIf="showAccountingPreviousButton != 'None';" class="drillDownBack" (click)="displayPreviousAccountingAnalysis();">
+                            <span>
+                                <i class="material-icons">chevron_left</i>
+                            </span>
+                            <span>
+                                back to {{showAccountingPreviousButton}}
+                            </span>
+                        </div>
+                        <div class="chartTypePosition">
+                            <span>
+                                <i *ngIf="accountingChartType == 'bar'" class="material-icons" (click)="accountingChartType = 'line';changeAccountingChartColor();"
+                                    mdTooltip="Line Chart">show_chart</i>
+                                <i *ngIf="accountingChartType == 'line'" class="material-icons" (click)="accountingChartType = 'bar';changeAccountingChartColor();"
+                                    mdTooltip="Bar Chart">insert_chart</i>
+                            </span>
+                        </div>
+                        <div style="display: grid;padding: 9px 0px 0px 0px;margin-bottom: 10px;">
+                            <span style="font-size: 17px;display: grid;">
+                                {{currentAccountingAnalysisData}} Wise Analysis
+                                <span style="font-size: 11px;" *ngIf="selectedPeriodForAccountingMonth != undefined || selectedPeriodForAccountingWeek != undefined">
+                                    (
+                                    <span *ngIf="selectedPeriodForAccountingMonth != undefined"> {{selectedPeriodForAccountingMonth}} -></span>
+                                    <span *ngIf="selectedPeriodForAccountingWeek != undefined"> {{selectedPeriodForAccountingWeek}}</span>
+                                    <span *ngIf="selectedPeriodForAccountingWeek != undefined && acctempSelectedLabel != undefined"> -> </span>
+                                    <span *ngIf="acctempSelectedLabel != undefined"> {{acctempSelectedLabel}}</span>
+                                    )
+                                </span>
+                            </span>
+                        </div>
+                        <canvas *ngIf="showAccountingChart && accountingChartLabels" baseChart [datasets]="accountingChartData" [labels]="accountingChartLabels"
+                            [options]="accountingChartOptions" [colors]="accountingChartColors" [legend]="accountingChartLegend"
+                            [chartType]="accountingChartType" (chartClick)="getAccountingDrillDownAnalysis($event)"></canvas>
+                    </div>
+                </md-card>
+            </div>
+            <div class="col-md-3 kpiBlockheight">
+                <md-card class="shadow">
+                    <div class="row progressWidget">
+                        <div class="col-md-8" *ngIf="accountingViewSpecificAnalysis1">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{accountingViewSpecificAnalysis1.unAccountedItemsValue | amountFormat:'$': 2}}</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Un-Accounted value</span>
+                                    <span class="col-md-2" style="float: right;">{{accountingViewSpecificAnalysis1.unAccountedItemsValuePer | amountFormat:'': 0 }}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="accountingViewSpecificAnalysis1.unAccountedItemsValuePer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="material-icons bgicon"> local_atm </i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget">
+                        <div class="col-md-8" *ngIf="accountingViewSpecificAnalysis1">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{accountingViewSpecificAnalysis1.accountedAmt | amountFormat:'$': 2}}</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Journal prep pending</span>
+                                    <span class="col-md-2" style="float: right;">{{accountingViewSpecificAnalysis1.accountedAmtPer | amountFormat:'': 0 }}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="accountingViewSpecificAnalysis1.accountedAmtPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="fa fa-book bgicon"> </i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget">
+                        <div class="col-md-8" *ngIf="accountingViewSpecificAnalysis1">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{accountingViewSpecificAnalysis1.unAccountedItemsViolation | amountFormat:'': 2}}</span>
+                                <span style="font-size:14px">trans</span>
+                                <div *ngIf="!showAccountingViolationEdit">
+                                    <div class="row col-md-12 kpiLabelMargin">
+                                        <span class="col-md-10 span-text ellipsisCls">Violated By
+                                            <span (click)="showAccountingViolationEdit = true;test();">{{accountingViolationPeriod}}</span>
+                                            Days
+                                        </span>
+                                        <span class="col-md-2" style="float: right;">{{accountingViewSpecificAnalysis1.unAccountedItemsViolationPer | amountFormat:'':
+                                            0 }}%</span>
+                                    </div>
+                                    <md-progress-bar mode="determinate" [value]="accountingViewSpecificAnalysis1.unAccountedItemsViolationPer" [color]="'primary'"></md-progress-bar>
+                                </div>
+                                <div *ngIf="showAccountingViolationEdit" style="display: flex;margin-left: -7px;">
+                                    <md-slider class="example-margin" [disabled]="disabled" [invert]="invert" [max]="max" [min]="min" [step]="step" [thumbLabel]="thumbLabel"
+                                        [tickInterval]="tickInterval" [(ngModel)]="tempaccountingViolationPeriod" [vertical]="vertical">
+                                    </md-slider>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Update" (click)="updateViolationAnalysis('accounting');">check_circle</i>
+                                    <i style="margin-left: 2px;margin-top: auto; margin-bottom: auto;" class="material-icons" mdTooltip="Cancel" (click)="cancelViolationAnalysis('accounting');">cancel</i>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="col-md-4">
+                            <i class="rec-font-bar_chart bgicon"> </i>
+                        </div>
+                    </div>
+                </md-card>
+                <md-card class="shadow">
+                    <div class="row progressWidget">
+                        <div class="col-md-8" *ngIf="accountingViewSpecificAnalysis1">
+                            <div style=" margin-top: 15px; ">
+                                <span class="absoluteno">{{accountingViewSpecificAnalysis1.awaitingAppCount | amountFormat:'': 2}}</span>
+                                <span style="font-size:14px">trans</span>
+                                <div class="row col-md-12 kpiLabelMargin">
+                                    <span class="col-md-10 span-text ellipsisCls">Awaiting For Approvals</span>
+                                    <span class="col-md-2" style="float: right;">{{accountingViewSpecificAnalysis1.awaitingAppCountPer | amountFormat:'': 0 }}%</span>
+                                </div>
+                            </div>
+                            <md-progress-bar mode="determinate" [value]="accountingViewSpecificAnalysis1.awaitingAppCountPer" [color]="'primary'"></md-progress-bar>
+                        </div>
+                        <div class="col-md-4">
+                            <i class="material-icons bgicon"> people </i>
+                        </div>
+                    </div>
+                </md-card>
+            </div>
+        </div>
+        <div class="viewComb-list hide-mat-tab" style="margin-left: 0;padding: 0;">
+            <div class="cat-heading">
+                <span style="font-size: 17px;">{{acctempSelectedLabel}} Source Analysis</span>
+            </div>
+            <md-tab-group [(selectedIndex)]="selectedAccountingAnalysis">
+                <md-tab *ngFor="let col of accountingViewSpecificAnalysis;let i=index;">
+                    <ng-template md-tab-label>
+                        <div (click)="getAccountingViewDrillDownAnalysis(i);">
+                            <div class="d-flex">
+                                <div>
+                                    <div class="d-flex align-items-center">
+                                        <i class="material-icons bgicon">insert_drive_file</i>
+                                        <div>
+                                            <span class="d-block" *ngIf="selectedAccountingAnalysis == i">{{col.viewName}}</span>
+                                            <p class="d-block" *ngIf="selectedAccountingAnalysis != i" style="margin-bottom: 0px;">{{col.viewName}}</p>
+                                            <span class="d-block" *ngIf="selectedAccountingAnalysis == i && selectedAccountingFilterValue == 'Amount'">{{col.amountPer | amountFormat:'': 2}}%</span>
+                                            <p class="d-block" *ngIf="selectedAccountingAnalysis != i && selectedAccountingFilterValue == 'Amount'" style="margin-bottom: 0px;">{{col.amountPer | amountFormat:'': 2}}%</p>
+                                            <span class="d-block" *ngIf="selectedAccountingAnalysis == i && selectedAccountingFilterValue == 'Count'">{{col.countPer | amountFormat:'': 2}}%</span>
+                                            <p class="d-block" *ngIf="selectedAccountingAnalysis != i && selectedAccountingFilterValue == 'Count'" style="margin-bottom: 0px;">{{col.countPer | amountFormat:'': 2}}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-template>
+                </md-tab>
+            </md-tab-group>
+        </div>
+        <div style="margin-left: 0;padding: 0;margin-top: 25px;">
+            <md-card>
+                <div class="col-md-12" style="display: flex;padding: 0px;">
+                    <div class="col-md-6" style="border-right: 1px solid #ebebeb;">
+                        <div class="cat-heading" style="font-size: 17px;padding-top: 6px;padding-left: 0px;">
+                            <span>{{acctempSelectedLabel}} Analysis For {{accountingSelectedViewName}}</span>
+                        </div>
+                        <div *ngIf="accountingViewSpecificChartLabels.length == 0" style="margin-top: 55px;
+                            margin-left: 9px;">There is no source analysis data for selected period.</div>
+                        <div style="height:calc(100vh - 332px);position: relative;margin-top: 20px;" *ngIf="accountingViewSpecificChartLabels && accountingViewSpecificChartLabels.length">
+                            <canvas baseChart [datasets]="accountingViewSpecificChartData" [labels]="accountingViewSpecificChartLabels" [options]="accountingViewSpecificChartOptions"
+                                [legend]="accountingViewSpecificChartLegend" [chartType]="accountingViewSpecificChartType" (chartClick)="getAccountingViewDrillDownAnalysis($event)"
+                                [colors]="reconViewSpecificChartColors"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="chartTypePosition" *ngIf="!showJEDetails && accountingViewSpecificChartLabelsDetailed && accountingViewSpecificChartLabelsDetailed.length">
+                            <span>
+                                <i *ngIf="accountingViewSpecificChartTypeDetailed == 'pie'" class="material-icons" (click)="accountingViewSpecificChartTypeDetailed = 'doughnut';"
+                                    mdTooltip="Doughnut Chart">donut_small</i>
+                                <i *ngIf="accountingViewSpecificChartTypeDetailed == 'doughnut'" class="material-icons" (click)="accountingViewSpecificChartTypeDetailed = 'pie';"
+                                    mdTooltip="Pie Chart">pie_chart</i>
+                                <span *ngIf="accountingGroupByLov != undefined">
+                                    <i class="material-icons" [mdMenuTriggerFor]="menu" mdTooltip="More">more_vert</i>
+                                    <md-menu #menu="mdMenu" xPosition="before">
+                                        <button md-menu-item *ngFor="let col of accountingGroupByLov.columnsList" (click)="fetchAccountingViewDrillDownAnalysis(col.columnAliasName, col.columnName);activeItem2 = col;"
+                                            [ngClass]="{'nav-active': col == activeItem2}">
+                                            <span>{{col.columnName}}</span>
+                                        </button>
+                                    </md-menu>
+                                </span>
+                            </span>
+                        </div>
+                        <div class="cat-heading" style="font-size: 17px;padding-top: 6px;">
+                            <span *ngIf="accountingSelectedViewName != undefined && accountingGrpByView != undefined">
+                                View By "{{accountingGrpByView}}" For
+                            </span>
+                            <span *ngIf="accountingSelectedViewName != undefined">
+                                {{accountingSelectedViewName}}
+                            </span>
+                        </div>
+                        <div style="height: calc(100vh - 300px);position: relative;margin-top: 17px;" *ngIf="!showJEDetails && accountingViewSpecificChartLabelsDetailed && accountingViewSpecificChartLabelsDetailed.length">
+                            <canvas baseChart [datasets]="accountingViewSpecificChartDataDetailed" [labels]="accountingViewSpecificChartLabelsDetailed"
+                                [options]="reconViewSpecificChartOptions" [legend]="accountingViewSpecificChartLegendDetailed"
+                                [chartType]="accountingViewSpecificChartTypeDetailed" [colors]="reconViewSpecificChartColors"></canvas>
+                        </div>
+                        <div *ngIf="accountingViewSpecificChartDataDetailed && !accountingViewSpecificChartDataDetailed.length">There is no source analysis data for selected period.</div>
+                        <div *ngIf="showJEDetails" style="padding: 5px;margin-top: 5px;">
+                            <div class="row" *ngIf="showbalgrid">
+                                <ng-template ngFor let-accObj [ngForOf]="jeDetailsList" let-i="index" ;>
+                                    <div class="col-md-6 jenetbal">
+                                        <p class="account">
+                                            {{accObj.description}}
+                                        </p>
+                                        <p class="balance">
+                                            <span *ngIf="showFullAmount">
+                                                {{accObj.balance | amountFormat:'': 2}}
+                                            </span>
+                                            <span *ngIf="!showFullAmount">
+                                                {{ accObj.balance | currency:'USD':'symbol-narrow':'1.2-2'}}
+                                            </span>
+                                        </p>
+                                    </div>
+                                </ng-template>
+                            </div>
+                            <div *ngIf="!showbalgrid">
+                                <p-dataTable [value]="jeDetailsList" [responsive]="true" scrollable="true" scrollHeight="250px">
+                                    <!-- scrollable="true" scrollHeight="calc(100vh - 415px)" -->
+                                    <p-headerColumnGroup>
+                                        <p-row>
+                                            <!-- <p-column header="Code" [style]="{'text-align':'center'}"></p-column> -->
+                                            <p-column header="Account"></p-column>
+                                            <p-column header="Balance" [style]="{'text-align':'right'}"></p-column>
+                                            <!-- <p-column header=""></p-column> -->
+                                        </p-row>
+                                    </p-headerColumnGroup>
+                                    <!-- <p-column field="account" [style]="{'text-align':'center'}"></p-column> -->
+                                    <p-column field="description"></p-column>
+                                    <p-column field="balance" header="Balance" [style]="{'text-align':'right'}">
+                                        <ng-template let-col let-row="rowData" pTemplate="body">
+                                            <span *ngIf="showFullAmount">
+                                                {{row[col.field] | amountFormat:'': 2}}
+                                            </span>
+                                            <span *ngIf="!showFullAmount">
+                                                {{row[col.field] | currency:'USD':'symbol-narrow':'1.2-2'}}
+                                            </span>
+                                        </ng-template>
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        </div>
+        </md-card>
+    </div>
+</div>
+
+
+
+
+<!-- Sidebar -->
+<p-sidebar [(visible)]="visibleSidebar2" position="right" [baseZIndex]="10000">
+    <div style="text-align: center;padding: 5px;">
+        <h3>{{openModuleSetting}}</h3>
+    </div>
+    <div class="col-md-12" style="padding: 5px;">
+        <md-slide-toggle *ngIf="!customizationMode" class="pull right example-margin" color="primary" mdTooltip="Customization Mode"
+            placeholder="Customization Mode" [(ngModel)]="customizationMode" name="customizationMode" (change)="visibleSidebar2 = false;">
+            Customization Mode
+        </md-slide-toggle>
+    </div>
+
+    <div *ngIf="openModuleSetting == 'Filter Data'">
+        <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+            <div class="col-md-4" style="margin-top: 12px;">
+                <span>Processes :</span>
+            </div>
+            <div class="col-md-8">
+                <perfect-scrollbar style="height: 100px;">
+                    <md-nav-list>
+                        <a md-list-item *ngFor="let col of processesList" (click)="selectedProcessFun(col);" [ngClass]="{'nav-active': col == activeItem}">
+                            <span>{{ col.processName }}</span>
+                        </a>
+                    </md-nav-list>
+                </perfect-scrollbar>
+            </div>
+        </div>
+        <div class="row col-md-12" style="margin-left: 0px;padding: 5px;">
+            <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;">
+                <md-checkbox [(ngModel)]="tempProcessFilter.asOfValue">As Of Today</md-checkbox>
+            </div>
+            <div class="col-md-12" *ngIf="tempProcessFilter.asOfValue == false" style="display: flex;padding-left: 33px;">
+                <div class="datePickerWidth">
+                    <md-form-field>
+                        <input mdInput [mdDatepicker]="stpicker" placeholder="From Date" [(ngModel)]="tempProcessFilter.startDateSel" name="startDateSel"
+                            required>
+                        <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                        <md-datepicker #stpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+                <div class="datePickerWidth">
+                    <md-form-field>
+                        <input mdInput [mdDatepicker]="edpicker" placeholder="To Date" [min]="tempProcessFilter.startDateSel" [(ngModel)]="tempProcessFilter.endDateSel"
+                            name="endDateSel">
+                        <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                        <md-datepicker #edpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+            </div>
+        </div>
+        <div class="row col-md-12" style="margin-left: 0px;padding: 5px;" *ngIf="tempProcessFilter.asOfValue == true;">
+            <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;">
+                <md-checkbox [(ngModel)]="tempProcessFilter.closedPeriods">Include Closed Periods</md-checkbox>
+            </div>
+            <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;display: flex;" *ngIf="tempProcessFilter.closedPeriods == true;">
+                <div class="col-md-6" style="margin-top: auto;">
+                    <span>Select Period</span>
+                </div>
+                <div class="col-md-6">
+                    <md-select placeholder="" name="selectedCalender" [(ngModel)]="tempProcessFilter.selectedCalender">
+                        <md-option *ngFor="let col of calenderDetails.calendar" [value]="col.fromDate">
+                            {{ col.periodName }}
+                        </md-option>
+                    </md-select>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-12" style="margin-top: auto; margin-bottom: auto;display: flex;">
+            <div class="col-md-6" style="margin-top: auto;margin-bottom: auto;">
+                <span>Violation Period</span>
+            </div>
+            <div class="col-md-6">
+                <md-input-container class="example-full-width" style="top: -11px;">
+                    <input mdInput [(ngModel)]="tempProcessFilter.violationPeriod" type="number" name="violationPeriod" required>
+                </md-input-container>
+            </div>
+        </div>
+    </div>
+</p-sidebar>
+</div>

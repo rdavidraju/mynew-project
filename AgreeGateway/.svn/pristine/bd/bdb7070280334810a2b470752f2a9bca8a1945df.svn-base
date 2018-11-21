@@ -1,0 +1,560 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit, Inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+import { Response } from '@angular/http';
+import { FormsModule } from '@angular/forms';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { SelectItem, MultiSelectModule } from 'primeng/primeng';
+import { PerfectScrollbarComponent } from 'angular2-perfect-scrollbar';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { JhiDateUtils } from 'ng-jhipster';
+import { CommonService } from '../../entities/common.service';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+import { ChartOfAccount, ChartOfAccountBreadCrumbTitles } from './chart-of-account.model';
+import { ChartOfAccountService } from './chart-of-account.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import { MappingSet } from '../mapping-set/mapping-set.model';
+import { MappingSetService } from '../mapping-set/mapping-set.service';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-chart-of-account-detail',
+    templateUrl: './chart-of-account-detail.component.html'
+})
+export class ChartOfAccountDetailComponent implements OnInit {
+
+    private UserData = this.$sessionStorage.retrieve('userData');
+    chartOfAccount = new ChartOfAccount();
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    presentUrl: any;
+    isVisibleA: boolean = false;
+    segmentLength: any;
+    segmentSeperator: any;
+    valueSetDialog: boolean = false;
+    coaList: any;
+    segmentCurIndex: any;
+    segmentCurLenth: any;
+    /**Mapping Set Form*/
+    mappingSet = new MappingSet();
+    /**List of Mapping Set */
+    valueSetsList: any = [];
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private chartOfAccountService: ChartOfAccountService,
+        private route: ActivatedRoute,
+        private principal: Principal,
+        private paginationConfig: PaginationConfig,
+        private router: Router,
+        private config: NgbDatepickerConfig,
+        private notificationsService: NotificationsService,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        public dialog: MdDialog,
+        private $sessionStorage: SessionStorageService,
+        private mappingSetService: MappingSetService
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+    ngOnInit() {
+        this.commonService.screensize();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 161) + 'px'
+        });
+        this.loadAll();
+        this.segmentLength = [{segLen:1},{segLen:2},{segLen:3},{segLen:4},{segLen:5}];
+        this.segmentSeperator = [{lookUpCode:'.',meaning:'Periods(.)'},
+                                 {lookUpCode:'-',meaning:'Dash(-)'}];
+    }
+
+    /**Get COA detail and segments detail by id */
+    loadAll(){
+        this.subscription = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentUrl = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "roles") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+
+            if (params['id']) {
+                this.chartOfAccountService.getCOAandSegments(params['id']).subscribe((chartOfAccount) => {
+                        this.chartOfAccount = chartOfAccount;
+                        this.chartOfAccount.startDate = this.dateUtils.convertLocalDateFromServer(this.chartOfAccount.startDate);
+                        this.chartOfAccount.endDate = this.dateUtils.convertLocalDateFromServer(this.chartOfAccount.endDate);
+                        // console.log('this.chartOfAccount\n' + JSON.stringify(this.chartOfAccount));
+                        this.isCreateNew = false;
+                        /**Get Mapping Sets List by Purpose */
+                        this.valueSetsList = [];
+                        for(let i=0; i<this.chartOfAccount.segments.length; i++){
+                            let obj = {
+                                'id': this.chartOfAccount.segments[i].valueId,
+                                'name': this.chartOfAccount.segments[i].valueName,
+                            }
+                            this.valueSetsList.push(obj);
+                        }
+                        // this.getAllMappingSet();
+                        if (url.endsWith('edit')) {
+                            this.isEdit = true;
+                            /**Get all chartOfAccount list to check duplicates */
+                                this.getCoaList();
+                            /**Focusing on first element */
+                            $('#name').focus();
+                        } else {
+                            this.isViewOnly = true;
+                        }
+                    }
+                );
+            } else {
+                this.isVisibleA = true;
+                this.isCreateNew = true;
+                /**Get all chartOfAccount list to check duplicates */
+                this.getCoaList();
+                /**Get Mapping Sets List by Purpose */
+                // this.getAllMappingSet();
+                /**Focusing on first element */
+                $('#name').focus();
+                /**First empty row by default while creating */
+                for (let i = 0; i < 2; i++) {
+                    let obj = {
+                        'segmentName': null,
+                        'valueId': null,
+                        'segmentLength': null,
+                        'columnEdit': true
+                    };
+                    this.chartOfAccount.segments.push(obj);
+                }
+            }
+        });
+    }
+
+    /**Toggle Sidebar */
+    toggleSB() {
+        if(!this.isVisibleA){
+           this.isVisibleA = true;
+           $('.split-example .left-component').addClass('visible');
+        } else {
+            this.isVisibleA = false;
+            $('.split-example .left-component').addClass('visible');
+        }
+    }
+
+
+    /**Edit Segment Details */
+    editSegment(i){
+        let throwValidation:any = false;
+        for (let i = 0; i < this.chartOfAccount.segments.length; i++) {
+            if(this.chartOfAccount.segments[i].columnEdit == true){
+                throwValidation = 'columnEditTrue';
+            }
+        }
+        if (throwValidation == 'columnEditTrue') {
+            this.notificationsService.error('Warning!','Please save row before editing');
+        }else{
+            this.chartOfAccount.segments[i].columnEdit = true;
+        }
+    }
+
+    /**Cancel changes made in segments */
+    cancelEdit(){
+        this.loadAll();
+    }
+
+    /**Delete Segment */
+    deleteSegment(segment){
+        // console.log('Delete segment:\n' + JSON.stringify(segment));
+        this.chartOfAccountService.deleteSegment(segment.id).subscribe((res: any)=>{
+            this.notificationsService.success('Success!',segment.segmentName +' Deleted Successfully');
+            this.loadAll();
+        });
+    }
+
+    /**Delete Row */
+    deleteRow(index){
+        if(this.chartOfAccount.segments.length < 3){
+            this.notificationsService.error('Warning!','Atleast two segments are mandatory');
+        }else{
+            this.chartOfAccount.segments.splice(index, 1);
+        }
+    }
+
+    /**Delete Value Set row */
+    deleteValueRow(index) {
+        if (this.mappingSet.mappingSetValues < 2) {
+            this.notificationsService.error('Warning!', 'Atleast one row is mandatory');
+        } else {
+            this.mappingSet.mappingSetValues.splice(index, 1);
+        }
+    }
+
+    /**Update segment Detail */
+    updateSegment(segment) {
+        let throwValidation: any = false;
+        for (let i = 0; i < this.chartOfAccount.segments.length; i++) {
+            if (this.chartOfAccount.segments[i].segmentName == null || this.chartOfAccount.segments[i].valueId == null ||
+                this.chartOfAccount.segments[i].segmentLength == null) {
+                throwValidation = true;
+            }
+        }
+        if (throwValidation == true) {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        } else {
+            if (segment.id) {
+                /**Update segment Detail */
+                // console.log('Update segment:\n' + JSON.stringify(segment));
+                this.chartOfAccountService.updateOrNewsegments(segment).subscribe((res: any) => {
+                    // console.log('res\n' + JSON.stringify(res));
+                    this.notificationsService.success('Success!', segment.segmentName + ' Updated Successfully');
+                    this.loadAll();
+                });
+            } else {
+                /**Add segment Detail */
+                segment.coaId = this.chartOfAccount.id;
+                segment.createdBy = this.UserData.id;
+                segment.lastUpdatedBy = this.UserData.id;
+                segment.lastUpdatedDate = new Date();
+                segment.createdDate = new Date();
+                segment.enabledFlag = true;
+                // console.log('Add New segment:\n' + JSON.stringify(segment));
+                this.chartOfAccountService.updateOrNewsegments(segment).subscribe((res: any) => {
+                    // console.log('res\n' + JSON.stringify(res));
+                    this.notificationsService.success('Success!', segment.segmentName + ' Added Successfully');
+                    this.loadAll();
+                });
+            }
+        }
+    }
+
+    /* Function to display validition message */
+    validationMsg(form) {
+        if(form == 'COA'){
+            if(this.chartOfAccount.name == null || this.chartOfAccount.name == ''){
+                this.notificationsService.error(
+                    'Warning!',
+                    'Name is mandatory'
+                );
+            }else if(this.chartOfAccount.startDate == null){
+                this.notificationsService.error(
+                    'Warning!',
+                    'Start date is mandatory'
+                );
+            }else if(this.chartOfAccount.segmentSeperator == null){
+                this.notificationsService.error(
+                    'Warning!',
+                    'Segment Separator is mandatory'
+                );
+            }
+        }else{
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        }
+    }
+
+    /**Add Row in Segment */
+    addNewSegment() {
+        let throwValidation:any = false;
+        for (let i = 0; i < this.chartOfAccount.segments.length; i++) {
+            if (this.chartOfAccount.segments[i].segmentName == null || this.chartOfAccount.segments[i].valueId == null ||
+                this.chartOfAccount.segments[i].segmentLength == null) {
+                throwValidation = true;
+            }else if(this.chartOfAccount.segments[i].columnEdit == true){
+                throwValidation = 'columnEditTrue';
+            }
+        }
+        if (throwValidation == 'columnEditTrue' && this.isViewOnly == true) {
+            this.notificationsService.error(
+                'Warning!',
+                'Please save row before adding new'
+            );
+        }else if(throwValidation == true){
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        }else {
+            let obj = {
+                'segmentName': null,
+                'valueId': null,
+                'segmentLength': null,
+                'columnEdit': true
+            };
+            this.chartOfAccount.segments.push(obj);
+        }
+    }
+
+    /**Add row in value set table */
+    addRowValueSetValues() {
+        let throwValidation: any = false;
+        for (let i = 0; i < this.mappingSet.mappingSetValues.length; i++) {
+            if (this.mappingSet.mappingSetValues[i].sourceValue == '' || this.mappingSet.mappingSetValues[i].targetValue == '' ||
+                this.mappingSet.mappingSetValues[i].startDate == null) {
+                throwValidation = true;
+            }
+        }
+        if(throwValidation == true){
+            this.notificationsService.error('Warning!','Fill mandatory fields');
+        }else{
+            let obj = {
+                'sourceValue': '',
+                'targetValue': '',
+                'startDate': null,
+                'endDate': null
+            };
+            this.mappingSet.mappingSetValues.push(obj);
+        }
+    }
+
+    /**Save COA */
+    saveCoa() {
+        let link: any = '';
+        let segmentEmpty: any = false;
+        if (this.chartOfAccount.id) {
+            /**Update COA */
+            this.chartOfAccount.tenantId = this.UserData.tenantId;
+            // console.log('Update this.chartOfAccount\n' + JSON.stringify(this.chartOfAccount));
+            this.chartOfAccountService.updateCOA(this.chartOfAccount).subscribe((res: any) => {
+                // console.log('res\n' + JSON.stringify(res));
+                this.notificationsService.success(
+                    'Success!',
+                    '"'+res.name + '" Successfully Updated'
+                );
+                if (res.id) {
+                    link = ['/chart-of-account', { outlets: { 'content': res.id + '/details' } }];
+                    if (this.isEdit) {
+                        this.isEdit = false;
+                    }
+                    if (this.isCreateNew) {
+                        this.isCreateNew = false;
+                    }
+                    this.isViewOnly = true;
+                    this.router.navigate(link);
+                }
+            });
+        } else {
+            /**Create New COA */
+            for (let i = 0; i < this.chartOfAccount.segments.length; i++) {
+                if (this.chartOfAccount.segments[i].segmentName == null || this.chartOfAccount.segments[i].valueId == null ||
+                    this.chartOfAccount.segments[i].segmentLength == null) {
+                        segmentEmpty = true;
+                }
+            }
+            if (segmentEmpty == true && this.isCreateNew == true) {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Fill mandatory fields'
+                );
+            } else {
+                // console.log('Create new this.chartOfAccount\n' + JSON.stringify(this.chartOfAccount));
+                this.chartOfAccountService.postCOAandSegments(this.chartOfAccount).subscribe((res: any) => {
+                    // console.log('res\n' + JSON.stringify(res));
+                    this.notificationsService.success(
+                        'Success!',
+                        '"' + res.coaName + '" Successfully Created'
+                    );
+                    if (res.coaId) {
+                        link = ['/chart-of-account', { outlets: { 'content': res.coaId + '/details' } }];
+                        if (this.isEdit) {
+                            this.isEdit = false;
+                        }
+                        if (this.isCreateNew) {
+                            this.isCreateNew = false;
+                        }
+                        this.isViewOnly = true;
+                        this.router.navigate(link);
+                    }
+                });   
+            }
+        }
+    }
+
+    /**Create Mapping Set */
+    createMappingSet(segment,index){
+        if(segment.valueId == 'CreateNew'){
+            if(segment.segmentLength == null || segment.segmentName == null || segment.segmentName == ''){
+                this.notificationsService.error(
+                    'Warning!',
+                    'Fill mandatory fields'
+                );
+                setTimeout(() => {
+                    this.chartOfAccount.segments[index].valueId = undefined;
+                }, 100);
+            }else{
+                this.mappingSet.name = null;
+                this.mappingSet.description = null;
+                this.mappingSet.startDate = null;
+                this.mappingSet.endDate = null;
+                // console.log('segment\n' + JSON.stringify(segment));
+                /* this.mappingSet.name = segment.valueId;
+                this.mappingSet.description = segment.valueId; */
+                this.segmentCurIndex = index;
+                this.segmentCurLenth = segment.segmentLength;
+                this.valueSetDialog = true;
+                let obj = {
+                    'sourceValue': '',
+                    'targetValue': '',
+                    'startDate': null,
+                    'endDate': null
+                };
+                this.mappingSet.mappingSetValues = [];
+                this.mappingSet.mappingSetValues.push(obj);
+            }
+        }
+    }
+
+    /**Save COA and Mapping Set  */
+    saveValueSet(){
+        let throwValidation = false;
+        for (var i = 0; i < this.mappingSet.mappingSetValues.length; i++) {
+            if (this.mappingSet.name == null || this.mappingSet.name == '' ||
+                this.mappingSet.startDate == null ||
+                this.mappingSet.mappingSetValues[i].sourceValue == '' ||
+                this.mappingSet.mappingSetValues[i].targetValue == '' ||
+                this.mappingSet.mappingSetValues[i].startDate == null) {
+                    throwValidation = true;
+            }
+        }
+        if(throwValidation == true){
+            this.notificationsService.error('Warning!', 'Fill mandatory fields');
+        }else{
+            this.mappingSet.lookUppurpose = 'CHART_OF_ACCOUNT';
+            this.mappingSet.enabledFlag = true;
+            if (this.mappingSet.mappingSetValues.length > 0) {
+                for (var i = 0; i < this.mappingSet.mappingSetValues.length; i++) {
+                    this.mappingSet.mappingSetValues[i].status = true;
+                }
+            }
+            // console.log('this.mappingSet\n', JSON.stringify(this.mappingSet));
+            this.mappingSetService.postMappingSetsWithValues(this.mappingSet).subscribe((res: any) => {
+                // console.log(res);
+                /**Get Mapping Sets List by Purpose */
+                let obj = {
+                    'id': res.id,
+                    'name': res.name,
+                }
+                this.valueSetsList.push(obj);
+                // this.getAllMappingSet();
+                this.notificationsService.success('Success!',res.name +' Successfully Created');
+                this.valueSetDialog = false;
+                setTimeout(() => {
+                    this.chartOfAccount.segments[this.segmentCurIndex].valueId = res.id;
+                }, 100);
+            });
+        }
+    }
+
+    /**Get all chartOfAccount list to check duplicates */
+    getCoaList() {
+        this.chartOfAccountService.getAllChartOfAccounts(0, 0, '').subscribe((res: any) => {
+            this.coaList = res.json();
+            // console.log('this.coaList\n' + JSON.stringify(this.coaList));
+        });
+    }
+
+
+    /**Check calendar name duplicates */
+    checkDuplicates(name, id) {
+        if(this.coaList){
+            for (let i = 0; i < this.coaList.length; i++) {
+                if (this.coaList[i].name == name && this.coaList[i].id == id) {
+                    // console.log('No Duplicates');
+                } else if (this.coaList[i].name == name) {
+                    this.notificationsService.error('Warning!', 'Chart of Account name "' + name + '" alreay exist');
+                    setTimeout(() => {
+                        this.chartOfAccount.name = null;
+                    }, 500);
+                }
+            }
+        }
+    }
+
+    /**Get all Mapping Set */
+    /* getAllMappingSet(){
+        this.mappingSetService.getMappingSetsNValuesListByPurpose('CHART_OF_ACCOUNT').subscribe((res: any)=>{
+            this.valueSetsList = res;
+            // console.log('this.valueSetsList\n' + JSON.stringify(this.valueSetsList));
+        });
+    } */
+
+    /**Function on p-dialog hide */
+    dialogHide(){
+        if(this.segmentCurIndex != null){
+            this.chartOfAccount.segments[this.segmentCurIndex].valueId = null;
+        }
+    }
+
+    /**Allow only numbers in code */
+    allowNumbersOnly(e){
+        e = (e) ? e : window.event;
+        var charCode = (e.which) ? e.which : e.keyCode;
+        if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+            return false;
+        }
+        return true;
+    }
+
+    /**Check Value Set Length */
+    checkCodeLength(value, i){
+        if(value){
+            value = value.toString();
+            if(value.length > this.segmentCurLenth){
+                this.notificationsService.error('Warning!', 'Maximum Length for code is '+this.segmentCurLenth);
+                this.mappingSet.mappingSetValues[i].sourceValue = undefined;
+            }else if(value.length < this.segmentCurLenth){
+                this.notificationsService.error('Warning!', 'Minimum Length for code is '+this.segmentCurLenth);
+                this.mappingSet.mappingSetValues[i].sourceValue = undefined;
+            }
+        }
+    }
+
+
+
+    /* this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInChartOfAccounts(); */
+
+/*     load(id) {
+        this.chartOfAccountService.find(id).subscribe((chartOfAccount) => {
+            this.chartOfAccount = chartOfAccount;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInChartOfAccounts() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'chartOfAccountListModification',
+            (response) => this.load(this.chartOfAccount.id)
+        );
+    } */
+}

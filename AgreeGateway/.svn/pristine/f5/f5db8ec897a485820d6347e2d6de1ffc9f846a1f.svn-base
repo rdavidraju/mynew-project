@@ -1,0 +1,514 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit, Inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+import { Response } from '@angular/http';
+import { FormsModule } from '@angular/forms';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { SelectItem, MultiSelectModule } from 'primeng/primeng';
+import { PerfectScrollbarComponent } from 'angular2-perfect-scrollbar';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { JhiDateUtils } from 'ng-jhipster';
+import { CommonService } from '../../entities/common.service';
+import { Calendar } from './calendar.model';
+import { CalendarService } from './calendar.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-calendar-detail',
+    templateUrl: './calendar-detail.component.html'
+})
+export class CalendarDetailComponent implements OnInit{
+
+    private UserData = this.$sessionStorage.retrieve('userData');
+    calendar = new Calendar();
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    presentUrl: any;
+    isVisibleA: boolean = false;
+    calendarType: any;
+    displayPeriod: any = false;
+    calendarList: any;
+
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private calendarService: CalendarService,
+        private route: ActivatedRoute,
+        private principal: Principal,
+        private paginationConfig: PaginationConfig,
+        private router: Router,
+        private config: NgbDatepickerConfig,
+        private notificationsService: NotificationsService,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        private $sessionStorage: SessionStorageService
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+    ngOnInit() {
+        this.commonService.screensize();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 161) + 'px'
+        });
+
+        /**Calling Function - Get calendar and period details by id*/
+        this.loadAll();
+
+        /* this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInCalendars(); */
+    }
+
+    /**Get calendar and period details by id */
+    loadAll() {
+        this.subscription = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentUrl = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "calendar") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+
+            /**Get Lookup codes for Calendar type */
+            this.calendarService.lookupCodes('CALENDAR_TYPE').subscribe((res: any)=>{
+                this.calendarType = res;
+            })
+
+            if (params['id']) {
+                this.calendarService.getCalenderAndItsPeriods(params['id']).subscribe((calendar) => {
+                        this.calendar = calendar;
+                        this.calendar.startDate = this.dateUtils.convertLocalDateFromServer(this.calendar.startDate);
+                        this.calendar.endDate = this.dateUtils.convertLocalDateFromServer(this.calendar.endDate);
+                        for(let i=0; i<this.calendar.periodList.length; i++){
+                            this.calendar.periodList[i].fromDate = this.dateUtils.convertLocalDateFromServer(this.calendar.periodList[i].fromDate);
+                            this.calendar.periodList[i].toDate = this.dateUtils.convertLocalDateFromServer(this.calendar.periodList[i].toDate);
+                        }
+
+                        this.isCreateNew = false;
+                        if (url.endsWith('edit')) {
+                            this.isEdit = true;
+                            /**Get all calendar list to check duplicates */
+                            this.getCalendarList();
+                            /**Focusing on first element */
+                            $('#name').focus();
+                        } else {
+                            this.isViewOnly = true;
+                        }
+                    }
+                );
+            } else {
+                this.isVisibleA = true;
+                this.isCreateNew = true;
+                /**Get all calendar list to check duplicates */
+                this.getCalendarList();
+                /**Focusing on first element */
+                $('#name').focus();
+            }
+        });
+    }
+
+    /**Toggle sidebar */
+    toggleSB() {
+        if(!this.isVisibleA){
+           this.isVisibleA = true;
+           $('.split-example .left-component').addClass('visible');
+        } else {
+            this.isVisibleA = false;
+            $('.split-example .left-component').addClass('visible');
+        }
+    }
+
+    /**Save calendar with optional periods */
+    saveCalendar() {
+        let periodEmpty: any = false;
+        let link:any = '';
+        if (this.calendar.id) {
+            /**Update Calendar creation */
+            // console.log('this.calendar update\n' + JSON.stringify(this.calendar));
+            this.calendarService.updateCalendar(this.calendar).subscribe((res: any) => {
+                this.notificationsService.success('Success!', 'Calendar ' + res.name + ' Successfully Updated');
+                this.loadAll();
+                // console.log('res:\n' + JSON.stringify(res));
+                if (res.id) {
+                    link = ['/calendar', { outlets: { 'content': res.id + '/details' } }];
+                    if (this.isEdit) {
+                        this.isEdit = false;
+                    }
+                    if (this.isCreateNew) {
+                        this.isCreateNew = false;
+                    }
+                    this.isViewOnly = true;
+                    this.router.navigate(link);
+                }
+            });
+        } else {
+            /**New Calendar creation */
+            // console.log('this.calendar new\n', JSON.stringify(this.calendar));
+            for (let period of this.calendar.periodList) {
+                if (period.periodName == null || period.fromDate == null ||
+                    period.toDate == null || period.periodNum == null ||
+                    period.quarter == null || period.year == null) {
+                    periodEmpty = true;
+                }else if(period.periodNum.toString().length > 2){
+                    periodEmpty = 'PeriodNum>2';
+                }else if(period.quarter.toString().length > 1){
+                    periodEmpty = 'Quarter>1'
+                }else if(period.year.toString().length > 4 || period.year.toString().length < 4){
+                    periodEmpty = 'Year!=4';
+                }
+            }
+            if (periodEmpty == true) {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Fill mandatory fields'
+                );
+            } else if(periodEmpty == 'Year!=4') {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Year should be 4 digits'
+                );
+            } else if(periodEmpty == 'PeriodNum>2') {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Period Number should be less than 3 digits'
+                );
+            } else if(periodEmpty == 'Quarter>1') {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Quarter should be only 1 digit'
+                );
+            } else {
+                this.calendarService.postCalenderAndItsPeriods(this.calendar).subscribe((res: any) => {
+                    // this.notificationsService.success('Success!', 'New Calendar Successfully Created');
+                    // console.log('res:\n' + JSON.stringify(res));
+                    if (res.id) {
+                        link = ['/calendar', { outlets: { 'content': res.id + '/details' } }];
+                        if (this.isEdit) {
+                            this.isEdit = false;
+                        }
+                        if (this.isCreateNew) {
+                            this.isCreateNew = false;
+                        }
+                        this.isViewOnly = true;
+                        this.router.navigate(link);
+                    }
+                });
+            }
+        }
+    }
+
+    /**Cancel Changes made in period */
+    cancelEdit(){
+        this.loadAll();
+    }
+
+    /**Delete Period */
+    deletePeriod(period){
+        // console.log('Delete period\n' + JSON.stringify(period));
+        this.calendarService.deletePeriod(period.id).subscribe((res: any)=>{
+            this.notificationsService.success('Success!', 'Period ' + period.periodName + ' Successfully Deleted');
+            // console.log('res:\n' + JSON.stringify(res));
+            this.loadAll();
+        });
+    }
+
+    /**Delete Row */
+    deleteRow(index){
+        if(this.calendar.periodList.length < 2){
+            this.notificationsService.error('Warning!','Atleast one row is mandatory');
+        }else{
+            this.calendar.periodList.splice(index, 1);
+        }
+    }
+
+    /**Edit Period */
+    editPeriod(i){
+        let throwValidation:any = false;
+        for (let period of this.calendar.periodList) {
+            if(period.columnEdit == true && this.isViewOnly == true){
+                throwValidation = true;
+            }
+        }
+        if(throwValidation == true){
+            this.notificationsService.error('Warning!','Please save row before editing');
+        }else{
+            this.calendar.periodList[i].columnEdit = true;
+        }
+    }
+
+
+    /**Update Period */
+    updatePeriod(period, i) {
+        if(period.periodName == null || period.fromDate == null ||
+            period.toDate == null || period.periodNum == null ||
+            period.quarter == null || period.year == null) {
+                this.validationMsg('period');
+        } else if(period.periodNum.toString().length > 2) {
+                this.validationMsg('PeriodNum>2');
+        } else if(period.quarter.toString().length > 1) {
+                this.validationMsg('Quarter>1');
+        } else if(period.year.toString().length > 4 || period.year.toString().length < 4){
+            this.validationMsg('Year!=4');
+        } else {
+            if(period.id){
+                // console.log('Update period\n' + JSON.stringify(period));
+                this.calendarService.updatePeriods(period).subscribe((res: any)=>{
+                    this.notificationsService.success('Success!', 'Period ' + res.periodName + ' Successfully Updated');
+                    // this.calendar.periodList[i].columnEdit = false;
+                    this.loadAll();
+                    // console.log('res:\n' + JSON.stringify(res));
+                });
+            }else{
+                period.calId = this.calendar.id;
+                period.createdBy = this.UserData.id;
+                period.createdDate = new Date();
+                period.lastUpdatedBy = this.UserData.id;
+                period.lastUpdatedDate = new Date();
+                period.enabledFlag = true;
+                // console.log('add new period\n' + JSON.stringify(period));
+                this.calendarService.updatePeriods(period).subscribe((res: any)=>{
+                    this.notificationsService.success('Success!', 'Period ' + res.periodName + ' Added Successfully');
+                    // this.calendar.periodList[i].columnEdit = false;
+                    this.loadAll();
+                    // console.log('res:\n' + JSON.stringify(res));
+                });
+            }
+        }
+    }
+
+    addNewPeriods() {
+        let throwValidation: any = false;
+        for (var i = 0; i < this.calendar.periodList.length; i++) {
+            if (this.calendar.periodList[i].columnEdit == true && this.isViewOnly == true) {
+                throwValidation = 'Edit';
+            } else if (this.calendar.periodList[i].periodName == null || this.calendar.periodList[i].fromDate == null ||
+                this.calendar.periodList[i].toDate == null || this.calendar.periodList[i].periodNum == null ||
+                this.calendar.periodList[i].quarter == null || this.calendar.periodList[i].year == null) {
+                throwValidation = 'Empty';
+            } else if (this.calendar.periodList[i].periodNum.toString().length > 2) {
+                throwValidation = 'PeriodNum>2';
+            } else if (this.calendar.periodList[i].quarter.toString().length > 1) {
+                throwValidation = 'Quarter>1'
+            } else if (this.calendar.periodList[i].year.toString().length > 4 ||
+                this.calendar.periodList[i].year.toString().length < 4) {
+                throwValidation = 'Year!=4';
+            }
+        }
+        if (throwValidation == 'Edit') {
+            this.notificationsService.error(
+                'Warning!',
+                'Please save row before adding new'
+            );
+        } else if (throwValidation == 'Empty') {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        } else if (throwValidation == 'Year!=4') {
+            this.notificationsService.error(
+                'Warning!',
+                'Year Should be 4 digits'
+            );
+        }else if(throwValidation == 'PeriodNum>2') {
+            this.notificationsService.error(
+                'Warning!',
+                'Period Number should be less than 3 digits'
+            );
+        } else if(throwValidation == 'Quarter>1') {
+            this.notificationsService.error(
+                'Warning!',
+                'Quarter should be only 1 digit'
+            );
+        } else {
+            let obj = {
+                'periodName': null,
+                'fromDate': null,
+                'toDate': null,
+                'periodNum': null,
+                'quarter': null,
+                'year': null,
+                'adjustment': null,
+                'columnEdit': true,
+                'newPeriodStatus': true
+            };
+            this.calendar.periodList.push(obj);
+        }
+    }
+
+    /**Validation Msg in form */
+    validationMsg(reason) {
+        if (reason == 'calendar') {
+            if (this.calendar.name == null || this.calendar.name == '') {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Name is mandatory'
+                );
+            } else if (this.calendar.calendarType == null) {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Calendar Type is mandatory'
+                );
+            } else if (this.calendar.startDate == null) {
+                this.notificationsService.error(
+                    'Warning!',
+                    'Start date is mandatory'
+                );
+            }
+        } else if (reason == 'Year!=4') {
+            this.notificationsService.error(
+                'Warning!',
+                'Year should be 4 digits'
+            );
+        } else if(reason == 'PeriodNum>2') {
+            this.notificationsService.error(
+                'Warning!',
+                'Period Number should be less than 3 digits'
+            );
+        } else if(reason == 'Quarter>1') {
+            this.notificationsService.error(
+                'Warning!',
+                'Quarter should be only 1 digit'
+            );
+        } else {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        }
+    }
+
+    /**Remove period if selected standard else add period */
+    calType(type){
+        // console.log('type\n' + type);
+        this.calendar.periodList = [];
+        this.calendar.period = null;
+        if(type != 'MONTHLY'){
+            let obj = {
+                'periodName': null,
+                'fromDate': null,
+                'toDate': null,
+                'periodNum': null,
+                'quarter': null,
+                'year': null,
+                'adjustment': null,
+                'columnEdit': true
+            };
+            this.calendar.periodList.push(obj);
+            this.displayPeriod = true;
+        }else{
+            this.displayPeriod = false;
+        }
+    }
+
+    /**Create periods based on calendart type (if only Monthly) */
+    generate() {
+        if (this.calendar.name && this.calendar.startDate) {
+            this.calendar.periodList = [];
+            let shortMonths = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            let quarter = [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4];
+            if (this.calendar.calendarType == 'MONTHLY' && this.calendar.period != null) {
+                let currentYear = new Date().getFullYear();
+                let year = this.calendar.period.getFullYear();
+                let totalYears = currentYear - year;
+                totalYears = totalYears + 1;
+                for (let j = 0; j < totalYears; j++) {
+                    for (let i = 0; i < 12; i++) {
+                        let perYearName = year + j;
+                        let obj = {
+                            "periodName": shortMonths[i] + '-' + perYearName,
+                            "fromDate": new Date(year + j, i, 1),
+                            "toDate": new Date(year + j, i, 31).getDate() === 31 ? new Date(year + j, i, 31) : new Date(year + j, i, 30),
+                            "periodNum": i + 1,
+                            "quarter": quarter[i],
+                            "year": year + j,
+                            "newPeriodAdj": true,
+                            "columnEdit": true
+                        }
+                        /**February - based on leap year */
+                        if (i == 1) {
+                            if (new Date(year + j, i, 29).getDate() === 29) {
+                                obj.toDate = new Date(year + j, 1, 29);
+                            } else {
+                                obj.toDate = new Date(year + j, 1, 28);
+                            }
+                        }
+                        this.calendar.periodList.push(obj);
+                    }
+                }
+                this.displayPeriod = true;
+                // console.log('this.calendar.periodList\n' + JSON.stringify(this.calendar.periodList));
+            }
+        } else {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        }
+    }
+
+    /**Get all calendar list to check duplicates */
+    getCalendarList() {
+        this.calendarService.getAllcalenderList(0, 0, '').subscribe((res: any) => {
+            this.calendarList = res.json();
+            // console.log('this.calendarList\n' + JSON.stringify(this.calendarList));
+        });
+    }
+
+
+    /**Check calendar name duplicates */
+    checkDuplicates(name, id) {
+        if(this.calendarList){
+            for (let i = 0; i < this.calendarList.length; i++) {
+                if (this.calendarList[i].name == name && this.calendarList[i].id == id) {
+                    // console.log('No Duplicates');
+                } else if (this.calendarList[i].name == name) {
+                    this.notificationsService.error('Warning!', 'Calendar name "' + name + '" alreay exist');
+                    setTimeout(() => {
+                        this.calendar.name = null;
+                    }, 500);
+                }
+            }
+        }
+    }
+
+    /* load(id) {
+        this.calendarService.find(id).subscribe((calendar) => {
+            this.calendar = calendar;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInCalendars() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'calendarListModification',
+            (response) => this.load(this.calendar.id)
+        );
+    } */
+}

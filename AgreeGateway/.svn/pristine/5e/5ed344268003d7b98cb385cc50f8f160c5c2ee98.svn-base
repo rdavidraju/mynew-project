@@ -1,0 +1,128 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { ApprovalGroupMembers } from './approval-group-members.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class ApprovalGroupMembersService {
+
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private resourceUrl = 'agreeapplication/api/approval-group-members';
+    private resourceSearchUrl = 'agreeapplication/api/_search/approval-group-members';
+    /**New API's Url */
+    private getAppGroMemUserIdUrl = 'agreeapplication/api/getApprovalGroupMembersByUserId';
+    private postAppGrpMemUserUrl = 'agreeapplication/api/postApprovalGroupMembers';
+
+    constructor(private http: Http, private dateUtils: JhiDateUtils, private $sessionStorage: SessionStorageService) { }
+
+    create(approvalGroupMembers: ApprovalGroupMembers): Observable<ApprovalGroupMembers> {
+        const copy = this.convert(approvalGroupMembers);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    /* update(approvalGroupMembers: ApprovalGroupMembers): Observable<ApprovalGroupMembers> {
+        const copy = this.convert(approvalGroupMembers);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    } */
+
+    update(approvalGroupMembers){
+        return this.http.put(this.resourceUrl+'?userId='+this.UserData.id, approvalGroupMembers).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<ApprovalGroupMembers> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.startDate = this.dateUtils
+            .convertLocalDateFromServer(entity.startDate);
+        entity.endDate = this.dateUtils
+            .convertLocalDateFromServer(entity.endDate);
+        entity.createdDate = this.dateUtils
+            .convertDateTimeFromServer(entity.createdDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(approvalGroupMembers: ApprovalGroupMembers): ApprovalGroupMembers {
+        const copy: ApprovalGroupMembers = Object.assign({}, approvalGroupMembers);
+        copy.startDate = this.dateUtils
+            .convertLocalDateToServer(approvalGroupMembers.startDate);
+        copy.endDate = this.dateUtils
+            .convertLocalDateToServer(approvalGroupMembers.endDate);
+
+        copy.createdDate = this.dateUtils.toDate(approvalGroupMembers.createdDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(approvalGroupMembers.lastUpdatedDate);
+        return copy;
+    }
+
+    /**
+     * Get Approval Group Members @param: userId
+     * Author: Sameer
+     */
+    getAppGrpMemUserId(userId) {
+        if(userId) {
+            return this.http.get(`${this.getAppGroMemUserIdUrl}?userId=${userId}`).map((res: Response)=> {
+                const jsonResponse = res.json();
+                    return jsonResponse;
+            });
+        }
+    }
+
+    /**
+     * Post Approval Group Members
+     * Author: Sameer
+     */
+    postAppGrpMemUser(memberDetails) {
+        if(memberDetails) {
+            return this.http.post(`${this.postAppGrpMemUserUrl}`, memberDetails).map((res: Response)=> {
+                const jsonResponse = res;
+                    return jsonResponse;
+            });
+        }
+    }
+}

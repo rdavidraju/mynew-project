@@ -1,0 +1,272 @@
+import { Injectable } from '@angular/core';
+import { Http, Response, URLSearchParams, BaseRequestOptions } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+
+import { RuleGroup } from './rule-group.model';
+import { JhiDateUtils } from 'ng-jhipster';
+import { SessionStorageService } from 'ng2-webstorage';
+import { RuleGroupWithRulesAndConditions } from './ruleGroupWithRulesAndConditions.model';
+import {RulesAndConditions} from '../rules/rulesWithConditions.model';
+import { RuleGroupAndRuleWithLineItem } from './ruleGroupAndRuleWithLineItem.model';
+import { AccRule } from './accRule.model';
+@Injectable()
+export class RuleGroupService {
+
+    private resourceUrl = 'agreeapplication/api/rule-groups';
+    private resourceSearchUrl = 'agreeapplication/api/_search/rule-groups';
+    private postRuleGroupUrl = 'agreeapplication/api/postingRuleGrpAndRulesAndRuleConditions';
+    private getGroupDetailsUrl = 'agreeapplication/api/getRuleGrpAndRuleConditionsAndRuleGrpDetails';
+    private getRuleGroupsBytenantUrl ='agreeapplication/api/ruleGroupsByTenantId';
+    private fetchGroupByDataUrl = 'agreeapplication/api/fetchFileTemplateByColumnNameAndTableName';
+    private fetchRuleGroupsByPurpose = 'agreeapplication/api/fetchRuleGroupIdsByTenantIdAndPurpose';
+    private fetchRuleGroupsByTenantWithMeaningUrl ='agreeapplication/api/RuleGroupsWithMeaning';
+    private postAppRuleConditionsAndAppRuleActionsUrl = 'agreeapplication/api/postAppRuleConditionsAndAppRuleActions';
+    //Accounting API's
+    
+    private postAccountingRulesUrl = 'agreeapplication/api/postAcctRuleConditionsAndAcctRuleDerivations';
+    private getAccountingRulesUrl = 'agreeapplication/api/fetchAcctRuleConditionsAndAcctRuleDerivations';
+    
+    private getApprovalRulesUrl = 'agreeapplication/api/fetchAppRuleConditionsAndAppActions';
+    
+    private UserData = this.$sessionStorage.retrieve('userData');
+    constructor(private http: Http, private dateUtils: JhiDateUtils,private $sessionStorage: SessionStorageService) { }
+
+    create(ruleGroup: RuleGroup): Observable<RuleGroup> {
+        let copy: RuleGroup = Object.assign({}, ruleGroup);
+        copy.startDate = this.dateUtils
+            .convertLocalDateToServer(ruleGroup.startDate);
+        copy.endDate = this.dateUtils
+            .convertLocalDateToServer(ruleGroup.endDate);
+        copy.creationDate = this.dateUtils.toDate(ruleGroup.creationDate);
+        copy.lastUpdatedDate = this.dateUtils.toDate(ruleGroup.lastUpdatedDate);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    update(ruleGroup: RuleGroup): Observable<RuleGroup> {
+        let copy: RuleGroup = Object.assign({}, ruleGroup);
+        copy.startDate = this.dateUtils
+            .convertLocalDateToServer(ruleGroup.startDate);
+        copy.endDate = this.dateUtils
+            .convertLocalDateToServer(ruleGroup.endDate);
+
+        copy.creationDate = this.dateUtils.toDate(ruleGroup.creationDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(ruleGroup.lastUpdatedDate);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+    find(id: number): Observable<RuleGroup> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            jsonResponse.startDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse.startDate);
+            jsonResponse.endDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse.endDate);
+            jsonResponse.creationDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse.creationDate);
+            jsonResponse.lastUpdatedDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse.lastUpdatedDate);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<Response> {
+        let options = this.createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: any) => this.convertResponse(res))
+        ;
+    }
+    getRuleGroupsbyTenantId(req?: any): Observable<Response> {
+        const options = this.createRequestOption(req);
+        return this.http.get(this.getRuleGroupsBytenantUrl+'?tenantId='+this.UserData.tenantId, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+    
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<Response> {
+        let options = this.createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res))
+        ;
+    }
+
+    private convertResponse(res: any): any {
+        let jsonResponse = res.json();
+        console.log('rulegroups lengrth is'+jsonResponse);
+        for (let i = 0; i < jsonResponse.length; i++) {
+           /* jsonResponse[i].startDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse[i].startDate);
+            jsonResponse[i].endDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse[i].endDate);*/
+            jsonResponse[i].creationDate = this.dateUtils
+                .toDate(jsonResponse[i].creationDate);
+            jsonResponse[i].lastUpdatedDate = this.dateUtils
+                .convertDateTimeFromServer(jsonResponse[i].lastUpdatedDate);
+        }
+        res._body = jsonResponse;
+        return res;
+    }
+
+    private createRequestOption(req?: any): BaseRequestOptions {
+        let options: BaseRequestOptions = new BaseRequestOptions();
+        if (req) {
+            let params: URLSearchParams = new URLSearchParams();
+            params.set('page', req.page);
+            params.set('size', req.size);
+            if (req.sort) {
+                params.paramsMap.set('sort', req.sort);
+            }
+            params.set('query', req.query);
+
+            options.search = params;
+        }
+        return options;
+    }
+    postRuleGroup(ruleGroupDTO : RuleGroupWithRulesAndConditions): Observable<any> {
+        ruleGroupDTO['tenantId'] = this.UserData.tenantId;
+        ruleGroupDTO.rules.forEach(rule=>{
+            rule.rule.tenantId=this.UserData.tenantId;
+            rule.rule.createdBy=this.UserData.id;
+        });
+        ruleGroupDTO['createdBy'] = this.UserData.id;
+        ruleGroupDTO['lastUpdatedBy'] = this.UserData.id;
+        console.log('ruleGroupDTO before save in wq is'+JSON.stringify(ruleGroupDTO));
+        return this.http.post(this.postRuleGroupUrl,ruleGroupDTO).map((res: Response) => {
+            return res.json();
+        });
+    }
+   /* getGroupDetails(groupId: any): Observable<any> {`${this.fileTemplateListOfDistinctValues}/${tableName}/${columnName}?tenantId=${UserData.tenantId}`
+        return this.http.get(this.getGroupDetailsUrl,+'?tenantId='+UserData.tenantId+'&groupId='+groupId).map((res: Response) => {
+            return res.json();
+        });}*/
+    getGroupDetails(groupId: any): Observable<any> {
+         return this.http.get(this.getGroupDetailsUrl+'?groupId='+groupId).map((res: Response) => {
+           
+        let jsonResponse : RuleGroupWithRulesAndConditions = new RuleGroupWithRulesAndConditions();
+        jsonResponse =    res.json();
+//        console.log('details'+ JSON.stringify(jsonResponse));
+         jsonResponse.startDate = this.dateUtils
+             .convertLocalDateFromServer(jsonResponse.startDate);
+         jsonResponse.endDate = this.dateUtils
+             .convertLocalDateFromServer(jsonResponse.endDate);
+           
+        jsonResponse.creationDate = this.dateUtils
+            .convertDateTimeFromServer(jsonResponse.creationDate);
+        jsonResponse.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(jsonResponse.lastUpdatedDate);
+        let rules : RulesAndConditions [];
+        rules = jsonResponse.rules;
+        rules.forEach(rule=>{
+            rule.rule.startDate = this.dateUtils.convertLocalDateFromServer(rule.rule.startDate);
+            rule.rule.endDate = this.dateUtils.convertLocalDateFromServer(rule.rule.endDate);
+            rule.rule.creationDate = this.dateUtils.convertLocalDateFromServer(rule.rule.creationDate);
+            rule.rule.lastUpdatedDate = this.dateUtils.convertLocalDateFromServer(rule.rule.lastUpdatedDate);
+        });
+            return jsonResponse;
+        });
+    }
+    fetchSideBarData(columnName : any): Observable<Response>
+    {
+        let tableName = 'RuleGroup';
+        return this.http.get(`${this.fetchGroupByDataUrl}/${tableName}/${columnName}?tenantId=${this.UserData.tenantId}`).map((res: Response) => {
+            console.log('response in grp by sidebar service' + JSON.stringify(res.json()));
+            return res.json();
+        });
+    }
+    postRuleGroupForAccountingRules(ruleGroupDTO : RuleGroupAndRuleWithLineItem): Observable<any> {
+        ruleGroupDTO['tenantId'] = this.UserData.tenantId;
+        ruleGroupDTO['createdBy'] = this.UserData.id;
+        ruleGroupDTO['lastUpdatedBy'] = this.UserData.id;
+        console.log('accounting data is:'+JSON.stringify(ruleGroupDTO));
+        return this.http.post(this.postAccountingRulesUrl,ruleGroupDTO).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    getAccountingRuleGroupDetails(groupId: any): Observable<any> {
+        return this.http.get(this.getAccountingRulesUrl+'?groupId='+groupId).map((res: Response) => {
+          
+       let jsonResponse : RuleGroupAndRuleWithLineItem = new RuleGroupAndRuleWithLineItem();
+       jsonResponse =    res.json();
+        jsonResponse.startDate = this.dateUtils
+            .convertLocalDateFromServer(jsonResponse.startDate);
+        jsonResponse.endDate = this.dateUtils
+            .convertLocalDateFromServer(jsonResponse.endDate);
+          
+       jsonResponse.creationDate = this.dateUtils
+           .convertDateTimeFromServer(jsonResponse.creationDate);
+       jsonResponse.lastUpdatedDate = this.dateUtils
+           .convertDateTimeFromServer(jsonResponse.lastUpdatedDate);
+       let rules : AccRule [];
+       rules = jsonResponse.rules;
+       if(rules)
+       rules.forEach(rule=>{
+           rule.startDate = this.dateUtils.convertLocalDateFromServer(rule.startDate);
+           rule.endDate = this.dateUtils.convertLocalDateFromServer(rule.endDate);
+           rule.creationDate = this.dateUtils.convertLocalDateFromServer(rule.creationDate);
+           rule.lastUpdatedDate = this.dateUtils.convertLocalDateFromServer(rule.lastUpdatedDate);
+       });
+           return jsonResponse;
+       });
+   }
+    
+    fetchRuleGroupsBypurpose(purpose : any): Observable<Response>
+    {
+        return this.http.get(this.fetchRuleGroupsByPurpose+'?tenantId='+this.UserData.tenantId+'&purpose='+purpose).map((res: Response) => {
+            console.log('response in grp by sidebar service' + JSON.stringify(res.json()));
+            return res.json();
+        });
+    }
+    fetchRuleGroupsWithMeaningByTenant(page: number, pageSize: number): Observable<Response> 
+    {
+        return this.http.get(this.fetchRuleGroupsByTenantWithMeaningUrl+'?tenantId='+
+                this.UserData.tenantId+'&page='+page+'&per_page'+pageSize)
+            .map((res: Response) =>
+            {
+                let jsonresp = res.json();
+                console.log('jsonresp'+jsonresp);
+                return jsonresp;
+                
+            }
+            //this.convertResponse(res)
+            );
+       
+    }
+    
+    postApprovalRules(ruleGroupDTO : any):Observable<Response>
+    {
+        ruleGroupDTO['tenantId'] = this.UserData.tenantId;
+        ruleGroupDTO['createdBy'] = this.UserData.id;
+        ruleGroupDTO['enabledFlag']=true;
+        console.log('b4 save'+JSON.stringify(ruleGroupDTO));
+        return this.http.post(this.postAppRuleConditionsAndAppRuleActionsUrl,ruleGroupDTO).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    fetchApprovalRules(groupId):Observable<Response>
+    {
+        return this.http.get(this.getApprovalRulesUrl+'?groupId='+groupId).map((res: Response) => {
+            let jsonResponse = res.json();
+            console.log('approval=>'+JSON.stringify(jsonResponse));
+            let rules : AccRule [];
+            rules = jsonResponse.rules;
+            if(rules)
+            rules.forEach(rule=>{
+                rule.startDate = this.dateUtils.convertLocalDateFromServer(rule.startDate);
+                rule.endDate = this.dateUtils.convertLocalDateFromServer(rule.endDate);
+                rule.creationDate = this.dateUtils.convertLocalDateFromServer(rule.creationDate);
+                rule.lastUpdatedDate = this.dateUtils.convertLocalDateFromServer(rule.lastUpdatedDate);
+            });
+            return jsonResponse;
+        });
+    }
+    
+}

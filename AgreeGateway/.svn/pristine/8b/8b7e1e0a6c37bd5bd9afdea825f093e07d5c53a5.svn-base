@@ -1,0 +1,162 @@
+<div class="container-fluid component-body">
+	<div class="row botom-dotted-blue-border component-title margin-left-22">
+		<div class="col-md-6 pageTitle">
+			<h2>Report Definition Wizard</h2>
+		</div>
+		<div class="col-md-6">
+			<div class="row float-right">
+				<button *ngIf="!isViewOnly" md-icon-button class="pull-right" aria-hidden="true" mdTooltip="Save Template" mdTooltipPosition="above" (click)="saveReport()">
+					<md-icon>save</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit"
+					mdTooltipPosition="above"
+					[routerLink]="['/reports', {outlets: {'content': [report.id]+'/edit'}}]">
+					<md-icon>mode_edit</md-icon>
+				</button>
+				<button *ngIf="isEdit" md-icon-button class="pull-right color-gray"
+					mdTooltip="Close" mdTooltipPosition="above"
+					[routerLink]="['/reports', {outlets: {'content': [report.id]+'/details'}}]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isCreateNew" md-icon-button
+					class="pull-right color-gray" mdTooltip="Close"
+					mdTooltipPosition="above"
+					[routerLink]="['/reports', {outlets: {'content': ['report-list']}}]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back"
+					mdTooltipPosition="above"
+					[routerLink]="['/reports', {outlets: {'content': ['report-list']}}]">
+					<md-icon>undo</md-icon>
+				</button>
+			</div>
+		</div>
+	</div>
+	
+	<div class="report-def">
+		<div class="report-def-header row">
+			<div class="col-lg-3 col-md-3 col-sm-6 section-1">
+				<md-select class="example-full-width reset-margin" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="selReportType" (change)="reportTypeChnaged()" name="reportType" placeholder="Report Type" required> 
+					<md-option *ngFor="let reportType of srcReportTypes" [value]="reportType">{{reportType.type}}</md-option>
+				</md-select>
+				<md-input-container class="example-full-width reset-margin">
+					<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" (blur)="checkReportName()" [(ngModel)]="report.reportName" placeholder="Report Name" name="reportName" required> 
+				</md-input-container>	
+			</div>
+			<div *ngIf="selReportType.type" class="col-lg-5 col-md-5 col-sm-6 section-2">
+			<div class="margin-div">
+				<md-select *ngIf="selReportType.coa" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.coa" class="example-full-width reset-margin reset-bottom-margin" name="coa" placeholder="Chart Of Account" required> 
+					<md-option *ngFor="let coa of selReportType.coaList" [value]="coa">{{coa}}</md-option>
+				</md-select>
+				<span *ngIf="selReportType.allowDrillDown" class="sub-title">Drilldown :</span>
+				<div *ngIf="selReportType.allowDrillDown" class="row reporting-mode">
+					<md-checkbox [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.allowDrilldown" class="example-margin" color="primary">Allow Drilldow Functionality</md-checkbox>
+				</div>
+				<span *ngIf="selReportType.mode" class="sub-title">Reporting Mode :</span>
+				<div *ngIf="selReportType.mode" class="row reporting-mode">
+					<md-radio-group [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.reportMode">
+					  <md-radio-button value="Summary" color="primary">Summary</md-radio-button>
+					  <md-radio-button value="Detailed" color="primary">Detailed</md-radio-button>
+					  <md-radio-button value="Both" color="primary">Both</md-radio-button>
+					</md-radio-group>
+				</div>
+				<span *ngIf="selReportType.show" class="sub-title">Show :</span>
+				<div *ngIf="selReportType.show" class="row reporting-mode">
+					<md-radio-group [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="report.show">
+					  <md-radio-button value="Accounted" color="primary">Accounted</md-radio-button>
+					  <md-radio-button value="Un-Accounted" color="primary">Un-Accounted</md-radio-button>
+					  <md-radio-button value="Both" color="primary">Both</md-radio-button>
+					</md-radio-group>
+				</div>
+			</div>
+			</div>
+			<div class="col-lg-4 col-md-4 col-sm-6 section-3">
+				<div class="row date-selction">
+					<div class="col-lg-6 col-md-6 col-sm-12">
+						<md-form-field class="reset-margin"> <input mdInput  [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [mdDatepicker]="stpicker" [(ngModel)]="report.startDate" placeholder="Start date" name="startDate" required>
+						<md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+						<md-datepicker #stpicker></md-datepicker> </md-form-field>
+					</div>
+					<div class="col-lg-6 col-md-6 col-sm-12">
+						<md-form-field class="reset-margin reset-top-margin"> <input mdInput  [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [mdDatepicker]="edpicker" [(ngModel)]="report.endDate" placeholder="End date" name="endDate" required>
+						<md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+						<md-datepicker #edpicker></md-datepicker> </md-form-field>
+					</div>
+				</div>
+				<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Select Data View" [(ngModel)]="report.sourceViewId" (change)="viewChanged()" [ngModelOptions]="{standalone: true}" mdTooltip="Select View" mdTooltipPosition="above"> 
+					<md-option *ngFor="let view of srcViews" [value]="view.id">{{view.dataViewDispName}}</md-option>
+				</md-select>
+			</div>
+		</div>
+		<div *ngIf="selReportType.type" class="report-def-body">
+		<div class="columns-def-title">
+			<h4>Columns Definition :</h4>
+		</div>
+			<table class="report-def-table">
+			  	<thead>
+				    <th class="header-head"></th>
+				    <th *ngFor="let col of userCols; let i=index;" class="user-cols">
+					    <div class="row cell">
+					    	<span class="colum-title">Column-{{i+1}}</span>
+					    	<i *ngIf="!isViewOnly" (click)="removeThisCol(i)" class="material-icons colum-del hand">delete</i>
+					    </div>
+					</th>
+					<th class="system-cols" *ngFor="let col of sysColumns; let i=index;">Sys Col-{{i+1}}</th>
+			  	</thead>
+			  	<tbody>
+			  	  <tr class="display-name">
+			  	  	<td class="header-cell">Display Name :</td>
+			  	  	<td *ngFor="let col of userCols">
+			  	  		<md-input-container class="example-full-width" > <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.userDisplayColName" [ngModelOptions]="{standalone: true}" mdTooltip="Display Name" mdTooltipPosition="above"> </md-input-container>
+			  	  	</td>
+				    <td *ngFor="let col of sysColumns; let i=index;">
+				    	<md-input-container class="example-full-width" > <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.userDisplayColName" [ngModelOptions]="{standalone: true}" mdTooltip="Display Name" mdTooltipPosition="above"> </md-input-container>
+				    </td>
+			  	  </tr>
+				  <tr class="display-name">
+				    <td class="header-cell">
+				    	Columns :
+				    </td>
+				    <td *ngFor="let col of userCols">
+				    	<md-select *ngIf="col.columnType == 'DATA_VIEW'" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" class="example-full-width" [(ngModel)]="col.columnDisplayName" [ngModelOptions]="{standalone: true}" mdTooltip="Select Column" mdTooltipPosition="above"> 
+							<md-option *ngFor="let col1 of selView.dataViewsColumnsList" [value]="col1.columnHeader" (click)="col.ColumnId=col1.id">{{col1.columnHeader}}</md-option>
+						</md-select>
+						<!-- <md-input-container *ngIf="col.columnType == 'CUSTOM_COL'" class="example-full-width"> <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.columnDisplayName" [ngModelOptions]="{standalone: true}" mdTooltip="Enter parameterTypeion" mdTooltipPosition="above"> </md-input-container> -->
+				    </td>
+				    <td *ngFor="let col of sysColumns"><span>{{col.columnDisplayName}}</span></td>
+				  </tr>
+				  <tr class="display-name">
+				    <td class="header-cell"><span>Parameter Type :</span></td>
+				    <td *ngFor="let col of userCols">
+				    	<md-select *ngIf="col.columnType == 'DATA_VIEW'" class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.parameterType" [ngModelOptions]="{standalone: true}" mdTooltip="Parameter Type" mdTooltipPosition="above">
+				    		<md-option [value]="undefined"></md-option> 
+							<md-option *ngFor="let type of parameterTypes" [value]="type.meaning">{{type.meaning}}</md-option>
+						</md-select>
+				    </td>
+				    <td *ngFor="let col of sysColumns">
+				    	<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.parameterType" [ngModelOptions]="{standalone: true}" mdTooltip="Parameter Type" mdTooltipPosition="above">
+				    		<md-option [value]="undefined"></md-option> 
+							<md-option *ngFor="let type of parameterTypes" [value]="type.meaning">{{type.meaning}}</md-option>
+						</md-select>
+				    </td>
+				  </tr>
+				  <tr>
+				    <td class="header-cell"><span>Group By Preference :</span></td>
+				    <td *ngFor="let col of userCols">
+				    	<md-checkbox *ngIf="col.columnType == 'DATA_VIEW'" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" class="example-margin" [(ngModel)]="col.groupBy" color="primary" [ngModelOptions]="{standalone: true}"></md-checkbox>
+				    </td>
+				    <td *ngFor="let col of sysColumns">
+				    	<md-checkbox class="example-margin" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="col.groupBy" color="primary" [ngModelOptions]="{standalone: true}"></md-checkbox>
+				    </td>
+				  </tr>
+				</tbody>
+			</table>
+			<div class="row add-buttons" *ngIf="!isViewOnly">
+				<md-chip-list>
+				  <md-chip class="hand" *ngIf="report.sourceViewId && selReportType" color="primary" selected="true" (click)="addNewColumn('DATA_VIEW')">Add View Column</md-chip>
+				  <md-chip class="hand" *ngIf="report.sourceViewId && selReportType" color="accent" selected="true" (click)="addNewColumn('CUSTOM_COL')">Add Custom Column</md-chip>
+				</md-chip-list>
+			</div>
+		</div> 
+	</div>
+</div>

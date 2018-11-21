@@ -1,0 +1,191 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.JournalsHeaderData;
+
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigInteger;
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the JournalsHeaderData entity.
+ */
+@SuppressWarnings("unused")
+public interface JournalsHeaderDataRepository extends JpaRepository<JournalsHeaderData,Long> {
+
+	
+	List<JournalsHeaderData> findByTenantId(Long tenantId); 
+	
+	
+	@Query(value="select * from t_journals_header_data where tenant_id= :tenantId order by id desc", nativeQuery=true)
+	List<JournalsHeaderData> fetchByTenantId(@Param(value = "tenantId") Long tenantId);
+
+	@Query(value="select distinct(period) from t_journals_header_data where je_temp_id in(:jeTempIds)", nativeQuery=true)
+	List<String> fetchPeriodByJeTempIdIn(@Param(value = "jeTempIds") List<BigInteger> jeTempIds);
+
+	
+	@Query(value="select distinct(ledger_name) from t_journals_header_data where je_temp_id in(:jeTempIds)", nativeQuery=true)
+	List<String> fetchLedgerNameByJeTempIdIn(@Param(value = "jeTempIds") List<BigInteger> jeTempIds);
+
+	
+	@Query(value="select  distinct(period) from t_journals_header_data where je_temp_id= :jeTempId", nativeQuery=true)
+	List<String> fetchPeriodByJeTempId(@Param(value = "jeTempId") Long jeTempId);
+	
+	@Query(value="select distinct(ledger_name) from t_journals_header_data where je_temp_id= :jeTempId", nativeQuery=true)
+	List<String> fetchLedgerNameByJeTempId(@Param(value = "jeTempId") Long jeTempId);
+	
+	@Query(value="select distinct(je_temp_id) from t_journals_header_data where tenant_id= :tenantId", nativeQuery=true)
+	List<BigInteger> fetchDistinctTempIdByTenantId(@Param(value = "tenantId") Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndPeriodAndTenantIdOrderByIdDesc(Long valueOf,
+			String string, String string2,Long tenantId);
+
+
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and tenant_id= :tenantId and je_batch_date between :frmDate and :toDate order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByByJeTempIdInAndTenantIdAndJeBatchDateBetween(@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "tenantId") Long tenantId,
+			@Param(value = "frmDate") LocalDate frmDate,@Param(value = "toDate") LocalDate toDate);
+
+	
+	
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and tenant_id= :tenantId order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByJeTempIdInAndTenantId(@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "tenantId") Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndPeriodAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(
+			Long valueOf, String string, String string2,Long tenantId, LocalDate localDate,
+			LocalDate localDate2);
+
+
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and ledger_name =:ledgerName and period =:period and tenant_id= :tenantId and je_batch_date between :frmDate and :toDate order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByjeTempIdInAndLedgerNameAndPeriodAndTenantIdAndJeBatchDateBetween(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "ledgerName") String ledgerName,@Param(value = "period") String period,@Param(value = "tenantId") Long tenantId,
+			@Param(value = "frmDate") LocalDate frmDate,@Param(value = "toDate") LocalDate toDate);
+
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and ledger_name =:ledgerName and period =:period and tenant_id= :tenantId order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByjeTempIdInAndLedgerNameAndPeriodAndTenantId(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "ledgerName") String ledgerName,@Param(value = "period") String period,@Param(value = "tenantId") Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndPeriodAndJeBatchDateBetween(
+			Long valueOf, String string, LocalDate localDate,
+			LocalDate localDate2);
+
+
+	List<JournalsHeaderData> findByjeTempIdInAndPeriod(Long tempId,
+			String period);
+
+
+	
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and ledger_name =:ledgerName and tenant_id= :tenantId and je_batch_date between :frmDate and :toDate order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByjeTempIdInAndLedgerNameAndJeBatchDateBetween(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "ledgerName") String ledgerName,@Param(value = "tenantId") Long tenantId,
+			@Param(value = "frmDate") LocalDate frmDate,@Param(value = "toDate") LocalDate toDate);
+
+
+	
+
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and ledger_name =:ledgerName and tenant_id= :tenantId order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByjeTempIdInAndLedgerName(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "ledgerName") String ledgerName,@Param(value = "tenantId") Long tenantId);
+	
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and period =:period and tenant_id= :tenantId order by gl_date desc", nativeQuery=true)
+	List<JournalsHeaderData> findByjeTempIdInAndPeriod(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "period") String period,@Param(value = "tenantId") Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndJeBatchDateBetween(Long tempId,
+			LocalDate localDate, LocalDate localDate2);
+
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and tenant_id= :tenantId and je_batch_date between :frmDate and :toDate order by id desc", nativeQuery=true)
+	List<JournalsHeaderData> findByjeTempIdInAndTenantIdAndJeBatchDateBetween(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "tenantId") Long tenantId,
+			@Param(value = "frmDate") LocalDate frmDate,@Param(value = "toDate") LocalDate toDate);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndTenantIdOrderByIdDesc(Long valueOf,
+			Long tenantId);
+
+	@Query(value="select * from t_journals_header_data where je_temp_id  in(:tempIds) and period =:period and tenant_id= :tenantId and je_batch_date between :frmDate and :toDate order by gl_date desc", nativeQuery=true)
+
+	List<JournalsHeaderData> findByjeTempIdInAndPeriodAndTenantIdAndJeBatchDateBetween(
+			@Param(value = "tempIds") List<BigInteger> tempIds,@Param(value = "period") String period,@Param(value = "tenantId") Long tenantId,
+			@Param(value = "frmDate") LocalDate frmDate,@Param(value = "toDate") LocalDate toDate);
+
+
+	
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(
+			Long valueOf, String string, Long tenantId, LocalDate localDate,
+			LocalDate localDate2);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndTenantIdOrderByIdDesc(
+			Long valueOf, String string, Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndPeriodAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(
+			Long valueOf, String string, Long tenantId, LocalDate localDate,
+			LocalDate localDate2);
+
+
+	List<JournalsHeaderData> findByjeTempIdInAndPeriodAndTenantIdOrderByIdDesc(Long valueOf,
+			String string, Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndTenantIdAndJeBatchDateBetweenOrderByIdDesc(
+			Long valueOf, Long tenantId, LocalDate localDate,
+			LocalDate localDate2);
+
+
+	List<JournalsHeaderData> findByGlDateBetweenAndTenantId(LocalDate fmDate,
+			LocalDate toDate, Long tenantId);
+
+
+	List<JournalsHeaderData> findByPeriodInAndTenantId(List<String> glPeriod,
+			Long tenantId);
+
+
+	List<JournalsHeaderData> findByGlDateBetweenAndTenantIdAndPeriodIn(
+			ZonedDateTime glFmDate, ZonedDateTime glToDate, Long tenantId,
+			List<String> periods);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndPeriodAndTenantIdAndJeBatchDateBetweenOrderByGlDateDesc(
+			Long valueOf, String string, String string2, Long tenantId,
+			LocalDate plusDays, LocalDate plusDays2);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndPeriodAndTenantIdOrderByGlDateDesc(
+			Long valueOf, String string, String string2, Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndPeriodAndTenantIdAndJeBatchDateBetweenOrderByGlDateDesc(
+			Long valueOf, String string, Long tenantId, LocalDate plusDays,
+			LocalDate plusDays2);
+
+
+	List<JournalsHeaderData> findByjeTempIdInAndPeriodAndTenantIdOrderByGlDateDesc(
+			Long valueOf, String string, Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndTenantIdAndJeBatchDateBetweenOrderByGlDateDesc(
+			Long valueOf, Long tenantId, LocalDate plusDays, LocalDate plusDays2);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndTenantIdOrderByGlDateDesc(
+			Long valueOf, Long tenantId);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndTenantIdAndJeBatchDateBetweenOrderByGlDateDesc(
+			Long valueOf, String string, Long tenantId, LocalDate plusDays,
+			LocalDate plusDays2);
+
+
+	List<JournalsHeaderData> findByjeTempIdAndLedgerNameAndTenantIdOrderByGlDateDesc(
+			Long valueOf, String string, Long tenantId);
+	
+}

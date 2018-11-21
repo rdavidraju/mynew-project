@@ -1,0 +1,519 @@
+import { Component, OnInit, ViewChild, Inject } from '@angular/core';
+import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+import { BaseChartDirective } from 'ng2-charts/ng2-charts';
+import { Account, LoginModalService, Principal } from '../shared';
+import { SidebarModules, OverlayPanelModule } from '../shared/primeng/primeng';
+import { DashBoard } from './home.model';
+import { CommonService } from '../entities/common.service';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe, NgSwitch } from '@angular/common';
+import { JhiDateUtils } from 'ng-jhipster';
+import { trigger, state, style, animate, transition } from '@angular/animations';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import Chart from 'chart.js';
+import { UserService } from '../shared/user/user.service';
+import { NavBarService } from '../layouts/navbar/navbar.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+//import 'chartjs-plugin-zoom';
+declare var $: any;
+declare var jQuery: any;
+
+/**Main Component */
+@Component({
+    selector: 'jhi-dashboardv3',
+    templateUrl: './dashboard-v3.component.html',
+    styleUrls: [
+        'home.scss'
+    ],
+    animations: [
+        trigger('flyInOut1', [
+            state('in', style({ transform: 'translateY(0)' })),
+            transition('void => *', [
+                style({ transform: 'translateY(-100%)' }),
+                animate(1000)
+            ]),
+            transition('* => void', [
+                animate(1000, style({ transform: 'translateX(100%)' }))
+            ])
+        ]),
+        trigger('flyInOut', [
+            state('in', style({ transform: 'translateX(0)' })),
+            transition('void => *', [
+                style({ transform: 'translateX(100%)' }),
+                animate(1000)
+            ])
+        ])
+    ]
+})
+export class DashboardV3Component implements OnInit {
+    @ViewChild(BaseChartDirective) chart: BaseChartDirective;
+
+    account: Account;
+    modalRef: NgbModalRef;
+    dashBoardDetails: any = new DashBoard();
+    userDetails: any;
+    selectedVersion: any = 'Overview 1';
+    selectedPeriod: any = "Feb-18";
+    processesList: any;
+    dashBoardData: any;
+    dataTransformationArr: any;
+    dataAccountingArr: any;
+    dataExtractionArr: any;
+    dashboardVersion: any = [{
+        "name": "Overview 1"
+    },
+    {
+        "name": "Overview 2"
+    }];
+    periodList: any = [{ "name": "Jan-18" }, { "name": "Feb-18" }, { "name": "Mar-18" }, { "name": "Apr-18" }, { "name": "May-18" }, { "name": "June-18" }, { "name": "July-18" }, { "name": "Aug-18" }, { "name": "Sep-18" }, { "name": "Oct-18" }, { "name": "Nov-18" }, { "name": "Dec-18" }];
+    viewByList = [{
+        "name": "Status"
+    },
+    {
+        "name": "Aging"
+    },
+    {
+        "name": "Currency"
+    }];
+    selectedProcess: any = 10;
+    selectedViewBy: any = "Status";
+    reconciliationDataList: any; // Reconciliation Data
+    accountingDataList: any; // Accounting Data
+
+    /* Reconciliation For Bar */
+    public barChartOptionsReconciliation: any = {
+        responsive: true,
+        scales: {
+            xAxes: [
+                {
+                    stacked: true,
+                    display: true,
+                    ticks: {
+                        min: 0,
+                        max: 100,
+                        callback: function (value) { return value + "%" }
+                    }
+                }
+            ],
+            yAxes: [
+                {
+                    stacked: true
+                }
+            ]
+        },
+        tooltips: {
+            callbacks: {
+                label: function (tooltipItems, data) {
+                    return data.datasets[tooltipItems.datasetIndex].label + ': ' + tooltipItems.xLabel + '% - ' + data.datasets[0].proName[tooltipItems.index];
+                }
+            }
+        },
+        legend: {
+            position: 'bottom'
+        },
+        title: {
+            display: false,
+            text: 'Reconciliation'
+        }
+    };
+    public barChartLabelsReconciliation: string[];
+    public barChartTypeReconciliation: string = 'horizontalBar';
+    public barChartLegendReconciliation: boolean = true;
+    public barChartDataReconciliation: any[];
+
+    /* Reconciliation For PIE */
+    public pieChartReconciliation: any[];
+    public pieChartReconciliationType: string = 'pie';
+    public pieChartReconciliationLegend: boolean = true;
+    public pieChartReconciliationLabels: string[];
+    public pieChartReconciliationOptions: any = {
+        responsive: true,
+        legend: {
+            position: 'bottom'
+        }
+    };
+    public pieChartReconciliationColors:  {}[] = [ { backgroundColor: ['rgb(80, 135, 224)', 'rgb(221, 11, 11)'] } ];
+    /* public pieChartReconciliationColors: Array<any> = [
+        {
+            backgroundColor: '#add8e64d'
+        }
+    ] */
+     /* public pieChartReconciliationColors: Array<any> = [
+        {
+            backgroundColor: '#87cefa',
+            borderColor: '#87cefa',
+            pointBackgroundColor: '#87cefa',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: '#87cefa'
+        },
+        {
+            backgroundColor: 'rgb(255,0,0)',
+            borderColor: 'rgb(255,0,0)',
+            pointBackgroundColor: 'rgb(255,0,0)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgb(255,0,0)'
+        }
+    ]; */
+
+    /* Accounting For PIE */
+    public pieChartAccounting: any[];
+    public pieChartAccountingType: string = 'pie';
+    public pieChartAccountingLegend: boolean = true;
+    public pieChartAccountingLabels: string[];
+    public pieChartAccountingOptions: any = {
+        responsive: true,
+        legend: {
+            position: 'bottom'
+        }
+    };
+
+    /* Journal Entry For PIE */
+    public pieChartJournal: any[];
+    public pieChartJournalType: string = 'pie';
+    public pieChartJournalLegend: boolean = true;
+    public pieChartJournalLabels: string[];
+    public pieChartJournalOptions: any = {
+        responsive: true,
+        legend: {
+            position: 'bottom'
+        }
+    };
+    /* Accounting */
+    public barChartOptionsAccounting: any = {
+        scaleShowVerticalLines: false,
+        responsive: true,
+        scales: {
+            xAxes: [
+                {
+                    stacked: true,
+                    display: true,
+                    ticks: {
+                        min: 0,
+                        max: 100,
+                        callback: function (value) { return value + "%" }
+                    },
+                }
+            ],
+            yAxes: [
+                {
+                    stacked: true,
+                    scaleLabel: {
+                        display: true
+                    }
+                }
+            ]
+        },
+        tooltips: {
+            callbacks: {
+                label: function (tooltipItems, data, typeCount, event) {
+                    return data.datasets[tooltipItems.datasetIndex].label + ': ' + data.datasets[tooltipItems.datasetIndex].typeCount[tooltipItems.index] + '(' + tooltipItems.yLabel + ' %)';
+                }
+            }
+        },
+        legend: {
+            position: 'bottom'
+        },
+        title: {
+            display: false,
+            text: 'Accounting'
+        }
+    };
+    public barChartLabelsAccounting: string[];
+    public barChartTypeAccounting: string = 'horizontalBar';
+    public barChartLegendAccounting: boolean = true;
+    public barChartDataAccounting: any[];
+
+    /* Extraction */
+    public barChartOptionsExtraction: any = {
+        scaleShowVerticalLines: false,
+        responsive: true,
+        /* scales: {
+            xAxes: [
+                {
+                    ticks: {
+                        fontSize: 10
+                    },
+                }
+            ]
+        },*/
+        legend: {
+            display: true,
+            position: 'bottom'
+        }/*, 
+         title: {
+            display: true,
+            text: 'Extraction',
+            position: 'bottom'
+        } */
+    };
+    public barChartLabelsExtraction: string[];
+    public barChartTypeExtraction: string = 'pie';
+    public barChartLegendExtraction: boolean = true;
+    public barChartDataExtraction: any[];
+
+    /* Transformation */
+    public barChartOptionsTransformation: any = {
+        scaleShowVerticalLines: false,
+        responsive: true ,
+        /* scales: {
+            xAxes: [
+                {
+                    ticks: {
+                        fontSize: 10
+                    }
+                }
+            ]
+        },*/
+        legend: {
+            display: true,
+            position: 'bottom'
+        }/*,  
+        title: {
+            display: false,
+            text: 'Transformation',
+            position: 'bottom'
+        } ,
+        zoom: {
+            enabled: true,
+            mode: 'xy'
+        } */
+    };
+    public barChartLabelsTransformation: string[]/*  = ['Profiles'] */;
+    public barChartTypeTransformation: string = 'pie';
+    public barChartLegendTransformation: boolean = true;
+    public barTransformationChartColors: Array<any> = [
+        {
+            backgroundColor: 'rgb(134, 199, 243)'
+        }
+    ]
+    public barChartDataTransformation: any[];
+    dataOptions: any = [{'id':'currency','name': 'Currency'}];
+    dataSelected: any = 'currency';
+    moduleData: any;
+    currentModule: any;
+    constructor(
+        private principal: Principal,
+        private loginModalService: LoginModalService,
+        private eventManager: JhiEventManager,
+        private commonService: CommonService,
+        private config: NgbDatepickerConfig,
+        private datePipe: DatePipe,
+        private dateUtils: JhiDateUtils,
+        private userService: UserService,
+        private navbarService: NavBarService,
+        private $sessionStorage: SessionStorageService,
+        private notificationService: NotificationsService,
+        public dialog: MdDialog,
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+    changeMinDate() {
+        this.config.minDate = this.dashBoardDetails.startDate;
+    }
+
+    resetMinDate() {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+    }
+
+    showJournal:boolean = false;
+    ngOnInit() {
+        if (this.$sessionStorage.retrieve('userData')) {
+            this.userDetails = this.$sessionStorage.retrieve('userData');
+        }
+        this.navbarService.getprocessessList().subscribe((res: any) => {
+            this.processesList = res;
+            console.log('processesList ' + JSON.stringify(this.processesList));
+        });
+        /* JOURNALS  */
+        this.pieChartJournalLabels = ['JE Posted','JE Un-Posted'];
+        this.pieChartJournal = [{"data":[255,251]}];
+        
+        this.fetchChartDetails(this.selectedProcess);
+        
+        $('body').removeClass('login');
+        $(document).ready(function () {
+            $('.agingCls li a').click(function () {
+                $('.agingCls li a').removeClass("active");
+                $(this).addClass("active");
+            });
+            $('.agingAnalysisCls li a').click(function () {
+                $('.agingAnalysisCls li a').removeClass("active");
+                $(this).addClass("active");
+            });
+            $('.notiCls li a').click(function () {
+                $('.notiCls li a').removeClass("active");
+                $(this).addClass("active");
+            });
+        });
+        this.principal.identity().then((account) => {
+            this.account = account;
+        });
+        this.registerAuthenticationSuccess();
+        this.showData('reconciliation');
+    }
+
+    fetchChartDetails(selectedProcess: any) {
+        let dateObj = {
+            "startDate": "2018-02-01T09:34:01.920Z",
+            "endDate": "2018-02-18T09:34:01.920Z"
+        }
+        /* Fetching Reconciliation */
+        console.log('this.selectedProcess ' + this.selectedProcess);
+        this.navbarService.fetchCountsForDashBoardRecon(dateObj, this.selectedProcess).subscribe((res: any) => {
+            this.reconciliationDataList = res.reconciliationData;
+            this.changeReconType();
+            console.log('this.reconciliationDataList ' + JSON.stringify(this.reconciliationDataList));
+            let reconCount = 0;
+            let unReconCount = 0;
+            let finalReconCount = [];
+            let finalUnReconCount = [];
+
+            this.reconciliationDataList.forEach(element => {
+                reconCount = reconCount + element.ReconciledCount;
+                unReconCount = unReconCount + element.unReconciledCount;
+            });
+            finalReconCount.push(reconCount);
+            finalReconCount.push(unReconCount);
+            this.pieChartReconciliation = [
+                { data: finalReconCount }/* ,backgroundColor: ["#87cefa", "rgb(255,0,0)"] */
+            ];
+            this.pieChartReconciliationLabels = ['Reconciled', 'Un-Reconciled'];
+            console.log('this.pieChartReconciliation ' + JSON.stringify(this.pieChartReconciliation));
+            console.log('this.pieChartReconciliationLabels ' + JSON.stringify(this.pieChartReconciliationLabels));
+        });
+
+        /* Fetching Accounting */
+        this.navbarService.fetchCountsForDashBoardAccounted(dateObj, this.selectedProcess).subscribe((res: any) => {
+            this.accountingDataList = res.accountingData;
+            console.log('this.accountingDataList ' + JSON.stringify(this.accountingDataList));
+            this.barChartDataAccounting = res.accountingData;
+            this.barChartLabelsAccounting = res.dvList;
+            let accCount = 0;
+            let notAccCount = 0;
+            let finalAccCount = [];
+            let finalUnAccCount = [];
+            this.accountingDataList.forEach(element => {
+                if(element.label == 'Accounted'){
+                    for(var i=0;i<element.typeCount.length;i++){
+                        accCount = accCount + element.typeCount[i];
+                    }
+                    finalAccCount.push(accCount);
+                }
+                if(element.label == 'Not accounted'){
+                    for(var i=0;i<element.typeCount.length;i++){
+                        notAccCount = notAccCount + element.typeCount[i];
+                    }
+                    finalAccCount.push(notAccCount);
+                }
+            });
+            this.pieChartAccounting = [
+                { data: finalAccCount }
+            ];
+            this.pieChartAccountingLabels = ['Accounted', 'Un-Accounted'];
+            console.log('this.pieChartAccounting ' + JSON.stringify(this.pieChartAccounting));
+        });
+
+        /* Fetching Extraction and Transformation */
+        this.navbarService.fetchCountsForDashBoard(this.selectedProcess, dateObj).subscribe((res: any) => {
+                this.dashBoardData = res;
+                this.dataTransformationArr = res.dataTransformation;
+                this.dataAccountingArr = res.accounting;
+                console.log('this.dashBoardData ' + JSON.stringify(this.dashBoardData));
+                /* Extraction */
+                let objExt = [];
+                let objExtLabel = [];
+                let profId = [];
+                this.dataExtractionArr = res.dataExtraction;
+                res.dataExtraction.forEach(element => {
+                    objExt.push(element.extractionCount);
+                    /* profId.push(element.profileId); */
+                    objExtLabel.push(element.sourceProfileName);
+                });
+                this.barChartDataExtraction = [
+                    { data: objExt/* , profileId: profId */ }
+                ];
+                this.barChartLabelsExtraction = objExtLabel;
+                console.log('this.barChartDataExtraction ' + JSON.stringify(this.barChartDataExtraction));
+                console.log('this.barChartLabelsExtraction ' + JSON.stringify(this.barChartLabelsExtraction));
+                /* Transformation */
+                let objTrans = [];
+                let objTransLabel = [];
+                let transProfId = [];
+                res.dataTransformation.forEach(element => {
+                    objTrans.push(element.transformationCount);
+                    /* transProfId.push(element.profileId); */
+                    objTransLabel.push(element.sourceProfileName);
+                });
+                this.barChartDataTransformation = [
+                    { data: objTrans/* , profileId: transProfId */ }
+                ];
+                this.barChartLabelsTransformation = objTransLabel;
+                console.log('this.barChartDataTransformation ' + JSON.stringify(this.barChartDataTransformation));
+                console.log('this.barChartLabelsTransformation ' + JSON.stringify(this.barChartLabelsTransformation));
+        });
+
+    }
+
+    changeReconType() {
+        let objRec = [];
+        let objUnRec = [];
+        let objLabel = [];
+        let objStack = [];
+        this.reconciliationDataList.forEach(element => {
+            objRec.push(element.reconciledPer);
+            objUnRec.push(element.unReconciledPer);
+            objLabel.push(element.label);
+            objStack.push(element.stack);
+        });
+        this.barChartDataReconciliation = [
+            { data: objRec, label: 'Reconciled', proName: objStack },
+            { data: objUnRec, label: 'Un Reconciled', proName: objStack }
+        ];
+        this.barChartLabelsReconciliation = objLabel;
+    }
+
+    displayPieRecon:boolean = true;
+    displayPieAcc:boolean = true;
+    changeReconView(){
+        this.displayPieRecon = !this.displayPieRecon;
+    }
+    changeAccView(){
+        this.displayPieAcc = !this.displayPieAcc;
+    }
+    
+    registerAuthenticationSuccess() {
+        this.eventManager.subscribe('authenticationSuccess', (message) => {
+            this.principal.identity().then((account) => {
+                this.account = account;
+            });
+        });
+    }
+
+    isAuthenticated() {
+        return this.principal.isAuthenticated();
+    }
+
+    login() {
+        this.modalRef = this.loginModalService.open();
+    }
+
+    showData(moduleName) {
+        this.currentModule = moduleName;
+        if(moduleName == 'reconciliation') {
+            this.moduleData = [{"name":"Recon 01","Processor":"paytm","currency":"USD","transactionDate":"19/02/18","status":"Un-Reconciled","amount":'25,315.00'},{"name":"Recon 02","Processor":"Payzapp","currency":"AUD","transactionDate":"16/03/18","status":"Un-Reconciled","amount":'25,831.00'},{"name":"Recon 03","Processor":"Cayan","currency":"INR","transactionDate":"10/04/18","status":"Un-Reconciled","amount":'26,347.00'},{"name":"Recon 04","Processor":"Paypal","currency":"EUR","transactionDate":"05/05/18","status":"Un-Reconciled","amount":'26,863.00'}/* ,{"name":"Recon 05","Processor":"Adyen","currency":"AUD","transactionDate":"30/05/18","status":"Un-Reconciled","amount":'27,379.00'} */];
+            
+        }else if(moduleName == 'accounting') {
+            this.moduleData = [{"name":"Account 01","Processor":"Payzapp","currency":"INR","transactionDate":"24/06/18","status":"Not-Accounted","amount":'27,895.00'},{"name":"Account 02","Processor":"Adyen","currency":"USD","transactionDate":"19/07/18","status":"Not-Accounted","amount":'28,411.00'},{"name":"Account 03","Processor":"Paypal","currency":"AUD","transactionDate":"13/08/18","status":"Not-Accounted","amount":'28,927.00'},{"name":"Account 04","Processor":"Zakpay","currency":"EUR","transactionDate":"07/09/18","status":"Not-Accounted","amount":'29,443.00'}/* ,{"name":"Account 05","Processor":"Cayan","currency":"USD","transactionDate":"02/10/18","status":"Not-Accounted","amount":'29,959.00'},{"name":"Account 06","Processor":"Tez","currency":"AUD","transactionDate":"27/10/18","status":"Not-Accounted","amount":'30,475.00'},{"name":"Account 07","Processor":"Accounting","currency":"INR","transactionDate":"21/11/18","status":"Not-Accounted","amount":'30,991.00'} */];
+        }else {
+            this.moduleData = [{"name":"Journal 01","Processor":"Payzapp","currency":"USD","transactionDate":"16/12/18","status":"Un-Posted","amount":'31,507.00'},{"name":"Journal 02","Processor":"Paytm","currency":"AUD","transactionDate":"10/01/19","status":"Un-Posted","amount":'32,023.00'},{"name":"Journal 03","Processor":"Cayan","currency":"INR","transactionDate":"04/02/19","status":"Un-Posted","amount":'32,539.00'},{"name":"Journal 04","Processor":"Zakpay","currency":"EUR","transactionDate":"01/03/19","status":"Un-Posted","amount":'33,055.00'}/* ,{"name":"Journal 05","Processor":"Adyen","currency":"AUD","transactionDate":"26/03/19","status":"Un-Posted","amount":'33,571.00'},{"name":"Journal 06","Processor":"Tez","currency":"INR","transactionDate":"20/04/19","status":"Un-Posted","amount":'34,087.00'},{"name":"Journal 07","Processor":"Paytm","currency":"USD","transactionDate":"15/05/19","status":"Un-Posted","amount":'34,603.00'},{"name":"Journal 08","Processor":"Journal Entry","currency":"AUD","transactionDate":"09/06/19","status":"Un-Posted","amount":'35,119.00'} */];
+        }
+    }
+}

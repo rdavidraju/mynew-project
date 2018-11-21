@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { SourceProfileUsages } from './source-profile-usages.model';
+import { SourceProfileUsagesPopupService } from './source-profile-usages-popup.service';
+import { SourceProfileUsagesService } from './source-profile-usages.service';
+
+@Component({
+    selector: 'jhi-source-profile-usages-dialog',
+    templateUrl: './source-profile-usages-dialog.component.html'
+})
+export class SourceProfileUsagesDialogComponent implements OnInit {
+
+    sourceProfileUsages: SourceProfileUsages;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private sourceProfileUsagesService: SourceProfileUsagesService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.sourceProfileUsages.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.sourceProfileUsagesService.update(this.sourceProfileUsages));
+        } else {
+            this.subscribeToSaveResponse(
+                this.sourceProfileUsagesService.create(this.sourceProfileUsages));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<SourceProfileUsages>) {
+        result.subscribe((res: SourceProfileUsages) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: SourceProfileUsages) {
+        this.eventManager.broadcast({ name: 'sourceProfileUsagesListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-source-profile-usages-popup',
+    template: ''
+})
+export class SourceProfileUsagesPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private sourceProfileUsagesPopupService: SourceProfileUsagesPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.sourceProfileUsagesPopupService
+                    .open(SourceProfileUsagesDialogComponent as Component, params['id']);
+            } else {
+                this.sourceProfileUsagesPopupService
+                    .open(SourceProfileUsagesDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

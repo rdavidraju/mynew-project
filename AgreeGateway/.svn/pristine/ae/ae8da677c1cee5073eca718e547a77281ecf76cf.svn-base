@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { AccountingData } from './accounting-data.model';
+import { AccountingDataService } from './accounting-data.service';
+
+@Component({
+    selector: 'jhi-accounting-data-detail',
+    templateUrl: './accounting-data-detail.component.html'
+})
+export class AccountingDataDetailComponent implements OnInit, OnDestroy {
+
+    accountingData: AccountingData;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private accountingDataService: AccountingDataService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInAccountingData();
+    }
+
+    load(id) {
+        this.accountingDataService.find(id).subscribe((accountingData) => {
+            this.accountingData = accountingData;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInAccountingData() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'accountingDataListModification',
+            (response) => this.load(this.accountingData.id)
+        );
+    }
+}

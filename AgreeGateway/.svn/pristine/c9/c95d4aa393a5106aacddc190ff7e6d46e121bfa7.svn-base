@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { DataViewUnion } from './data-view-union.model';
+import { DataViewUnionService } from './data-view-union.service';
+
+@Injectable()
+export class DataViewUnionPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private dataViewUnionService: DataViewUnionService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.dataViewUnionService.find(id).subscribe((dataViewUnion) => {
+                    dataViewUnion.creationDate = this.datePipe
+                        .transform(dataViewUnion.creationDate, 'yyyy-MM-ddThh:mm');
+                    dataViewUnion.lastUpdatedDate = this.datePipe
+                        .transform(dataViewUnion.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.dataViewUnionModalRef(component, dataViewUnion);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.dataViewUnionModalRef(component, new DataViewUnion());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    dataViewUnionModalRef(component: Component, dataViewUnion: DataViewUnion): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.dataViewUnion = dataViewUnion;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

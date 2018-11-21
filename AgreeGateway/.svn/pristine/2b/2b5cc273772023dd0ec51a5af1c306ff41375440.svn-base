@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { FileTemplates } from './file-templates.model';
+import { FileTemplatesPopupService } from './file-templates-popup.service';
+import { FileTemplatesService } from './file-templates.service';
+
+@Component({
+    selector: 'jhi-file-templates-delete-dialog',
+    templateUrl: './file-templates-delete-dialog.component.html'
+})
+export class FileTemplatesDeleteDialogComponent {
+
+    fileTemplates: FileTemplates;
+
+    constructor(
+        private fileTemplatesService: FileTemplatesService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.fileTemplatesService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'fileTemplatesListModification',
+                content: 'Deleted an fileTemplates'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-file-templates-delete-popup',
+    template: ''
+})
+export class FileTemplatesDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private fileTemplatesPopupService: FileTemplatesPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.fileTemplatesPopupService
+                .open(FileTemplatesDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        //this.routeSub.unsubscribe();
+    }
+}

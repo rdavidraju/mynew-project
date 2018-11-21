@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { LinkedDataViews } from './linked-data-views.model';
+import { LinkedDataViewsPopupService } from './linked-data-views-popup.service';
+import { LinkedDataViewsService } from './linked-data-views.service';
+
+@Component({
+    selector: 'jhi-linked-data-views-dialog',
+    templateUrl: './linked-data-views-dialog.component.html'
+})
+export class LinkedDataViewsDialogComponent implements OnInit {
+
+    linkedDataViews: LinkedDataViews;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private linkedDataViewsService: LinkedDataViewsService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.linkedDataViews.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.linkedDataViewsService.update(this.linkedDataViews));
+        } else {
+            this.subscribeToSaveResponse(
+                this.linkedDataViewsService.create(this.linkedDataViews));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<LinkedDataViews>) {
+        result.subscribe((res: LinkedDataViews) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: LinkedDataViews) {
+        this.eventManager.broadcast({ name: 'linkedDataViewsListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-linked-data-views-popup',
+    template: ''
+})
+export class LinkedDataViewsPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private linkedDataViewsPopupService: LinkedDataViewsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.linkedDataViewsPopupService
+                    .open(LinkedDataViewsDialogComponent as Component, params['id']);
+            } else {
+                this.linkedDataViewsPopupService
+                    .open(LinkedDataViewsDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

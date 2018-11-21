@@ -1,0 +1,276 @@
+<div style="height: 100%; width: 100%" *ngIf="loadDocument">
+    <div class="component-title">
+        <div class="col-md-6">
+            <h3 *ngIf="isCreateNew">Group Creation:</h3>
+            <h3 *ngIf="!isCreateNew">Group Details</h3>
+        </div>
+        <div class="col-md-6">
+            <div class="pull-right">
+                <button *ngIf="!isViewOnly && f.valid" md-icon-button mdTooltip="Save" (click)="saveApprGroup()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !f.valid" md-icon-button mdTooltip="Fill Mandatory Fields" (click)="validationMsg('apprGrp')">
+                    <md-icon>save</md-icon>
+                </button>
+                <div *jhiHasAnyAuthority="'GROUP_EDIT'">
+                    <button *ngIf="!approvalGroups.approvalsGroupMemList.length" md-icon-button mdTooltip="Add Multiple Users" (click)="addNewMembers('multiple')">
+                        <md-icon>playlist_add</md-icon>
+                    </button>
+                </div>
+                <div *jhiHasAnyAuthority="'GROUP_EDIT'">
+                    <button *ngIf="!approvalGroups.approvalsGroupMemList.length" md-icon-button mdTooltip="Add Users" (click)="addNewMembers('single')">
+                        <md-icon>exposure_plus_1</md-icon>
+                    </button>
+                </div>
+                <div *jhiHasAnyAuthority="'GROUP_EDIT'">
+                    <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/groups', {outlets: {'content': [approvalGroups.id]+'/edit'}}]">
+                        <md-icon>mode_edit</md-icon>
+                    </button>
+                </div>
+                <button *ngIf="isCreateNew || isEdit" md-icon-button mdTooltip="Close" [routerLink]="['/groups', {outlets: {'content': ['groups-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="View List" [routerLink]="['/groups', {outlets: {'content': ['groups-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="component-body">
+        <!-- Form Start Here -->
+        <div style="padding-top:10px;">
+            <form novalidate #f="ngForm">
+                <div class="row m-0">
+                    <div class="col-md-4 col-sm-6 col-xs-12 form-group" style="display:inline-block">
+                        <md-input-container>
+                            <input mdInput [(ngModel)]="approvalGroups.groupName" [ngClass]="{'color-black' : !isCreateNew}" [disabled]="isViewOnly"
+                                placeholder="Name" name="groupName" required #groupName="ngModel" id="groupName" (blur)="isNameExist(approvalGroups.groupName, approvalGroups.id)"
+                                (ngModelChange)="nameExist = false">
+                        </md-input-container>
+                        <small class="form-text text-danger" *ngIf="nameExist">Name already exists</small>
+                    </div>
+
+                    <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="approvalGroups.description || !isViewOnly">
+                        <md-input-container>
+                            <input mdInput [(ngModel)]="approvalGroups.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                placeholder="Description" name="description" #description="ngModel">
+                        </md-input-container>
+                    </div>
+
+                    <div class="col-md-4 col-sm-6 col-xs-12 form-group">
+                        <md-form-field>
+                            <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}" [disabled]="!isCreateNew"
+                                [(ngModel)]="approvalGroups.startDate" [min]="currentDate" name="startDate" required>
+                            <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew"></md-datepicker-toggle>
+                            <md-datepicker #stpicker></md-datepicker>
+                        </md-form-field>
+                    </div>
+
+                    <div class="col-md-4 col-sm-6 col-xs-12 form-group" *ngIf="approvalGroups.startDate && (approvalGroups.endDate || !isViewOnly)">
+                        <md-form-field>
+                            <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="approvalGroups.startDate" [ngClass]="{'color-black' : isViewOnly}"
+                                [disabled]="isViewOnly" [(ngModel)]="approvalGroups.endDate" name="endDate">
+                            <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                            <md-datepicker #edpicker></md-datepicker>
+                        </md-form-field>
+                    </div>
+
+                    <div class="col-md-1" *ngIf="isEdit" style="display:flex">
+                        <span *ngIf="approvalGroups.enabledFlag">Active</span>
+                        <span *ngIf="!approvalGroups.enabledFlag">Inactive</span>
+                        <md-slide-toggle class="pull right" color="primary" [disabled]="!isEdit" mdTooltip="Set Status" placeholder="Status" [(ngModel)]="approvalGroups.enabledFlag"
+                            name="status">
+                        </md-slide-toggle>
+                    </div>
+                    <div class="col-md-1" *ngIf="isViewOnly">
+                        <span class="badge badge-success" *ngIf="approvalGroups.enabledFlag">Active</span>
+                        <span class="badge badge-warning" *ngIf="!approvalGroups.enabledFlag">Inactive</span>
+                    </div>
+                </div>
+
+                <!-- Approval Group Member Details -->
+                <md-accordion class="setups-accordian" *ngIf="approvalGroups.approvalsGroupMemList.length>0">
+                    <md-expansion-panel expanded="true" [disabled]="true" style="margin-top: 10px;" class="position-relative">
+                        <md-expansion-panel-header class="mt-exp-disb-col">
+                            <md-panel-title>Users</md-panel-title>
+                        </md-expansion-panel-header>
+                        <div class="mat-cus-actions-setups">
+                            <div class="d-flex">
+                                <div *jhiHasAnyAuthority="'GROUP_EDIT'">
+                                    <button *ngIf="!isEdit" md-icon-button mdTooltip="Add Multiple Users" (click)="addNewMembers('multiple')">
+                                        <md-icon>playlist_add</md-icon>
+                                    </button>
+                                </div>
+                                <div *jhiHasAnyAuthority="'GROUP_EDIT'">
+                                    <button *ngIf="!isEdit" md-icon-button mdTooltip="Add Users" (click)="addNewMembers('single')">
+                                        <md-icon>exposure_plus_1</md-icon>
+                                    </button>
+                                </div>
+                                <div>
+                                    <button *ngIf="isViewOnly && btnEditAll" md-icon-button mdTooltip="Save All Users" (click)="editAllMembers('SaveAll')">
+                                        <md-icon>save</md-icon>
+                                    </button>
+                                </div>
+                                <div>
+                                    <button *ngIf="isViewOnly && btnEditAll" md-icon-button mdTooltip="Cancel" (click)="editAllMembers('cancel')">
+                                        <md-icon>cancel</md-icon>
+                                    </button>
+                                </div>
+                                <div>
+                                    <button *ngIf="isViewOnly && !btnEditAll && approvalGroups.approvalsGroupMemList.length > 1" md-icon-button mdTooltip="Edit All Users"
+                                        (click)="editAllMembers('EditAll')">
+                                        <md-icon>mode_edit</md-icon>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive" style="padding:10px 10px 0 10px;">
+                            <table class="table theme-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:1px">Sequence</th>
+                                        <th>User Name</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let col of approvalGroups.approvalsGroupMemList;let i = index;" id="hideIconTable">
+                                        <td class="matbasictabletd">
+                                            <md-input-container>
+                                                <input mdInput [(ngModel)]="col.seq" name="seq-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                                    [ngModelOptions]="{standalone: true}" (blur)="sequenceValidate(col.seq, i)"
+                                                    pattern="^\d+$">
+                                            </md-input-container>
+                                        </td>
+                                        <td class="md-no-placeholder" style="width:200px;">
+                                            <md-select [(ngModel)]="col.userId" name="userId-{{i}}" style="width:200px;" [ngStyle]="{'padding-top':col.columnEdit?'7px':'0px'}"
+                                                required [disabled]="!col.columnEdit" [ngModelOptions]="{standalone: true}" (change)="memberChange(col.userId,i)">
+                                                <md-option *ngFor="let user of users" [(value)]="user.id">{{ user.firstName +' '+ user.lastName }}</md-option>
+                                            </md-select>
+                                        </td>
+                                        <td class="matbasictabletd" style="width:200px;">
+                                            <md-form-field>
+                                                <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="col.startDate" [max]="col.endDate" name="startDate-{{i}}" required
+                                                    [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                                    [ngModelOptions]="{standalone: true}">
+                                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                                <md-datepicker #stpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td class="matbasictabletd" style="width:200px;">
+                                            <md-form-field>
+                                                <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="col.endDate" name="endDate-{{i}}" [min]="col.startDate" [disabled]="!col.columnEdit"
+                                                    [ngClass]="{'color-black' : !col.columnEdit}" [ngModelOptions]="{standalone: true}">
+                                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                                <md-datepicker #edpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td>
+                                            <div class="display-flex pull-right" id="showIcon" [ngClass]="col.columnEdit ? 'edit-mode' : ''">
+                                                <button *ngIf="col.columnEdit && isViewOnly && !btnEditAll" md-icon-button class="color-green" style="font-size: 24px;" aria-hidden="true"
+                                                    mdTooltip="Save" (click)="updateMemberDetail(col)">
+                                                    <md-icon>save</md-icon>
+                                                </button>
+                                                <button *ngIf="col.columnEdit && isViewOnly && !btnEditAll" (click)="cancelEdit()" md-icon-button class="pull-right color-gray"
+                                                    style="font-size: 24px;" mdTooltip="Cancel">
+                                                    <md-icon>clear</md-icon>
+                                                </button>
+                                                <button md-icon-button mdTooltip="Edit" (click)="editMemberDetail(i)" *ngIf="!col.columnEdit && isViewOnly">
+                                                    <md-icon>mode_edit</md-icon>
+                                                </button>
+                                                <button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" (click)="deleteMemberDetail(col)">
+                                                    <md-icon>delete</md-icon>
+                                                </button>
+                                                <button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew || col.deleteNewAdded" (click)="deleteRow(i)">
+                                                    <md-icon>delete</md-icon>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </md-expansion-panel>
+                </md-accordion>
+            </form>
+            <!-- Drag and drop assign members to group-->
+            <div class="dialogCenter">
+                <div class="target-data">
+                    <p-dialog header="User Assignment" [(visible)]="apprGrpMemDialog" [resizable]="true" [responsive]="true" [dismissableMask]="true"
+                        (onHide)="dialogHide()">
+                        <div class="row" *ngIf="!dndToggle">
+                            <div class="col-md-6">
+                                <div class="MyPanel" dnd-sortable-container [sortableData]="unassignedUsers">
+                                    <div class="Heading BlueTitleDiv">List of available Users</div>
+                                    <perfect-scrollbar class="table-responsive" style="height: 300px;">
+                                        <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                            <ul class="list-group">
+                                                <p style="margin-top:40%;text-align:center;color:gray" *ngIf="unassignedUsers.length < 1">No Users</p>
+                                                <li *ngFor="let unUsers of unassignedUsers; let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true"
+                                                    [dragData]="unUsers">{{unUsers.firstName +' '+unUsers.lastName}}</li>
+                                            </ul>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="MyPanel" dnd-sortable-container [sortableData]="selectedUsers">
+                                    <div class="Heading BlueTitleDiv">Selected Users</div>
+                                    <perfect-scrollbar class="table-responsive" style="height: 300px;">
+                                        <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                            <ul class="list-group">
+                                                <li *ngFor="let selUsers of selectedUsers;let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true">
+                                                    <b *ngIf="selUsers && selUsers.firstName">{{selUsers.firstName +' '+selUsers.lastName}}</b>
+                                                </li>
+                                                <li *ngFor="let curUsers of approvalGroups.approvalsGroupMemList; let j = index" class="list-group-item" style="color:gray;">
+                                                    <b *ngIf="curUsers && curUsers.userName">{{curUsers.userName}}</b>
+                                                    <b *ngIf="curUsers && curUsers.firstName">{{curUsers.firstName +' '+curUsers.lastName}}</b>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px;" *ngIf="dndToggle">
+                            <p class="text-center" style="margin-bottom:0;text-decoration:underline;">Start and End Date for Dragged Users</p>
+                            <div class="display-flex">
+                                <md-form-field class="col-md-6">
+                                    <input mdInput [mdDatepicker]="strDateAllMember" [(ngModel)]="startDateAllMember" [max]="endDateAllMember" name="startDateAllMember"
+                                        required [ngModelOptions]="{standalone: true}" placeholder="Start Date">
+                                    <md-datepicker-toggle mdSuffix [for]="strDateAllMember"></md-datepicker-toggle>
+                                    <md-datepicker #strDateAllMember></md-datepicker>
+                                </md-form-field>
+                                <md-form-field class="col-md-6">
+                                    <input mdInput [mdDatepicker]="edDateAllMember" [(ngModel)]="endDateAllMember" name="endDateAllMember" [min]="startDateAllMember"
+                                        [ngModelOptions]="{standalone: true}" placeholder="End Date">
+                                    <md-datepicker-toggle mdSuffix [for]="edDateAllMember"></md-datepicker-toggle>
+                                    <md-datepicker #edDateAllMember></md-datepicker>
+                                </md-form-field>
+                            </div>
+                        </div>
+                        <p-footer>
+                            <div class="flex-container">
+                                <div class="display-flex">
+                                    <button md-icon-button class="hand md-48" *ngIf="dndToggle" mdTooltip="Assign More" (click)="dndToggle = false" aria-hidden="true">
+                                        <md-icon>chevron_left</md-icon>
+                                    </button>
+                                </div>
+                                <div class="display-flex">
+                                    <button *ngIf="!dndToggle" md-icon-button class="hand md-48" aria-hidden="true" mdTooltip="Next" (click)="dndToggle = true"
+                                        [disabled]="selectedUsers.length<1">
+                                        <md-icon>chevron_right</md-icon>
+                                    </button>
+                                    <button *ngIf="dndToggle" md-raised-button (click)="confirmApprGrpMem();">{{isCreateNew ? 'Confirm' : 'Assign'}}</button>
+                                </div>
+                            </div>
+                        </p-footer>
+                    </p-dialog>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

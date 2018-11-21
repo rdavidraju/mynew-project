@@ -1,0 +1,169 @@
+ <div class="component-title">
+	<div class="col-md-6 col-sm-6 col-xs-6">
+		<div class="headingIcons">
+			<i class="fa fa-file-text-o iconStyle"></i>
+		</div>
+		<h4>Data Templates</h4>
+		<!-- <input class="form-control search-input" style="margin-left:12px"  type="text" placeholder="Search.." *ngIf="scrollToTop > 0"  #gb
+	> -->
+	<input type="text" placeholder="Search.." class="form-control search-input" #gb *ngIf="scrollToTop > 0">
+	</div>
+	<div class="col-md-6 col-sm-6 col-xs-6 ">
+			<button md-icon-button  class="pull-right" (click)="loadDefaultTemplates()"
+		mdTooltip="Load Default Templates" *jhiHasAnyAuthority="['FILE_TEMPLATE_CREATE']">
+		   <md-icon>cloud_upload</md-icon>
+	   </button>
+		<button md-icon-button (click)="ftDT.exportCSV()" class=" hand pull-right" mdTooltip="Export templates" *ngIf="fileTemplates &&fileTemplates.length>0">
+			<i class="fa fa-file-excel-o fa-1x"></i>
+		</button>
+
+
+		<button md-icon-button [routerLink]="['/file-templates', {outlets: { 'content': ['filetemplate-new']}}]" class="pull-right"
+		 mdTooltip="Add New Template" *jhiHasAnyAuthority="['FILE_TEMPLATE_CREATE']">
+			<md-icon>add</md-icon>
+		</button>
+		<div class="paginator-class display-flex" #paginatorClass >
+				<button class="paginator-icon" md-icon-button mdTooltip="paginator" (click)="addPaginator()"  *ngIf=" !showPaginator">
+					<md-icon>chevron_left</md-icon>
+				</button>
+				<button class="paginator-icon" md-icon-button mdTooltip="paginator" (click)="addPaginator()"  *ngIf=" showPaginator">
+						<md-icon>chevron_right</md-icon>
+					</button>
+				<div class="row" *ngIf="showPaginator && length >0 && (pageSizeOptions && pageSizeOptions[0] && length>pageSizeOptions[0])"  @slide >
+					<md-paginator *ngIf="length >0"   [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex"
+					 (page)="pageEvent = $event;loadAll()"></md-paginator>
+				</div>
+				<div class="row"  style="padding-top: 8px;width:200px" *ngIf="showPaginator && length >0 && (pageSizeOptions && pageSizeOptions[0] && length<=pageSizeOptions[0])"  @slide> 
+				<span > 1 - {{pageSizeOptions[0]-1}} of {{pageSizeOptions[0]-1}} </span>
+			</div>
+			</div>
+		<!-- <button md-icon-button (click)="addNewTemplate()" 
+						class="pull-right   md-36" mdTooltip="Add New Template" ><md-icon>add</md-icon></button> -->
+		<!-- <button md-icon-button class="pull-right search-icon-body"  mdTooltip="Search">
+				<md-icon>search</md-icon>
+			</button> -->
+		<!-- 	
+			<img class="pull-right" alt="export" src="../../home/media/exportAsCSV.png" height="24" width="24">  -->
+		<!-- <i class="pull-right material-icons md-36 hand ripple search-icon-body ripple">search</i> -->
+		<!-- <md-input-container class="pull-right hidethis">
+				<input class="mySearchBox" mdInput placeholder="What're we looking for?" [(ngModel)] = "fileTemplatesService.searchData" (keyup.enter)="searchText();"> </md-input-container>
+				 -->
+
+	</div>
+</div>
+<div class="component-body">
+	<div class="d-flex justify-content-between sr-pg-con">
+		<input class="form-control search-input" type="text" [(ngModel)]="fileTemplatesService.searchData" placeholder="Search.." *ngIf="scrollToTop == 0"   #gb
+		 (ngModelChange)="searchText()">
+		<!-- <md-paginator *ngIf="length >0 " [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex"
+		 (page)="pageEvent = $event; loadAll()"></md-paginator> -->
+	</div>
+	<div class="position-relative">
+		<div class="show-hide-class">
+			<p-multiSelect [options]="columnOptions" [(ngModel)]="fileTemplateColumns" title="Show/Hide Columns"></p-multiSelect>
+		</div>
+		<!-- scrollHeight="calc(100vh - 315px)" -->
+		<div  class="list-table" id="list-table">
+			<p-dataTable #ftDT [value]="fileTemplates" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true" [globalFilter]="gb" 
+			 [headerCheckboxToggleAllPages]="true" (onSort)="changeSourceSort($event)">
+				<!-- <p-column [style]="{'width':'38px'}" selectionMode="multiple"></p-column> -->
+				<p-column [style]="{'width':'30%', 'text-align':'left'}" field="templateName" header="Template Name" [sortable]="true">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+
+						<div class="flex-column-center" style="margin-left:5%;width:100%;">
+							<span style="display:block">{{row[col.field]}}</span>
+							<!-- <span class="no-mb" style="color:#a0a0a0 !important;">Profiles : ({{row['taggedToProfCnt']}})</span> -->
+							<!-- <span style="color: green;font-size: 12px;font-weight:bold" *ngIf="row['status'] == 'Active'">
+								Active
+								<span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true"> - End dated</span>
+							</span>
+							<span style="color: red;font-size: 12px;font-weight:bold" *ngIf="row['status'] == 'Inactive'">
+								Inactive
+								<span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true"> - End dated</span>
+							</span> -->
+						</div>
+
+						<!-- <a [routerLink]="['/file-templates', {outlets	: {'content': [row['id']]+'/details'}}]" >{{row[col.field]}}</a> -->
+					</ng-template>
+				</p-column>
+				<p-column *ngFor="let col of fileTemplateColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+				 [sortable]="col.sortable">
+
+					<ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+						<div style="display:flex;justify-content: space-between;" *ngIf="col.field == 'taggedToProfCnt'">
+							<div style="white-space: nowrap;overflow: hidden;text-overflow: ellipsis;margin-top: 8px;">{{row[col.field] }}</div>
+
+							<div class="icons-list">
+								<button md-icon-button mdTooltip="View Template" *jhiHasAnyAuthority="['FILE_TEMPLATE_VIEW']" [routerLink]="['/file-templates', {outlets	: {'content': [row['id']]+'/details'}}]">
+									<md-icon>remove_red_eye</md-icon>
+								</button>
+								<button md-icon-button mdTooltip="Edit Template" *jhiHasAnyAuthority="['FILE_TEMPLATE_EDIT']" [routerLink]="['/file-templates', {outlets: {'content': [row['id']]+'/edit'}}]">
+									<md-icon>edit</md-icon>
+								</button>
+								<button md-icon-button *jhiHasAnyAuthority="['FILE_TEMPLATE_COPY']" [routerLink]="['/file-templates', {outlets: {'content': [row['id']]+'/copyedit'}}]"
+								 mdTooltip="Copy Template">
+									<md-icon>content_copy</md-icon>
+								</button>
+							</div>
+						</div>
+						<i *ngIf="col.field == 'status' && row[col.field] == 'Active'" class="material-icons" mdTooltip="Active">check_circle</i>
+						<i *ngIf="col.field == 'status' && (row[col.field] == ' Inactive' || row[col.field] == 'Inactive')" class="material-icons"
+						 aria-hidden="true" mdTooltip="InActive">error</i>
+						<span *ngIf="col.field != 'taggedToProfCnt' && col.field != 'status'">
+							{{row[col.field]}}
+						</span>
+					</ng-template>
+				</p-column>
+				<!-- <p-column field="startDate" header="Start Date">
+			<ng-template>
+			{{startDate|date}}
+			</ng-template>
+			</p-column>
+			<p-column field="endDate" header="End Date">
+			<ng-template>
+			{{endDate|date}}
+			</ng-template>
+			</p-column> -->
+
+				<!-- <p-column [style]="{'width':'80px' }" field="status" header="Status">
+				<ng-template let-col let-row="rowData" pTemplate="body">
+					<i *ngIf="row[col.field] == 'Active'" class="material-icons" mdTooltip="Active">check_circle</i>
+					<i *ngIf="row[col.field] == ' Inactive' || row[col.field] == 'Inactive'" class="material-icons" aria-hidden="true" mdTooltip="InActive">error</i>
+				</ng-template>
+	
+	
+			</p-column> -->
+				<!-- <p-column [style]="{'width':'80px' }" field="endDated" header="End dated">
+				<ng-template let-col let-row="rowData" pTemplate="body">
+					<i *ngIf="row[col.field] == true" class="material-icons" aria-hidden="true" mdTooltip="End Dated">warning</i>
+				</ng-template>
+			</p-column> -->
+				<!-- <p-column [style]="{'width':'20%'}" header="Actions" styleClass="text-center overflow-visible" resizableColumns="false">
+					<ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+						<div class="display-flex">
+							<div class="editIcon" *jhiHasAnyAuthority="['FILE_TEMPLATE_VIEW']">
+								<button md-icon-button mdTooltip="View Template" [routerLink]="['/file-templates', {outlets	: {'content': [row['id']]+'/details'}}]">
+									<md-icon>remove_red_eye</md-icon>
+								</button>
+							</div>
+							<div class="editIcon" *jhiHasAnyAuthority="['FILE_TEMPLATE_EDIT']">
+								<button md-icon-button mdTooltip="Edit Template" [routerLink]="['/file-templates', {outlets: {'content': [row['id']]+'/edit'}}]">
+									<md-icon>edit</md-icon>
+								</button>
+							</div>
+							<div class="editIcon" *jhiHasAnyAuthority="['FILE_TEMPLATE_COPY']">
+								<button md-icon-button [routerLink]="['/file-templates', {outlets: {'content': [row['id']]+'/copyedit'}}]" mdTooltip="Copy Template">
+									<md-icon>content_copy</md-icon>
+								</button>
+							</div>
+						</div>
+					</ng-template>
+				</p-column> -->
+			</p-dataTable>
+		</div>
+	</div>
+<!-- 
+	<md-paginator *ngIf="length >0 " [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="pageEvent = $event; loadAll()"
+	 [pageIndex]="pageEvent.pageIndex" class="sr-pg-con">
+	</md-paginator> -->
+</div>

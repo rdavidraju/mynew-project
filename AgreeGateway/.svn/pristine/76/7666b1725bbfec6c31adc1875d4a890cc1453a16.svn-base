@@ -1,0 +1,210 @@
+import { Component, DoCheck, KeyValueDiffers, OnInit, OnDestroy, Input } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { FileTemplates } from './file-templates.model';
+import { FileTemplatesService } from './file-templates.service';
+import { FileTemplateLinesService } from '../file-template-lines/file-template-lines.service';
+import { FileSelectDirective, FileDropDirective, FileUploader } from 'ng2-file-upload/ng2-file-upload';
+import { Response } from '@angular/http';
+const URL = '';
+@Component({
+    selector: 'jhi-file-templates-detail',
+    templateUrl: './file-templates-detail.component.html'
+})
+export class FileTemplatesDetailComponent implements OnInit, OnDestroy {
+
+    fileTemplates: FileTemplates;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    private uploadvar: boolean = false;
+    uploadedIcon: boolean = false;
+    uploadStatus: boolean = false;
+    public uploader: FileUploader = new FileUploader({ url: URL });
+    public hasBaseDropZoneOver: boolean = false;
+    public hasAnotherDropZoneOver: boolean = false;
+    uploadingProcess: any = false;
+    files: FileList;
+    private file: File;
+    filesFromButton: Array<File>;
+    viewAction: boolean = false;
+    templateName: any;
+    active: any;
+    detailId: any;
+
+    temp_id: any = [];
+
+    @Input() displayDetailAfterEditId: FileTemplates;
+
+    @Input() template: FileTemplates;
+
+    templateId: any;
+    containsDetObj: boolean = false;
+    displayStatus: boolean = false;
+    reupload: any;
+    disableUploadButton: boolean = false;
+    differ: any;
+    differ1: any;
+    tempEdit: boolean = false;
+    tempDetail: boolean = false;
+    hasDetailValue: boolean = false;
+    displayReuploadButton: boolean = false;
+
+    linesinfo: any[];
+    associatedprofiles: any[];
+
+    fileTemplateLines: any;
+    constructor(
+        private differs: KeyValueDiffers,
+        private eventManager: JhiEventManager,
+        private fileTemplatesService: FileTemplatesService,
+        private route: ActivatedRoute,
+        private fileTemplatesLinesService : FileTemplateLinesService
+    ) {
+        this.differ = differs.find({}).create(null);
+        this.differ1 = differs.find({}).create(null);
+        this.displayReuploadButton = false;
+        this.reupload = false;
+    }
+    /*while using ngDoCheck, the obj to be checked and the value which is assigned to input has to be array*/
+    ngDoCheck() {
+        var changes = this.differ.diff(this.template);
+        var changesAfterEdit = this.differ1.diff(this.displayDetailAfterEditId);
+        if (changesAfterEdit) {
+            changesAfterEdit.forEachChangedItem(r => {
+                console.log('changed value after edit ', r.currentValue);
+                this.templateId = r.currentValue;
+                console.log(' this.displayDetailAfterEditId ' + this.templateId);
+                this.fetchTemplateById(this.templateId);
+                this.tempDetail = true;
+                this.tempEdit = false;
+            });
+            changesAfterEdit.forEachAddedItem(r => {
+                this.templateId = r.currentValue;
+                console.log(' this.displayDetailAfterEditId ' + this.templateId);
+                this.fetchTemplateById(this.templateId);;
+                this.tempDetail = true;
+                this.tempEdit = false;
+            }
+            );
+            changesAfterEdit.forEachRemovedItem(r => {
+                //console.log('removed value is ' + r.currentValue);
+
+            }
+            );
+        } else {
+
+            //  console.log('nothng chngd');
+        }
+        if (changes) {
+
+            changes.forEachChangedItem(r => {
+                console.log('changed ', r.currentValue);
+                this.templateId = r.currentValue;
+                console.log(' this.templateId ' + this.templateId);
+                this.fetchTemplateById(this.templateId);;
+                this.tempDetail = true;
+                this.tempEdit = false;
+            });
+            changes.forEachAddedItem(r => {
+                this.templateId = r.currentValue;
+                console.log(' this.templateId ' + this.templateId);
+                this.fetchTemplateById(this.templateId);;
+                this.tempDetail = true;
+                this.tempEdit = false;
+            }
+            );
+            changes.forEachRemovedItem(r => console.log('removed ' + r.currentValue));
+        } else {
+
+            //  console.log('nothng chngd');
+        }
+    }
+
+    ngOnInit() {
+        console.log('ng on init in details' + this.template);
+        this.subscription = this.route.params.subscribe((params) => {
+            console.log('printing route params' + params['id']);
+            this.tempEdit = true;
+            this.temp_id = params['id'];
+            this.fetchTemplateById(this.temp_id);
+            this.load(params['id']);
+        });
+
+        this.registerChangeInFileTemplates();
+
+    }
+    editTemplate(id: any) {
+        this.tempEdit = true;
+        this.tempDetail = false;
+        this.reupload = false;
+        console.log('edit template with id' + id);
+    }
+    fetchTemplateById(id: any) {
+        console.log('fetch by id' + id);
+        this.fileTemplatesService.fetchById(id).subscribe(
+            (res: FileTemplates) => {
+                this.fileTemplates = res;
+                console.log('this. temp_id' + this.temp_id);
+                console.log('fetched obj is' + JSON.stringify(this.fileTemplates));
+                console.log('fileTemplates.templateName obj is' + JSON.stringify(this.fileTemplates.templateName));
+                this.tempDetail = true;
+                if (this.fileTemplates) {
+                    this.containsDetObj = true;
+                    this.displayReuploadButton = true;
+                    this.fileTemplatesLinesService.fetchTemplateLinesByTemplateId(id).subscribe((res: Response) => {
+                        console.log('file template lines');
+                        this.fileTemplateLines = res;
+                        console.log('lines respo:' + JSON.stringify(this.fileTemplateLines));
+                    });
+                }
+                console.log(' this.containsDetObj' + this.containsDetObj);
+
+            }
+
+        );
+        //currently file template and file Template lines are separately fetched. file templates and file template lines has to be fetched in dto
+
+
+
+    }
+    closeDropZone() {
+        console.log('close drop zone');
+        this.displayReuploadButton = true;
+        this.reupload = false;
+    }
+    reuploadFile() {
+        console.log('reupload file. enable drop zone');
+        this.reupload = true;
+        this.displayReuploadButton = false;
+    }
+    load(id) {
+        this.fileTemplatesService.find(id).subscribe((fileTemplates) => {
+            this.fileTemplates = fileTemplates;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        //this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+    reuploadFun() {
+        console.log('reupload');
+        this.reupload = true;
+        this.disableUploadButton = true;
+    }
+    closeUploadBlock() {
+        this.disableUploadButton = false;
+        this.reupload = false;
+    }
+    registerChangeInFileTemplates() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'fileTemplatesListModification',
+            (response) => this.load(this.fileTemplates.id)
+        );
+    }
+}

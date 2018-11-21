@@ -1,0 +1,235 @@
+package com.nspl.app.domain;
+
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.springframework.data.elasticsearch.annotations.Document;
+
+import javax.persistence.*;
+import java.io.Serializable;
+import java.time.ZonedDateTime;
+import java.util.Objects;
+
+/**
+ * A AccountingLineTypes.
+ */
+@Entity
+@Table(name = "t_accounting_line_types")
+@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)
+@Document(indexName = "taccountinglinetypes")
+public class AccountingLineTypes implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "tenant_id")
+    private Long tenantId;
+
+    @Column(name = "rule_id")
+    private Long ruleId;
+
+    @Column(name = "line_type")
+    private String lineType;
+
+    @Column(name = "created_by")
+    private Long createdBy;
+
+    @Column(name = "last_updated_by")
+    private Long lastUpdatedBy;
+
+    @Column(name = "creation_date")
+    private ZonedDateTime creationDate;
+
+    @Column(name = "last_updated_date")
+    private ZonedDateTime lastUpdatedDate;
+    
+    @Column(name = "data_view_id")
+    private Long dataViewId;
+    
+    @Column(name = "amount_column_id")
+    private Long amountColumnId;
+    
+    @Column(name = "line_type_detail")
+    private String lineTypeDetail;
+    
+   
+    public Long getDataViewId() {
+        return dataViewId;
+    }
+
+    public AccountingLineTypes dataViewId(Long dataViewId) {
+        this.dataViewId = dataViewId;
+        return this;
+    }
+
+    public void setDataViewId(Long dataViewId) {
+        this.dataViewId = dataViewId;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getTenantId() {
+        return tenantId;
+    }
+
+    public AccountingLineTypes tenantId(Long tenantId) {
+        this.tenantId = tenantId;
+        return this;
+    }
+
+    public void setTenantId(Long tenantId) {
+        this.tenantId = tenantId;
+    }
+
+    public Long getRuleId() {
+        return ruleId;
+    }
+
+    public AccountingLineTypes ruleId(Long ruleId) {
+        this.ruleId = ruleId;
+        return this;
+    }
+
+    public void setRuleId(Long ruleId) {
+        this.ruleId = ruleId;
+    }
+
+    public String getLineType() {
+        return lineType;
+    }
+
+    public AccountingLineTypes lineType(String lineType) {
+        this.lineType = lineType;
+        return this;
+    }
+
+    public void setLineType(String lineType) {
+        this.lineType = lineType;
+    }
+
+    public Long getCreatedBy() {
+        return createdBy;
+    }
+
+    public AccountingLineTypes createdBy(Long createdBy) {
+        this.createdBy = createdBy;
+        return this;
+    }
+
+    public void setCreatedBy(Long createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public Long getLastUpdatedBy() {
+        return lastUpdatedBy;
+    }
+
+    public AccountingLineTypes lastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+        return this;
+    }
+
+    public void setLastUpdatedBy(Long lastUpdatedBy) {
+        this.lastUpdatedBy = lastUpdatedBy;
+    }
+
+    public ZonedDateTime getCreationDate() {
+        return creationDate;
+    }
+
+    public AccountingLineTypes creationDate(ZonedDateTime creationDate) {
+        this.creationDate = creationDate;
+        return this;
+    }
+
+    public void setCreationDate(ZonedDateTime creationDate) {
+        this.creationDate = creationDate;
+    }
+
+    public ZonedDateTime getLastUpdatedDate() {
+        return lastUpdatedDate;
+    }
+
+    public AccountingLineTypes lastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+        return this;
+    }
+
+    public void setLastUpdatedDate(ZonedDateTime lastUpdatedDate) {
+        this.lastUpdatedDate = lastUpdatedDate;
+    }
+
+    public String getLineTypeDetail() {
+        return lineTypeDetail;
+    }
+
+    public AccountingLineTypes lineTypeDetail(String lineTypeDetail) {
+        this.lineTypeDetail = lineTypeDetail;
+        return this;
+    }
+
+    public void setLineTypeDetail(String lineTypeDetail) {
+        this.lineTypeDetail = lineTypeDetail;
+    }
+    
+    
+    public Long getAmountColumnId() {
+        return amountColumnId;
+    }
+
+    public AccountingLineTypes amountColumnId(Long amountColumnId) {
+        this.amountColumnId = amountColumnId;
+        return this;
+    }
+
+    public void setAmountColumnId(Long amountColumnId) {
+        this.amountColumnId = amountColumnId;
+    }
+  
+    
+    
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AccountingLineTypes accountingLineTypes = (AccountingLineTypes) o;
+        if (accountingLineTypes.id == null || id == null) {
+            return false;
+        }
+        return Objects.equals(id, accountingLineTypes.id);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(id);
+    }
+
+    @Override
+    public String toString() {
+        return "AccountingLineTypes{" +
+            "id=" + id +
+            ", tenantId='" + tenantId + "'" +
+            ", ruleId='" + ruleId + "'" +
+            ", lineType='" + lineType + "'" +
+            ", createdBy='" + createdBy + "'" +
+            ", lastUpdatedBy='" + lastUpdatedBy + "'" +
+            ", creationDate='" + creationDate + "'" +
+            ", lastUpdatedDate='" + lastUpdatedDate + "'" +
+            ", lineTypeDetail='" + lineTypeDetail + "'" +
+            ", amountColumnId='" + amountColumnId + "'" +
+            '}';
+    }
+}

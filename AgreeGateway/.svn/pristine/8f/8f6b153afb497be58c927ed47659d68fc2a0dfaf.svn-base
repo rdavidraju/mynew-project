@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { LookUpCode } from './look-up-code.model';
+import { LookUpCodeService } from './look-up-code.service';
+
+@Component({
+    selector: 'jhi-look-up-code-detail',
+    templateUrl: './look-up-code-detail.component.html'
+})
+export class LookUpCodeDetailComponent implements OnInit, OnDestroy {
+
+    lookUpCode: LookUpCode;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private lookUpCodeService: LookUpCodeService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInLookUpCodes();
+    }
+
+    load(id) {
+        this.lookUpCodeService.find(id).subscribe((lookUpCode) => {
+            this.lookUpCode = lookUpCode;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInLookUpCodes() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'lookUpCodeListModification',
+            (response) => this.load(this.lookUpCode.id)
+        );
+    }
+}

@@ -1,0 +1,285 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit, Inject } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService  } from 'ng-jhipster';
+import { Response } from '@angular/http';
+import { FormsModule } from '@angular/forms';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { SelectItem, MultiSelectModule } from 'primeng/primeng';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { JhiDateUtils } from 'ng-jhipster';
+import { CommonService } from '../../entities/common.service';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+import { LedgerDefinition, LedgerDefinitionBreadCrumbTitles } from './ledger-definition.model';
+import { LedgerDefinitionService } from './ledger-definition.service';
+import { CalendarService } from '../calendar/calendar.service';
+import { ChartOfAccountService } from '../chart-of-account/chart-of-account.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-ledger-definition-detail',
+    templateUrl: './ledger-definition-detail.component.html'
+})
+export class LedgerDefinitionDetailComponent implements OnInit {
+
+    private UserData = this.$sessionStorage.retrieve('userData');
+    ledgerDefinition = new LedgerDefinition();
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    presentUrl: any;
+    isVisibleA: boolean = false;
+    ledgerType: any;
+    currencies: any;
+    calendars: any;
+    chartOfAccounts: any;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private ledgerDefinitionService: LedgerDefinitionService,
+        private route: ActivatedRoute,
+        private parseLinks: JhiParseLinks,
+        private paginationUtil: JhiPaginationUtil,
+        private jhiLanguageService: JhiLanguageService,
+        private alertService: JhiAlertService,
+        private principal: Principal,
+        private paginationConfig: PaginationConfig,
+        private router: Router,
+        private config: NgbDatepickerConfig,
+        private notificationsService: NotificationsService,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        public dialog: MdDialog,
+        private calendarService: CalendarService,
+        private chartOfAccountService: ChartOfAccountService,
+        private $sessionStorage: SessionStorageService
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+    ngOnInit() {
+        this.commonService.screensize();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 161) + 'px'
+        });
+
+        /**Get ledger details function */
+        this.loadAll();
+
+        /**Get ledger type lookup code function */
+        this.lookupcode()
+
+        /**Load All Currencies */
+        this.currencies = this.commonService.currencies;
+        // console.log('all currencies\n' + JSON.stringify(this.commonService.currencies));
+
+        /**Get all calendars */
+        this.getCalendars();
+
+        /**Get all chart of accounts */
+        this.getChartOfAccounts();
+
+
+
+        /* this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        }); */
+        // this.registerChangeInLedgerDefinitions();   
+    }
+
+    /**Load Ledger definition details */
+    loadAll(){
+        this.subscription = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentUrl = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "ledger-definition") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+
+            if (params['id']) {
+                this.ledgerDefinitionService.find(params['id']).subscribe(
+                    (ledgerDefinition) => {
+                        this.ledgerDefinition = ledgerDefinition;
+                        // console.log('this.ledgerDefinition\n' + JSON.stringify(this.ledgerDefinition));
+                        this.isCreateNew = false;
+                        if (url.endsWith('edit')) {
+                            this.isEdit = true;
+                            /**Focusing on first element */
+                            $('#name').focus();
+                        } else {
+                            this.isViewOnly = true;
+                        }
+                    }
+                );
+            } else {
+                this.isVisibleA = true;
+                this.isCreateNew = true;
+                /**Focusing on first element */
+                $('#name').focus();
+            }
+        });
+    }
+
+    /**Toggle Sidebar */
+    toggleSB() {
+        if(!this.isVisibleA){
+           this.isVisibleA = true;
+           $('.split-example .left-component').addClass('visible');
+        } else {
+            this.isVisibleA = false;
+            $('.split-example .left-component').addClass('visible');
+        }
+    }
+
+    /**Get Ledger type */
+    lookupcode(){
+        this.ledgerDefinitionService.lookupCodes('LEDGER_TYPE').subscribe((res: any)=>{
+            this.ledgerType = res;
+        });
+    }
+
+    /**Get Calendars */
+    getCalendars(){
+        this.calendarService.getAllcalenderList(0, 0, true).subscribe((res: any)=>{
+            this.calendars = res.json();
+            // console.log('this.calendars\n' + JSON.stringify(this.calendars));
+        });
+    }
+
+    /**Get Chart of accounts */
+    getChartOfAccounts(){
+        this.chartOfAccountService.getAllChartOfAccounts(0, 0, true).subscribe((res: any)=>{
+            this.chartOfAccounts = res.json();
+            // console.log('this.chartOfAccounts\n' + JSON.stringify(this.chartOfAccounts));
+        });
+    }
+
+    /**Save Ledger */
+    saveLedger() {
+        let link: any = '';
+        if (this.ledgerDefinition.id) {
+            /**Update Ledger Definition */
+            // console.log('Update this.ledgerDefinition\n' + JSON.stringify(this.ledgerDefinition));
+            this.ledgerDefinitionService.update(this.ledgerDefinition).subscribe((res: any) => {
+                // console.log('res\n' + JSON.stringify(res));
+                this.notificationsService.success(
+                    'Success!',
+                    'Ledger "' + res.name + '" Successfully Updated'
+                );
+                if (res.id) {
+                    link = ['/ledger-definition', { outlets: { 'content': res.id + '/details' } }];
+                    if (this.isEdit) {
+                        this.isEdit = false;
+                    }
+                    if (this.isCreateNew) {
+                        this.isCreateNew = false;
+                    }
+                    this.isViewOnly = true;
+                    this.router.navigate(link);
+                }
+            });
+        } else {
+            /**Create New Ledger Definition */
+            // console.log('Create new this.ledgerDefinition\n' + JSON.stringify(this.ledgerDefinition));
+            this.ledgerDefinition.status = 'TRUE';
+            this.ledgerDefinition.enabledFlag = true;
+            this.ledgerDefinition.tenantId = this.UserData.tenantId;
+            this.ledgerDefinition.createdBy = this.UserData.id;
+            this.ledgerDefinition.lastUpdatedBy = this.UserData.id;
+            this.ledgerDefinition.lastUpdatedDate = new Date();
+            this.ledgerDefinition.createdDate = new Date();
+            this.ledgerDefinitionService.create(this.ledgerDefinition).subscribe((res: any) => {
+                // console.log('res\n' + JSON.stringify(res));
+                this.notificationsService.success(
+                    'Success!',
+                    'Ledger "' + res.name + '" Successfully Created'
+                );
+                if (res.id) {
+                    link = ['/ledger-definition', { outlets: { 'content': res.id + '/details' } }];
+                    if (this.isEdit) {
+                        this.isEdit = false;
+                    }
+                    if (this.isCreateNew) {
+                        this.isCreateNew = false;
+                    }
+                    this.isViewOnly = true;
+                    this.router.navigate(link);
+                }
+            });
+        }
+    }
+
+
+    /* Function to display validition message */
+    validationMsg() {
+        if (this.ledgerDefinition.name == null || this.ledgerDefinition.name == '') {
+            this.notificationsService.error(
+                'Warning!',
+                'Name is mandatory'
+            );
+        } else if (this.ledgerDefinition.ledgerType == null) {
+            this.notificationsService.error(
+                'Warning!',
+                'Ledger Type is mandatory'
+            );
+        } else if (this.ledgerDefinition.startDate == null) {
+            this.notificationsService.error(
+                'Warning!',
+                'Start date is mandatory'
+            );
+        } else {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields'
+            );
+        }
+    }
+
+
+
+
+
+
+
+
+
+
+
+/*     load(id) {
+        this.ledgerDefinitionService.find(id).subscribe((ledgerDefinition) => {
+            this.ledgerDefinition = ledgerDefinition;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInLedgerDefinitions() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'ledgerDefinitionListModification',
+            (response) => this.load(this.ledgerDefinition.id)
+        );
+    } */    
+}

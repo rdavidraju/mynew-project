@@ -1,0 +1,205 @@
+<div style="height: 100%; width: 100%">
+	<vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+		<div id="sticky" class="leftpane split-pane-content-primary" *ngIf="!isCreateNew">
+			<rule-group-side-bar> </rule-group-side-bar>
+		</div>
+		<div class="split-pane-content-secondary rightpane">
+			<span class="fa fa-bars hand ripple sbclose" style="top:70px !important" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew"></span>
+
+			<div class="component-body approvalGrp">
+			<div class="mat-card-padding">
+			<md-card>
+				<div class="botom-dotted-blue-border component-title">
+					<div *ngIf="!ruleGroupService .ruleGroup.name" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+						<h3 class="pageListTitle" style="margin-left: 13px;">New Rule Group</h3>
+					</div>
+					<div *ngIf="ruleGroupService .ruleGroup.name" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle">
+						<h3 *ngIf="ruleGroupService .ruleGroup.name">{{ruleGroupService .ruleGroup.name}}
+						</h3>
+					</div>
+					<div class="col-lg-4 col-md-4 col-sm-4 col-xs-4">
+						<div class="float-right">
+							<button md-icon-button class="pull-right color-green" *ngIf="!isViewOnly && f.valid &&  rule.valid && !duplicateRuleGroupName " aria-hidden="true"
+							 mdTooltip="Save Rule Group" (click)="saveRuleGroup()">
+								<md-icon>save</md-icon>
+							</button>
+							<button *ngIf="!isViewOnly && (!f.valid || !rule.valid || duplicateRuleGroupName ) " md-icon-button class="pull-right color-gray" aria-hidden="true"
+							 mdTooltip="Fill mandatory fields " >
+								<md-icon>save</md-icon>
+							</button>
+							<button md-icon-button [routerLink]="['/rule-group', {outlets: {'content': [ruleGroupService .ruleGroup.id]+'/edit'}}]" *ngIf="isViewOnly"
+							 mdTooltip="Edit">
+								<md-icon>mode_edit</md-icon>
+							</button>
+							<button md-icon-button class="pull-right color-gray" [routerLink]="['/rule-group', {outlets: {'content': [ruleGroupService .ruleGroup.id]+'/details'}}]"
+							 *ngIf="isEdit" mdTooltip="Close">
+								<md-icon>clear</md-icon>
+							</button>
+							<button md-icon-button class="pull-right color-gray" [routerLink]="['/rule-group', {outlets: {'content': ['rule-group-home']}}]"
+							 *ngIf="isCreateNew" mdTooltip="Close">
+								<md-icon>clear</md-icon>
+							</button>
+							<button md-icon-button [routerLink]="['/rule-group', {outlets: {'content': ['rule-group-home']}}]" *ngIf="isViewOnly" mdTooltip="Rule Group List">
+								<md-icon>undo</md-icon>
+							</button>
+						</div>
+					</div>
+				</div>
+				<form novalidate #f="ngForm">
+					<br>
+					<div class="row">
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group">
+							<md-input-container>
+								<input mdInput [(ngModel)]="ruleGroupService .ruleGroup.name" (ngModelChange)="checkGroupName(ruleGroupService .ruleGroup.name)"
+								 [placeholder]=GroupTypePlaceHolder [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="name" required #name="ngModel">
+							</md-input-container>
+							<span class="help-block errorFont" style="margin-left: 32px;" *ngIf="duplicateRuleGroupName">Rule Group name already exists </span>
+						</div>
+						<!-- <div [class]="rulePurposeLength"> -->
+						
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group">
+						<md-select placeholder="Group Type" [(ngModel)]="ruleGroupService .ruleGroup.rulePurpose" (change)="SelectRuleGroupType()"
+							 [ngClass]="{'color-black' : isViewOnly}" [disabled]="!isCreateNew" name="ruleGroupType" required #ruleGroupType="ngModel"
+							 [style.width]="'100%'">
+								<md-option *ngFor="let type of ruleGroupTypes" [value]="type.lookUpCode">
+									{{ type.meaning}} </md-option>
+							</md-select>
+						</div>
+						
+						
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING'">
+						<md-select placeholder="Accounting Type" [(ngModel)]="ruleGroupService .ruleGroup.accountingTypeCode" 
+							 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="accountingType" #accountingType="ngModel"
+							 [style.width]="'100%'">
+								<md-option *ngFor="let type of accountingTypes" [value]="type.lookUpCode">
+									{{ type.meaning}} </md-option>
+									<md-option></md-option>
+							</md-select>
+						</div>
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && ruleGroupService.ruleGroup.activityBased == true">
+							<md-select placeholder="Select Group" [(ngModel)]="ruleGroupService.ruleGroup.reconciliationGroupId" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="!isCreateNew" name="reconciliationGroupId" required #reconciliationGroupId="ngModel" [style.width]="'100%'" *ngIf="isCreateNew">
+								<md-option *ngFor="let group of ruleGroupList" [value]="group.id">
+									{{ group.name}} </md-option>
+							</md-select>
+						</div>
+						<!-- <div class="col-md-3" *ngIf="ruleObj.purpose == 'RECONCILED_AND_ACCOUNTED'">
+								<md-select placeholder="Rule Group" [(ngModel)]="ruleObj.ruleGroup"
+								[ngClass]="{'color-black' : isViewOnly}" [disabled]="!isCreateNew" name="ruleGroup{{i}}" required #ruleGroup="ngModel"
+								[style.width]="'100%'">
+									<md-option *ngFor="let col of ruleGroupList" [value]="col.id" (click)="fetchDVBasedOnRuleGroup(i,col.id);">
+										{{ col.name}} </md-option>
+								</md-select>
+							</div> -->
+							
+						<!-- </div> -->
+
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group">
+							<md-form-field  *ngIf="!ruleGroupService .ruleGroup.endDate">
+								 <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+								 [disabled]="isViewOnly" [(ngModel)]="ruleGroupService .ruleGroup.startDate" name="startDate" required>
+								<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+								<md-datepicker #stpicker></md-datepicker>
+							</md-form-field>
+							<md-form-field *ngIf="ruleGroupService .ruleGroup.endDate">
+									<input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+									 [disabled]="isViewOnly" [(ngModel)]="ruleGroupService .ruleGroup.startDate" name="startDate" required [max]="ruleGroupService .ruleGroup.endDate" >
+									<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+									<md-datepicker #stpicker></md-datepicker>
+								</md-form-field>
+						</div>
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group" *ngIf="(!isViewOnly && ruleGroupService .ruleGroup.startDate) || (isViewOnly && ruleGroupService .ruleGroup.endDate)">
+							<md-form-field>
+								<input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="ruleGroupService .ruleGroup.startDate" [ngClass]="{'color-black' : isViewOnly}"
+								 [disabled]="isViewOnly" [(ngModel)]="ruleGroupService .ruleGroup.endDate" name="endDate">
+								<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+								<md-datepicker #edpicker></md-datepicker>
+							</md-form-field>
+						</div>
+						<div class="col-md-3 col-sm-6 col-xs-12 form-group" style="margin-bottom: auto;margin-top: auto;"  *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING'">
+							<md-checkbox [(ngModel)]="ruleGroupService.ruleGroup.activityBased" [ngModelOptions]="{standalone: true}" [disabled]="!isCreateNew">Activity Based</md-checkbox>
+						</div>
+					</div>
+					<div class="row" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'APPROVALS' ">
+						<div class="col-md-2">
+						</div>
+
+						<div class="col-md-3" *ngIf="isViewOnly">
+							<md-input-container>
+								<input mdInput [(ngModel)]="ruleGroupService.ruleGroup.configuredModuleName" placeholder="Process Name" [ngClass]="{'color-black' : true}"
+								 name="modules" required #modules="ngModel" [disabled]="true">
+							</md-input-container>
+						</div>
+						<div class="col-md-3" *ngIf="isCreateNew">
+							<md-select placeholder="Module" [(ngModel)]="ruleGroupService.ruleGroup.configuredModuleId" (change)="selectConfiguredModules()"
+							 [ngClass]="{'color-black' : isViewOnly}" [disabled]="!isCreateNew" name="modules" required #modules="ngModel" [style.width]="'100%'"
+							 *ngIf="isCreateNew">
+								<md-option *ngFor="let module of tenantSubscribedModules" [value]="module.id" (click)="ruleGroupService.ruleGroup.configuredModuleName=module.modules">
+									{{ module.purpose}} </md-option>
+							</md-select>
+						</div>
+						<div class="col-md-1">
+						</div>
+						<div class="col-md-4" *ngIf="isViewOnly">
+							<md-input-container>
+								<input mdInput [(ngModel)]="ruleGroupService.ruleGroup.apprRuleGrpName" placeholder="Group Name" [ngClass]="{'color-black' : true}"
+								 name="apprRuleGrpId" required #apprRuleGrpId="ngModel" [disabled]="true">
+							</md-input-container>
+
+						</div>
+						<div class="col-md-4" *ngIf="isCreateNew">
+							<md-select placeholder="Process Name" [(ngModel)]="ruleGroupService.ruleGroup.apprRuleGrpId" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="!isCreateNew" name="apprRuleGrpId" required #apprRuleGrpId="ngModel" [style.width]="'100%'" *ngIf="isCreateNew">
+								<md-option *ngFor="let group of groups" [value]="group.id" (click)="ruleGroupService.ruleGroup.apprRuleGrpName=group.name">
+									{{ group.name}} </md-option>
+							</md-select>
+						</div>
+						<div class="col-md-2">
+						</div>
+					</div>
+					</md-card>
+					</div>
+					</form>
+					<div class="mat-card-padding">
+					<md-card >
+					<!-- Reconciliation start -->
+					<form novalidate #rule="ngForm">
+					<jhi-rule-group-reconciliation [accountingMode]="view" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'RECONCILIATION' && isViewOnly"></jhi-rule-group-reconciliation>
+					<jhi-rule-group-reconciliation [accountingMode]="edit" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'RECONCILIATION' && isEdit"></jhi-rule-group-reconciliation>
+					<jhi-rule-group-reconciliation [accountingMode]="create" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'RECONCILIATION' && isCreateNew"></jhi-rule-group-reconciliation>
+
+					<!-- Reconciliation End -->
+
+
+					<!-- Accounting start -->
+					<!-- <jhi-rule-group-accounting [accountingMode]="view"
+					*ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && isViewOnly"></jhi-rule-group-accounting>
+				<jhi-rule-group-accounting [accountingMode]="edit"
+					*ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && isEdit"></jhi-rule-group-accounting>
+				<jhi-rule-group-accounting [accountingMode]="create"
+					*ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && isCreateNew"></jhi-rule-group-accounting> -->
+					<!-- Accounting End -->
+
+
+					<!-- Accounting new start -->
+					<jhi-rule-group-accounting-new [accountingMode]="view" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && isViewOnly"></jhi-rule-group-accounting-new>
+					<jhi-rule-group-accounting-new [accountingMode]="edit" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && isEdit"></jhi-rule-group-accounting-new>
+					<jhi-rule-group-accounting-new [accountingMode]="create" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'ACCOUNTING' && isCreateNew"></jhi-rule-group-accounting-new>
+					<!-- Accounting new End -->
+
+					<!-- Approvals Start -->
+					<jhi-rule-group-approvals [accountingMode]="view" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'APPROVALS' && isViewOnly"></jhi-rule-group-approvals>
+					<jhi-rule-group-approvals [accountingMode]="edit" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'APPROVALS' && isEdit"></jhi-rule-group-approvals>
+					<jhi-rule-group-approvals [accountingMode]="create" *ngIf="ruleGroupService .ruleGroup.rulePurpose == 'APPROVALS' && isCreateNew"></jhi-rule-group-approvals>
+					<!-- Approvals End -->
+					</form>
+				
+				<ngui-popup #popup></ngui-popup>
+				</md-card>
+				</div>
+			</div>
+
+		</div>
+	</vertical-split-pane>
+
+</div>

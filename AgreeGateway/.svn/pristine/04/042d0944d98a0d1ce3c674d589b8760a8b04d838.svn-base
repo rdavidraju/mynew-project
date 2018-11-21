@@ -1,0 +1,267 @@
+<div class="component-body reconcilewq-main">
+    <div class="component-title">
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6 pageTitle display-flex">
+            <h4>Accounting</h4>
+            <md-select style="padding-left:10px;margin-top:-22px;width:60%;" [(ngModel)]="ruleGroupId" (change)="fetchQueryParams(ruleGroupId)"
+                name="ruleGroupName">
+                <md-option *ngFor="let type of ruleGroups; let i = index" [value]="type.id" (click)="selectedDV(i)">
+                    {{ type.name }} </md-option>
+            </md-select>
+        </div>
+        <div class="col-lg-6 col-md-6 col-sm-6 col-xs-6">
+            <button style="font-size:16px;margin-top:10px;" class="pull-right" *ngIf="ruleGroupId" md-icon-button (click)="loadAll()"
+                mdTooltip="Refresh Data">
+                <i class="material-icons">loop</i>
+            </button>
+            <button style="font-size:16px;margin-top:10px;" class="pull-right" md-icon-button *ngIf="isVisibleA" (click)="toggleSB()"
+                mdTooltip="Toggle Query">
+                <i class="material-icons">keyboard_arrow_up</i>
+            </button>
+            <button style="font-size:16px;margin-top:10px;" class="pull-right" md-icon-button *ngIf="!isVisibleA" (click)="toggleSB()"
+                mdTooltip="Toggle Query">
+                <i class="material-icons">keyboard_arrow_down</i>
+            </button>
+        </div>
+    </div>
+    <horizontal-split-pane primary-component-minsize="25" primary-component-initialratio="0.2" [primary-component-toggled-off]="!isVisibleA">
+        <div class="split-pane-content-primary" style="padding-bottom: 10px;">
+            <md-card *ngIf="ruleGroupId" class="scroll-down">
+                <form novalidate #acttForm="ngForm">
+                    <div style="display:flex;">
+                        <div class="col-md-4 col-sm-4 col-xs-12">
+                            <md-select required [(ngModel)]="dataViewId" (change)="fetchColumnIdNameByViewIdGroupByTrue(dataViewId);" name="viewName"
+                                placeholder="Accounting For">
+                                <md-option *ngFor="let dv of dataViews; let i= index" [value]="dv.id">
+                                    {{dv.viewName}}</md-option>
+                            </md-select>
+                        </div>
+                        <div class="col-md-4 col-sm-4 col-xs-12">
+                            <md-select [(ngModel)]="period" name="period" placeholder="Period Factor">
+                                <md-option value="feb18">Activity Date</md-option>
+                                <md-option value="jan18">Transaction Date</md-option>
+                            </md-select>
+                        </div>
+                        <div class="col-md-3 col-sm-4 col-xs-12">
+                            <md-select [(ngModel)]="selectedDateRange" name="dateRange" placeholder="View By">
+                                <md-option value="today">Today</md-option>
+                                <md-option value="yesterday">Yesterday</md-option>
+                                <md-option value="7days">Last 7Days</md-option>
+                                <md-option value="15days">Last 15Days</md-option>
+                                <md-option value="30days">Full</md-option>
+                            </md-select>
+                        </div>
+                        <div class="col-md-1 col-sm-1 col-xs-12">
+                            <div style="padding-left:30px;padding-top:10px;float:right;">
+                                <button md-raised-button style="background-color:#003ea5;color:white;float:right;" (click)="fetchAcctCountAmount(ruleGroupId,selectedDateRange,groupBy,dataViewId)"
+                                    [disabled]="!acttForm.valid || buttonRestrict">Go</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </md-card>
+        </div>
+        <div *ngIf="showAcctAnalytics" class="recon-summary split-pane-content-secondary">
+            <div *ngIf="isVisibleA" class="col-md-12">
+                <h5>Activity Summary</h5>
+            </div>
+            <div class="col-md-12 display-flex">
+                <div class="col-md-3 mat-card analytics-window">
+                    sidebar
+                </div>
+                <md-card class="col-md-9">
+                    <div class="col-md-12" style="text-align:right;">
+                        <h4 style="text-align:left">Activity Details</h4>
+                        <input type="search" placeholder="Search" [(ngModel)]="searchWord" (keyup.enter)="searchWithKeyWord(searchWord);" [disabled]="buttonRestrict"
+                        />
+                        <button md-raised-button (click)="openAccountDialog();">Manual</button>
+                        <button md-raised-button (click)="openEditAccounting();">Edit</button>
+                        <button md-raised-button (click)="openUnAccountDialog('recordwise')" [disabled]="buttonRestrict">Undo-Acct</button>
+                        <button style="top:10px;right:5px;" md-icon-button mdTooltip="File Export" [disabled]="buttonRestrict">
+                            <img class="pull-right" alt="export" src="../../home/media/exportAsCSV.png" height="24" width="24" (click)="acctDataFileExp()"> </button>
+                    </div>
+                    <div class="data-view-table table-responsive">
+                        <div class="table-responsive">
+                            <p-dataTable [value]="dataViewLines" expandableRows="true" scrollHeight="300px" scrollable="true" [responsive]="true" reorderableColumns="true"
+                                columnResizeMode="expand" resizableColumns="true">
+                                <p-column expander="true" styleClass="col-icon" header="" field="" [style]="{'width':'50px'}"></p-column>
+                                <p-column *ngFor="let col of dataHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"></p-column>
+                                <ng-template let-car pTemplate="rowexpansion">
+                                    <div class="acct-childtable col-md-6 table-responsive">
+                                        <p-dataTable [value]="car.children" expandableRows="true" [responsive]="true" reorderableColumns="true" columnResizeMode="expand"
+                                            resizableColumns="true">
+                                            <p-column header="Type" field="Source" [style]="{'width':'150px','tex-align':'left'}"></p-column>
+                                            <p-column header="Debit" field="Debit_Account" [style]="{'width':'200px','tex-align':'left'}"></p-column>
+                                            <p-column header="Credit" field="Credit_Account" [style]="{'width':'200px','tex-align':'left'}"></p-column>
+                                            <p-column header="Amount" field="TotalAmount" [style]="{'width':'150px','tex-align':'right'}"></p-column>
+                                        </p-dataTable>
+                                    </div>
+                                </ng-template>
+                            </p-dataTable>
+                        </div>
+                    </div>
+                    <div *ngIf="viewLength > itemsPerPage">
+                        <md-paginator [length]="viewLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page" (page)="onPaginateChange($event)">
+                        </md-paginator>
+                    </div>
+                </md-card>
+            </div>
+        </div>
+    </horizontal-split-pane>
+</div>
+    <p-dialog modal="modal" header="Initiate Reconciliation" [resizable]="false" [draggable]="false" [responsive]="true" [(visible)]="runAcctShow"
+        width="400">
+        <md-select placeholder="Reconciliation For" required name="sourceName" [(ngModel)]="dataViewId" [disabled]="true" (click)="fetchAcctRuleGroups(dataViewId,'RECONCILIATION')">
+            <md-option *ngFor="let sv of dataViews; let i= index" [value]="sv.id" disabled>
+                {{sv.viewName}}</md-option>
+        </md-select>
+        <md-select placeholder="Reconciliation Process" required name="reconRuleGroupName" [(ngModel)]="reconRuleGroupId">
+            <md-option *ngFor="let type of reconRuleGroups" [value]="type.groupId">
+                {{ type.groupName }} </md-option>
+        </md-select>
+        <p-footer>
+            <button md-raised-button (click)="initiateAcctJob('RECONCILIATION');">Run Reconciliation</button>
+        </p-footer>
+    </p-dialog>
+    <p-dialog modal="modal" header="Undo Accounting by Batch" [resizable]="false" [draggable]="false" [responsive]="true" [(visible)]="showBatchUnAcct"
+        width="400">
+        <h6>Do you want to Un-Account these {{accountedCount}} transactions?</h6>
+        <p-footer>
+            <button md-raised-button (click)="openUnAccountDialog('batchwise');showBatchUnAcct = false;">Yes</button>
+            <button md-raised-button (click)="showBatchUnAcct = false;">No</button>
+        </p-footer>
+    </p-dialog>
+    <p-dialog modal="modal" header="Batch Accounting" [resizable]="false" [draggable]="false" [responsive]="true" [(visible)]="displayConfirmDialog">
+        <h6>Do you want to Run with Existing Rules or Create a New Rule?</h6>
+        <p-footer>
+            <button md-raised-button (click)="displayConfirmDialog = false; buildRule();">Create Rule</button>
+            <span>(OR)</span>
+            <button md-raised-button (click)="displayConfirmDialog = false;initiateAcctJob('ACCOUNTING');" [disabled]="buttonRestrict">Run With Existing Rules</button>
+        </p-footer>
+    </p-dialog>
+    <p-dialog header="Build Rule" modal="modal" [resizable]="true" [responsive]="true" [(visible)]="reconcileService.ENABLE_RULE_BLOCK">
+        <div *ngIf="reconcileService.ENABLE_RULE_BLOCK">
+            <hr>
+            <jhi-rule-group-accounting-new [accountingMode]="create"></jhi-rule-group-accounting-new>
+        </div>
+    </p-dialog>
+    <p-dialog header="Scheduling" [(visible)]="displayScheduling" modal="modal" width="300" responsive="true">
+        <scheduling [basicInfo]="acctSchedObj"></scheduling>
+    </p-dialog>
+    <div class="account-modal">
+        <p-dialog header="Accounting Rule Definition" [(visible)]="accountModalTog" width="700" modal="true">
+            <div style="padding-bottom: 5px;">
+                <md-card>
+                    <div class="col-md-12" style="display:flex;flex-wrap:wrap;padding-bottom: 5px;">
+                        <div class="from-group col-md-6 col-sm-12 col-xs-12">
+                            <md-select placeholder="COA Name" required name="coaName" [(ngModel)]="chartOfAccount" (change)="getLedgerDefinitions(chartOfAccount);getSegmentsList(chartOfAccount);getColumnsByType(dataViewId,'DECIMAL')">
+                                <md-option *ngFor="let coa of chartOfAccountsList; let i= index" [value]="coa.id">
+                                    {{coa.name}}</md-option>
+                            </md-select>
+                        </div>
+                        <div class="from-group col-md-6 col-sm-12 col-xs-12">
+                            <md-select placeholder="Ledger Name" required name="ledgername" [(ngModel)]="ledgername">
+    
+                                <md-option *ngFor="let l of listOfLedgers" [value]="l.id">
+                                    {{ l.name }} </md-option>
+                            </md-select>
+                        </div>
+                        <div class="from-group col-md-6 col-sm-12 col-xs-12">
+                            <md-select placeholder="Source" required name="sourcename" [(ngModel)]="acctSource">
+                                <md-option *ngFor="let s of sourceLookups; let i= index" [value]="s.lookUpCode">
+                                    {{s.meaning}}</md-option>
+                            </md-select>
+                        </div>
+                        <div class="from-group col-md-6 col-sm-12 col-xs-12">
+                            <md-select placeholder="Category" required name="category" [(ngModel)]="acctCategory">
+                                <md-option *ngFor="let c of categoryLookups; let i= index" [value]="c.lookUpCode">
+                                    {{c.meaning}}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                </md-card>
+            </div>
+    
+            <md-card>
+                <div class="segments-list">
+                    <!-- <form novalidate #accountForm="ngForm"> -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover">
+                            <thead class="tableheader" style="background-color: #f6f7f9;">
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Code Combination</th>
+                                    <th>Entered Amount Column</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody class="createmode">
+                                <tr *ngFor="let col of debits;let i = index;" id="hideIconTable">
+                                    <td>
+                                        Debit:
+                                    </td>
+                                    <td>
+                                        <p-inputMask [mask]="debitMask" [(ngModel)]="col.debitLine" [placeholder]="debitPlaceHolder"></p-inputMask>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <md-select [(ngModel)]="col.amountColId" name="decimalCOlId{{i}}" #decimalCOlId="ngModel">
+                                                <md-option *ngFor="let colums of dvColumnsByType" [value]="colums.id"> {{ colums.columnName }} </md-option>
+                                            </md-select>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div id="showIcon" class="display-flex">
+                                            <div *ngIf="debits.length > 1" style="color: red; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+                                                <button md-icon-button class="pull-right" mdTooltip="Delete Line" (click)="removeDebitLine(i);">
+                                                    <md-icon>delete</md-icon>
+                                                </button>
+                                            </div>
+                                            <div style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+                                                <button md-icon-button class="pull-right" mdTooltip="Add New Line" (click)="addDebitRow();">
+                                                    <md-icon>exposure_plus_1</md-icon>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr *ngFor="let col of credits;let i = index;" id="hideIconTable">
+                                    <td>
+                                        Credit:
+                                    </td>
+                                    <td>
+                                        <p-inputMask [mask]="debitMask" [(ngModel)]="col.creditLine" [placeholder]="debitPlaceHolder"></p-inputMask>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <md-select [(ngModel)]="col.amountColId" name="decimalCOlId{{i}}" #decimalCOlId="ngModel">
+                                                <md-option *ngFor="let colums of dvColumnsByType" [value]="colums.id"> {{ colums.columnName }} </md-option>
+                                            </md-select>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div id="showIcon" class="display-flex">
+                                            <div *ngIf="credits.length > 1" style="color: red; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+                                                <button md-icon-button class="pull-right" mdTooltip="Delete Line" (click)="removeCreditLine(i);">
+                                                    <md-icon>delete</md-icon>
+                                                </button>
+                                            </div>
+                                            <div style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px;">
+                                                <button md-icon-button class="pull-right" mdTooltip="Add New Line" (click)="addCreditRow();">
+                                                    <md-icon>exposure_plus_1</md-icon>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="pull-right">
+                            <button md-raised-button class="pull-right" (click)="manualAccounting(ruleGroupId,dataViewId);" [disabled]="buttonRestrict">save</button>
+                            <button md-raised-button class="pull-right" (click)="codeCombinationClear();">Clear</button>
+                        </div>
+                    </div>
+    
+                </div>
+            </md-card>
+        </p-dialog>
+    </div>

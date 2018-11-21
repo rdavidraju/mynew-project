@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { ApprovalGroups } from './approval-groups.model';
+import { ApprovalGroupsService } from './approval-groups.service';
+
+@Component({
+    selector: 'jhi-approval-groups-detail',
+    templateUrl: './approval-groups-detail.component.html'
+})
+export class ApprovalGroupsDetailComponent implements OnInit, OnDestroy {
+
+    approvalGroups: ApprovalGroups;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private approvalGroupsService: ApprovalGroupsService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInApprovalGroups();
+    }
+
+    load(id) {
+        this.approvalGroupsService.find(id).subscribe((approvalGroups) => {
+            this.approvalGroups = approvalGroups;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInApprovalGroups() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'approvalGroupsListModification',
+            (response) => this.load(this.approvalGroups.id)
+        );
+    }
+}

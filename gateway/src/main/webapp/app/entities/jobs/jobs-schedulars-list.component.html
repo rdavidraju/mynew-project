@@ -1,0 +1,181 @@
+<p-blockUI [blocked]="blockUI" [target]="parentDiv"></p-blockUI>
+<div id="parentDiv">
+	<div class="component-title">
+		<div class="col-md-6">
+		<div class="headingIcons">
+				<i class="fa fa-clock-o iconStyle"></i>
+			</div>
+			<h4>Job Submissions</h4>
+		</div>
+		<div class="col-md-6">
+			<div class="pull-right">
+				<button md-icon-button (click)="openDialog()" mdTooltip="Add New Job">
+					<md-icon>add</md-icon>
+				</button>
+				<button mdTooltip="Refresh" md-icon-button (click)="loadShcedulersListByFilters()">
+					<md-icon>loop</md-icon>
+				</button>
+			</div>
+		</div>
+	</div>
+	<div class="component-body" id="schedListparentDiv" *ngIf="showSchedulersList">
+		<!-- @Rk **********START************ -->
+		<div style="padding-top: 10px;">
+			<div class="row m-0">
+				<div class="col-md-3">
+					<md-select name="programName" placeholder="Select Program:" [(ngModel)]="schedularDetailFilter.scheduledProgram" (change)="loadShcedulersListByFilters()">
+						<md-option *ngFor="let program of programsList" [value]="program.id">{{program.prgmName}}</md-option>
+					</md-select>
+				</div>
+				<div class="col-md-3">
+					<md-select name="scheduleType" placeholder="Select Schedule Type:" [(ngModel)]="schedularDetailFilter.scheduledType" (change)="loadShcedulersListByFilters()">
+						<md-option value="All">All</md-option>
+						<md-option value="ONDEMAND">On Demand</md-option>
+						<md-option value="ONETIME">One Time</md-option>
+						<md-option value="DAILY">Daily</md-option>
+						<md-option value="WEEKLY">Weekly</md-option>
+						<md-option value="MONTHLY">Monthly</md-option>
+					</md-select>
+				</div>
+				<div class="col-sm-3 col-md-2">
+					<md-form-field>
+						<input mdInput [mdDatepicker]="schStpicker" placeholder="Request Date From:" name="schStartDate" [(ngModel)]="schedularDetailFilter.stDateFrom"
+						(dateChange)="loadShcedulersListByFilters()">
+						<md-datepicker-toggle mdSuffix [for]="schStpicker"></md-datepicker-toggle>
+						<md-datepicker #schStpicker></md-datepicker>
+					</md-form-field>
+				</div>
+				<div class="col-sm-3 col-md-2">
+					<md-form-field>
+						<input mdInput [mdDatepicker]="schEdpicker" placeholder="Request Date To:" name="schEndDate" [(ngModel)]="schedularDetailFilter.stDateTo"
+						(dateChange)="loadShcedulersListByFilters()">
+						<md-datepicker-toggle mdSuffix [for]="schEdpicker"></md-datepicker-toggle>
+						<md-datepicker #schEdpicker></md-datepicker>
+					</md-form-field>
+				</div>
+			</div>
+			<div class="d-flex justify-content-between sr-pg-con job-status-list" style="margin-top: 10px;">
+				<div class="row m-0" [ngClass]="listLength > pageSize ? 'col-md-8' : 'col-md-12'">
+					<div class="status-list status-list-color">
+						<md-chip-list>
+							<md-chip readonly="false" [ngStyle]="{'background-color':allStatuses?'white':'rgb(245, 245, 245)'}">
+								<md-chip-template>
+									<md-checkbox (change)="allStatusesChanged();" (click)="$event.stopPropagation()" [(ngModel)]="allStatuses" class="status-list-check-box chbox-sm"
+									 name="allstatus" style="padding: 0px 5px;position: relative;top: 2px;">All</md-checkbox>
+								</md-chip-template>
+							</md-chip>
+							<md-chip *ngFor="let eachStatus of schedularDetailFilter.scheduledStatusList" readonly="false" [ngStyle]="{'background-color':eachStatus.isSelected?'white':'rgb(245, 245, 245)'}">
+								<md-chip-template>
+									<md-checkbox (change)="loadShcedulersListByFilters();" (click)="$event.stopPropagation()" class="status-list-check-box chbox-sm"
+									 [name]="eachStatus.statusName" style="padding: 0px 5px;position: relative;top: 2px;" [(ngModel)]="eachStatus.isSelected">{{eachStatus.statusName}}</md-checkbox>
+								</md-chip-template>
+							</md-chip>
+						</md-chip-list>
+					</div>
+				</div>
+				<div class="col-md-4" style="align-self: flex-end;" *ngIf="listLength > pageSize">
+					<md-paginator [length]="listLength" [pageSize]="pageEvent.pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex" (page)="pageEvent = $event; loadShcedulersListByFilters()">
+					</md-paginator>
+				</div>
+			</div>
+		</div>
+		<!-- @Rk **********END************ -->
+		<div class="list-table">
+			<p-dataTable [value]="schedularsList" scrollable="true" reorderableColumns="true" resizableColumns="true"
+			columnResizeMode="expand" [responsive]="true" [headerCheckboxToggleAllPages]="true" #dt [rows]="5" emptyMessage="No Schedulers Found">
+				<p-column field="oozieJobId" header="Request Id" styleClass="left" [style]="{'width':'12.5%'}">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<span (click)="getScheduleActions(row, row['oozieJobId'])" class="hand" style="text-decoration: underline;">{{row[col.field]}}</span>
+					</ng-template>
+				</p-column>
+				<p-column field="jobName" header="Name" styleClass="left" [style]="{'width':'12.5%'}">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<!-- <span [routerLink]="['/jobs', {outlets: {'content': [row['jobId']]+'/details'}}]" class="hand" style="text-decoration: underline;">{{row[col.field]}}</span> -->
+						<span (click)="showJobDetails(row['jobId']);" class="hand" style="text-decoration: underline;">{{row[col.field]}}</span>
+					</ng-template>
+				</p-column>
+				<p-column *ngFor="let col of schedulsTableColumns" styleClass="left" [field]="col.field" [header]="col.header" [style]="{'width':'12.5%'}">
+				</p-column>
+
+				<p-column field="startTime" header="Start Date & Time" styleClass="left" [style]="{'width':'12.5%'}">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<span>{{row[col.field] | date:'medium'}}</span>
+					</ng-template>
+				</p-column>
+				<p-column field="endTime" header="End Date & Time" styleClass="left" [style]="{'width':'12.5%'}">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<span>{{row[col.field] | date:'medium'}}</span>
+					</ng-template>
+				</p-column>
+				<p-column field="actions" header="Actions" styleClass="center sm-button" [style]="{'width':'12.5%'}">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<!-- rerun -->
+						<button *ngIf="row['oozieStatus'] === 'FAILED' || row['oozieStatus'] === 'KILLED' || row['oozieStatus'] === 'SUCCEEDED'"
+						md-icon-button aria-hidden="true" mdTooltip="Re-Run" mdTooltipPosition="below" (click)="rerunSchedule(row['oozieJobId'])">
+							<md-icon>replay</md-icon>
+						</button>
+						<button *ngIf="row['oozieStatus'] === 'RUNNING' || row['oozieStatus'] === 'READY'" md-icon-button aria-hidden="true"
+						mdTooltip="Stop this" mdTooltipPosition="below" (click)="killJob(row['oozieJobId'])">
+							<md-icon>stop</md-icon>
+						</button>
+						<button *ngIf="row['oozieStatus'] !== 'RUNNING'" md-icon-button aria-hidden="true" mdTooltip="Show Log"
+						mdTooltipPosition="below" (click)="showScheduleLog(row['oozieJobId'])">
+							<md-icon>event_note</md-icon>
+						</button>
+						<button *ngIf="row['oozieStatus'] === 'RUNNING'" md-icon-button mdTooltip="Hold job" mdTooltipPosition="below"
+						(click)="suspendJob(row['oozieJobId'])">
+							<md-icon>pause</md-icon>
+						</button>
+						<!-- resume -->
+						<button *ngIf="row['oozieStatus'] === 'SUSPENDED'" md-icon-button mdTooltip="Resume Job" mdTooltipPosition="below"
+						(click)="resumeJob(row['oozieJobId'])">
+							<md-icon>play_arrow</md-icon>
+						</button>
+					</ng-template>
+				</p-column>
+			</p-dataTable>
+		</div>
+		<md-paginator *ngIf="listLength > pageSize" [length]="listLength" [pageSize]="pageEvent.pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex" (page)="pageEvent = $event; loadShcedulersListByFilters()" class="sr-pg-con">
+		</md-paginator>
+		<div class="jobs-section jobs-scheduler">
+			<p-dialog [header]="selSingleSchedule.jobName" [(visible)]="showActionsLog" [responsive]="true">
+				<p-header>
+					<i 
+					*ngIf="selSingleSchedule.oozieStatus == 'RUNNING'" class="material-icons hand pull-right" (click)="getScheduleActions(selSingleSchedule, selSingleSchedule.oozieJobId)" mdTooltip="Refresh">refresh</i>
+				</p-header>
+
+				<div *ngIf="schedulerActions && !schedulerActions.length" class="abs-hv-center">No action Logs</div>
+				<div class="table-responsive" *ngIf="schedulerActions && schedulerActions.length">
+					<table class="table">
+						<thead>
+							<tr>
+								<th>Action</th>
+								<th class="no-wrap">Start Time</th>
+								<th class="no-wrap">End Time</th>
+								<th>Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr *ngFor="let action of schedulerActions">
+								<td>{{action.actionName}}</td>
+								<td class="no-wrap">
+									<span mdTooltip="{{action.startTime | date:'medium'}}">{{action.startTime | date:'mediumTime'}}</span>
+								</td>
+								<td class="no-wrap">
+									<span mdTooltip="{{action.endTime | date:'medium'}}">{{action.endTime | date:'mediumTime'}}</span>
+								</td>
+								<td>
+									<i *ngIf="action.status === 'Success'" class="material-icons">check_circle</i>
+									<i *ngIf="action.status === 'Fail'" class="material-icons" aria-hidden="true">error</i>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</p-dialog>
+		</div>
+	</div>
+	<div>
+		<jhi-jobs-detail #jobsDetailComponent (changeDisplay)="hideDialog($event)"></jhi-jobs-detail>
+	</div>
+</div>

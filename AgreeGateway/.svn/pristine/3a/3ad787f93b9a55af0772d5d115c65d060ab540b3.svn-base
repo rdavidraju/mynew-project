@@ -1,0 +1,65 @@
+import { Component, OnInit } from '@angular/core';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { Router } from '@angular/router';
+
+import { Principal } from '../../shared';
+import { PasswordService } from './password.service';
+
+@Component({
+    selector: 'jhi-password',
+    templateUrl: './password.component.html'
+})
+export class PasswordComponent implements OnInit {
+    doNotMatch: string;
+    error: string;
+    success: string;
+    account: any;
+    password: string;
+    confirmPassword: string;
+
+    constructor(
+        private passwordService: PasswordService,
+        private principal: Principal,
+        private notificationsService: NotificationsService,
+        private router: Router
+    ) {
+    }
+
+    ngOnInit() {
+        this.principal.identity().then((account) => {
+            this.account = account;
+        });
+
+        document.getElementById('password').focus();
+    }
+
+    changePassword() {
+        if (this.password !== this.confirmPassword) {
+            this.error = null;
+            this.success = null;
+            // this.doNotMatch = 'ERROR';
+            this.notificationsService.error(
+                'Warning!',
+                'The password and its confirmation do not match!'
+            );
+        } else {
+            this.doNotMatch = null;
+            this.passwordService.save(this.password).subscribe(() => {
+                this.error = null;
+                // this.success = 'OK';
+                this.notificationsService.success(
+                    'Success!',
+                    'Password changed!'
+                );
+                this.router.navigate(['/']);
+            }, () => {
+                this.success = null;
+                // this.error = 'ERROR';
+                this.notificationsService.error(
+                    'Warning',
+                    'An error has occurred! The password could not be changed.'
+                );
+            });
+        }
+    }
+}

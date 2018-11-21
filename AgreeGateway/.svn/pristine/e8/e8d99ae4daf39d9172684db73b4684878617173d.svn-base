@@ -1,0 +1,919 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router, ActivatedRouteSnapshot } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService } from 'ng-jhipster';
+import { RuleGroupService } from '../rule-group/rule-group.service';
+import { AccountingData, AccountingDataBreadCrumbTitles, acctCustomFilters, acctFilterColumns, jsonforAccounting, selectedAcctRows } from './accounting-data.model';
+import { AccountingDataService } from './accounting-data.service';
+import { PageEvent } from '@angular/material';
+import { CommonService } from '../common.service';
+import { SelectItem, MultiSelectModule, DataGridModule, ChipsModule, DialogModule, InputMaskModule } from 'primeng/primeng';
+import { PerfectScrollbarComponent } from 'angular2-perfect-scrollbar';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { ITEMS_PER_PAGE, Principal, ResponseWrapper } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { SessionStorageService } from 'ng2-webstorage';
+import { DataViewsService } from '../data-views/data-views.service';
+import { LookUpCodeService } from '../look-up-code/look-up-code.service'
+import { RuleGroupAndRuleWithLineItem } from '../rule-group/ruleGroupAndRuleWithLineItem.model';
+import { ReconcileService } from '../reconcile/reconcile.service';
+
+declare var $: any;
+
+@Component({
+    selector: 'jhi-accounting-data',
+    templateUrl: './accounting-data.component.html'
+})
+export class AccountingDataComponent implements OnInit, OnDestroy {
+
+    currentAccount: any;
+    accountingData: AccountingData[];
+    error: any;
+    success: any;
+    eventSubscriber: Subscription;
+    currentSearch: string;
+    routeData: any;
+    links: any;
+    totalItems: any;
+    queryCount: any;
+    itemsPerPage: any;
+    page: any;
+    pageSizeOptions = [10, 25, 50, 100];;
+    pageEvent: PageEvent;
+    predicate: any;
+    previousPage: any;
+    reverse: any;
+    selectedDataLinesToAccount: any[] = [];
+    dataHeaders: any[] = [];
+    dataHeaderColumns: any[] = [];
+    dataColumnOptions: SelectItem[];
+
+
+    /* Custom Variables */
+    isVisibleA: boolean = true;
+    isAccProcess: boolean = false;
+    labelData: any[];
+    acctRuleGroups: any[];
+    acctRuleGroupId: any;
+    dataViewCountDetails: any;
+    dataViewDetails: any[];
+    dataViewId: any;
+    dataViewAllRecords: any[] = [];
+    toggleFilter: boolean = false;
+    pieChartOptions: any;
+    public doughnutChartType: string = 'pie';
+    pieChartMetrics: any;
+    statusOnPieChart: any = "";
+    recordsLength: any;
+    showPaginator: boolean = false;
+    filterPagination: boolean = false;
+    acctCustomFilterObject: acctCustomFilters;
+    accFilterColumns: acctFilterColumns[] = [];
+    detailsOfDataView: any[];
+    columnsOfDataView: any[] = [];
+    dataTypesList = [];
+    operatorsList = [];
+    accountModalTog: boolean = false;
+    debitLineCode: any = [];
+    creditLineCode: any = [];
+    chartOfAccounts: any[];
+    showSegments: boolean = false;
+    coaSegmentsList: any[];
+    coaName: any;
+    recordsForAccounting: jsonforAccounting;
+    rowForAccounting: selectedAcctRows[] = [];
+    checkAccStatus: boolean;
+    unAccountedRecords: any[] = [];
+    isVisibleB: boolean = true;
+    customFilterStatus: any;
+    sideBarFilters: any[] = [];
+    asideBarFiltersColumnValue: string[] = [];
+    aFilterColumnsSidebar: acctFilterColumns[] = [];
+    sourceHeaderColumns1: any;
+    ruleGroupName: any;
+    showAccDataTables: boolean = false;
+    OnselectCOACOdeNme: string;
+    enableruleBlock: boolean = false;
+    display: boolean = false;
+    create: string = 'createInWQ';
+    asideBarFiltersValueSet: any[] = [];
+
+    public pieChartType: string = 'pie';
+    constructor(
+        private accountingDataService: AccountingDataService,
+        private parseLinks: JhiParseLinks,
+        private alertService: JhiAlertService,
+        private principal: Principal,
+        private activatedRoute: ActivatedRoute,
+        private router: Router,
+        private eventManager: JhiEventManager,
+        private paginationUtil: JhiPaginationUtil,
+        private paginationConfig: PaginationConfig,
+        private ruleGroupService: RuleGroupService,
+        private commonService: CommonService,
+        private $sessionStorage: SessionStorageService,
+        private notificationService: NotificationsService,
+        private dataViewsService: DataViewsService,
+        private lookUpCodeService: LookUpCodeService,
+        private reconcileService: ReconcileService
+
+    ) {
+        this.itemsPerPage = ITEMS_PER_PAGE;
+        // this.routeData = this.activatedRoute.data.subscribe((data) => {
+        //     this.page = data['pagingParams'].page;
+        //     this.previousPage = data['pagingParams'].page;
+        //     this.reverse = data['pagingParams'].ascending;
+        //     this.predicate = data['pagingParams'].predicate;
+        // });
+        // this.currentSearch = activatedRoute.snapshot.params['search'] ? activatedRoute.snapshot.params['search'] : '';
+        this.pieChartOptions = {
+            responsive: false,
+            maintainAspectRatio: false
+        }
+    }
+
+    private getPageTitle(routeSnapshot: ActivatedRouteSnapshot) {
+        let title: string = (routeSnapshot.data && routeSnapshot.data['pageTitle']) ? routeSnapshot.data['pageTitle'] : 'agreeGatewayApp';
+        if (routeSnapshot.firstChild) {
+            title = this.getPageTitle(routeSnapshot.firstChild) || title;
+        }
+        if (routeSnapshot.data.breadcrumb === AccountingDataBreadCrumbTitles.accountingDataNew) {
+            this.isVisibleA = true;
+        }
+        else {
+            this.isVisibleA = false;
+        }
+        if (routeSnapshot.firstChild) {
+            title = this.getPageTitle(routeSnapshot.firstChild) || title;
+        }
+        return title;
+    }
+    toggleSB() {
+        if (!this.isVisibleA) {
+            this.isVisibleA = true;
+            //$('.reconcile-main .upper-component').addClass('visible');
+        } else {
+            this.isVisibleA = false;
+            //$('.reconcile-main .upper-component').addClass('visible');
+        }
+    }
+
+    fetchRuleGroupsByPurpose(purpose) {
+        this.ruleGroupService.fetchRuleGroupsBypurpose(purpose).subscribe(
+            (res: any) => {
+                this.acctRuleGroups = res;
+            },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        );
+    }
+
+    fetchAmountandCountByRuleGroupId(ruleGroupId) {
+        this.acctRuleGroupId = ruleGroupId;
+        this.isAccProcess = true;
+        this.accountingDataService.fetchCountandAmountByGroupId(ruleGroupId).subscribe(
+            (res: any) => {
+                this.dataViewCountDetails = res;
+                this.ruleGroupName = this.dataViewCountDetails.groupName;
+                this.dataViewDetails = this.dataViewCountDetails.dataView;
+                this.dataViewId = this.dataViewDetails[0].viewId;
+                console.log('asdfads' + this.dataViewId);
+                this.fetchAllAccRecordsByViewId(this.dataViewId, ruleGroupId);
+            },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        );
+
+    }
+
+    fetchAllAccRecordsByViewId(id, groupId) {
+        this.dataViewId = id;
+        this.page = 0;
+        this.accountingDataService.fetchRecordsByViewId(id, groupId, this.page, this.itemsPerPage).subscribe(
+            (res: any) => {
+
+                this.showPaginator = true;
+                this.dataViewAllRecords = res;
+                this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                this.dataViewDetails.forEach(item => {
+                    if (id == item.viewId) {
+                        this.pieChartMetrics = {
+                            labels: ['Accounted', 'Un-Accounted', 'Partially-Accounted'],
+                            datasets: [
+                                {
+                                    data: [item.accounted.amount.replace(/,/g, ""), item.unAccounted.amount.replace(/,/g, ""), item.partiallyAccounted.amount.replace(/,/g, "")],
+                                    backgroundColor: [
+                                        "#287a1d",
+                                        "#d33f3f",
+                                        "#d2633e"
+                                    ],
+                                    hoverBackgroundColor: [
+                                        "#287a1d",
+                                        "#d33f3f",
+                                        "#d2633e"
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                })
+                this.getColumnHeaders(groupId, id);
+                this.isVisibleA = false;
+                this.showAccDataTables = true;
+                this.sideBarFilteringData(id, groupId);
+            },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        );
+    }
+
+    selectedData(event, dataViewId) {
+        this.filterPagination = false;
+        this.statusOnPieChart = this.pieChartMetrics.labels[event.element._index];
+        this.page = 0;
+        if (this.statusOnPieChart == 'Accounted') {
+            this.accountingDataService.fetchRecordsByViewIdAndStatus(dataViewId, this.acctRuleGroupId, 'accounted', this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.customFilterStatus = 'accounted';
+                    this.onClickRadioCheck(dataViewId, this.acctRuleGroupId, 'accounted');
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+            )
+        } else if (this.statusOnPieChart == 'Un-Accounted') {
+            this.accountingDataService.fetchRecordsByViewIdAndStatus(dataViewId, this.acctRuleGroupId, 'unaccounted', this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.customFilterStatus = 'unaccounted';
+                    this.onClickRadioCheck(dataViewId, this.acctRuleGroupId, 'unaccounted');
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+            )
+        } else if (this.statusOnPieChart == 'Partially-Accounted') {
+            this.accountingDataService.fetchRecordsByViewIdAndStatus(dataViewId, this.acctRuleGroupId, 'partiallyaccounted', this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.customFilterStatus = 'partiallyaccounted';
+                    this.onClickRadioCheck(dataViewId, this.acctRuleGroupId, 'partiallyaccounted');
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+                (res: Response) => {
+                            this.onError(res.json())
+                            this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+                }
+            )
+        }
+    }
+
+    // onClickRadioCheck(dataViewId, ruleGroupId, status) {
+    //     this.accountingDataService.fetchingAccSidebarColumnsByStatus(dataViewId, ruleGroupId, status).subscribe(
+    //         (res: any) => {
+    //             this.sideBarFilters = res;
+    //         });
+    // }
+
+
+    onClickRadioCheck(dataViewId, ruleGroupId, status) {
+        this.accountingDataService.fetchingAccSidebarColumnsByStatus(dataViewId, ruleGroupId, status).subscribe(
+            (res: any) => {
+                this.sideBarFilters = res;
+                if (status == 'accounted') {
+                    this.accountingDataService.fetchRecordsByViewIdAndStatus(dataViewId, ruleGroupId, status, this.page, this.itemsPerPage).subscribe(
+                        (res: any) => {
+                            this.statusOnPieChart == 'Accounted';
+                            this.filterPagination == false;
+                            this.dataViewAllRecords = res;
+                            if (this.dataViewAllRecords.length > 1) {
+                                this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                                this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                            } else {
+                                this.notificationService.error('Error Occured!', 'Unable to Fetch Records!');
+                            }
+                        },
+
+                        (res: Response) => {
+                            this.onError(res.json())
+                            this.notificationService.error('Internal Server Error!', 'Please contact system admin!');
+                        }
+
+                    )
+                } else if (status == 'unaccounted') {
+                    this.accountingDataService.fetchRecordsByViewIdAndStatus(dataViewId, ruleGroupId, status, this.page, this.itemsPerPage).subscribe(
+                        (res: any) => {
+                            this.statusOnPieChart == 'Un-Accounted';
+                            this.filterPagination == false;
+                            this.dataViewAllRecords = res;
+                            if (this.dataViewAllRecords.length > 1) {
+                                this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                                this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                            } else {
+                                this.notificationService.error('Error Occured!', 'Unable to Fetch Records!');
+                            }
+                        },
+
+                        (res: Response) => {
+                            this.onError(res.json())
+                            this.notificationService.error('Internal Server Error!', 'Please contact system admin!');
+                        }
+                    )
+                } else if (status == 'partiallyaccounted') {
+                    this.accountingDataService.fetchRecordsByViewIdAndStatus(dataViewId, ruleGroupId, status, this.page, this.itemsPerPage).subscribe(
+                        (res: any) => {
+                            this.statusOnPieChart == 'Partially-Accounted';
+                            this.filterPagination == false;
+                            this.dataViewAllRecords = res;
+                            if (this.dataViewAllRecords.length > 1) {
+                                this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                                this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                            } else {
+                                this.notificationService.error('Error Occured!', 'Unable to Fetch Records!');
+                            }
+                        },
+
+                        (res: Response) => {
+                            this.onError(res.json())
+                            this.notificationService.error('Internal Server Error!', 'Please contact system admin!');
+                        }
+                    )
+                }
+                // this.fetchRecordsByTypeAndStatus(this.sourceDataViewId, 'source', this.ruleGroupId);
+            },
+            (res: Response) => {
+                this.onError(res.json())
+                this.notificationService.error('Internal Server Error!', 'Please contact system admin!');
+            }
+        );
+    }
+
+
+
+    sideBarFilteringData(viewId, groupId) {
+        this.accountingDataService.fetchingAccSidebarColumns(viewId, groupId).subscribe((res: any) => {
+            this.sideBarFilters = res;
+        },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            });
+    }
+
+    onTabOpen(event) {
+        this.asideBarFiltersColumnValue = [];
+        this.aFilterColumnsSidebar = [];
+    }
+
+    getColumnHeaders(groupId, viewId) {
+        this.accountingDataService.fetchingColHeaders(groupId, viewId).subscribe(
+            (res: any) => {
+                this.sourceHeaderColumns1 = res;
+                this.dataHeaderColumns = this.sourceHeaderColumns1.columns;
+                this.dataHeaderColumns.splice(0, 1);
+                this.dataColumnOptions = [];
+                for (let i = 0; i < this.dataHeaderColumns.length; i++) {
+                    this.dataColumnOptions.push({ label: this.dataHeaderColumns[i].header, value: this.dataHeaderColumns[i] });
+                }
+            },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            })
+    }
+
+
+    fetchRecordsSidebarFilter(dataViewId) {
+        this.aFilterColumnsSidebar = [];
+        let colValue: string = "";
+        this.acctCustomFilterObject = {};
+        this.acctCustomFilterObject.viewId = dataViewId;
+        this.acctCustomFilterObject.limit = this.itemsPerPage;
+        this.acctCustomFilterObject.page = 0;
+        this.acctCustomFilterObject.groupId = this.acctRuleGroupId;
+
+        if (this.asideBarFiltersColumnValue.length > 0) {
+            for (var i = 0; i < this.asideBarFiltersColumnValue.length; i++) {
+                for (var j = 0; j < this.sideBarFilters.length; j++) {
+                    this.asideBarFiltersValueSet = this.sideBarFilters[j].columnValuesSet;
+                    for (var k = 0; k < this.asideBarFiltersValueSet.length; k++) {
+                        if (this.asideBarFiltersColumnValue[i] == this.asideBarFiltersValueSet[k].name) {
+                            if (this.aFilterColumnsSidebar.length == 0) {
+                                this.aFilterColumnsSidebar.push({
+                                    columnName: this.sideBarFilters[j].columnName,
+                                    columnValue: this.asideBarFiltersColumnValue[i],
+                                    operator: 'EQUALS'
+                                });
+                                this.asideBarFiltersColumnValue.splice(0, 1);
+                            } else {
+                                for (var x = 0; x < this.aFilterColumnsSidebar.length; x++) {
+                                    if (this.aFilterColumnsSidebar[x].columnName == this.sideBarFilters[j].columnName) {
+                                        this.aFilterColumnsSidebar[x].columnValue = this.aFilterColumnsSidebar[x].columnValue + ',' + this.asideBarFiltersColumnValue[i];
+                                        this.asideBarFiltersColumnValue.splice(0, 1);
+                                        break;
+                                    } else {
+                                        this.aFilterColumnsSidebar.push({
+                                            columnName: this.sideBarFilters[j].columnName,
+                                            columnValue: this.asideBarFiltersColumnValue[i],
+                                            operator: 'EQUALS'
+                                        });
+                                        this.asideBarFiltersColumnValue.splice(0, 1);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // this.sideBarFilters.forEach(item => {
+        //     //this.sideBarFiltersValueSet.push(item.columnValuesSet);
+        //     console.log('selected values' + JSON.stringify(this.asideBarFiltersColumnValue));
+
+        //     if (this.asideBarFiltersColumnValue) {
+        //         for (var i = 0; i < this.asideBarFiltersColumnValue.length; i++) {
+        //             if (i == this.asideBarFiltersColumnValue.length - 1)
+        //                 colValue = colValue + this.asideBarFiltersColumnValue[i];
+        //             else {
+        //                 colValue = colValue + this.asideBarFiltersColumnValue[i] + ',';
+        //             }
+        //         }
+
+        //     }
+        //     this.aFilterColumnsSidebar.push({
+        //         columnName: item.columnName,
+        //         operator: 'EQUALS',
+        //         columnValue: colValue
+        //     })
+        // })
+        // if (colValue.length > 0) {
+        this.acctCustomFilterObject.filterColumns = this.aFilterColumnsSidebar;
+        this.acctCustomFilterObject.status = this.customFilterStatus;
+        console.log('side bar filter:' + JSON.stringify(this.acctCustomFilterObject));
+        this.accountingDataService.fetchAcctRecordsUsingCustomFilter(this.acctCustomFilterObject).subscribe((res: any) => {
+            this.filterPagination = true;
+            this.dataViewAllRecords = res;
+            console.log('data veiw details:' + JSON.stringify(this.dataViewAllRecords));
+            this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+            this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+        },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            });
+    }
+
+
+
+    onPaginateChange(event) {
+        this.page = event.pageIndex;
+        this.itemsPerPage = event.pageSize;
+        if (this.statusOnPieChart == 'Accounted' && this.filterPagination == false) {
+            this.accountingDataService.fetchRecordsByViewIdAndStatus(this.dataViewId, this.acctRuleGroupId, 'accounted', this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            })
+        } else if (this.statusOnPieChart == 'Un-Accounted' && this.filterPagination == false) {
+            this.accountingDataService.fetchRecordsByViewIdAndStatus(this.dataViewId, this.acctRuleGroupId, 'unaccounted', this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            })
+        } else if (this.statusOnPieChart == 'Partially-Accounted' && this.filterPagination == false) {
+            this.accountingDataService.fetchRecordsByViewIdAndStatus(this.dataViewId, this.acctRuleGroupId, 'partiallyaccounted', this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            })
+        } else if (this.filterPagination == true) {
+            this.acctCustomFilterObject.page = event.pageIndex;
+            this.accountingDataService.fetchAcctRecordsUsingCustomFilter(this.acctCustomFilterObject).subscribe((res: any) => {
+                this.dataViewAllRecords = res;
+                this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+            },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            });
+        } else {
+            this.accountingDataService.fetchRecordsByViewId(this.dataViewId, this.acctRuleGroupId, this.page, this.itemsPerPage).subscribe(
+                (res: any) => {
+                    this.dataViewAllRecords = res;
+                    this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                    this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+                },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            })
+        }
+    }
+
+    fetchDataViewColumns(id) {
+        this.dataViewsService.fetchDataViewsAndColumns(id).subscribe((res: any) => {
+            this.detailsOfDataView = res;
+            this.columnsOfDataView = [];
+            this.detailsOfDataView[0].dataViewsColumnsList.forEach(j => {
+                this.columnsOfDataView.push(j.columnHeader);
+                this.dataTypesList.push(j.colDataType);
+            })
+        },
+             (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        )
+    }
+
+    /*FUNCTION11 - Function to apply operator based on column name selection */
+    /* Author: BHAGATH */
+
+    onSelectColumnName(ind, colName) {
+        for (var i = 0; i < this.detailsOfDataView[0].dataViewsColumnsList.length; i++) {
+            var colObj = this.detailsOfDataView[0].dataViewsColumnsList[i];
+            if (colObj.columnHeader == colName) {
+                this.dataViewsService.operators(colObj.colDataType).subscribe((res: any) => {
+                    this.operatorsList[ind] = [];
+                    this.operatorsList[ind] = res;
+                },
+                    (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+                    }
+                );
+            }
+        }
+
+    }
+
+    fetchAcctRecordsByCustomFilter(id, status) {
+        this.acctCustomFilterObject = {};
+        this.acctCustomFilterObject.status = status;
+        this.acctCustomFilterObject.viewId = id;
+        this.acctCustomFilterObject.limit = this.itemsPerPage;
+        this.acctCustomFilterObject.page = 0;
+        this.acctCustomFilterObject.groupId = this.acctRuleGroupId;
+        this.acctCustomFilterObject.filterColumns = this.accFilterColumns;
+        console.log('Fetch Custom Filter object:' + JSON.stringify(this.acctCustomFilterObject));
+        this.accountingDataService.fetchAcctRecordsUsingCustomFilter(this.acctCustomFilterObject).subscribe((res: any) => {
+            this.filterPagination = true;
+            this.dataViewAllRecords = res;
+            if (this.dataViewAllRecords.length > 1) {
+                this.recordsLength = this.dataViewAllRecords[this.dataViewAllRecords.length - 1].info.totalCount;
+                this.dataViewAllRecords.splice(this.dataViewAllRecords.length - 1, 1);
+            } else {
+                this.notificationService.info('Info!', 'No Records Found!');
+            }
+        },
+            (res: Response) => {
+                this.onError(res.json())
+                this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        );
+    }
+
+    /* FUNCTION15 - Function to clear filter */
+    /* Author: BHAGATH */
+    clearFilter() {
+        this.accFilterColumns = [];
+        let newLine = {
+            "columnValue": ''
+        };
+        this.accFilterColumns.push(newLine);
+    }
+
+    /* FUNCTION14 - Function to add new filter line */
+    /* Author: BHAGATH */
+    addColumn() {
+        let newLine = {
+            "columnValue": ""
+        };
+        this.accFilterColumns.push(newLine);
+    }
+
+    getChartofAccounts(lookupType) {
+        this.showSegments = false;
+        this.coaSegmentsList = [];
+        this.coaName = null;
+        this.debitLineCode = [];
+        this.creditLineCode = [];
+        this.checkAccStatus = false;
+        let unAcctLen: number = 0;
+        if (this.selectedDataLinesToAccount.length > 0) {
+            for (var i = 0; i < this.selectedDataLinesToAccount.length; i++) {
+                if (this.selectedDataLinesToAccount[i].Status == 'Un-Accounted') {
+                    unAcctLen = unAcctLen + 1;
+                }
+            }
+            if (this.selectedDataLinesToAccount.length == unAcctLen) {
+                this.accountModalTog = true;
+                this.lookUpCodeService.fetchLookUpsByLookUpType(lookupType).subscribe((res: any) => {
+                    this.chartOfAccounts = res;
+                },
+                    (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+                    }
+                )
+            } else {
+                this.notificationService.error('Warning', 'Please select only unaccounted records');
+            }
+        } else {
+            this.notificationService.error('Warning', 'No Records Selected');
+        }
+    }
+
+    editAccountedRecords(lookupType) {
+        this.checkAccStatus = false;
+        if (this.selectedDataLinesToAccount.length == 1) {
+            if (this.selectedDataLinesToAccount[0].Status != 'Un-Accounted') {
+                this.lookUpCodeService.fetchLookUpsByLookUpType(lookupType).subscribe((res: any) => {
+                    this.chartOfAccounts = res;
+                },
+                    (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+                    }
+                )
+                this.coaName = this.selectedDataLinesToAccount[0].Coa_Reference;
+                this.onSelectCOA(this.selectedDataLinesToAccount[0].Coa_Reference);
+                this.debitLineCode = this.selectedDataLinesToAccount[0].Debit.split('-');
+                this.creditLineCode = this.selectedDataLinesToAccount[0].Credit.split('-');
+                this.accountModalTog = true;
+                this.showSegments = true;
+            } else {
+                this.notificationService.error('Warning', 'Please select only accounted record');
+            }
+
+        } else {
+            this.notificationService.error('Warning', 'Please select only one record');
+        }
+    }
+
+
+    onSelectCOA(code) {
+        this.lookUpCodeService.fetchLookUpsByLookUpType(code).subscribe((res: any) => {
+            this.showSegments = true;
+            this.coaSegmentsList = res;
+        },
+            (res: Response) => {
+                this.onError(res.json())
+                this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        )
+    }
+
+    recordsToAccounting(id) {
+        this.recordsForAccounting = {};
+        let debitLine: string = '';
+        let creditLine: string = '';
+        if (this.debitLineCode) {
+
+            for (var i = 0; i < this.debitLineCode.length; i++) {
+                if (i == this.debitLineCode.length - 1)
+                    debitLine = debitLine + this.debitLineCode[i];
+                else {
+                    debitLine = debitLine + this.debitLineCode[i] + '-';
+                }
+            }
+
+        }
+        if (this.creditLineCode) {
+
+            for (var i = 0; i < this.creditLineCode.length; i++) {
+                if (i == this.creditLineCode.length - 1)
+                    creditLine = creditLine + this.creditLineCode[i];
+                else {
+                    creditLine = creditLine + this.creditLineCode[i] + '-';
+                }
+            }
+
+        }
+        this.selectedDataLinesToAccount.forEach(item => {
+            this.rowForAccounting.push({
+                rowId: item.Id,
+                debit: debitLine,
+                credit: creditLine,
+                coaRef: this.coaName
+            })
+        })
+        this.recordsForAccounting.viewId = id;
+        this.recordsForAccounting.groupId = this.acctRuleGroupId;
+        this.recordsForAccounting.rows = this.rowForAccounting;
+        if (this.debitLineCode && this.debitLineCode.length > 0 && this.creditLineCode && this.creditLineCode.length > 0) {
+            this.accountingDataService.postingAccountRecords(this.recordsForAccounting).subscribe((res: any) => {
+                this.notificationService.success('Success!', 'Transactions Accounted Successfully!');
+                this.fetchAmountandCountByRuleGroupId(this.acctRuleGroupId);
+                this.fetchAllAccRecordsByViewId(id, this.acctRuleGroupId);
+                this.accountModalTog = false;
+                this.showSegments = false;
+                this.codeCombinationClear();
+                this.selectedDataLinesToAccount = [];
+            },
+                (res: Response) => {
+                    this.onError(res.json())
+                    this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+                }
+            )
+        } else {
+            this.notificationService.error('Warning!', 'Debit and Credit Lines should not be empty!');
+        }
+
+    }
+
+    codeCombinationClear() {
+        this.debitLineCode = []
+        this.creditLineCode = [];
+    }
+
+    unAccountRecords() {
+        this.unAccountedRecords = [];
+        let unALen: number = 0;
+        if (this.selectedDataLinesToAccount.length > 0) {
+            for (var i = 0; i < this.selectedDataLinesToAccount.length; i++) {
+                if (this.selectedDataLinesToAccount[i].Status == 'Accounted') {
+                    unALen = unALen + 1;
+                }
+            }
+            if (this.selectedDataLinesToAccount.length == unALen) {
+                this.selectedDataLinesToAccount.forEach(item => {
+                    this.unAccountedRecords.push(item.Id);
+                });
+                this.accountingDataService.postingUnAccountRecords(this.unAccountedRecords, this.dataViewId, this.acctRuleGroupId).subscribe((res: any) => {
+                    this.fetchAmountandCountByRuleGroupId(this.acctRuleGroupId);
+                    this.fetchAllAccRecordsByViewId(this.dataViewId, this.acctRuleGroupId);
+                    this.notificationService.success('Success!', 'Transactions Unaccounted Successfully!');
+                    this.selectedDataLinesToAccount = [];
+                },
+                    (res: Response) => {
+                        this.onError(res.json())
+                        this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+                    }
+                )
+            } else {
+                this.notificationService.error('Warning!', 'Please select only accounted records!');
+            }
+        } else {
+            this.notificationService.error('Warning!', 'No Records Selected');
+        }
+    }
+
+    removeLine(i: number) {
+        this.accFilterColumns.splice(i, 1);
+    }
+
+    loadPage(page: number) {
+        if (page !== this.previousPage) {
+            this.previousPage = page;
+            this.transition();
+        }
+    }
+    transition() {
+        this.router.navigate(['/accounting-data'], {
+            queryParams:
+            {
+                page: this.page,
+                size: this.itemsPerPage,
+                search: this.currentSearch,
+                sort: this.predicate + ',' + (this.reverse ? 'asc' : 'desc')
+            }
+        });
+    }
+
+    clear() {
+        this.page = 0;
+        this.currentSearch = '';
+        this.router.navigate(['/accounting-data', {
+            page: this.page,
+            sort: this.predicate + ',' + (this.reverse ? 'asc' : 'desc')
+        }]);
+    }
+    search(query) {
+        if (!query) {
+            return this.clear();
+        }
+        this.page = 0;
+        this.currentSearch = query;
+        this.router.navigate(['/accounting-data', {
+            search: this.currentSearch,
+            page: this.page,
+            sort: this.predicate + ',' + (this.reverse ? 'asc' : 'desc')
+        }]);
+    }
+    ngOnInit() {
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 130) + 'px'
+        });
+        this.fetchRuleGroupsByPurpose('ACCOUNTING');
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        this.addColumn();
+        this.labelData = ["Accounted", "Un-accounted"]
+    }
+
+    toggleSideBar() {
+        if (!this.isVisibleB) {
+            this.isVisibleB = true;
+            $('.split-example .left-component').addClass('visible');
+        } else {
+            this.isVisibleB = false;
+            $('.split-example .left-component').addClass('visible');
+        }
+    }
+
+    ngOnDestroy() {
+        //this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    trackId(index: number, item: AccountingData) {
+        return item.id;
+    }
+
+    sort() {
+        const result = [this.predicate + ',' + (this.reverse ? 'asc' : 'desc')];
+        if (this.predicate !== 'id') {
+            result.push('id');
+        }
+        return result;
+    }
+
+    private onSuccess(data, headers) {
+        this.links = this.parseLinks.parse(headers.get('link'));
+        this.totalItems = headers.get('X-Total-Count');
+        this.queryCount = this.totalItems;
+        // this.page = pagingParams.page;
+        this.accountingData = data;
+    }
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+    /** 
+     * Author : Shobha
+     */
+    buildRule() {
+        this.display = false;
+        this.reconcileService.ENABLE_RULE_BLOCK = true;
+        this.create = this.acctRuleGroupId + '-' + this.create;
+
+    }
+    postRule(groupId: any) {
+        let ruleGrpWithRuleAndLineItems = new RuleGroupAndRuleWithLineItem();
+        ruleGrpWithRuleAndLineItems = this.$sessionStorage.retrieve('accountingRuleList');
+        //set adhoc type here
+        /*ruleGrpWithRuleAndLineItems.rulePurpose = 'ORPHAN_ACCOUNTING';
+        ruleGrpWithRuleAndLineItems.name = 'Orphan Accounting';
+        ruleGrpWithRuleAndLineItems.startDate = new Date();*/
+        ruleGrpWithRuleAndLineItems.id = groupId;
+        this.ruleGroupService.postRuleGroupForAccountingRules(ruleGrpWithRuleAndLineItems).subscribe((res: any) => {
+            let savedObj = [];
+            savedObj = res;
+            //let ruleId: any;
+            // ruleId = savedObj[0].subTasksList[0].details;
+            this.notificationService.success(
+                '',
+                'saved successfully'
+            )
+            this.enableruleBlock = false;
+        },
+            (res: Response) => {
+                this.onError(res.json())
+                this.notificationService.error('Internal Server Error!', 'Please contact system admin');
+            }
+        );
+    }
+}

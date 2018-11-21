@@ -1,0 +1,86 @@
+package com.nspl.app.repository;
+
+import java.math.BigInteger;
+import java.util.List;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import com.nspl.app.domain.DataViewsColumns;
+
+/**
+ * Spring Data JPA repository for the DataViewsColumns entity.
+ */
+@SuppressWarnings("unused")
+public interface DataViewsColumnsRepository extends JpaRepository<DataViewsColumns,Long> {
+
+	List<DataViewsColumns> findByDataViewId(Long dataViewId);
+	
+	List<DataViewsColumns> findByDataViewIdOrderByColumnNameAsc(Long dataViewId);
+	
+	List<DataViewsColumns> findByDataViewIdIn(List<Long> dataViewIds);
+	
+	@Query(value="select distinct ref_dv_name from t_data_views_columns where data_view_id = :dataViewId", nativeQuery=true)
+	List<String> fetchDistinctTemplateId(@Param("dataViewId") Long dataViewId);
+	
+	List<DataViewsColumns> findByRefDvNameAndDataViewId(String refDvName, Long dataViewId);
+	
+	@Query(value="select distinct column_name from t_data_views_columns where data_view_id = :dataViewId", nativeQuery=true)
+	List<String> fetchDistinctColName(@Param("dataViewId") Long dataViewId);
+	
+	List<DataViewsColumns> findByDataViewIdAndRefDvType(Long dataViewId,String type);
+
+	
+	@Query(value="SELECT * FROM t_data_views_columns where data_view_id in (SELECT id FROM t_data_views where tenant_id =:tenantId)", nativeQuery=true)
+	List<DataViewsColumns> fetchDataViewColumnsByDataViewIds(@Param("tenantId") Long tenantId);//fetchDataViewColumnByDataViewsIds
+	
+	
+	DataViewsColumns findByDataViewIdAndQualifier(Long dataViewId, String qualifier);
+	
+	@Query(value="select ref_dv_column from t_data_views_columns where data_view_id = :dataViewId", nativeQuery=true)
+	List<String> fetchFileTemplateLineIds(@Param("dataViewId") Long dataViewId);
+	
+	DataViewsColumns findByDataViewIdAndColumnName(Long dataViewId, String columnName);
+	
+	DataViewsColumns findByDataViewIdAndRefDvColumn(Long dataViewId, String refDvCol);
+	
+	@Query(value="select id from t_data_views_columns where data_view_id = :dataViewId", nativeQuery=true)
+	List<BigInteger> fetchIdsByDataViewId(@Param("dataViewId") Long dataViewId);
+	
+	
+	@Query(value="select ref_dv_column from t_data_views_columns where id in(:ids) and ref_dv_column is not null", nativeQuery=true)
+	List<String> fetchFileTemplateLineIdsByIds(@Param("ids") List<BigInteger> ids);
+	
+	List<DataViewsColumns> findByDataViewIdAndGroupByIsTrue(Long viewId);
+	
+	List<DataViewsColumns> findByDataViewIdAndColDataType(Long viewId, String dataType);
+
+	
+	@Query(value="select distinct data_view_id from t_data_views_columns where ref_dv_type=:dvType and ref_dv_name=:tempId", nativeQuery=true)
+	List<BigInteger> findDistinctDataViewIdByRefDvTypeAndRefDvColumn(@Param("dvType") String dvType,@Param("tempId")String tempId);
+
+	List<DataViewsColumns> findByDataViewIdAndRefDvTypeAndGroupByIsTrue(Long viewId, String string);
+
+	DataViewsColumns findByDataViewIdAndRefDvTypeAndQualifier(Long viewId, String string, String string2);
+
+	
+	@Query(value="select * from t_data_views_columns where data_view_id =:viewId and ref_dv_type is null and group_by=true", nativeQuery=true)
+	List<DataViewsColumns> findByDataViewIdAndRefDvTypeIsNullAndGroupByIsTrue(@Param("viewId") Long viewId);
+
+	
+	@Query(value="select * from t_data_views_columns where id in (:tColumnIds)", nativeQuery=true)
+	List<DataViewsColumns> findByIdIn(@Param("tColumnIds") List<BigInteger> tColumnIds);
+
+	
+	@Query(value="select column_name from t_data_views_columns where id in (:ids)", nativeQuery=true)
+	List<String> findColumnName(@Param("ids") List<BigInteger> ids);
+	
+	@Query(value="select distinct ref_dv_name from t_data_views_columns where data_view_id in (:dataViewId)", nativeQuery=true)
+	List<String> fetchDistinctTemplateIdByDataViewIdIn(@Param("dataViewId") List<BigInteger> dataViewId);
+	
+	
+	@Query(value="SELECT * FROM t_data_views_columns where data_view_id = :viewId and qualifier in('TRANSDATE', 'FILEDATE')", nativeQuery=true)
+	List<DataViewsColumns> fetchDateQualifiers(@Param("viewId") Long viewId);
+	
+}

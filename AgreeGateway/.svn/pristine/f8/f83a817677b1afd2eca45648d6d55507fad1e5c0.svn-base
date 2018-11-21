@@ -1,0 +1,47 @@
+import { BaseEntity } from './../../shared';
+
+export class DataViews implements BaseEntity {
+    constructor(
+            public id?: number,
+                    public tenantId?: number,
+                    public dataViewDispName?: string,
+                    public dataViewName?: string,
+                    public dataViewObject?: string,
+                    public enabledFlag?: boolean,
+                    public createdBy?: number,
+                    public lastUpdatedBy?: number,
+                    public startDate?: any,
+                    public endDate?: any,
+                    public creationDate?: any,
+                    public lastUpdatedDate?: any,
+                    public description?: any,
+                    public dataViewsColumnsList?: any,
+                    public operator?: any,
+                    public colValue?: any,
+                    public columnEdit?: boolean,
+                    public viewRelation?: any,
+                    public basedTemplate?: any,
+                    public source?: any,
+                    public target?: any,
+                    public conditions?: any,
+                    public sourceCol?: any,
+                    public targetCol?: any,
+                    public unionColumnsList?:any,
+                    public dataViewsUnionColumnsList?: any,
+                    public src?: any,
+                    public templateInfo?: any,
+                    public dataViewDisplayName?: any,
+                    public dataViewId?: any,
+                    public srcMapping?: any
+    ) {
+        this.enabledFlag = false;
+        this.startDate = new Date();
+    }
+}
+
+export const DataViewsBreadCrumbTitles = {
+        dataViews: 'Data Source List',
+        dataViewDetails: 'Data Source Details',
+        dataViewNew: 'Create New Data Source',
+        dataViewEdit: 'Edit Data Source'
+    }

@@ -1,0 +1,410 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit } from '@angular/core';
+import { Response } from '@angular/http';
+import { ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService  } from 'ng-jhipster';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { SelectItem, MultiSelectModule } from 'primeng/primeng';
+import { PerfectScrollbarComponent } from 'angular2-perfect-scrollbar';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { TemplateDetails, JournalsHeaderData } from './template-details.model';
+import { TemplateDetailsService } from './template-details.service';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { JhiDateUtils } from 'ng-jhipster';
+import { AngularMultiSelectModule } from 'angular2-multiselect-dropdown/angular2-multiselect-dropdown';
+import { CommonService } from '../common.service';
+import { DataViewsService } from '../data-views/data-views.service';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-template-details-detail',
+    templateUrl: './template-details-detail.component.html'
+})
+export class TemplateDetailsDetailComponent implements OnInit, OnDestroy {
+
+    journalsHeader = new JournalsHeaderData();
+    templateDetails: TemplateDetails;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    presentUrl: any;
+    dataViews: any;
+    dataViewList = [];
+    limitSelectionSettings1 = {};
+    selectedView = [];
+    dataViewCols = [];
+    glDateDerivationList = [];
+    periodList = [];
+    conversionTypeList = [];
+    journalBalanceList = [];
+    journalHeaders = [];
+    mappingTypes = [];
+    mappingValues = [];
+    mappingValue = [];
+    jeLineDerivations = [];
+    operatorList = [];
+    journalGenerationLevelList = [];
+    mappingTypesa: any = [];
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private templateDetailsService: TemplateDetailsService,
+        private route: ActivatedRoute,
+        private parseLinks: JhiParseLinks,
+        private paginationUtil: JhiPaginationUtil,
+        private jhiLanguageService: JhiLanguageService,
+        private alertService: JhiAlertService,
+        private principal: Principal,
+        private paginationConfig: PaginationConfig,
+        private router: Router,
+        private config: NgbDatepickerConfig,
+        private notificationsService: NotificationsService,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        private dataViewsService: DataViewsService,
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+     changeMinDate() {
+        this.config.minDate = this.journalsHeader.startDate;
+    }
+
+    resetMinDate() {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+    }
+
+    ngOnInit() {
+        this.commonService.screensize();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 161) + 'px'
+        });
+        this.limitSelectionSettings1 = {
+            text: "Select View",
+            singleSelection: true,
+            enableSearchFilter: true,
+            searchPlaceholderText: "Search View.."
+        };
+        this.dataViewsService.dataViewList().subscribe((res: any) => {
+            this.dataViews = res;
+            for (var i = 0; i < this.dataViews.length; i++) {
+                let obj = {
+                    "id": this.dataViews[i].id,
+                    "itemName": this.dataViews[i].dataViewDispName
+                }
+                this.dataViewList.push(obj);
+            }
+            //console.log('dataView list :' + JSON.stringify(this.dataViewList));
+        });
+        this.templateDetailsService.getLookUps('JE_DERIVATIONS').subscribe((res: any) => {
+            this.journalHeaders = res;
+            this.templateDetailsService.getLookUps('MAPPING_TYPE').subscribe((res: any) => {
+                this.mappingTypes = res;
+                for (var i = 0; i < this.journalHeaders.length; i++) {
+                    this.mapval(this.journalHeaders[i].meaning, i);
+                }
+                //console.log('this.journalHeaders ' + JSON.stringify(this.journalHeaders));
+            });
+        });
+        this.templateDetailsService.getLookUps('GL_DATES_DERIVATION').subscribe((res: any) => {
+            this.glDateDerivationList = res;
+        });
+        this.templateDetailsService.getLookUps('GL_PERIOD').subscribe((res: any) => {
+            this.periodList = res;
+        });
+        this.templateDetailsService.getLookUps('CONVERSION_TYPE').subscribe((res: any) => {
+            this.conversionTypeList = res;
+        });
+        this.templateDetailsService.getLookUps('DEBIT_AND_CREDIT_SHOULD_BALANCE').subscribe((res: any) => {
+            this.journalBalanceList = res;
+        });
+        this.templateDetailsService.getLookUps('OPERATOR').subscribe((res: any) => {
+            this.operatorList = res;
+        });
+        this.templateDetailsService.getLookUps('JOURNAL_GENERATION_LEVEL').subscribe((res: any) => {
+            this.journalGenerationLevelList = res;
+        });
+        this.templateDetailsService.getmappingSets().subscribe((res: any) => {
+            this.mappingValues = res;
+        });
+        this.fetchJournalsDetails();
+    }
+
+    fetchJournalsDetails() {
+        this.subscription = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentUrl = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "template-details") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+
+            if (params['id']) {
+                this.templateDetailsService.getJournalsById(params['id']).subscribe(
+                    (journalsHeaderDataService) => {
+                        this.journalsHeader = journalsHeaderDataService;
+                        /* below this.journalsHeader.selectedview to show selected view */
+                        this.journalsHeader.selectedView = [
+                            {
+                                "id": this.journalsHeader.viewId,
+                                "itemName": this.journalsHeader.viewName
+                            }
+                        ];
+                        for (var i = 0; i < this.journalsHeader.jeHeaderDerivations.length; i++) {
+                            this.mapval(this.journalsHeader.jeHeaderDerivations[i].meaning, i);
+                            this.getType(this.journalsHeader.jeHeaderDerivations[i].mappingType, this.journalsHeader.jeHeaderDerivations[i].meaning, i);
+                        }
+                        this.journalHeaders = this.journalsHeader.jeHeaderDerivations;
+                        this.jeLineDerivations = this.journalsHeader.jeLineDerivations;
+                        console.log('journalsHeader to display by id :' + JSON.stringify(this.journalsHeader));
+                        this.dataViewsService.getDataViewById(this.journalsHeader.viewId).subscribe(
+                            (dataViews) => {
+                               // console.log('dat ' + JSON.stringify(dataViews));
+                                let arr:any;
+                                arr = dataViews[0];
+                               // console.log('arr ' + JSON.stringify(arr));
+                                if(arr.dataViewsColumnsList != undefined){
+                                //    console.log('arr.dataViewsColumnsList ' + JSON.stringify(arr.dataViewsColumnsList));
+                                    this.dataViewCols = arr.dataViewsColumnsList;
+                                }else if(arr.dataViewsUnionColumnsList != undefined){
+                                 //   console.log('arr.dataViewsUnionColumnsList ' + JSON.stringify(arr.dataViewsUnionColumnsList));
+                                    this.dataViewCols = arr.dataViewsUnionColumnsList;
+                                }
+                                 console.log('data view cols ' + JSON.stringify(this.dataViewCols));
+                            });
+                        this.isCreateNew = false;
+                        if (url.endsWith('edit')) {
+                            this.isEdit = true;
+                        } else {
+                            this.isViewOnly = true;
+                            this.limitSelectionSettings1 = {
+                                text: "Select View",
+                                singleSelection: true,
+                                enableSearchFilter: true,
+                                searchPlaceholderText: "Search View..",
+                                disabled: true
+                            };
+                        }
+                    }
+                );
+            } else {
+                this.isCreateNew = true;
+                let obj = {
+                    "value": ''
+                };
+                this.jeLineDerivations.push(obj);
+            }
+        });
+    }
+    /* Function to save journal data */
+    saveJournalData() {
+        let link: any = '';
+        delete this.journalsHeader.selectedView;
+        if (this.journalsHeader.id == null || this.journalsHeader.id == undefined) {
+            for (var i = 0; i < this.journalHeaders.length; i++) {
+                this.journalHeaders[i]['attributeName'] = this.journalHeaders[i].lookUpCode;
+            };
+        }
+        for (var i = 0; i < this.jeLineDerivations.length; i++) {
+            this.jeLineDerivations[i].seq = i + 1;
+        }
+        this.journalsHeader['enable'] = true;
+        this.journalsHeader['targetAppSource'] = 'Oracle_EBS';
+        this.journalsHeader['jeHeaderDerivations'] = this.journalHeaders;
+        this.journalsHeader['jeLineDerivations'] = this.jeLineDerivations;
+        console.log('Journal Data For Posting :' + JSON.stringify(this.journalsHeader));
+        this.templateDetailsService.postJournalsHeaderData(this.journalsHeader)
+            .subscribe((journalsHeader) => {
+                this.journalsHeader = journalsHeader;
+                this.notificationsService.success(
+                    'Success!',
+                    'Journal template successfully created'
+                )
+                if (this.journalsHeader.id) {
+                    link = ['/template-details', { outlets: { 'content': this.journalsHeader.id + '/details' } }];
+                    if (this.isEdit) {
+                        this.isEdit = false;
+                    }
+                    if (this.isCreateNew) {
+                        this.isCreateNew = false;
+                    }
+                    this.isViewOnly = true;
+                    this.router.navigate(link);
+                }
+            });
+    }
+    testChange(obj:any,ind:any){
+        let indVal = '#disp_'.concat( ind +1);
+        if((obj.lookUpCode == 'JOURNAL_BATCH_NAME' || obj.lookUpCode == 'RATE') && (obj.value != null || obj.value != undefined)){
+             $(indVal).css('display','');
+        }else if(obj.lookUpCode == 'LEDGER' || obj.lookUpCode == 'SOURCE' || obj.lookUpCode == 'CATEGORY'){
+            if(obj.mappingType == 'User Value' && (obj.value != null || obj.value != undefined)){
+                $(indVal).css('display','');
+            }else if(obj.mappingType == 'MAPPING_SET' && (obj.sourceViewColumnIdv != null || obj.sourceViewColumnId != undefined)){
+                $(indVal).css('display','');
+            }
+        }else if((obj.lookUpCode == 'CURRENCY' || obj.lookUpCode == 'JOURNAL_GENERATION_LEVEL' || obj.lookUpCode == 'DEBIT_AND_CREDIT_SHOULD_BALANCE') 
+                    && (obj.value != null || obj.value != undefined)){
+            $(indVal).css('display','');                
+        }else if(obj.lookUpCode == 'GL_DATE' || obj.lookUpCode == 'PERIOD' || obj.lookUpCode == 'CONVERSION_TYPE' ||
+                     obj.lookUpCode == 'CONVERSION_TYPE'){
+            if(obj.mappingType == 'User Value' && (obj.value != null || obj.value != undefined)){
+                $(indVal).css('display','');
+            }else if(obj.mappingType == 'LOOKUP_CODE' && (obj.value != null || obj.value != undefined)){
+                $(indVal).css('display','');
+            }
+        }
+    }//MAPPING_SET 
+    /* Function onselect of view to get dataview columns */
+    onViewSelect(obj: any) {
+        console.log('selected View :' + JSON.stringify(obj));
+        this.journalsHeader.viewId = obj[0].id;
+        this.journalsHeader.viewName = obj[0].itemName;
+        this.dataViewsService.getDataViewById(this.journalsHeader.viewId).subscribe((res: any) => {
+            console.log('col res ' + JSON.stringify(res));
+            if(res[0].dataViewsColumnsList != undefined){
+                this.dataViewCols = res[0].dataViewsColumnsList;
+            }else if(res[0].dataViewsUnionColumnsList != undefined){
+                this.dataViewCols = res[0].dataViewsUnionColumnsList;
+            }
+            console.log('dataView Columns :' + JSON.stringify(this.dataViewCols));
+            $('#disp_1').css('display','none');
+            $('#disp_2').css('display','none');
+            $('#disp_3').css('display','none');
+            $('#disp_4').css('display','none');
+            $('#disp_5').css('display','none');
+            $('#disp_6').css('display','none');
+            $('#disp_7').css('display','none');
+            $('#disp_8').css('display','none');
+            $('#disp_9').css('display','none');
+            $('#disp_10').css('display','none'); 
+        });
+        console.log('this.presentPath ' + this.presentPath);
+        if(this.presentUrl.endsWith('edit')){
+            this.jeLineDerivations = [];
+            for(var i=0;i<this.journalsHeader.jeHeaderDerivations.length;i++){
+                if(this.journalsHeader.jeHeaderDerivations[i].sourceViewColumnId != null || this.journalsHeader.jeHeaderDerivations[i].sourceViewColumnId == undefined){
+                    this.journalsHeader.jeHeaderDerivations[i].sourceViewColumnId = '';
+                }
+            }
+            let obj = {
+                    "value": ''
+            };
+            this.jeLineDerivations.push(obj);
+        }
+    }
+    /* Function to filter mapping types based on attribute names */
+    mapval(val: any, ind) {
+        for (var i = 0; i < this.mappingTypes.length; i++) {
+            if (val == 'Journal Batch Name') {
+                this.mappingTypes[0]['filt'] = val;
+            } else if (val == 'Ledger') {
+                this.mappingTypes[0]['filt'] = val;
+                this.mappingTypes[1]['filt'] = val;
+            } else if (val == 'Source') {
+                this.mappingTypes[0]['filt'] = val;
+                this.mappingTypes[1]['filt'] = val;
+            } else if (val == 'Category') {
+                this.mappingTypes[0]['filt'] = val;
+                this.mappingTypes[1]['filt'] = val;
+            } else if (val == 'Currency') {
+                this.mappingTypes[0]['filt'] = val;
+            } else if (val == 'GL Date') {
+                this.mappingTypes[0]['filt'] = val;
+                this.mappingTypes[2]['filt'] = val;
+            } else if (val == 'Period') {
+                this.mappingTypes[0]['filt'] = val;
+                this.mappingTypes[2]['filt'] = val;
+            } else if (val == 'Rate') {
+                this.mappingTypes[0]['filt'] = val;
+            } else if (val == 'Conversion Type') {
+                this.mappingTypes[0]['filt'] = val;
+                this.mappingTypes[2]['filt'] = val;
+            } else if (val == 'Journal Generation Level') {
+                this.mappingTypes[2]['filt'] = val;
+            } else if (val == 'Debit and Credit Should Balance') {
+                this.mappingTypes[2]['filt'] = val;
+            }
+        }
+        this.mappingTypesa[ind] = this.mappingTypes.filter((item) => item.filt == val);
+    }
+    OnViewDeSelect(obj: any) {
+        this.journalsHeader.viewId = null;
+        this.journalsHeader.viewName = null;
+    }
+    /* Function to filter mapping values based on selected mapping type */
+    getType(val: any, name: any, ind: any) {
+        if (val == "MAPPING_SET") {
+            this.mappingValue[ind] = this.mappingValues.filter((item) => item.description == name);
+            //console.log('mappingValue[ind] ' + JSON.stringify(this.mappingValue[ind]));
+        }
+    }
+    /* Function to add column at line derivation rule */
+    addColumn() {
+        let count = 0;
+        for (var i = 0; i < this.jeLineDerivations.length; i++) {
+            if (!this.jeLineDerivations[i].sViewColumn || !this.jeLineDerivations[i].operator || !this.jeLineDerivations[i].value) {
+                count++;
+            } else {
+
+            }
+        }
+        if (count > 0) {
+            this.notificationsService.error(
+                'Warning!',
+                'Fill mandatory fields to add another column'
+            )
+        } else {
+            let obj = {
+                "value": '',
+            };
+            this.jeLineDerivations.push(obj);
+        }
+    }
+    /* Function to delete column at line derivation rule */
+    deleteColumn(col: any) {
+        console.log('delete col ' + JSON.stringify(col));
+        if (this.jeLineDerivations.length > 1) {
+            this.jeLineDerivations.splice(this.jeLineDerivations.indexOf(col), 1);
+        } else {
+            this.notificationsService.error(
+                'Warning!',
+                'Atleast one journal line derivation rule should exist'
+            )
+        }
+    }
+
+    /* load(id) {
+         this.templateDetailsService.find(id).subscribe((templateDetails) => {
+            this.templateDetails = templateDetails;
+        }); 
+    } */
+   /*  previousState() {
+        window.history.back();
+    } */
+
+    ngOnDestroy() {
+    }
+
+    /* registerChangeInTemplateDetails() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'templateDetailsListModification',
+            (response) => this.load(this.templateDetails.id)
+        );
+    } */
+}

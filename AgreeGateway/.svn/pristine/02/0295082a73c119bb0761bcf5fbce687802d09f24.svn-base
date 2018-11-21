@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { IntermediateTable } from './intermediate-table.model';
+import { IntermediateTablePopupService } from './intermediate-table-popup.service';
+import { IntermediateTableService } from './intermediate-table.service';
+
+@Component({
+    selector: 'jhi-intermediate-table-delete-dialog',
+    templateUrl: './intermediate-table-delete-dialog.component.html'
+})
+export class IntermediateTableDeleteDialogComponent {
+
+    intermediateTable: IntermediateTable;
+
+    constructor(
+        private intermediateTableService: IntermediateTableService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.intermediateTableService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'intermediateTableListModification',
+                content: 'Deleted an intermediateTable'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-intermediate-table-delete-popup',
+    template: ''
+})
+export class IntermediateTableDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private intermediateTablePopupService: IntermediateTablePopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.intermediateTablePopupService
+                .open(IntermediateTableDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,303 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+import { Router, NavigationEnd } from '@angular/router';
+import { PageEvent } from '@angular/material';
+import { Response } from '@angular/http';
+
+import { CommonService } from '../common.service';
+import { Jobs, JobsSchedules, SchedulerActions } from './jobs.model';
+import { JobDetailsService } from './job-details.service';
+import { JobsService } from './jobs.service';
+
+import { NotificationsService } from 'angular2-notifications-lite';
+import { SelectItem } from 'primeng/primeng';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import { SessionStorageService } from 'ng2-webstorage';
+import { ITEMS_PER_PAGE } from '../../shared';
+import { OverlayPanel } from 'primeng/primeng';
+import { MdDialog } from '@angular/material';
+import { JobsNewDialog } from './jobs-new-dialog.component';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-jobs-sched-list',
+    templateUrl: './jobs-schedulars-list.component.html'
+})
+export class JobsSchedularDetailsComponent implements OnInit, OnDestroy {
+    
+    // UserData: any;
+    jobId :  number =0 ;
+    routeSub: any;
+    jobScheListsHeight: any;
+    presentPath: any;
+    columnOptions: SelectItem[];
+    schedularsList: JobsSchedules[] = [];
+    selSingleSchedule = new JobsSchedules();
+    selectedScheduls: JobsSchedules[] = [];
+    schedulsTableColumns = [                  //  Job list source columns
+        { field: 'programName', header: 'Program' },
+        // { field: 'parametes', header: 'Parameters' },
+        { field: 'oozieStatus', header: 'Status' },
+        { field: 'frequencyType', header: 'Frequency Type' }
+       
+        
+    ];
+    
+    length: number;
+    pageSize: number;
+    pageSizeOptions = [5, 10, 25, 100];
+    pageEvent: PageEvent = new PageEvent();
+    curSch: any;
+
+    pageChange(pageEvent: any){
+        //console.log(pageEvent);
+    }
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private jobDetailsService: JobDetailsService,
+        private notificationsService: NotificationsService,
+        private router: Router,
+        private commonService: CommonService,
+        private route: ActivatedRoute,
+        private $sessionStorage: SessionStorageService,
+        private jobsService : JobsService,
+        public dialog: MdDialog,
+    ) {
+        this.pageSize = ITEMS_PER_PAGE;
+        this.pageEvent.pageIndex = 0;
+        this.pageEvent.pageSize = this.pageSize;
+        this.columnOptions = [];
+        for (let i = 0; i < this.schedulsTableColumns.length; i++) {
+            this.columnOptions.push({ label: this.schedulsTableColumns[i].header, value: this.schedulsTableColumns[i] });
+        }
+      
+    }
+    
+    /**
+     * Author: Sameer(Modified)
+     * Checking if scheduler filtered with 'FrequencyType or ProgramId' then change pagination
+     */
+    loadAllSchedulersList(jobId) {
+        if (this.curSch && this.curSch.type) {
+            this.loadFilterSchedulersList(this.curSch);
+        } else {
+            this.jobDetailsService.getSchedulersList(this.pageEvent.pageIndex + 1, this.pageEvent.pageSize, jobId).subscribe((resp: Response) => {
+                this.schedularsList = resp.json();
+                if (!jobId)
+                    this.length = +resp.headers.get('x-count');
+                else
+                    this.length = 0;
+            });
+        }
+    }
+    
+    ngOnInit() {
+       // this.jobDetailsService.getUserInfo();
+        /* if(this.$sessionStorage.retrieve('userData')){
+            this.UserData = this.$sessionStorage.retrieve('userData');
+        } */ 
+        this.jobScheListsHeight = 'calc(100vh - 275px)';
+        this.routeSub = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            /**Checking if scheduler filtered with 'FrequencyType or ProgramId' then load filter Function */
+            if (params.type) {
+                this.curSch = params;
+                this.loadFilterSchedulersList(params);
+            } else {
+                if (params['id']) {
+                    this.loadAllSchedulersList(params['id']);
+                    this.jobId = params['id'];
+                }
+                else {
+                    this.loadAllSchedulersList(0);
+                }
+            }
+        });
+        
+        $(".search-icon-body").click(function() {   
+            if ( $( ".ftlSearch md-input-container" ).hasClass( "hidethis" ) ) {
+                $( ".ftlSearch md-input-container" ).removeClass( "hidethis" );
+                $( ".ftlSearch md-input-container" ).addClass( "show-this" );
+            } else if ( $( ".ftlSearch md-input-container" ).hasClass( "show-this" ) ) {
+                var value = $( '.ftlSearch md-input-container .mySearchBox' ).filter( function() {
+                    return this.value != '';
+                } );
+                if ( value.length <= 0 ) { // zero-length string
+                    $( ".ftlSearch md-input-container" ).removeClass( "show-this" );
+                    $( ".ftlSearch md-input-container" ).addClass( "hidethis" );
+                }
+            } else {
+                $( ".ftlSearch md-input-container" ).addClass( "show-this" );
+            }
+        } );
+        $( ".ftlSearch md-input-container .mySearchBox" ).blur( function() {
+            var value = $( '.ftlSearch md-input-container .mySearchBox' ).filter( function() {
+                return this.value != '';
+            } );
+            if ( value.length <= 0 ) { // zero-length string
+                $( ".ftlSearch md-input-container" ).removeClass( "show-this" );
+                $( ".ftlSearch md-input-container" ).addClass( "hidethis" );
+            }
+        } );
+    }
+
+    ngOnDestroy() {
+        
+    }
+
+    rerunSchedule(oozieJobId: any) {
+        this.jobDetailsService.rerunSchedule(oozieJobId).subscribe((resp: any) => {
+           // console.log(resp);
+            this.loadAllSchedulersList(0);
+        });
+    }
+
+    stopSchedule(id: any, rangeType: any, scope: any) {
+        this.jobDetailsService.killSchedule(id, 'action', 1).subscribe((resp: any) => {
+            //console.log(resp);
+            this.loadAllSchedulersList(0);
+        });
+    }
+    
+    showScheduleLog(id: any){
+        this.jobDetailsService.showScheduleLog(id).subscribe((resp: any)=>{
+           // console.log(resp);
+        });
+    }
+    schedulerActions: SchedulerActions[] = [];
+    showActionsLog: boolean = false;
+    
+    getScheduleActions(schedule: JobsSchedules, id: any){
+        this.selSingleSchedule = schedule;
+        this.jobDetailsService.getScheduleActions(id).subscribe((resp: SchedulerActions[])=>{
+            this.schedulerActions=resp;
+            this.showActionsLog=true;
+        });
+    }
+    
+    resetmodal(){
+        this.showActionsLog=false;
+    }
+      /**
+     * Author : Shobha
+     * @param jobId
+     */
+    suspendJob(jobId)
+    {
+        console.log('job id to suspend is '+jobId);
+        this.jobDetailsService.suspendJob(jobId).subscribe((res: any) => {
+            let resp :  any = res;
+            if(resp)
+                {
+                this.notificationsService.info(
+                        '',
+                        'Job Suspended'
+                )
+                }
+            else
+                {
+                this.notificationsService.error(
+                        '',
+                        'Failed Suspending Job'
+                )
+                }
+              this.router.navigate( ['/jobs', { outlets: { 'content': 0 + '/schedulars-list' } }] );
+        });
+    }
+     /**
+     * Author : Shobha
+     * @param jobId
+     */
+    resumeJob(jobId)
+    {
+        console.log('job id to resume is '+jobId);
+        this.jobDetailsService.resumeJob(jobId).subscribe((res: any) => {
+            let resp :  any = res;
+            if(resp)
+                {
+                this.notificationsService.info(
+                        '',
+                        'Job resumed'
+                )
+                }
+            else
+                {
+                this.notificationsService.error(
+                        '',
+                        'Failed resuming Job'
+                )
+                }
+            this.router.navigate( ['/jobs', { outlets: { 'content': 0 + '/schedulars-list' } }] );
+        });
+    }
+    /**
+     * Author : Shobha
+     * @param jobId
+     */
+    killJob(jobId)
+    {
+        this.jobDetailsService.killJob(jobId).subscribe((res: any) => {
+            this.refreshSchedulerList();
+        });
+    }
+    /**
+     * Author : Shobha, Sameer(Modified)
+     * Checking if scheduler filtered with 'FrequencyType or ProgramId' then change refresh
+     */
+    refreshSchedulerList() {
+        if(this.curSch && this.curSch.type) {
+            this.loadFilterSchedulersList(this.curSch);
+        }else {
+            this.loadAllSchedulersList(this.jobId);
+        }
+    }
+
+    /**
+     * Author: Sameer
+     * @param 'FrequencyType or ProgramId'
+     */
+    loadFilterSchedulersList(param) {
+        this.jobDetailsService.filterSchedulersList(this.pageEvent.pageIndex + 1, this.pageEvent.pageSize, param).subscribe((res) => {
+            this.schedularsList = res.json();
+            this.length =+ res.headers.get('x-count');
+        });
+    }
+
+    /**
+     * Author: Sameer
+     * Open New Jobs Dialog
+     */
+    openDialog(): void {
+        this.jobDetailsService.oozieDBTest().subscribe((oozieStatus: any) => {
+            if (oozieStatus && oozieStatus.dbStatus && oozieStatus.ooziestatus) {
+                let dialogRef = this.dialog.open(JobsNewDialog, {
+                    width: '600px',
+                    disableClose: true
+                });
+
+                //For Apply Jobs Specific Styles
+                $('body').addClass('jobs-material');
+
+                dialogRef.afterClosed().subscribe(result => {
+                    $('body').removeClass('jobs-material');
+                    this.refreshSchedulerList();
+                });
+            } else {
+                this.notificationsService.error('Sorry!', 'Server is unstable!', {
+                    timeOut: 4000,
+                    showProgressBar: false,
+                    pauseOnHover: true,
+                    clickToClose: true,
+                    maxLength: 100
+                });
+            }
+        });
+    }
+        
+}

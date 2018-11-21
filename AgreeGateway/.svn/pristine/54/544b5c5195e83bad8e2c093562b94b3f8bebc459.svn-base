@@ -1,0 +1,127 @@
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiLanguageService } from 'ng-jhipster';
+import { Response } from '@angular/http';
+
+import { ProfileService } from '../profiles/profile.service';
+import { JhiLanguageHelper, Principal, LoginModalService, LoginService } from '../../shared';
+import { NavBarService } from './navbar.service';
+
+import { VERSION, DEBUG_INFO_ENABLED } from '../../app.constants';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import { SessionStorageService } from 'ng2-webstorage';
+
+declare var $: any;
+declare var jQuery: any;
+@Component({
+    selector: 'jhi-navbar',
+    templateUrl: './navbar.component.html',
+    styleUrls: [
+        'navbar.scss'
+    ]
+})
+export class NavbarComponent implements OnInit {
+
+    inProduction: boolean;
+    isNavbarCollapsed: boolean;
+    languages: any[];
+    swaggerEnabled: boolean;
+    modalRef: NgbModalRef;
+    version: string;
+    schedularList: any[]=[];
+    currentAccount: any;
+    
+    UserData: any;
+    constructor(
+        private loginService: LoginService,
+        private languageService: JhiLanguageService,
+        private navbarService: NavBarService,
+        private languageHelper: JhiLanguageHelper,
+        private principal: Principal,
+        private loginModalService: LoginModalService,
+        private profileService: ProfileService,
+        private router: Router,
+        private $sessionStorage: SessionStorageService
+    ) {
+        
+        this.version = VERSION ? 'v' + VERSION : '';
+        this.isNavbarCollapsed = true;
+    }
+
+    ngOnInit() {
+        
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        
+        this.languageHelper.getAll().then((languages) => {
+            this.languages = languages;
+        });
+
+        this.profileService.getProfileInfo().subscribe((profileInfo) => {
+            this.inProduction = profileInfo.inProduction;
+            this.swaggerEnabled = profileInfo.swaggerEnabled;
+        });
+        //  $(document).ready(function(){
+		//     $(".dropdown").hover(            
+		//         function() {
+		//             $('.dropdown-menu', this).not('.in .dropdown-menu').stop(true,true).slideDown("400");
+		//             $(this).toggleClass('open');        
+		//         },
+		//         function() {
+		//             $('.dropdown-menu', this).not('.in .dropdown-menu').stop(true,true).slideUp("400");
+		//             $(this).toggleClass('open');       
+		//         }
+		//     );
+		// });
+        
+        
+        this.getuserinfo();
+        
+    }
+
+    changeLanguage(languageKey: string) {
+      this.languageService.changeLanguage(languageKey);
+    }
+    getuserinfo(){
+        if(this.$sessionStorage.retrieve('userData')){
+            this.UserData = this.$sessionStorage.retrieve('userData');
+        }    
+    
+    }
+    collapseNavbar() {
+        this.isNavbarCollapsed = true;
+    }
+
+    isAuthenticated() {
+        return this.principal.isAuthenticated();
+    }
+
+    login() {
+        this.modalRef = this.loginModalService.open();
+    }
+    
+    loadschedularList(){
+        this.UserData = this.$sessionStorage.retrieve('userData');
+        this.navbarService.getSchedulersList(1,6, this.UserData).subscribe((resp: Response)=>{
+            this.schedularList = resp.json();
+        });
+    }
+
+    logout() {
+        this.collapseNavbar();
+        this.loginService.logout();
+        this.router.navigate(['']);
+        location.reload();
+    }
+
+    toggleNavbar() {
+        this.isNavbarCollapsed = !this.isNavbarCollapsed;
+    }
+
+    getImageUrl() {
+        return this.isAuthenticated() ? this.principal.getImageUrl() : null;
+    }
+}

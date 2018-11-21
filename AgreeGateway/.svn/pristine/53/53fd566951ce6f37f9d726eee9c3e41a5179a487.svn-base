@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { DataViewsColumns } from './data-views-columns.model';
+import { DataViewsColumnsPopupService } from './data-views-columns-popup.service';
+import { DataViewsColumnsService } from './data-views-columns.service';
+
+@Component({
+    selector: 'jhi-data-views-columns-delete-dialog',
+    templateUrl: './data-views-columns-delete-dialog.component.html'
+})
+export class DataViewsColumnsDeleteDialogComponent {
+
+    dataViewsColumns: DataViewsColumns;
+
+    constructor(
+        private dataViewsColumnsService: DataViewsColumnsService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.dataViewsColumnsService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'dataViewsColumnsListModification',
+                content: 'Deleted an dataViewsColumns'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-data-views-columns-delete-popup',
+    template: ''
+})
+export class DataViewsColumnsDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private dataViewsColumnsPopupService: DataViewsColumnsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.dataViewsColumnsPopupService
+                .open(DataViewsColumnsDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

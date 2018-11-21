@@ -1,0 +1,353 @@
+<div class="container-fluid component-body">
+	<div
+		class="row botom-dotted-blue-border component-title margin-left-22">
+		<div class="col-md-6 pageTitle">
+			<h2 *ngIf="isCreateNew">Create New Profile</h2>
+			<h2 *ngIf="!isCreateNew">{{sourceProfile.sourceProfileName}}</h2>
+		</div>
+		<div class="col-md-6">
+			<div class="row float-right">
+				<button *ngIf="!isViewOnly && f.valid && !duplicateProfileName"
+					md-icon-button class="pull-right color-green" aria-hidden="true"
+					mdTooltip="Save Profile" 
+					(click)="saveProfile()">
+					<md-icon>save</md-icon>
+				</button>
+				<button *ngIf="!isViewOnly && !f.valid || duplicateProfileName"
+					md-icon-button class="pull-right color-gray" aria-hidden="true"
+					mdTooltip="Fill mandatory fields" 
+					(click)="profileValidationMsg()">
+					<md-icon>save</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit"
+					
+					[routerLink]="['/source-profiles', {outlets: {'content': [sourceProfile.id]+'/edit'}}]">
+					<md-icon>mode_edit</md-icon>
+				</button>
+				<button *ngIf="isEdit" md-icon-button class="pull-right color-gray"
+					mdTooltip="Close" 
+					[routerLink]="['/source-profiles', {outlets: {'content': [sourceProfile.id]+'/details'}}]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isCreateNew" md-icon-button
+					class="pull-right color-gray" mdTooltip="Close"
+					[routerLink]="['/source-profiles', {outlets: {'content': ['source-profiles-list']}}]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back"
+					[routerLink]="['/source-profiles', {outlets: {'content': ['source-profiles-list']}}]">
+					<md-icon>undo</md-icon>
+				</button>
+
+			</div>
+		</div>
+	</div>
+
+	<form novalidate #f="ngForm">
+		<div class="row col-md-12">
+			<div class="col-md-3" style="display: inline-block;">
+				<md-input-container class="example-full-width">
+				<input mdInput [(ngModel)]="sourceProfile.sourceProfileName"
+					[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					placeholder="Source Profile Name"
+					(ngModelChange)="checkSourceProfileName($event)"
+					name="sourceProfileName" required> </md-input-container>
+				<span class="help-block errorFont" style="margin-left: 32px;"
+					*ngIf="duplicateProfileName">Profile already exists with
+					this name</span>
+			</div>
+			<div class="col-md-3">
+				<md-input-container class="example-full-width">
+				<input mdInput [(ngModel)]="sourceProfile.profileDescription"
+					[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					placeholder="Description" name="description"> </md-input-container>
+			</div>
+			<div class="col-md-2">
+				<md-form-field> <input
+					mdInput [mdDatepicker]="stpicker" placeholder="Start date"
+					[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 [(ngModel)]="sourceProfile.startDate" name="startDate" required>
+				<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+				<md-datepicker #stpicker></md-datepicker> </md-form-field>
+			</div>
+			<div class="col-md-2" *ngIf="sourceProfile.startDate">
+				<md-form-field> <input
+					mdInput [mdDatepicker]="edpicker" placeholder="End date" [min]="sourceProfile.startDate"
+					[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 [(ngModel)]="sourceProfile.endDate" name="endDate" >
+				<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+				<md-datepicker #edpicker></md-datepicker> </md-form-field>
+			</div>
+			<div class="col-md-2  col-xs-6 " *ngIf="isViewOnly">
+			<span class="badge badge-success"  *ngIf="sourceProfile.enabledFlag || sourceProfile.enabledFlag == true">Active</span>
+			<span class="badge badge-warning" *ngIf="sourceProfile.enabledFlag == false" >Inactive</span>
+			</div>
+			<div class="col-md-2  col-xs-6 " *ngIf="isEdit">
+				<span *ngIf="sourceProfile.enabledFlag">Active</span> <span
+					*ngIf="!sourceProfile.enabledFlag">Inactive</span>
+				<md-slide-toggle class="example-margin" color="primary"
+					[(ngModel)]="sourceProfile.enabledFlag" name="status"
+					[disabled]="!isEdit"> </md-slide-toggle>
+
+			</div>
+			
+			
+			
+			
+		</div>
+
+		<p-accordion [multiple]="true">
+		<div style="margin-left: 30px;">
+			<p-accordionTab header="Connection" *ngIf="dsplyConnections" [selected]="expandConnection">
+			<div class="accordioncontenet">
+				<div class="row">
+					<div class="col-md-3">
+						<md-select placeholder="Connection Type"
+							(change)="getConnections()"
+							[(ngModel)]="sourceProfile.connectionType"
+							[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							name="connectionType"> <md-option size="50"
+							*ngFor="let connectionType of connectionTypesList; let k = index;"
+							[value]="connectionType.connectionTypeCode">{{connectionType.connectionTypeMeaning}}</md-option>
+						</md-select>
+					</div>
+					<div class="col-md-3">
+						<md-select placeholder="Connection Name"
+							(change)="getConnectionDetails()"
+							[(ngModel)]="sourceProfile.connectionId"
+							[ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							name="connectionName"> <perfect-scrollbar
+							style="height: 200px;"> <md-option
+							*ngFor="let connection of connectionDetails"
+							[value]="connection.id">{{connection.name}}</md-option> </perfect-scrollbar> <md-option
+							class="create-connection-divider" [value]="-1">Create
+						New</md-option> </md-select>
+					</div>
+					
+				</div>
+
+
+				<br>
+				<div class="row">
+					<div class="col-md-3"
+						*ngFor="let myObj of finalCols; let i = index;">
+						<div *ngIf="i < 4">
+							<div style="margin-top: -1.3%;">
+								<md-input-container class="example-full-width"
+									*ngIf="myObj.display != 'Password'"> <input
+									mdInput class="color-black" [disabled]="true"
+									[placeholder]="myObj.display" [(ngModel)]="myObj.value"
+									[name]="myObj.display" ngModel> </md-input-container>
+								<md-input-container class="example-full-width"
+									*ngIf="myObj.display == 'Password'"> <input
+									mdInput class="color-black" [disabled]="true"
+									[placeholder]="myObj.display" [(ngModel)]="myObj.value"
+									[name]="myObj.display" ngModel type="password"> </md-input-container>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-3"
+						*ngFor="let myObj of finalCols; let i = index;">
+						<div *ngIf="i > 3 && i < 8">
+							<div style="margin-top: -1.3%;">
+								<md-input-container class="example-full-width"
+									*ngIf="myObj.display != 'Password'"> <input
+									mdInput class="color-black" [disabled]="true"
+									[placeholder]="myObj.display" [(ngModel)]="myObj.value"
+									[name]="myObj.display" ngModel> </md-input-container>
+								<md-input-container class="example-full-width"
+									*ngIf="myObj.display == 'Password'"> <input
+									mdInput class="color-black" [disabled]="true"
+									[placeholder]="myObj.display" [(ngModel)]="myObj.value"
+									[name]="myObj.display" ngModel type="password"> </md-input-container>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="row">
+					<div class="col-md-3"
+						*ngFor="let myObj of finalCols; let i = index;">
+						<div *ngIf="i > 7 && i < 12">
+							<div style="margin-top: -1.3%;">
+								<md-input-container class="example-full-width"
+									*ngIf="myObj.display != 'Password'"> <input
+									mdInput class="color-black" [disabled]="true"
+									[placeholder]="myObj.display" [(ngModel)]="myObj.value"
+									[name]="myObj.display" ngModel> </md-input-container>
+								<md-input-container class="example-full-width"
+									*ngIf="myObj.display == 'Password'"> <input
+									mdInput class="color-black" [disabled]="true"
+									[placeholder]="myObj.display" [(ngModel)]="myObj.value"
+									[name]="myObj.display" ngModel type="password"> </md-input-container>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			</p-accordionTab>
+			<p-accordionTab *ngIf="dsplyFiletmplts " header="File Template">
+			<div class="accordioncontenet">
+				<div class="row">
+					<div class="col-md-12  col-xs-12"
+						style="position: relative; z-index: 1;">
+						<button md-icon-button *ngIf="!isViewOnly"
+							class="color-yellow-green pull-right"
+							mdTooltip="Assign New Template" (click)="addNewAssignment()">
+							<md-icon>exposure_plus_1</md-icon>
+						</button>
+					</div>
+
+					<div
+						*ngIf=" !profileFileAssignments ||  profileFileAssignments.length<=0 && isViewOnly ">
+						<i> No templates assigned</i>
+					</div>
+					<div class="col-md-12  col-xs-12 table-responsive">
+						<table class="table"
+							*ngIf=" profileFileAssignments && profileFileAssignments.length>0">
+							<thead>
+								<tr>
+									<th>File Template</th>
+									<th>File Format</th>
+									<th>File Extension</th>
+									<th>File Description</th>
+									<th>Source Directory Path</th>
+									<th>Local Directory Path</th>
+									<th>Actions</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr
+									*ngFor="let fileAssignment of profileFileAssignments; let i=index;"
+									(mouseover)="mouseOverRowNo = i">
+									<td>
+										<div *ngIf="!fileAssignment.edit">
+											{{fileAssignment.templateName}}</div> <!-- <div *ngIf="fileAssignment.edit" style="padding-top: 11%;">
+												<md-select placeholder=" " [(ngModel)]="fileAssignment.templateId" 
+												 [ngClass]="{'color-black' : isViewOnly}" 
+													*ngIf="fileAssignment.edit" name="tempId_{{i}}" #tempId="ngModel">
+													<md-option size="50" *ngFor="let template of fileTemplates; let j=index;"
+													 [value]="template.id" (click) ="fileAssignment.templateName = template.templateName">
+													 {{template.templateName}}</md-option>
+												</md-select>
+											</div> -->
+										<div *ngIf="fileAssignment.edit" >
+											<md-select 
+												class="example-full-width" (change)="selectedProfile()"
+												[(ngModel)]="fileAssignment.templateId" name="tempId{{i}}"
+												#tempId{{i}}="ngModel"> <perfect-scrollbar
+												style="height: 200px;"> 
+											<md-option *ngFor="let template of fileTemplates"
+												[value]="template.id">{{template.templateName}}</md-option>
+												<md-option
+												[value]="fileAssignment.templateId">{{fileAssignment.templateName}}</md-option> </perfect-scrollbar> </md-select>
+											
+											<!-- <md-select class="example-full-width"
+												[(ngModel)]="fileAssignment.templateId" name="tempId{{i}}"
+												#tempId{{i}}="ngModel"> <md-option
+												[value]="fileAssignment.templateId">{{fileAssignment.templateName}}</md-option>
+											<md-option *ngFor="let template of fileTemplates"
+												[value]="template.id">{{template.templateName}}</md-option>
+											</md-select> -->
+										</div>
+
+									</td>
+									<td>
+										<div *ngIf="!fileAssignment.edit">
+											{{fileAssignment.fileNameFormat}}</div>
+										<div *ngIf="fileAssignment.edit">
+											<md-input-container class="example-full-width ">
+											<input mdInput  [(ngModel)]="fileAssignment.fileNameFormat"
+												name="fileNameFormat_{{i}}" #fileNameFormat="ngModel"
+												required> </md-input-container>
+										</div>
+									</td>
+									<td>
+										<div *ngIf="!fileAssignment.edit">
+											{{fileAssignment.fileExtension}}</div>
+										<div *ngIf="fileAssignment.edit">
+											<md-input-container class="example-full-width ">
+											<input mdInput  [(ngModel)]="fileAssignment.fileExtension"
+												name="fileExtension_{{i}}"> </md-input-container>
+										</div>
+									</td>
+									<td>
+										<div *ngIf="!fileAssignment.edit">
+											{{fileAssignment.fileDescription}}</div>
+										<div *ngIf="fileAssignment.edit">
+											<md-input-container class="example-full-width ">
+											<input mdInput  [(ngModel)]="fileAssignment.fileDescription"
+												name="fileDescription_{{i}}"> </md-input-container>
+										</div>
+									</td>
+									<td>
+										<div *ngIf="!fileAssignment.edit">
+											{{fileAssignment.sourceDirectoryPath}}</div>
+										<div *ngIf="fileAssignment.edit">
+											<md-input-container class="example-full-width ">
+											<input
+												mdInput  [(ngModel)]="fileAssignment.sourceDirectoryPath"
+												name="sourceDirectoryPath_{{i}}"
+												#sourceDirectoryPath="ngModel" required> </md-input-container>
+										</div>
+									</td>
+									<td>
+										<div *ngIf="!fileAssignment.edit">
+											{{fileAssignment.localDirectoryPath}}</div>
+										<div *ngIf="fileAssignment.edit">
+											<md-input-container class="example-full-width ">
+											<input
+												mdInput   class="inputHeight" [(ngModel)]="fileAssignment.localDirectoryPath"
+												name="localDirectoryPath_{{i}}"
+												#localDirectoryPath="ngModel" required> </md-input-container>
+										</div>
+
+									</td>
+									<td>
+										<div class="display-flex" *ngIf="!isViewOnly">
+											<button md-icon-button 
+												(click)="removeAssignment(fileAssignment.id,i)"
+												mdTooltip="UnTag Assignment">
+												<md-icon >delete</md-icon>
+											</button>
+											<button md-icon-button 
+												(click)="clearFields(i)" *ngIf="!isViewOnly"
+												mdTooltip="Clear">
+												<md-icon>clear</md-icon>
+											</button>
+											<!-- <a *ngIf=" fileAssignment.id>0"
+												(click)="removeAssignment(fileAssignment.id,i)"> <span
+												class="icon-trash"></span>
+											</a> -->
+											<!-- <a (click)="clearFields(i)"> <span class="fa fa-times"></span>
+											</a> -->
+											<!-- <i class="fa fa-floppy-o ripple color-green hand padding-2" *ngIf="fileAssignment.edit " (click)="fileAssignment.edit = false;saveOneAssignment(fileAssignment)" style="font-size: 24px;" aria-hidden="true" mdTooltip="Save This Assignment"></i> -->
+											<!-- 	<i class="material-icons ripple hand padding-2" *ngIf="!fileAssignment.edit && mouseOverRowNo == i" (click)="fileAssignment.edit = true" mdTooltip="Edit This Assignment">mode_edit</i>
+												<i class="fa fa-times ripple hand padding-2" *ngIf="fileAssignment.edit " (click)="fileAssignment.edit=false" style="font-size: 24px; color:gray" mdTooltip="Cancel"></i> -->
+											<!-- <i class="material-icons ripple color-dark-red hand" (click)="removeAssignment(fileAssignment.id,i)" mdTooltip="Remove This Line" mdTooltipPosition="before">delete</i> -->
+											<!-- <i *ngIf="l" class="material-icons ripple color-yellow-green float-right hand" (click)="addNewAssignment()" mdTooltip="New Assignment">exposure_plus_1</i> -->
+											<br>
+										</div>
+										<div class="display-flex" *ngIf="!fileAssignment.edit">
+
+										</div>
+										<button *ngIf="isViewOnly && !extraction[i] && mouseOverRowNo == i " 
+													md-icon-button 
+													aria-hidden="true" mdTooltip="Run Extraction"
+													(click)="execute(fileAssignment.id,i)">
+													<md-icon>settings</md-icon>
+										</button> 
+											<i *ngIf="extraction[i] " class="fa fa-spinner fa-spin" style="font-size: 24px"></i>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+			</p-accordionTab>
+		</div>
+		</p-accordion>
+	</form>
+</div>

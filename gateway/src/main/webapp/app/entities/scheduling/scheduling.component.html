@@ -1,0 +1,118 @@
+<div class="scheduling">
+    <form novalidate #scheduleDefinition="ngForm">
+        <div>
+            <md-radio-group [(ngModel)]="runType" name="schedlTypeSrc" (change)="repeatChanged();">
+                <md-radio-button value="scheduleTo">Initiate At</md-radio-button>
+                <md-radio-button value="schedule">Schedule</md-radio-button>
+            </md-radio-group>
+        </div>
+        <div *ngIf="runType=='schedule'">
+            <div class="row" style="margin: 10px 0px;max-width: 310px;" *ngIf="runType =='schedule'">
+
+                <div class="col-md-7">
+                    <md-select class="schedule-type" placeholder="Frequency" name="scheduleType" [(ngModel)]="currentFreq.type" (change)="typeChanged()"
+                        required>
+                        <md-option *ngFor="let type of schedulerTypes" [value]="type.lookUpCode">{{type.meaning}}</md-option>
+                    </md-select>
+                </div>
+                <div class="col-md-5 custom-time-picker">
+                    <md-input-container id="time">
+                        <input mdInput name="time" placeholder="Time At" [(ngModel)]="timeStr" required (click)="displayTimesLov=true;" autocomplete="off"
+                            (blur)="closeTimesLOV();" pattern="(1[0-2]|[1-9])\:[0-5]\d\s[AaPp][Mm]">
+                    </md-input-container>
+                    <div [ngClass]="displayTimesLov?'time-picker':'time-picker-hide'" (mouseenter)="hlpTimeFlag=true;" (mouseleave)="hlpTimeFlag=false;">
+                        <div class="times-list">
+                            <div *ngFor="let item of timesLov" class="time-item hand" (click)="timeStr=item;displayTimesLov=false;">
+                                {{item}} 
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="display-flex occurance-list" *ngIf="currentFreq.type == 'MONTHLY'" style="max-width: 220px;">
+                <span *ngFor="let month of months; let i = index;">
+                    <div *ngIf="i<6" class="occurnc-circle occurrance-shadow" [ngClass]="{'occ-active' : month.isSelected}" [mdTooltip]="month.name"
+                        (click)="occurranceSelected(month,months,true);">{{month.code}}</div>
+                </span>
+            </div>
+            <div class="display-flex occurance-list" *ngIf="currentFreq.type == 'MONTHLY'" style="max-width: 220px;">
+                <span *ngFor="let month of months; let i = index;">
+                    <div *ngIf="i>=6" class="occurnc-circle occurrance-shadow" [ngClass]="{'occ-active' : month.isSelected}" [mdTooltip]="month.name"
+                        (click)="occurranceSelected(month,months,true);">{{month.code}}</div>
+                </span>
+            </div>
+            <div class="display-flex occurance-list" *ngIf="currentFreq.type == 'WEEKLY'" style="max-width: 250px;padding: 2px 5px;">
+                <div *ngFor="let week of weeks; let i = index;" class="occurnc-circle occurrance-shadow" [ngClass]="{'occ-active' : week.isSelected}"
+                    [mdTooltip]="week.name" (click)="occurranceSelected(week,weeks,false);">{{week.code}}</div>
+            </div>
+        </div>
+
+        <div class="row" *ngIf="runType=='scheduleTo'" style="margin:10px 0px;max-width: 250px;">
+            <div class="col-md-6">
+                <md-form-field>
+                    <input mdInput placeholder="Schedule Date" [mdDatepicker]="stpicker" [(ngModel)]="job.scheStartDate" name="startDate" [min]="today"
+                        (dateChange)="startDateChange=true;dateChange(job.scheStartDate,true);" required>
+                    <md-datepicker-toggle mdSuffix [for]="stpicker" required></md-datepicker-toggle>
+                    <md-datepicker #stpicker></md-datepicker>
+                </md-form-field>
+            </div>
+            <div class="col-md-6 custom-time-picker">
+                <md-input-container id="time">
+                    <input mdInput name="time" placeholder="Time At" [(ngModel)]="timeStr" required (click)="displayTimesLov=true;" autocomplete="off"
+                        (blur)="closeTimesLOV();" pattern="(1[0-2]|[1-9])\:[0-5]\d\s[AaPp][Mm]">
+                </md-input-container>
+                <div [ngClass]="displayTimesLov?'time-picker':'time-picker-hide'" (mouseenter)="hlpTimeFlag=true;" (mouseleave)="hlpTimeFlag=false;">
+                    <div class="times-list">
+                        <div *ngFor="let item of timesLov" class="time-item hand" (click)="timeStr=item;displayTimesLov=false;">
+                            {{item}}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-7" style="top: 15px;" *ngIf="runType =='schedule'">
+            <md-checkbox class="example-margin" [(ngModel)]="neverEnd" name="never">Never End</md-checkbox>
+        </div>
+        <div *ngIf="runType =='schedule'" class="row" style="margin: 15px 0px;max-width: 300px;">
+            <div class="col-md-6">
+                <md-form-field>
+                    <input mdInput placeholder="Start Date" [mdDatepicker]="stpicker" [(ngModel)]="job.scheStartDate" name="stDate" [min]="today" 
+                    (dateChange)="startDateChange=true;dateChange(job.scheStartDate,true);">
+                    <md-datepicker-toggle mdSuffix [for]="stpicker" required></md-datepicker-toggle>
+                    <md-datepicker #stpicker></md-datepicker>
+                </md-form-field>
+            </div>
+            <div class="col-md-6" *ngIf="!neverEnd">
+                <md-form-field>
+                    <input mdInput placeholder="End Date" [mdDatepicker]="edpicker" [(ngModel)]="job.scheEndDate" name="endDate" [min]="job.scheStartDate" 
+                    (dateChange)="endDateChange=true;dateChange(job.scheEndDate,false);">
+                    <md-datepicker-toggle mdSuffix [for]="edpicker" required></md-datepicker-toggle>
+                    <md-datepicker #edpicker></md-datepicker>
+                </md-form-field>
+            </div>
+        </div>
+</div>
+<p-footer>
+    <div class="top-border" style="margin-top: 15px !important;">
+        <button class="pull-right" style="margin: 0px 10px;" md-raised-button mdTooltip="Save" (click)="checkValidation();">Let's Go</button>
+        <button class="pull-right" md-raised-button mdTooltip="Cancel" (click)="cancelSchedule();">Go Back</button>
+    </div>
+</p-footer>
+</form>
+</div>
+<p-dialog header="Job Definition" class="parameters-definition" [(visible)]="test" modal="true" width="500" responsive="true"
+    (onHide)="selectedParameters=[];">
+    <p-dataTable [(value)]="selectedParameters" [style]="{'width':'450px'}" [scrollable]="true" scrollHeight="400px" [responsive]="true">
+        <p-column field="paramName" header="Name" styleClass="left" [style]="{'width':150}"></p-column>
+        <p-column field="selectedValue" header="Value" styleClass="left" [style]="{'width':300}"></p-column>
+    </p-dataTable>
+    <div style="padding-top: 10px;">
+        <P>Do you want to continue?</P>
+    </div>
+    <p-footer>
+        <div class="top-border">
+            <button class="pull-right" md-raised-button mdTooltip="Yes Continue" (click)="test=!test;scheduleThis();" style="margin-bottom: 10px;margin-left: 10px;">Continue</button>
+            <button class="pull-right" md-raised-button mdTooltip="No Cancel" (click)="test=!test;">Cancel</button>
+        </div>
+    </p-footer>
+</p-dialog>

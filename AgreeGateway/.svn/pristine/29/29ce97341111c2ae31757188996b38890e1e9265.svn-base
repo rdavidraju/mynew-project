@@ -1,0 +1,138 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService } from 'ng-jhipster';
+
+import { SourceProfileFileAssignments } from './source-profile-file-assignments.model';
+import { SourceProfileFileAssignmentsService } from './source-profile-file-assignments.service';
+import { ITEMS_PER_PAGE, Principal, ResponseWrapper } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+
+@Component({
+    selector: 'jhi-source-profile-file-assignments',
+    templateUrl: './source-profile-file-assignments.component.html'
+})
+export class SourceProfileFileAssignmentsComponent implements OnInit, OnDestroy {
+
+    currentAccount: any;
+    sourceProfileFileAssignments: SourceProfileFileAssignments[];
+    error: any;
+    success: any;
+    eventSubscriber: Subscription;
+    currentSearch: string;
+    routeData: any;
+    links: any;
+    totalItems: any;
+    queryCount: any;
+    itemsPerPage: any;
+    page: any;
+    predicate: any;
+    previousPage: any;
+    reverse: any;
+
+    constructor(
+        private sourceProfileFileAssignmentsService: SourceProfileFileAssignmentsService,
+        private parseLinks: JhiParseLinks,
+        private alertService: JhiAlertService,
+        private principal: Principal,
+        private activatedRoute: ActivatedRoute,
+        private router: Router,
+        private eventManager: JhiEventManager,
+        private paginationUtil: JhiPaginationUtil,
+        private paginationConfig: PaginationConfig
+    ) {
+        this.itemsPerPage = ITEMS_PER_PAGE;
+        this.routeData = this.activatedRoute.data.subscribe((data) => {
+            this.page = data['pagingParams'].page;
+            this.previousPage = data['pagingParams'].page;
+            this.reverse = data['pagingParams'].ascending;
+            this.predicate = data['pagingParams'].predicate;
+        });
+        this.currentSearch = activatedRoute.snapshot.params['search'] ? activatedRoute.snapshot.params['search'] : '';
+    }
+
+    loadAll() {
+        if (this.currentSearch) {
+            this.sourceProfileFileAssignmentsService.search({
+                query: this.currentSearch,
+                size: this.itemsPerPage,
+                sort: this.sort()
+            }).subscribe(
+                (res: ResponseWrapper) => this.onSuccess(res.json(), res.headers),
+                (res: ResponseWrapper) => this.onError(res.json())
+                );
+            return;
+        }
+        this.sourceProfileFileAssignmentsService.query({
+            page: this.page - 1,
+            size: this.itemsPerPage,
+            sort: this.sort()
+        }).subscribe(
+            (res: ResponseWrapper) => this.onSuccess(res.json, res.headers),
+            (res: ResponseWrapper) => this.onError(res.json)
+            );
+    }
+    loadPage(page: number) {
+        if (page !== this.previousPage) {
+            this.previousPage = page;
+            this.transition();
+        }
+    }
+    transition() {
+        this.router.navigate(['/source-profile-file-assignments'], {
+            queryParams:
+            {
+                page: this.page,
+                size: this.itemsPerPage,
+                sort: this.predicate + ',' + (this.reverse ? 'asc' : 'desc')
+            }
+        });
+        this.loadAll();
+    }
+
+    clear() {
+        this.page = 0;
+        this.router.navigate(['/source-profile-file-assignments', {
+            page: this.page,
+            sort: this.predicate + ',' + (this.reverse ? 'asc' : 'desc')
+        }]);
+        this.loadAll();
+    }
+    ngOnInit() {
+        this.loadAll();
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        this.registerChangeInSourceProfileFileAssignments();
+    }
+
+    ngOnDestroy() {
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    trackId(index: number, item: SourceProfileFileAssignments) {
+        return item.id;
+    }
+    registerChangeInSourceProfileFileAssignments() {
+        this.eventSubscriber = this.eventManager.subscribe('sourceProfileFileAssignmentsListModification', (response) => this.loadAll());
+    }
+
+    sort() {
+        const result = [this.predicate + ',' + (this.reverse ? 'asc' : 'desc')];
+        if (this.predicate !== 'id') {
+            result.push('id');
+        }
+        return result;
+    }
+
+    private onSuccess(data, headers) {
+        this.links = this.parseLinks.parse(headers.get('link'));
+        this.totalItems = headers.get('X-Total-Count');
+        this.queryCount = this.totalItems;
+        // this.page = pagingParams.page;
+        this.sourceProfileFileAssignments = data;
+    }
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}

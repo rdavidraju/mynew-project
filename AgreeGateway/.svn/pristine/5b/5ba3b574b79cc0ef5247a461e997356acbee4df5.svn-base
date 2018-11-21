@@ -1,0 +1,261 @@
+import {Component, OnInit, Input, Output, EventEmitter} from '@angular/core';
+import { Frequencies, Jobs,  } from '../jobs/jobs.model';
+import { LookUpCode } from '../look-up-code/look-up-code.model';
+import { SchedulingService } from './scheduling.service'; 
+import { NotificationsService } from 'angular2-notifications-lite';
+import 'rxjs/add/operator/startWith';
+import 'rxjs/add/operator/map';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import 'pivottable/dist/pivot.min.js';
+declare var $:any;
+declare var jQuery: any;
+ 
+@Component({
+    selector: 'scheduling',
+    templateUrl: './scheduling.component.html'
+})
+export class Scheduling implements OnInit {
+    @Input('basicInfo') basicInfo = new SchedulingModel();
+    @Output() changeDisplay: EventEmitter<boolean> = new EventEmitter<boolean>();
+    currentFreq = new Frequencies();
+    job=new Jobs();
+    schedulerTypes: LookUpCode[] = [];
+    repeatSched:boolean = false;
+    neverEnd:boolean = false;
+    selectedParameters: Parameters[]=[];
+    today=new Date();
+    test:boolean=false;
+    constructor(
+        private schedulingService: SchedulingService,
+        private notificationsService: NotificationsService
+    ) {
+
+    }
+
+    ngOnInit() {
+        this.neverEnd=false;
+        this.repeatSched=false;
+        this.selectedParameters=[];
+        this.job=new Jobs();
+        this.currentFreq = new Frequencies();
+        this.currentFreq.type='ONETIME';
+        this.currentFreq.time=new Date();
+        this.job.scheStartDate= new Date();
+        this.schedulingService.getLookupValues('SCHEDULE_TYPES').subscribe((res: LookUpCode[]) => {
+            this.schedulerTypes = res;
+            for(let i=0; i<this.schedulerTypes.length;i++){
+                if(this.schedulerTypes[i].lookUpCode == 'MINUTES'||this.schedulerTypes[i].lookUpCode =='ONDEMAND'){
+                    this.schedulerTypes.splice(i,1);
+                }
+            }
+            this.typeChanged();
+        });
+    }
+
+    repeatChanged(){
+        if(this.repeatSched){
+            this.currentFreq.type='DAILY';
+            this.typeChanged();
+        }else{
+            this.currentFreq.type='ONETIME';
+        }
+    }
+    typeChanged(){
+        if(this.repeatSched && (this.currentFreq.type=='ONETIME')){
+            this.repeatSched=false;
+            let newDate = Object.assign(new Date(),this.job.scheStartDate);
+            this.job.scheEndDate=newDate;
+        }else if(this.currentFreq.type=='MONTHLY'){
+            let newDate = Object.assign(new Date(),this.job.scheStartDate);
+            this.job.scheEndDate=new Date(newDate.setFullYear(newDate.getFullYear()+1));
+        }else{
+            let newDate = Object.assign(new Date(),this.job.scheStartDate);
+            this.job.scheEndDate=new Date(newDate.setMonth(newDate.getMonth()+1));
+        }
+    }
+    
+    checkValidation(){
+        this.test=true;
+        for(var i=0, len=this.basicInfo.parameters.length;i<len;i++){
+            this.selectedParameters.push(this.basicInfo.parameters[i]);
+        }
+        let newItem2=new Parameters();
+        newItem2.paramName="Schedule Type";
+        newItem2.selectedValue=this.currentFreq.type;
+        this.selectedParameters.unshift(newItem2);
+        let newItem1=new Parameters();
+        newItem1.paramName="Program Name";
+        newItem1.selectedValue=this.basicInfo.programName;
+        this.selectedParameters.unshift(newItem1);
+        let newItem=new Parameters();
+        newItem.paramName="Job Name";
+        newItem.selectedValue=this.basicInfo.jobName+'-'+this.currentFreq.type+'('+this.job.scheStartDate.toString()+')';
+        this.selectedParameters.unshift(newItem);
+    }
+
+    scheduleThis(){
+        let finalFrequencies=[];
+        this.job.jobName=this.basicInfo.jobName+'-'+this.currentFreq.type+'('+this.job.scheStartDate.toString()+')';
+        this.job.jobDesc=this.job.jobName;
+        this.job.jobStatus = true;
+        this.job.programName=this.basicInfo.programName;
+        if(this.neverEnd){
+            let newDate = Object.assign(new Date(),this.job.scheStartDate);
+            this.job.scheEndDate=newDate.setFullYear(newDate.getFullYear()+25);
+        }
+        switch(this.currentFreq.type){
+            case 'ONETIME':
+            let tempMon=[];
+            tempMon.push((this.currentFreq.time.getMonth()+1).toString());
+            let tempD=[];
+            tempD.push((this.currentFreq.time.getDate()).toString());
+            this.job.scheEndDate.setDate(this.job.scheStartDate.getDate() + 1);
+            finalFrequencies.push({
+                id: this.currentFreq.id,
+                type: this.currentFreq.type,
+                month: tempMon,
+                day: tempD,
+                hours: this.currentFreq.time.getHours(),
+                minutes: this.currentFreq.time.getMinutes(),
+                date: this.currentFreq.time,
+                time: this.currentFreq.time.toString().substring(16,24)
+            });
+            break;
+            /* case 'MINUTES':
+            finalFrequencies.push({
+                id: this.currentFreq.id,
+                type: this.currentFreq.type,
+                occurance: this.currentFreq.occurance,
+                minutes:this.currentFreq.occurance
+            });
+            break; */
+            case 'HOURLY':
+            finalFrequencies.push({
+                id: this.currentFreq.id,
+                type: this.currentFreq.type,
+                occurance: 1,
+                hours:1,
+                minutes:0
+            });
+            break;
+            case 'DAILY':
+            finalFrequencies.push({
+                id: this.currentFreq.id,
+                type: this.currentFreq.type,
+                hours: this.currentFreq.time.getHours(),
+                minutes: this.currentFreq.time.getMinutes(),
+                time: this.currentFreq.time.toString().substring(16,24)
+            });
+            
+            break;
+            case 'WEEKLY':
+            let tempWeeks=[];
+            tempWeeks.push(this.currentFreq.time.getDay());
+            finalFrequencies.push({
+                id: this.currentFreq.id,
+                type: this.currentFreq.type,
+                weekDay: tempWeeks,
+                hours: this.currentFreq.time.getHours(),
+                minutes: this.currentFreq.time.getMinutes(),
+                time: this.currentFreq.time.toString().substring(16,24)
+            });
+            break; 
+            case 'MONTHLY':
+            let tempMonths=[];
+            tempMonths.push(this.currentFreq.time.getMonth()+1);
+            let tempDays=[];
+            tempDays.push((this.currentFreq.time.getDate()).toString());
+            finalFrequencies.push({
+                id: this.currentFreq.id,
+                type: this.currentFreq.type,
+                month: tempMonths,
+                day: tempDays,
+                hours: this.currentFreq.time.getHours(),
+                minutes: this.currentFreq.time.getMinutes(),
+                time: this.currentFreq.time.toString().substring(16,24)
+            });
+            break;
+            default:
+                finalFrequencies.push({
+                    id: this.currentFreq.id,
+                    type: this.currentFreq.type
+                });
+            break;
+        }
+          this.job.frequencies=finalFrequencies;
+        this.job.parameters=this.basicInfo.parameters;
+        console.log(JSON.stringify(this.job));
+        this.schedulingService.postJobDetails(this.job).subscribe((res: any) => {
+            let savedResponse: any;
+            savedResponse = res.json();
+            console.log('savedResponse :' + JSON.stringify(savedResponse));
+            if (savedResponse && savedResponse != []) {
+                this.changeDisplay.emit(false);
+                //******** Reset Values **********//
+                this.job.scheStartDate=new Date();
+                this.job.scheEndDate=new Date();
+                this.neverEnd=false;
+                this.repeatSched=false;
+                this.currentFreq.type='ONETIME';
+                //********************************//
+                if (savedResponse[0] && savedResponse[0].taskName === 'Job save') {
+                    if (savedResponse[1] && savedResponse[1].taskName === 'Schedulers Save') {
+                        if (savedResponse[2] && savedResponse[2].taskName === 'Initiate Job') {
+                            this.notificationsService.success(
+                                'Job initiated successfully',
+                                ''
+                            )
+                        }
+                    }
+                    else {
+                        this.notificationsService.error( 
+                            'Oops...!',
+                            'Scheduler not saved! Try again.'
+                        )
+                    }
+                }
+                else {
+                    this.notificationsService.error(
+                        'Oops...!',
+                        'Job not saved! Try again.'
+                    )
+                }
+            }
+            else {
+                this.notificationsService.error(
+                    'Oops...!',
+                    'Job not saved! Try again.'
+                )
+            }
+            this.changeDisplay.emit(false);
+        });
+    }
+
+    startDateChange(){
+        if(this.job.scheEndDate){
+            if(this.job.scheEndDate<this.currentFreq.time)
+                this.job.scheEndDate=this.currentFreq.time;
+        }
+    }
+}
+
+export class SchedulingModel{
+    constructor(
+        public jobName?: string,
+        public programName?: string,
+        public transformImmediately?:any,
+        public parameters?: Parameters[]
+    ){
+
+    }
+}
+
+export class Parameters{
+    constructor(
+        public paramName?: string,
+        public selectedValue?: any
+    ){
+
+    }
+}

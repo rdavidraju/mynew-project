@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { Calendar } from './calendar.model';
+import { CalendarService } from './calendar.service';
+
+@Component({
+    selector: 'jhi-calendar-detail',
+    templateUrl: './calendar-detail.component.html'
+})
+export class CalendarDetailComponent implements OnInit, OnDestroy {
+
+    calendar: Calendar;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private calendarService: CalendarService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInCalendars();
+    }
+
+    load(id) {
+        this.calendarService.find(id).subscribe((calendar) => {
+            this.calendar = calendar;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInCalendars() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'calendarListModification',
+            (response) => this.load(this.calendar.id)
+        );
+    }
+}

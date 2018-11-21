@@ -1,0 +1,516 @@
+<p-blockUI [blocked]="blockUI" [target]="parentDiv123"></p-blockUI>
+<div id="parentDiv123">
+<div class="component-body run-reports-section">
+	<md-accordion class="run-report-header">
+		<md-expansion-panel [expanded]="expandParamsHeader" (opened)="expandParamsHeader = true;" (closed)="expandParamsHeader = false;" style="margin-bottom: -8px;">
+		  <md-expansion-panel-header style="background-color: #f2f2f2;max-height: 50px !important;">
+			<md-panel-description class="pageTitle pageListTitle" style="margin:0px;">
+				<div class="row" style="width:100%;justify-content: space-between;display: flex;">
+					<div style="padding-top: 12px;min-width: 160px;">
+						<label *ngIf="!expandParamsHeader" style="font-size:12px; margin-left:-10px;">Report Date: {{rprtDate}}</label>
+					</div>
+					<div>
+						<h4>{{rptName}}</h4>
+					</div>
+					<div class="icons-div">
+						<button md-icon-button class="pull-right" mdTooltip="Reports List" (click)="$event.stopPropagation();" mdTooltipPosition="below"
+						 [routerLink]="['/reports', {outlets: {'content': ['report-list']}}]">
+							<md-icon>view_list</md-icon>
+						</button>
+						<button md-icon-button class="pull-right" mdTooltip="Report History" mdTooltipPosition="below" (click)="getRequestsList();selectedTab=0;showRequestsList=true;$event.stopPropagation();">
+							<md-icon>history</md-icon>
+						</button>
+						<button class="pull-right" md-icon-button [mdTooltip]="'Schedule '+rptName" mdTooltipPosition="below" (click)="displayScheduleWindow();$event.stopPropagation();">
+							<md-icon>alarm_add</md-icon>
+						</button>
+						<button md-icon-button class="pull-right" [mdTooltip]="'Edit '+rptName" mdTooltipPosition="below" (click)="reportSelected(selectedReportId);$event.stopPropagation();">
+							<md-icon>mode_edit</md-icon>
+						</button>
+						<button md-icon-button class="pull-right" (click)="reRunAsOfNow(reportInfo,selectedReqId);$event.stopPropagation();"  [mdTooltip]="'Refresh '+rptName" mdTooltipPosition="below">
+							<md-icon>refresh</md-icon>
+						</button>
+					</div>
+				</div>
+			</md-panel-description>
+		  </md-expansion-panel-header>
+		  <div class="display-flex parameters-body">
+			  <div class="col-md-4" *ngFor="let param of parametersSubmited; let i = index;">
+				  <div class="each-param">
+					  <div class="param-name">
+						<span>{{param.Parameter}} :</span>
+					  </div>
+					  <div class="param-value">
+						<span>{{param.Value}}</span>
+					</div>
+				  </div>
+			  </div>
+		  </div>
+		</md-expansion-panel>
+	</md-accordion>
+	<div class="reports">
+		<md-card class="report-output" [ngClass]="{'hide-this' : !showReportOutput}" style="margin-top: 10px;">
+			<div class="row" id="tabularOutput">
+				<div class="col-md-3">
+					
+				</div>
+				<div class="col-md-9 icons-div">
+					<input *ngIf="showTabular" [(ngModel)]="searchStr" type="search" placeholder="Search" name="search" (keyup.enter)="updatedReportOutput();">
+					<span class="icons-section">
+						<button md-icon-button mdTooltip="Hide Pivot Fields List" mdTooltipPosition="below" (click)="showPvtOptns=!showPvtOptns"
+						 *ngIf="showPivot && showPvtOptns">
+							<md-icon>web_asset</md-icon>
+						</button>
+						<button md-icon-button mdTooltip="Show Pivot Fields List" mdTooltipPosition="below" (click)="showPvtOptns=!showPvtOptns"
+						 *ngIf="showPivot && !showPvtOptns">
+							<md-icon class="flip-horizontal">web</md-icon>
+						</button>
+						<button class="color-gray" md-icon-button mdTooltip="Change View" mdTooltipPosition="below" (click)="changeFromParams=false; showChangeView=!showChangeView;">
+							<md-icon>art_track</md-icon>
+						</button>
+						<button class="pull-right" md-icon-button [mdTooltip]="'Share '+rptName" mdTooltipPosition="below" (click)="shareReport();$event.stopPropagation();">
+							<md-icon>mail</md-icon>
+						</button>
+						<button class="pull-right" md-icon-button mdTooltip="Download as CSV" mdTooltipPosition="below" (click)="exportToCSV();$event.stopPropagation();"
+						 style="margin-bottom: -34px !important;">
+							<md-icon>system_update_alt</md-icon>
+						</button>
+					</span>
+				</div>
+			</div>
+			
+			<div *ngIf="showTabular">
+				<div class="source-view-table table-responsive" style="padding-left: 25px;padding-right: 25px;">
+					<p-dataTable class="alternative-row-color" [value]="reportResult" scrollable="true" [scrollHeight]="cmpHeight" responsive="true" 
+					resizableColumns="true" columnResizeMode="expand" reorderableColumns="true" (onSort)="sortReportTable(selectedReqId,$event);">
+						<p-column *ngFor="let col of reportsTableColumns" styleClass="left" [field]="col.field" [header]="col.header" [sortable]="true"
+						 [style]="{'width':col.width,'text-align':col.align}"> </p-column>
+					</p-dataTable>
+					<md-paginator [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="pageEvent = $event; updatedReportOutput();">
+					</md-paginator>
+				</div>
+			</div>
+			<div style="display: block;">
+			</div>
+			<div [ngClass]="{'pivot-section' : showPivot}">
+				<perfect-scrollbar style="height: TemplatesHeight;" [ngClass]="{'hide-this' : !showPivot}">
+					<div id="pvtoutput" [ngClass]="{'hide-pivot-optns' : !showPvtOptns}"></div>
+				</perfect-scrollbar>
+			</div>
+		</md-card>
+	</div>
+</div>
+<p-dialog header="Parameters" [(visible)]="displayParameters" [modal]="true" [resizable]="false" minWidth="500" responsive="true">
+	<p-dataTable [(value)]="parametersSubmited" class="parameters-definition" [style]="{'width':'450px'}">
+		<p-column field="Parameter" header="Name" sortable="true" [style]="{'width':100}"></p-column>
+		<p-column field="Value" header="Value" sortable="true" [style]="{'width':350}"></p-column>
+	</p-dataTable>
+</p-dialog>
+<p-dialog header="Scheduling" [(visible)]="displayScheduling" [modal]="true" [resizable]="false" minWidth="300" responsive="true">
+	<scheduling [basicInfo]="schedObj" (changeDisplay)="hideDialog($event)"></scheduling>		
+</p-dialog>
+
+<p-dialog header="Requests List" [(visible)]="showRequestsList" [modal]="true" [resizable]="false" width="1200" [responsive]="false">
+	
+	<div class="source-view-table table-responsive">
+		<md-tab-group id="RequestList" class="report-tabs" (focusChange)="tabChange($event)" [(selectedIndex)]="selectedTab">
+			<md-tab label="All Requets">
+				<p-dataTable [value]="reportReqList" scrollable="true" [scrollHeight]="TemplatesHeight" [emptyMessage]="'No requests found for '+rptName"
+				 #dtRptRequests resizableColumns="true" columnResizeMode="expand" (onSort)="sortReqTable($event)">
+					<p-column field="reqName" header="Request Name" sortable="true" styleClass="center" [style]="{'width':'35%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="submittedTime" header="Submitted On" sortable="true" styleClass="center" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field] | date:'medium'}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="generatedTime" header="Generated On" sortable="true" styleClass="center" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field] | date:'medium'}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="status" header="Status" styleClass="center" sortable="true" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+					<p-column styleClass="center" [style]="{'width':'15%'}">
+						<ng-template pTemplate="header">
+							Actions
+						</ng-template>
+						<ng-template let-row="rowData" pTemplate="body">
+							<button class="color-gray" (click)="selectedReqId=row.reqId;buildParameters(row.filterMap);displayParameters=!displayParameters;"
+							 md-icon-button mdTooltip="Report Parameters" mdTooltipPosition="below">
+								<md-icon>chrome_reader_mode</md-icon>
+							</button>
+							<button [disabled]="row.status != 'SUCCEEDED'" md-icon-button mdTooltip="View Output" mdTooltipPosition="below"
+							 id="showOutput" (click)="viewRequestOutput(row);">
+								<i class="fa fa-eye" aria-hidden="true"></i>
+							</button>
+							<button class="color-gray" (click)="reRunAsOfNow(row.filterMap,row.reqId);" md-icon-button mdTooltip="Refresh To As Of Now"
+							 mdTooltipPosition="below">
+								<md-icon>cached</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+			</md-tab>
+			<md-tab label="Manula Runs">
+				<p-dataTable [value]="reportReqList" scrollable="true" [scrollHeight]="TemplatesHeight" [emptyMessage]="'No Manual requests found for '+rptName"
+				 #dtRptRequests resizableColumns="true" columnResizeMode="expand" (onSort)="sortReqTable($event)">
+					<p-column field="reqName" header="Request Name" sortable="true" styleClass="center" [style]="{'width':'35%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="submittedTime" header="Submitted On" sortable="true" styleClass="center" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field] | date:'medium'}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="generatedTime" header="Generated On" sortable="true" styleClass="center" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field] | date:'medium'}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="status" header="Status" sortable="true" styleClass="center" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+					<p-column styleClass="center" [style]="{'width':'15%'}">
+						<ng-template pTemplate="header">
+							Actions
+						</ng-template>
+						<ng-template let-row="rowData" pTemplate="body">
+							<button class="color-gray" (click)="selectedReqId=row.reqId;buildParameters(row.filterMap);displayParameters=!displayParameters;"
+							 md-icon-button mdTooltip="Report Parameters" mdTooltipPosition="below">
+								<md-icon>chrome_reader_mode</md-icon>
+							</button>
+							<button [disabled]="row.status != 'SUCCEEDED'" md-icon-button mdTooltip="View Output" mdTooltipPosition="below"
+							 id="showOutput" (click)="viewRequestOutput(row);">
+								<i class="fa fa-eye" aria-hidden="true"></i>
+							</button>
+							<button class="color-gray" (click)="reRunAsOfNow(row.filterMap,row.reqId);" md-icon-button mdTooltip="Refresh To As Of Now"
+							 mdTooltipPosition="below">
+								<md-icon>cached</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+			</md-tab>
+			<md-tab label="Job Requests">
+				<p-dataTable [value]="reportReqList" scrollable="true" [scrollHeight]="TemplatesHeight" [emptyMessage]="'No Job requests found for '+rptName"
+				 #dtRptRequests resizableColumns="true" columnResizeMode="expand" (onSort)="sortReqTable($event)">
+					<p-column field="reqName" header="Request Name" sortable="true" styleClass="center" [style]="{'width':'35%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="submittedTime" header="Submitted On" sortable="true" styleClass="center" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field] | date:'medium'}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="generatedTime" header="Generated On" sortable="true" styleClass="center" [style]="{'width':'20%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field] | date:'medium'}}</span>
+						</ng-template>
+					</p-column>
+					<p-column field="status" header="Status" sortable="true" styleClass="center" [style]="{'width':'10%'}">
+						<ng-template let-col let-row="rowData" pTemplate="body">
+							<span>{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+					<p-column styleClass="center" [style]="{'width':'15%'}">
+						<ng-template pTemplate="header">
+							Actions
+						</ng-template>
+						<ng-template let-row="rowData" pTemplate="body">
+							<button class="color-gray" (click)="selectedReqId=row.reqId;buildParameters(row.filterMap);displayParameters=!displayParameters;"
+							 md-icon-button mdTooltip="Report Parameters" mdTooltipPosition="below">
+								<md-icon>chrome_reader_mode</md-icon>
+							</button>
+							<button [disabled]="row.status != 'SUCCEEDED'" md-icon-button mdTooltip="View Output" mdTooltipPosition="below"
+							 id="showOutput" (click)="viewRequestOutput(row);">
+								<i class="fa fa-eye" aria-hidden="true"></i>
+							</button>
+							<button class="color-gray" (click)="reRunAsOfNow(row.filterMap,row.reqId);" md-icon-button mdTooltip="Refresh To As Of Now"
+							 mdTooltipPosition="below">
+								<md-icon>cached</md-icon>
+							</button>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+			</md-tab>
+		</md-tab-group>
+	</div>
+	<md-paginator [length]="requestsLength" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions"
+	 (page)="pageEvent = $event; getRequestsList()">
+	</md-paginator>
+	
+</p-dialog>
+
+<p-dialog header="Switch View" [(visible)]="showChangeView" [modal]="true" [resizable]="false" minWidth="300" responsive="true" (onShow)="rptSubmitted=false;">
+	
+	<div class="change-view">
+		<div style="padding-bottom: 5px;">
+			<div class="field-title" style="white-space: nowrap;">Analysis Type:</div>
+			<div>
+				<md-radio-group [(ngModel)]="reportInfo.outputType" [ngModelOptions]="{standalone: true}" (change)="outputTypeChanged()">
+					<md-radio-button style="padding-right: 5px;" *ngFor="let type of reportOutput" [value]="type.lookUpCode">{{type.meaning}}</md-radio-button>
+				</md-radio-group>
+			</div>
+		</div>
+		<div class="pivot-type" *ngIf="reportInfo.outputType != 'TABLE'">
+			<div style="padding-bottom: 15px;">
+				<div class="field-title" style="white-space: nowrap;" *ngIf="reportInfo.outputType == 'CHART'">Chart Type :</div>
+				<div *ngIf="reportInfo.outputType == 'CHART'">
+					<md-radio-group [(ngModel)]="reportInfo.chartType" [ngModelOptions]="{standalone: true}" [disabled]="rptSubmitted">
+						<md-radio-button style="padding-right: 5px;" [disabled]="type.lookUpCode=='PIE'" *ngFor="let type of chartTypes" [value]="type.lookUpCode">{{type.meaning}}</md-radio-button>
+					</md-radio-group>
+				</div>
+			</div>
+
+			<div *ngIf="reportInfo.outputType == 'PIVOT'">
+				<div style="padding-bottom: 15px;">
+					<div class="field-title" style="white-space: nowrap;">Pivot Rows:</div>
+					<div>
+						<angular2-multiselect [data]="pvtRowsEligibleCols" [(ngModel)]="multiSelRows" (onSelect)="onPvtFieldsSelected(multiSelRows,pvtColsEligibleCols)"
+						(onDeSelect)="onPvtFieldsSelected(multiSelRows,pvtColsEligibleCols)" [ngModelOptions]="{standalone: true}" [settings]="limitSelectionSettings"
+						 mdTooltip="Select Values" mdTooltipPosition="below">
+						</angular2-multiselect>
+					</div>
+				</div>
+				<div style="padding-bottom: 15px;">
+					<div class="field-title" style="white-space: nowrap;">Pivot Column:</div>
+					<div>
+						<md-select class="example-full-width" style="padding-top: 0px !important;" [(ngModel)]="singleSelCol" [ngModelOptions]="{standalone: true}" (change)="onPvtFieldsSelected(singleSelCol,pvtRowsEligibleCols)"
+						 *ngIf="reportInfo.fields[0].repType !=='AGING_REPORT' && reportInfo.fields[0].repType !=='ROLL_BACK_REPORT'">
+							<md-option *ngFor="let eachValue of pvtColsEligibleCols" [value]="eachValue">{{eachValue.itemName}}</md-option>
+						</md-select>
+						<label *ngIf="reportInfo.fields[0].repType =='AGING_REPORT'">Buckets</label>
+						<label *ngIf="reportInfo.fields[0].repType =='ROLL_BACK_REPORT'">Months</label>
+					</div>
+				</div>
+				<div style="padding-bottom: 15px;">
+					<div class="field-title" style="white-space: nowrap;">Pivot Value:</div>
+					<div>
+						<md-select class="example-full-width" style="padding-top: 0px !important;" [(ngModel)]="rptValCol" [ngModelOptions]="{standalone: true}"
+						*ngIf="reportInfo.fields[0].repType !=='AGING_REPORT' && reportInfo.fields[0].repType !=='ROLL_BACK_REPORT'">
+							<md-option *ngFor="let eachValue of allDecimalCols" [value]="eachValue">{{eachValue.itemName}}</md-option>
+						</md-select>
+						<label *ngIf="reportInfo.fields[0].repType =='AGING_REPORT' || reportInfo.fields[0].repType =='ROLL_BACK_REPORT'">Agregator</label>
+					</div>
+				</div>
+			</div>
+
+			<div *ngIf="reportInfo.outputType == 'CHART'">
+				<div style="padding-bottom: 15px;">
+					<div class="field-title" style="white-space: nowrap;">Labels:</div>
+					<div>
+						<md-select class="example-full-width" style="padding-top: 0px !important;" [(ngModel)]="singleSelCol" [ngModelOptions]="{standalone: true}">
+							<md-option *ngFor="let eachValue of allVarcharCols" [value]="eachValue">{{eachValue.itemName}}</md-option>
+						</md-select>
+					</div>
+				</div>
+				<div style="padding-bottom: 15px;">
+					<div class="field-title" style="white-space: nowrap;">Chart Value:</div>
+					<div *ngIf="reportInfo.fields[0].repType !='AGING_REPORT' && reportInfo.fields[0].repType !='ROLL_BACK_REPORT'">
+						<!-- <angular2-multiselect *ngIf="reportInfo.chartType !== 'PIE'" [data]="allDecimalCols" [(ngModel)]="multiSelRows" [ngModelOptions]="{standalone: true}"
+						 [settings]="multiSelectionSettingsCharts" mdTooltip="Select Max Two Columns" mdTooltipPosition="below"
+						 [disabled]="reportInfo.fields[0].repType =='AGING_REPORT' || reportInfo.fields[0].repType =='ROLL_BACK_REPORT'">
+						</angular2-multiselect> -->
+
+						<md-select class="example-full-width" style="padding-top: 0px !important;" [(ngModel)]="rptValCol"
+						 [ngModelOptions]="{standalone: true}">
+							<md-option *ngFor="let eachValue of allDecimalCols" [value]="eachValue">{{eachValue.itemName}}</md-option>
+						</md-select>
+					</div>
+					<label *ngIf="reportInfo.fields[0].repType =='AGING_REPORT' || reportInfo.fields[0].repType =='ROLL_BACK_REPORT'">Agregator</label>
+				</div>
+			</div>
+		</div>
+	</div>
+	<p-footer>
+		<button *ngIf="!changeFromParams" style="margin-bottom: 12px;" class="pull-right" md-raised-button (click)="viewReportReqOutput(selectedReqId,reportInfo.outputType);" [disabled]="rptSubmitted">Let's Go</button>
+		<button *ngIf="changeFromParams" style="margin-bottom: 12px;" class="pull-right" md-raised-button (click)="runReport(true);" [disabled]="rptSubmitted">Let's Go</button>
+	</p-footer>
+</p-dialog>
+
+<p-dialog header="New Request" [(visible)]="showParameters" [modal]="true" [resizable]="false" minWidth="1000" [responsive]="true" (onShow)="rptSubmitted=false;" (onHide)="onParametersHide()">
+	<form novalidate #reportParams="ngForm">
+	<div class="reports">
+		<div>
+			<button md-icon-button mdTooltip="Show/Hide Additional Details" mdTooltipPosition="below" id="adtnlDetails" class="pull-right"
+			 (click)="expandAdnlParams=!expandAdnlParams">
+				<md-icon style="top: 9px;">more_vert</md-icon>
+			</button>
+		</div>
+		<div *ngIf="reportInfo.fields" class="row report-parameters flex">
+			<div class="col-md-3 col-sm-6 col-xs-12 control-div" *ngFor="let field of reportInfo.fields; let i=index;">
+				<span *ngIf="field.fieldType === 'SINGLE_SELECT_LOV'">
+					<span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+					<span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+					<md-select class="md-no-placeholder control" [(ngModel)]="field.selectedValue" [name]="'singleSelect'+i" [required]="field.isMandatory">
+						<md-option *ngFor="let eachValue of field.fieldValuesList" [value]="eachValue">{{eachValue}}</md-option>
+					</md-select>
+				</span>
+
+				<span class="section-select" *ngIf="field.fieldType === 'MULTI_SELECT_LOV'">
+					<span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+					<span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+					<angular2-multiselect class="control" [data]="field.fieldValuesList" [(ngModel)]="field.selectedValue" [settings]="limitFieldsSelectionSettings1"
+					 [name]="'multiSelect'+i" [required]="field.isMandatory">
+					</angular2-multiselect>
+				</span>
+
+				<span class="section-select" *ngIf="field.fieldType === 'SINGLE_SELECTION'">
+					<span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+					<span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+					<div>
+						<md-radio-group class="list-view" [(ngModel)]="field.selectedValue" [name]="'radioGroup'+i" [required]="field.isMandatory">
+							<md-radio-button *ngFor="let val of field.fieldValuesList" [value]="val" style="padding-right: 10px;">{{val}}</md-radio-button>
+						</md-radio-group>
+					</div>
+				</span>
+
+				<span *ngIf="field.fieldType === 'TEXT_BOX'">
+					<span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+					<span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}}* :</span>
+					<md-input-container>
+						<input mdInput [(ngModel)]="field.selectedValue" [name]="'textInput'+i" [required]="field.isMandatory">
+					</md-input-container>
+				</span>
+
+				<span *ngIf="field.fieldType === 'DATE_RANGE'">
+					<div class="row date-range">
+						<div class="col-lg-6 col-md-6 col-md-12">
+							<span class="field-title" *ngIf="!field.isMandatory">From Date :</span>
+							<span class="field-title" *ngIf="field.isMandatory">From Date}* :</span>
+							<md-form-field>
+								<input mdInput [mdDatepicker]="stpicker" [(ngModel)]="field.selectedValue.fromDate" [name]="'fromDate'+i" [max]="today" [required]="field.isMandatory">
+								<md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+								<md-datepicker #stpicker></md-datepicker>
+							</md-form-field>
+						</div>
+						<div class="col-lg-6 col-md-6 col-md-12">
+							<span class="field-title">To Date :</span>
+							<md-form-field>
+								<input mdInput [mdDatepicker]="edpicker" [(ngModel)]="field.selectedValue.toDate" [name]="'toDate'+i" [max]="today" [min]="field.selectedValue.fromDate"
+								 [required]="field.isMandatory">
+								<md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+								<md-datepicker #edpicker></md-datepicker>
+							</md-form-field>
+						</div>
+					</div>
+				</span>
+
+				<span *ngIf="field.fieldType === 'MONTH_RANGE'">
+					<div class="row period-group">
+						<div class="col-lg-6 col-md-6 col-md-12">
+							<span class="field-title" *ngIf="!field.isMandatory">{{field.fieldName}} :</span>
+							<span class="field-title" *ngIf="field.isMandatory">{{field.fieldName}} *:</span>
+							<period-picker (change)="field.selectedValue.fromDate = $event.target.value" [name]="'fromPeriod'+i" [required]="field.isMandatory"></period-picker>
+						</div>
+						<div class="col-lg-6 col-md-6 col-md-12">
+							<span class="field-title">To Period :</span>
+							<period-picker (change)="field.selectedValue.toDate = $event.target.value" [name]="'toPeriod'+i" [required]="field.isMandatory"></period-picker>
+						</div>
+					</div>
+				</span>
+
+				<span *ngIf="field.fieldType === 'BOOLEAN'">
+					<md-checkbox class="example-margin control" [(ngModel)]="field.selectedValue" [name]="'booleanSelect'+i" [required]="field.isMandatory">{{field.fieldName}}</md-checkbox>
+				</span>
+
+				<span *ngIf="field.fieldType === 'AMOUNT_RANGE'">
+					<span class="field-title" *ngIf="!field.isMandatory">Amount Range :</span>
+					<span class="field-title" *ngIf="field.isMandatory">Amount Range* :</span>
+					<div class="row">
+						<div class="col-lg-6 col-md-6 col-md-12">
+							<md-input-container class="example-full-width">
+								<input mdInput placeholder="From" [(ngModel)]="field.selectedValue.fromValue" type="number" [name]="'fromAmount'+i" [required]="field.isMandatory">
+							</md-input-container>
+						</div>
+						<div class="col-lg-6 col-md-6 col-md-12">
+							<md-input-container *ngIf="field.selOperator=='Between'" class="example-full-width">
+								<input mdInput placeholder="To" [(ngModel)]="field.selectedValue.fromValue" type="number" [name]="'toAmount'+i" [required]="field.isMandatory">
+							</md-input-container>
+						</div>
+					</div>
+				</span>
+			</div>
+
+			<div class="col-md-3 col-sm-6 col-xs-12 control-div rpt-date" *ngIf="selectedReport.reportTypeCode!='ROLL_BACK_REPORT'">
+				<span class="field-title">Report Date :</span>
+				<md-form-field>
+					<input mdInput [mdDatepicker]="rptDtpicker" [(ngModel)]="reportInfo.dateTimeVal" name="rptDate" required>
+					<md-datepicker-toggle mdSuffix [for]="rptDtpicker" *ngIf="reportInfo.fields"></md-datepicker-toggle>
+					<md-datepicker #rptDtpicker></md-datepicker>
+				</md-form-field>
+			</div>
+			<div class="col-md-3 col-sm-6 col-xs-12 control-div" *ngIf="selectedReport.reportTypeCode=='ROLL_BACK_REPORT'">
+				<span class="field-title">Period :</span>
+				<period-picker (change)="reportInfo.dateTimeVal = $event.target.value" name="periodselection" required></period-picker>
+			</div>
+		</div>
+		<div class="row report-parameters" *ngIf="expandAdnlParams">
+			<div class="col-lg-3 col-md-3 col-sm-4" *ngIf="reportInfo.accVal">
+				<div class="field-title">Accounting Status :</div>
+				<div class="show-list-items">
+					<md-radio-group [disabled]="disableAccStatus" [(ngModel)]="reportInfo.accVal" name="reportViewType">
+						<md-radio-button *ngFor="let type of accStatusList" [value]="type.lookUpCode">{{type.meaning}}</md-radio-button>
+						<md-radio-button value="Both">All</md-radio-button>
+					</md-radio-group>
+				</div> 
+			</div>
+			<div class="col-lg-3 col-md-3 col-sm-4" *ngIf="reportInfo.reconcile">
+				<div class="field-title">Reconcile Status :</div>
+				<div class="show-list-items">
+					<md-radio-group [disabled]="disableRecStatus" [(ngModel)]="reportInfo.reconcile" name="reconType" required>
+						<md-radio-button value="Reconciled">Reconciled</md-radio-button>
+						<md-radio-button value="Un-Reconciled">Un-Reconciled</md-radio-button>
+						<md-radio-button value="Both">Both</md-radio-button>
+					</md-radio-group>
+				</div>
+			</div>
+			<div class="col-lg-6 col-md-6 col-sm-12" *ngIf="reportInfo.segmentInfo && reportInfo.segmentInfo.length>0">
+				<div class="field-title">Segments Filter:</div>
+				<perfect-scrollbar style="max-height: 207px;">
+				<div class="row" *ngFor="let eachSegment of reportInfo.segmentInfo" style="height: 47px;">
+					<div class="col-md-3 col-sm-4" style="display: flex;">
+						<span style="display: flex;justify-content: center;flex-direction: column;font-size: 18px;">{{eachSegment.segName}}</span>
+					</div>
+					<div class="col-md-9 col-sm-8">
+						<angular2-multiselect class="control" [data]="eachSegment.flexValues1" [(ngModel)]="eachSegment.selFlexValues1" [settings]="limitFieldsSelectionSettings"
+						 [name]="eachSegment.segName" >
+						</angular2-multiselect>
+					</div>
+				</div>
+				</perfect-scrollbar>
+			</div>
+		</div>
+	</div>
+	</form>
+	<p-footer>
+		<div *ngIf="reportInfo.fields" class="submit-schedule">
+			<span>
+				<md-radio-group [(ngModel)]="reportInfo.outputType" name="reportOutput" style="padding-right: 25px;" (change)="outputTypeChanged()"
+				 [disabled]="!reportParams.valid || rptSubmitted" required>
+					<md-radio-button *ngFor="let type of reportOutput" [value]="type.lookUpCode" style="padding-right: 5px;" (click)="changeFromParams=true;">{{type.meaning}}</md-radio-button>
+				</md-radio-group>
+			</span>
+			<button md-raised-button (click)="runReport(true);" [disabled]="!reportParams.valid || rptSubmitted">Run</button>
+		</div>
+	</p-footer>
+</p-dialog>
+</div>
+<p-dialog class="processing" header="Processing" [(visible)]="showProcessing" [modal]="true" [resizable]="false" [closable]="!showProcessing" positionTop="200">
+	Please wait request is processing....
+	<p-footer>
+		<button md-raised-button (click)="cancelRequest();">Cancel</button>
+	</p-footer>
+</p-dialog>

@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { RuleGroupDetails } from './rule-group-details.model';
+import { RuleGroupDetailsPopupService } from './rule-group-details-popup.service';
+import { RuleGroupDetailsService } from './rule-group-details.service';
+
+@Component({
+    selector: 'jhi-rule-group-details-dialog',
+    templateUrl: './rule-group-details-dialog.component.html'
+})
+export class RuleGroupDetailsDialogComponent implements OnInit {
+
+    ruleGroupDetails: RuleGroupDetails;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private ruleGroupDetailsService: RuleGroupDetailsService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.ruleGroupDetails.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.ruleGroupDetailsService.update(this.ruleGroupDetails));
+        } else {
+            this.subscribeToSaveResponse(
+                this.ruleGroupDetailsService.create(this.ruleGroupDetails));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<RuleGroupDetails>) {
+        result.subscribe((res: RuleGroupDetails) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: RuleGroupDetails) {
+        this.eventManager.broadcast({ name: 'ruleGroupDetailsListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-rule-group-details-popup',
+    template: ''
+})
+export class RuleGroupDetailsPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private ruleGroupDetailsPopupService: RuleGroupDetailsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.ruleGroupDetailsPopupService
+                    .open(RuleGroupDetailsDialogComponent as Component, params['id']);
+            } else {
+                this.ruleGroupDetailsPopupService
+                    .open(RuleGroupDetailsDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

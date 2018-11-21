@@ -1,0 +1,163 @@
+<div class="component-title"> 
+	<div class="col-md-6 col-sm-6 col-xs-6">
+			<div class="headingIcons">
+					<i class="rec-font-profile iconStyle"></i>
+				</div>
+		<h4 *ngIf="profileList">Pipelines</h4>
+		<input class="form-control search-input" style="margin-left:12px"  type="text" [(ngModel)]="sourceProfilesService.searchData" placeholder="Search.." *ngIf="scrollToTop > 0" 
+		(ngModelChange)="searchText()">
+	</div>
+	<div class="col-md-6 col-sm-6 col-xs-6">
+		<!-- <button md-icon-button [routerLink]="['/source-profiles', {outlets: { 'content': ['source-profiles-new']}}]" 
+					
+						class="pull-right  md-36" mdTooltip="Add Source Profile" ><md-icon>add</md-icon></button> -->
+		<!-- <a >
+								<i class="fa fa-file-excel-o fa-1x pull-right hand" style="margin-top: 15px;" mdTooltip="Export Profiles" (click)="sProf.exportCSV()"></i>
+			</a> -->
+		<button md-icon-button (click)="sProf.exportCSV()" class="hand pull-right" mdTooltip="Export Profiles" *ngIf="sourceProfiles && sourceProfiles.length>0">
+			<i class="fa fa-file-excel-o fa-1x"></i>
+		</button>
+		<button md-icon-button (click)="addNewProfile()" class="pull-right" mdTooltip="Add New Profile" *jhiHasAnyAuthority="['SRC_PROFILE_CREATE']">
+			<md-icon>add</md-icon>
+		</button>
+		<div class="paginator-class display-flex" #paginatorClass >
+				<button class="paginator-icon" md-icon-button mdTooltip="paginator" (click)="addPaginator()"  *ngIf="length >0 && !showPaginator">
+					<md-icon>chevron_left</md-icon>
+				</button>
+				<button class="paginator-icon" md-icon-button mdTooltip="paginator" (click)="addPaginator()"  *ngIf="length >0 && showPaginator">
+						<md-icon>chevron_right</md-icon>
+					</button>
+				<div class="row"  *ngIf="showPaginator && length >0 && (pageSizeOptions && pageSizeOptions[0] && length>pageSizeOptions[0])"   @slide >
+					<md-paginator *ngIf="length >0"   [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex"
+					 (page)="pageEvent = $event;loadAllProfiles()"></md-paginator>
+				</div>
+				<div class="row"  style="padding-top: 8px;width:200px" *ngIf="showPaginator && length >0 && (pageSizeOptions && pageSizeOptions[0] && length<=pageSizeOptions[0])"  @slide> 
+					<span > 1 - {{length}} of {{length}} </span>
+				</div>
+			</div>
+		<!-- <button md-icon-button class="pull-right search-icon-body" mdTooltip="Search"><md-icon>search</md-icon></button> -->
+		<!-- <i class="pull-right material-icons md-36 hand ripple search-icon-body ripple">search</i> -->
+		<!-- <md-input-container class="pull-right hidethis">
+				<input class="mySearchBox" mdInput #gb placeholder="What're we looking for?" [(ngModel)] = "sourceProfilesService.searchData" (keyup.enter)="searchText();">
+			</md-input-container> -->
+	</div>
+</div>
+<div class="component-body">
+	<div class="d-flex justify-content-between sr-pg-con">
+		<input class="form-control search-input" type="text" placeholder="Search.." [(ngModel)]="sourceProfilesService.searchData" (ngModelChange)="searchText()" *ngIf="scrollToTop == 0" >
+		<!-- <md-paginator *ngIf="length >0 " [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex" (page)="pageEvent = $event; loadAllProfiles()"></md-paginator> -->
+	</div>
+	<div class="position-relative">
+		<div class="show-hide-class">
+			<p-multiSelect [options]="columnOptions" [(ngModel)]="profileTableColumns" title="Show/Hide Columns"></p-multiSelect>
+		</div>
+		<!-- scrollHeight="calc(100vh - 315px)" -->
+		<div  class="list-table" id="list-table">
+			<p-dataTable #sProf [value]="sourceProfiles" selectionMode="multiple" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+			 scrollable="true" [globalFilter]="gb"  [(selection)]="mySelectedRows" [headerCheckboxToggleAllPages]="true" (onSort)="changeSourceSort($event)"
+			 [rows]="5">
+				<!-- <p-column [style]="{'width':'38px'}" selectionMode="multiple"></p-column> -->
+				<!-- <p-column field="sourceProfileName" header="Profile Name" styleClass="left" [style]="{'width':'280px'}" [sortable]="true">
+				
+			</p-column> -->
+				<p-column *ngFor="let col of profileTableColumns"  [field]="col.field"
+				 [header]="col.header" [style]="{'width':col.width,'text-align':col.align}" [sortable]="true" >
+					<ng-template let-col let-row="rowData" pTemplate="body" *ngIf="col.field == 'sourceProfileName'">
+						<div class="flex-column-center" style="width:100%;">
+	
+	
+							<span style="display:block">{{row[col.field]}}</span>
+						
+							<!-- <span class="no-mb" style="color:#a0a0a0 !important;">Templates : ({{row['taggedProfCnt']}})</span> -->
+							<!-- <span style="color: green;font-size: 12px;font-weight:bold" *ngIf="row['enabledFlag'] ==1 || row['enabledFlag'] == true">
+								Active
+								<span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true"> - End dated</span>
+							</span>
+							<span style="color: red;font-size: 12px;font-weight:bold" *ngIf="row['enabledFlag'] ==0 ||row['enabledFlag'] == false">
+								Inactive
+								<span style="color: red;font-size: 12px" *ngIf="row['endDated'] == true"> - End dated</span>
+							</span> -->
+						</div>
+	
+						<!-- <a [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/details'}}]">{{row[col.field]}}</a> -->
+					</ng-template>
+					<ng-template let-col let-row="rowData" pTemplate="body" *ngIf="col.field != 'sourceProfileName'">
+							<i *ngIf="col.field == 'enabledFlag' && row[col.field]" class="material-icons" mdTooltip="Active">check_circle</i>
+						<i *ngIf="col.field == 'enabledFlag' && (!row[col.field] )" class="material-icons" aria-hidden="true" mdTooltip="InActive">error</i>
+						<span style="color: red;font-size: 12px" *ngIf=" col.field == 'enabledFlag' && ( row['endDated'] == true || row['endDated'] == '1')">End dated</span>
+						<div class="display-flex" >
+							<img *ngIf="col.field == 'connectionName' && row['connectionType'] == 'GOOGLE_DRIVE'" alt="google-drive" src="../../../content/images/Google-Drive-icon.png"
+								style="width: 20px; height: 20px; margin-top: -4px;">
+							   <img *ngIf="col.field == 'connectionName' && row['connectionType']  == 'DROP_BOX'" alt="drop-box" src="../../../content/images/Dropbox_Icon_2017.png"
+								style="width: 20px; height: 20px; margin-top: -4px;">
+							   <img *ngIf="col.field == 'connectionName' && row['connectionType']  == 'SFTP'" alt="sftp" src="../../../content/images/sftp.png"
+								style="width: 20px; height: 20px; margin-top: -4px;">
+							   <!-- <span style="padding-left:3px"> {{row[col.field]}}</span> -->
+							   <span *ngIf="col.field != 'taggedProfCnt' && col.field != 'enabledFlag' " [ngStyle]="{'padding-left' : (col.field == 'connectionName') ? '11px' : '' }">
+									   {{row[col.field]}}
+							   </span>
+
+						</div>
+						
+						<div style="display:flex;justify-content: space-between;" *ngIf="col.field == 'taggedProfCnt'">
+								<div style="white-space: nowrap;overflow: hidden;text-overflow: ellipsis;margin-top: 8px;">{{row[col.field] }}</div>
+						
+								<div class="icons-list">
+								
+									<button md-icon-button mdTooltip="View Profile" *jhiHasAnyAuthority="['SRC_PROFILE_VIEW']" [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/details'}}]">
+										<md-icon>remove_red_eye</md-icon>
+									</button>
+								
+								
+									<button md-icon-button mdTooltip="Edit Profile" *jhiHasAnyAuthority="['SRC_PROFILE_EDIT']" [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/edit'}}]">
+										<md-icon>edit</md-icon>
+									</button>
+								
+								
+									<button md-icon-button *jhiHasAnyAuthority="['SRC_PROFILE_COPY']" [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/copyedit'}}]"
+									 mdTooltip="Copy Profile">
+										<md-icon>content_copy</md-icon>
+									</button>
+								
+								</div>
+						</div>
+					</ng-template>
+				</p-column>
+				<!-- <p-column [style]="{'width':'20%','text-align':'center'}" header="Actions" styleClass="text-center overflow-visible" resizableColumns="false">
+					<ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+						<div class="display-flex">
+							<div class="editIcon" *jhiHasAnyAuthority="['SRC_PROFILE_VIEW']">
+								<button md-icon-button mdTooltip="View Profile" [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/details'}}]">
+									<md-icon>remove_red_eye</md-icon>
+								</button>
+							</div>
+							<div class="editIcon" *jhiHasAnyAuthority="['SRC_PROFILE_EDIT']">
+								<button md-icon-button mdTooltip="Edit Profile" [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/edit'}}]">
+									<md-icon>edit</md-icon>
+								</button>
+							</div>
+							<div class="editIcon" *jhiHasAnyAuthority="['SRC_PROFILE_COPY']">
+								<button md-icon-button [routerLink]="['/source-profiles', {outlets: {'content': [row['profId']]+'/copyedit'}}]" mdTooltip="Copy Profile">
+									<md-icon>content_copy</md-icon>
+								</button>
+							</div>
+						</div>
+					</ng-template>
+				</p-column> -->
+	
+				<!-- <p-column [style]="{'width':'80px' }" field="enabledFlag" header="Status" styleClass="center" [sortable]="false">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<i *ngIf="row[col.field] ==1 || row[col.field]  == true" class="material-icons" mdTooltip="Active">check_circle</i>
+						<i *ngIf="row[col.field] ==0 || row[col.field]  == false" class="material-icons" aria-hidden="true" mdTooltip="InActive">error</i>
+					</ng-template>
+				</p-column>
+				<p-column [style]="{'width':'80px' }" field="endDated" header="End dated">
+					<ng-template let-col let-row="rowData" pTemplate="body">
+						<i *ngIf="row[col.field] == 'true'" class="material-icons" aria-hidden="true" mdTooltip="End Dated">warning</i>
+					</ng-template>
+				</p-column> -->
+			</p-dataTable>
+		</div>
+	</div>
+	<!-- <md-paginator *ngIf="length >0 " [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" [pageIndex]="pageEvent.pageIndex" (page)="pageEvent = $event; loadAllProfiles()"></md-paginator> -->
+</div>

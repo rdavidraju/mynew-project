@@ -1,0 +1,65 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { RuleConditions } from './rule-conditions.model';
+import { RuleConditionsPopupService } from './rule-conditions-popup.service';
+import { RuleConditionsService } from './rule-conditions.service';
+
+@Component({
+    selector: 'jhi-rule-conditions-delete-dialog',
+    templateUrl: './rule-conditions-delete-dialog.component.html'
+})
+export class RuleConditionsDeleteDialogComponent {
+
+    ruleConditions: RuleConditions;
+
+    constructor(
+        private ruleConditionsService: RuleConditionsService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear () {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete (id: number) {
+        this.ruleConditionsService.delete(id).subscribe(response => {
+            this.eventManager.broadcast({
+                name: 'ruleConditionsListModification',
+                content: 'Deleted an ruleConditions'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-rule-conditions-delete-popup',
+    template: ''
+})
+export class RuleConditionsDeletePopupComponent implements OnInit, OnDestroy {
+
+    modalRef: NgbModalRef;
+    routeSub: any;
+
+    constructor (
+        private route: ActivatedRoute,
+        private ruleConditionsPopupService: RuleConditionsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe(params => {
+            this.modalRef = this.ruleConditionsPopupService
+                .open(RuleConditionsDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,476 @@
+import {Component, Inject, OnInit } from '@angular/core';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { Router } from '@angular/router';
+
+import { JobDetailsService } from './job-details.service';
+import { Jobs, Programs, Frequencies, Parameters } from './jobs.model';
+import { LookUpCode } from '../look-up-code/look-up-code.model';
+
+declare var $: any;
+declare var jQuery: any;
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+
+@Component({
+    selector: 'jobs-new-dialog',
+    templateUrl: 'jobs-new-dialog.component.html',
+})
+export class JobsNewDialog implements OnInit {
+    programsList: Programs[];
+    jobs = new Jobs();
+    jobsParameters: Parameters[];
+    stDate: any;
+    stTime: any;
+    edDate: any;
+    edTime: any;
+    occurence: any[];
+    weekly: any[];
+    selWeek: any[] = [];
+    monthly: any[];
+    selMonth: any[] = [];
+    selOcrnceType: any;
+    occurenceTypes: any[];
+    showOptional: boolean = false;
+    duplicateJobName: boolean = false;
+    TransformImmediately: boolean;
+    initiateDate: any;
+    initiatetime: any;
+    timeArr: any[] = [];
+    stCustTimePick: boolean = false;
+    edCustTimePick: boolean = false;
+    custTimePick: boolean = false;
+    isSubmitting: boolean = false;
+    isViewOnly: boolean = false;
+    
+    constructor(
+        public dialogRef: MdDialogRef<JobsNewDialog>,
+        @Inject(MD_DIALOG_DATA) public data: any,
+        private jobDetailsService: JobDetailsService,
+        private notificationsService: NotificationsService,
+        private router: Router
+    ) { }
+
+    onNoClick(): void {
+        this.dialogRef.close();
+    }
+
+    ngOnInit() {
+        this.jobDetailsService.programsListByTenantId().subscribe((res) => {
+            this.programsList = res;
+            this.getTimes();
+            let today = new Date();
+            this.stDate = this.initiateDate = today;
+            let hour = today.getHours() >=12 ? today.getHours()-12 : today.getHours() == 0 ? 12 : today.getHours();
+            let min = today.getMinutes() < 10 ? '0' + today.getMinutes() : today.getMinutes();
+            this.stTime = this.initiatetime = (hour==0 ? 12 : hour<10 ? '0'+hour : hour) + ":" + min + (today.getHours() >=12 ? 'pm' : 'am');
+        });
+
+        this.jobDetailsService.getLookupValues('SCHEDULE_TYPES').subscribe((res: LookUpCode[]) => {
+            this.occurence = res;
+        });
+    }
+
+    programSelected(programId: number, e) {
+        this.jobs.runNow = true;
+        if (programId) {
+            let t = new Date();
+            this.jobs.jobName = e.source.triggerValue+t.getDate()+(t.getMonth()+1)+t.getFullYear()+t.getHours()+t.getMinutes()+t.getSeconds();
+            this.jobDetailsService.getProgramsList(programId).subscribe((res: any) => {
+                this.jobsParameters = res[0].parametersSet;
+                this.jobsParameters.forEach((item, i) => {
+                    item.selectedValue = undefined;
+                    if (item.dependency && item.dependency != null) {
+                        item.valuesList = undefined;
+                    }
+                });
+            });
+        }
+    }
+
+    runNowF() {
+        if (!this.jobs.runNow) {
+            this.weekly = [{"code":"sun","disValue":"S","name":"Sunday","value":false},{"code":"mon","disValue":"M","name":"Monday","value":false},{"code":"tue","disValue":"T","name":"Tuesday","value":false},{"code":"wed","disValue":"W","name":"Wednesday","value":false},{"code":"thu","disValue":"T","name":"Thursday","value":false},{"code":"fri","disValue":"F","name":"Friday","value":false},{"code":"sat","disValue":"S","name":"Saturday","value":false}];
+            this.monthly = [{"code":"jan","disValue":1,"name":"January","value":false},{"code":"feb","disValue":2,"name":"February","value":false},{"code":"mar","disValue":3,"name":"March","value":false},{"code":"apr","disValue":4,"name":"April","value":false},{"code":"may","disValue":5,"name":"May","value":false},{"code":"jun","disValue":6,"name":"June","value":false},{"code":"jul","disValue":7,"name":"July","value":false},{"code":"aug","disValue":8,"name":"August","value":false},{"code":"sep","disValue":9,"name":"September","value":false},{"code":"oct","disValue":10,"name":"October","value":false},{"code":"nov","disValue":11,"name":"November","value":false},{"code":"dec","disValue":12,"name":"December","value":false}];
+            this.occurenceTypes = ['Initiate At', 'Schedule'];
+            this.selOcrnceType = this.occurenceTypes[0];
+            this.jobs.occurence = null;
+        }
+    }
+
+    selWeekF(week) {
+        week.value = week.value?false:true;
+        let weekSel = [];
+        let curWeek = new Date().getDay();
+        this.weekly.forEach((item, i) => {
+            if(item.value) {
+                weekSel.push(item);
+            }
+        });
+        if(weekSel.length < 1) {
+            this.weekly[curWeek].value = true;
+        }
+    }
+
+    selMonthF(month) {
+        month.value = month.value?false:true;
+        let monthSel = [];
+        let curMonth = new Date().getMonth();
+        this.monthly.forEach((item) => {
+            if(item.value) {
+                monthSel.push(item);
+            }
+        });
+        if(monthSel.length < 1) {
+            this.monthly[curMonth].value = true;
+        }
+    }
+
+    occurenceChange(val) {
+        if (val == 'radio') {
+            if(this.selOcrnceType == 'Initiate At') {
+                this.jobs.occurence = null;
+                this.jobs.neverEnd = false;
+            }else {
+                this.jobs.occurence = this.occurence[0].lookUpCode;
+                this.jobs.neverEnd = true;
+            }
+        } else {
+            let curWeek = new Date().getDay();
+            let curMonth = new Date().getMonth();
+            if(this.jobs.occurence == 'WEEKLY') {
+                this.weekly.forEach((item,i) => {
+                    if (i == curWeek) {
+                        item.value = true;
+                    } else {
+                        item.value = false;
+                    }
+                });
+            } else if(this.jobs.occurence == 'MONTHLY') {
+                this.monthly.forEach((item,i) => {
+                    if (i == curMonth) {
+                        item.value = true;
+                    } else {
+                        item.value = false;
+                    }
+                });
+            }
+        }
+    }
+
+    checkJobName(jobName: string) {
+        if (!jobName || jobName.length < 1) return;
+        this.jobDetailsService.checkJobNameAvailable(jobName).subscribe((res: number) => {
+            if (res > 0) {
+                if (this.jobs.id == res) {
+                    return;
+                } else {
+                    this.duplicateJobName = true;
+                }
+            }
+        });
+    }
+
+    blockSpecialChar(e,jobName1) {
+        var k = (e.which) ? e.which : e.keyCode;
+        
+        if ((k > 64 && k < 91)) {
+            return true;
+        }
+        else if (k > 96 && k < 123)
+            return true;
+        else if (k == 8)
+            return true;
+        else if (k > 47 && k < 57) {
+            if(jobName1.selectionStart != 0)
+            {
+                return true;
+            }
+            else{
+                this.notificationsService.info('Numbers at first place not allowed', '');
+                return false;
+            }
+        }
+
+        else {
+            this.notificationsService.info('Special chararcters not allowed', '');
+            return false;
+        }
+    }
+
+    submit() {
+        this.isSubmitting = true;
+        this.dialogRef.close();
+        this.jobs.frequencies = [];
+        let tempFrequency = new Frequencies();
+        this.jobs.scheStartDate = this.combineDateTime(this.stDate, this.stTime);
+        this.jobs.scheStartDate.setDate(this.jobs.scheStartDate.getDate());
+        if (this.jobs.neverEnd) {
+            let curDate = new Date();
+            this.jobs.scheEndDate = new Date(curDate.setFullYear(curDate.getFullYear()+5));
+        } else {
+            this.jobs.scheEndDate = this.combineDateTime(this.edDate, this.edTime);
+        }
+        this.jobs.jobStatus = true;
+        this.jobs.parameters = [];
+        this.jobsParameters.forEach((item) => {
+            this.jobs.parameters.push(Object.assign({}, item));
+        });
+        this.jobs.parameters.forEach(item => {
+            if (item.dependency) {
+                if (item.selectedValue && item.selectedValue.length > 0) {
+                    let concateVal: any;
+                    let i: number = 0;
+                    item.selectedValue.forEach(value => {
+                        concateVal = i == 0 ? value : concateVal + ',' + value;
+                        i = i + 1;
+                    });
+                    item.selectedValue = null;
+                    item.selectedValue = concateVal;
+                }
+            }
+        });
+        if(this.jobs.runNow) {
+            tempFrequency.type = 'ONDEMAND';
+            this.jobs.scheEndDate = this.jobs.scheStartDate;
+            this.jobs.scheEndDate.setDate(this.jobs.scheStartDate.getDate()+1);
+        } else {
+            if(this.selOcrnceType == 'Initiate At') {
+                tempFrequency.type = 'ONETIME';
+                tempFrequency.month = [];
+                tempFrequency.month.push(this.initiateDate.getMonth()+1);
+                tempFrequency.day = [];
+                tempFrequency.day.push(this.initiateDate.getDate());
+                tempFrequency.date = this.initiateDate;
+                this.jobs.scheEndDate = this.initiateDate;
+                this.jobs.scheEndDate.setDate(this.initiateDate.getDate()+1);
+            } else {
+                tempFrequency.type = this.jobs.occurence;
+                if(tempFrequency.type == 'WEEKLY') {
+                    tempFrequency.weekDay = this.getSelected(tempFrequency.type);
+                } else if(tempFrequency.type == 'MONTHLY') {
+                    tempFrequency.day = [];
+                    tempFrequency.day.push(this.initiateDate.getDate());
+                    tempFrequency.month = this.getSelected(tempFrequency.type);
+                }
+            }
+            let curSec = new Date().getSeconds();
+            let meridiem = this.initiatetime.substr(this.initiatetime.length -2);
+            tempFrequency.hours = meridiem == 'pm' ? parseInt(this.initiatetime.split(":")[0])+12 : parseInt(this.initiatetime.split(":")[0]);
+            tempFrequency.minutes = parseInt(this.initiatetime.split(":")[1].substring(0,2));
+            tempFrequency.time = tempFrequency.hours+':'+tempFrequency.minutes+':'+curSec;
+        }
+        this.jobs.frequencies.push(tempFrequency);
+
+        this.jobs.parameters.forEach((each, i) => {
+            if(each.selectedValue && each.selectedValue.toLowerCase().search('all') != -1) {
+                each.selectedValue = null;
+            }
+        });
+        this.jobDetailsService.postJobDetails(this.jobs).subscribe((res: any) => {
+            let savedResponse: any;
+            savedResponse = res.json();
+            this.isSubmitting = false;
+            if (savedResponse) {
+                if (savedResponse[0] && savedResponse[0].taskName === 'Job save') {
+                    if (savedResponse[1].taskName === 'Schedulers Save') {
+                        if (savedResponse[2].taskName === 'Initiate Job' && savedResponse[2].taskStatus === 'Success') {
+                            this.notificationsService.success('Process initiated successfully', '');
+                            this.router.navigate(['/jobs', { outlets: { 'content': [savedResponse[0].details] + '/schedulars-list' } }]);
+                        } else if (savedResponse[2].taskName === 'Initiate Job' && savedResponse[2].taskStatus === 'Failure') {
+                            this.notificationsService.info('Process saved but initiation failed! Try again.', '');
+                            // this.router.navigate(['/jobs', { outlets: { 'content': ['SCHEDULED'] + '/' + ['Frequency'] + '/' + ['SCHEDULED'] + '/schedulars-list' } }]);
+                        }
+                    } else {
+                        this.notificationsService.error('Oops...!', 'Scheduler not saved! Try again.');
+                        // this.router.navigate(['/jobs', { outlets: { 'content': ['SCHEDULED'] + '/' + ['Frequency'] + '/' + ['SCHEDULED'] + '/schedulars-list' } }]);
+                    }
+                } else {
+                    this.notificationsService.error('Oops...!', 'Process not saved! Try again.');
+                }
+            } else {
+                this.notificationsService.error('Oops...!', 'Process not saved! Try again.');
+            }
+        },
+        err => {
+            this.notificationsService.error('Warning!','Error Occured');
+            this.isSubmitting = false;
+        });
+    }
+
+    getSelected(param) {
+        let array = param == 'WEEKLY' ? this.weekly : this.monthly;
+        let tempArray = [];
+        array.forEach(each => {
+            if(each.value) {
+                tempArray.push(each.code);
+            }
+        });
+        return tempArray;
+    }
+
+    combineDateTime(date,time) {
+        let hour;
+        let curSec = new Date().getSeconds();
+        if(date && time) {
+            if(time.substr(-2) == 'pm') {
+                hour = parseInt(time.split(":")[0]) + 12;
+            } else {
+                hour = parseInt(time.split(":")[0]);
+            }
+            let finDate = new Date(date).setHours(hour,parseInt(time.split(":")[1].substring(0,2)),curSec);
+            return new Date(finDate);
+        }
+    }
+
+    neverEnd() {
+        if(this.jobs.neverEnd) {
+            this.edDate = undefined;
+            this.edTime = undefined;
+        } else {
+            let today = new Date();
+            this.edDate = new Date(today.setDate(today.getDate()+1));
+            let hour = today.getHours() >=12 ? today.getHours()-12 : today.getHours() == 0 ? 12 : today.getHours();
+            let min = today.getMinutes() < 10 ? '0' + today.getMinutes() : today.getMinutes();
+            this.edTime = (hour==0 ? 12 : hour<10 ? '0'+hour : hour) + ":" + min + (today.getHours() >=12 ? 'pm' : 'am');
+        }
+    }
+
+    getvaluesList(i) {
+        /* if next param exists, based on the dependency of that param, call api with dependency id, parameter id,  */
+        /* progParamSetId, dependencyId */
+        if (this.jobsParameters[i + 1] && this.jobsParameters[i + 1].dependency != null) {
+            if (this.jobsParameters[i + 1].paramId != null) {
+                this.jobsParameters[i + 1].valuesList = [];
+                this.jobsParameters[i + 1].selectedValue = null;
+                //add value parameter
+                // console.log(' jQuery.type(obj);' + jQuery.type(this.jobsParameters[i].selectedValue));
+                if (jQuery.type(this.jobsParameters[i].selectedValue) == 'string') {
+                    this.jobsParameters[i + 1].valuesList = [];
+
+                    this.jobDetailsService.getValueListBasedOnDependency(this.jobsParameters[i + 1].paramId, this.jobsParameters[i].selectedValue).subscribe((res: any) => {
+                        this.jobsParameters[i + 1].valuesList = res;
+                        if(this.jobsParameters[i + 1].dependency != null) {
+                            this.jobsParameters[i + 1].selectedValue = [];
+                            /* this.jobsParameters[i + 1].selectedValue.push(this.jobsParameters[i + 1].valuesList[0][this.jobsParameters[i + 1].bindValue]); */
+                            this.jobsParameters[i + 1].valuesList.forEach(item => {
+                                this.jobsParameters[i + 1].selectedValue.push(item[this.jobsParameters[i + 1].bindValue]);
+                            });
+                        }
+                        // console.log(this.jobsParameters[i + 1].selectedValue);
+                    });
+                } else if (jQuery.type(this.jobsParameters[i].selectedValue) == 'array') {
+                    if (this.jobsParameters[i].selectedValue && this.jobsParameters[i].selectedValue.length > 0) {
+                        let vals = [];
+                        /* this.jobsParameters[i].selectedValue.forEach(selVal => {
+                            vals.push(selVal[this.jobsParameters[i].bindValue]);
+                        }); */
+                        if (this.jobsParameters[i].selectedValue[0].toLowerCase().search('all') != -1) {
+                            vals = [];
+                        } else {
+                            vals = this.jobsParameters[i].selectedValue;
+                        }
+                        this.jobsParameters[i + 1].valuesList = [];
+                        this.jobDetailsService.getValueListBasedOnDependency(this.jobsParameters[i + 1].paramId, vals).subscribe((res: any) => {
+                            this.jobsParameters[i + 1].valuesList = res;
+                            if(this.jobsParameters[i + 1].dependency != null) {
+                                this.jobsParameters[i + 1].selectedValue = [];
+                                /* this.jobsParameters[i + 1].selectedValue.push(this.jobsParameters[i + 1].valuesList[0][this.jobsParameters[i + 1].bindValue]); */
+                                this.jobsParameters[i + 1].valuesList.forEach(item => {
+                                    this.jobsParameters[i + 1].selectedValue.push(item[this.jobsParameters[i + 1].bindValue]);
+                                });
+                            }
+                            // console.log('this.jobsParameters[i + 1].valuesList' + JSON.stringify(this.jobsParameters[i + 1].valuesList));
+                        });
+                    }
+                }
+                if (this.jobsParameters[i + 1].valuesList) {
+                    // console.log('this.jobsParameters[i + 1].valuesList' + JSON.stringify(this.jobsParameters[i + 1].valuesList));
+                    if (this.jobsParameters[i + 1].valuesList.length == 0)
+                        this.jobsParameters[i + 1].valuesList = [];
+                }
+            }
+        } else if(this.jobsParameters[i + 1]) {
+            this.jobsParameters[i + 1].selectedValue = null;
+        }
+    }
+
+    getTimes() {
+        let date = new Date('01-01-2017 00:00:00 am');
+        for (let i = 0; i <= 47; i++) {
+            if (date.getHours() <= 12) {
+                if (date.getMinutes() <= 12) {
+                    this.timeArr.push((date.getHours() == 0 ? 12 : date.getHours() < 10 ? '0' + date.getHours() : date.getHours()) + ':0' + date.getMinutes() + 'am');
+                } else {
+                    this.timeArr.push((date.getHours() == 0 ? 12 : date.getHours() < 10 ? '0' + date.getHours() : date.getHours()) + ':' + date.getMinutes() + 'am');
+                }
+            } else {
+                if (date.getMinutes() <= 12) {
+                    this.timeArr.push(((date.getHours() - 12) < 10 ? ('0' + (date.getHours() - 12)) : (date.getHours() - 12)) + ':0' + date.getMinutes() + 'pm');
+                } else {
+                    this.timeArr.push(((date.getHours() - 12) < 10 ? ('0' + (date.getHours() - 12)) : (date.getHours() - 12)) + ':' + date.getMinutes() + 'pm');
+                }
+            }
+            date = new Date(date.getTime() + 30 * 60000);
+        }
+    }
+
+    selectTime(time, which) {
+        if (which == 'stTime') {
+            this.stTime = time;
+        } else if (which == 'edTime') {
+            this.edTime = time;
+        } else if(which == 'initiatetime') {
+            this.initiatetime = time;
+        }
+    }
+
+    hideTimePicker() {
+        setTimeout(() => {
+            if (this.stCustTimePick) {
+                this.stCustTimePick = false;
+            } 
+            if (this.edCustTimePick) {
+                this.edCustTimePick = false;
+            } 
+            if (this.custTimePick) {
+                this.custTimePick = false;
+            }
+        }, 100);
+    }
+
+    showTimePicker(picker) {
+        if(picker == 'stCustTimePick') {
+            this.stCustTimePick = true;
+            this.edCustTimePick = false;
+            this.custTimePick = false;
+        } else if (picker == 'edCustTimePick') {
+            this.edCustTimePick = true;
+            this.stCustTimePick = false;
+            this.custTimePick = false;
+        } else if (picker == 'custTimePick') {
+            this.custTimePick = true;
+            this.stCustTimePick = false;
+            this.edCustTimePick = false;
+        }
+    }
+
+    toggleCheck(i,j) {
+        if(j <= 0) {
+            if (this.jobsParameters[i].valuesList[0][this.jobsParameters[i].bindValue] == this.jobsParameters[i].selectedValue[0]) {
+                //Check All
+                this.jobsParameters[i].selectedValue = [];
+                this.jobsParameters[i].valuesList.forEach(e => {
+                    this.jobsParameters[i].selectedValue.push(e[this.jobsParameters[i].bindValue]);
+                });
+                this.getvaluesList(i);
+            } else {
+                //UnCheck All
+                this.jobsParameters[i].selectedValue = [];
+            }
+        } else {
+            this.getvaluesList(i);
+        }
+    }
+
+}

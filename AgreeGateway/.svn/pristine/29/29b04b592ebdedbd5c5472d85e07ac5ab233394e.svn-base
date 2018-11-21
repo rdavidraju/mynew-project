@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { FileTemplateLines } from './file-template-lines.model';
+import { FileTemplateLinesPopupService } from './file-template-lines-popup.service';
+import { FileTemplateLinesService } from './file-template-lines.service';
+
+@Component({
+    selector: 'jhi-file-template-lines-dialog',
+    templateUrl: './file-template-lines-dialog.component.html'
+})
+export class FileTemplateLinesDialogComponent implements OnInit {
+
+    fileTemplateLines: FileTemplateLines;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private fileTemplateLinesService: FileTemplateLinesService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.fileTemplateLines.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.fileTemplateLinesService.update(this.fileTemplateLines));
+        } else {
+            this.subscribeToSaveResponse(
+                this.fileTemplateLinesService.create(this.fileTemplateLines));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<FileTemplateLines>) {
+        result.subscribe((res: FileTemplateLines) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: FileTemplateLines) {
+        this.eventManager.broadcast({ name: 'fileTemplateLinesListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-file-template-lines-popup',
+    template: ''
+})
+export class FileTemplateLinesPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private fileTemplateLinesPopupService: FileTemplateLinesPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.fileTemplateLinesPopupService
+                    .open(FileTemplateLinesDialogComponent as Component, params['id']);
+            } else {
+                this.fileTemplateLinesPopupService
+                    .open(FileTemplateLinesDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,1303 @@
+<p-blockUI [blocked]="buttonRestrict"></p-blockUI>
+<div class="component-body reconcilewq-main">
+	<div class="display-flex mat-card query-window" style="padding:5px 10px;flex-wrap:wrap;position: relative;">
+		<div style="padding-top:5px;" class="col-md-2 col-sm-12 col-xs-12">
+			<md-select placeholder="Reconciliation Process" [(ngModel)]="reconRuleGroupId" (change)="onChangeRuleGroup(reconRuleGroupId)"
+			 name="ruleGroup">
+				<md-option *ngFor="let type of reconRuleGroups; let i = index" [value]="type.id">
+					{{ type.name }}
+				</md-option>
+			</md-select>
+		</div>
+		<div style="padding-top:5px;" class="col-md-2 col-sm-12 col-xs-12">
+			<md-select placeholder="Reconcile For" [(ngModel)]="sourceDataViewId" (change)="onChangeSource(sourceDataViewId);" name="sViewName">
+				<md-option *ngFor="let sv of sourceDataViews; let i = index" [value]="sv.viewId">
+					{{ sv.viewName }}
+				</md-option>
+			</md-select>
+		</div>
+		<div style="padding-top:5px;" class="col-md-2 col-sm-12 col-xs-12">
+			<md-select placeholder="Reconcile With" [(ngModel)]="targetDataViewId" name="tViewName" (change)="onChangeTarget(targetDataViewId);">
+				<md-option *ngFor="let tv of targetDataViews; let i = index" [value]="tv.viewId">
+					{{tv.viewName }}
+				</md-option>
+			</md-select>
+		</div>
+		<div class="customToggleTabs" style="position: absolute;right: 100px;padding-top: 5px;">
+			<div class="col-md-12 date-range-fields" style="display:flex;justify-content:flex-end;">
+				<div style="display:flex;">
+					<md-form-field style="margin-right:-1px;width:115px;">
+						<input mdInput [mdDatepicker]="stpicker" placeholder="From" [max]="rangeTo" (dateChange)="changeStartRange();" [(ngModel)]="rangeFrom"
+						 name="startDate">
+						<md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+						<md-datepicker #stpicker></md-datepicker>
+					</md-form-field>
+				</div>
+				<div style="display:flex;">
+					<md-form-field style="width:115px;">
+						<input mdInput [mdDatepicker]="edpicker" placeholder="To" (dateChange)="changeEndRange();" [min]="rangeFrom" [max]="systemDate"
+						 [(ngModel)]="rangeTo" name="endDate">
+						<md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+						<md-datepicker #edpicker></md-datepicker>
+					</md-form-field>
+				</div>
+			</div>
+		</div>
+		<div class="customToggleTabs" style="position: absolute;right: 104px;top: 58px;">
+			<md-button-toggle-group #dategroup="mdButtonToggleGroup" (change)="changePFactor($event);" style="margin-right: 7px;">
+				<md-button-toggle *ngFor="let period of periodsList;let i = index;" [value]="period.columnName" [checked]="period.checked">
+					{{period.displayName}}
+				</md-button-toggle>
+			</md-button-toggle-group>
+			<md-button-toggle-group #group="mdButtonToggleGroup" (change)="toggleRange($event);" class="date-range-toggles">
+				<md-button-toggle *ngFor="let range of dateRangeList;let i = index;" [value]="range.value" [checked]="range.checked" [mdTooltip]="range.title">
+					{{range.name}}
+				</md-button-toggle>
+			</md-button-toggle-group>
+		</div>
+		<div style="position:absolute;right:10px;top:10px;">
+			<button style="font-size:16px;margin-top:0px;" *ngIf="reconRuleGroupId" md-icon-button (click)="ngOnDestroy();fetchQueryParams(reconRuleGroupId);"
+			 mdTooltip="Refresh Data">
+				<md-icon>loop</md-icon>
+			</button>
+			<button md-icon-button mdTooltip="Process List" mdTooltipPosition="below" [routerLink]="['/reconcile', {outlets: {'content': ['reconcile-list']}}]"
+			 (click)="isRecAllData();">
+				<md-icon>clear</md-icon>
+			</button>
+		</div>
+	</div>
+	<div *ngIf="showReconAnalytics" class="recon-summary" style="margin-top:25px;">
+		<div class="analytics-window" id="activityWindow">
+			<div class="query-buttons">
+				<div class="summary-header" style="padding: 10px;max-width: 925px;">
+					<div class="status-list">
+						<md-tab-group class="workquetabs" (focusChange)="changeStatus($event)" [selectedIndex]="selectedParentTab" dynamicHeight="true">
+							<md-tab>
+								<ng-template md-tab-label>
+									<div class="exp-container">
+										<label style="text-transform:capitalize;font-size:14px !important;" class="rec-amt hand status-label">Reconciled
+										</label>
+										<div class="status-data col-md-12" style="text-align:left;">
+											<div class="col-md-12">
+												<label>{{sourceViewName}}</label>
+												<span style="font-size:15px;font-weight:bold;float: right;position: relative;right: 100px;" class="rec-amt">{{sourceRCount | number:'1.0-0'}}</span>
+											</div>
+											<div class="col-md-12">
+												<label>{{targetViewName}}</label>
+												<span style="font-size:15px;font-weight:bold;float: right;position: relative;right: 100px;" class="rec-amt">{{targetRCount | number:'1.0-0'}}</span>
+											</div>
+										</div>
+									</div>
+								</ng-template>
+							</md-tab>
+							<md-tab>
+								<ng-template md-tab-label>
+									<div class="exp-container">
+										<label style="text-transform:capitalize;font-size:14px !important;" class="unrec-amt hand status-label">Un-Reconciled
+										</label>
+										<div class="status-data col-md-12" style="text-align:left;">
+											<div class="col-md-12" style="padding-top:10px;">
+												<label>{{sourceViewName}}</label>
+												<span style="font-size:15px;font-weight:bold;float: right;position: relative;right: 100px;" class="unrec-amt">{{sourceUCount | number:'1.0-0'}}</span>
+											</div>
+										</div>
+									</div>
+								</ng-template>
+							</md-tab>
+						</md-tab-group>
+					</div>
+				</div>
+			</div>
+		</div>
+		<md-accordion multi="true" displayMode="flat">
+			<md-expansion-panel expanded="true" style="position: relative;">
+				<md-expansion-panel-header>
+					<md-panel-title>
+						<span *ngIf="currentReconStatus == 'reconciled'">Reconciliation Summary</span>
+						<span *ngIf="currentReconStatus == 'unreconciled'">Unreconciliation Summary</span>
+					</md-panel-title>
+				</md-expansion-panel-header>
+				<div class="display-flex" style="position:absolute;right:47px;top:5px">
+					<button class="action-button hov-sweep-to-right" *ngIf="selectedKeys.length > 0 && selectedParentTab == 1" md-raised-button
+					 color="primary" (click)="beforeJobInitiate()" [disabled]="buttonRestrict">Reconcile
+						<span *ngIf="sourceRecordRCount">({{sourceRecordRCount | number:'1.0-0'}})</span>
+					</button>
+					<button class="action-button hov-sweep-to-right" *ngIf="selectedKeys.length > 0 && selectedParentTab == 1" md-raised-button
+					 color="primary" (click)="scheduleJobRecon();reconcileService.reconSchJob = true;" [disabled]="buttonRestrict">Schedule Reconciliation
+					</button>
+					<button class="action-button hov-sweep-to-right" *ngIf="selectedKeys.length > 0 && selectedParentTab == 0" md-raised-button
+					 color="primary" (click)="fetchAcctRuleGroups(this.sourceDataViewId, 'ACCOUNTING');" [disabled]="buttonRestrict">Run Accounting
+					</button>
+					<button class="action-button hov-sweep-to-right" *ngIf="selectedKeys.length > 0 && selectedParentTab == 0 && (groupBy == 'approvalStatus' || groupBy == 'approvalRule')"
+					 md-raised-button color="primary" (click)="fetchAcctRuleGroups(this.sourceDataViewId, 'APPROVALS');" [disabled]="buttonRestrict">Initiate Approval
+					</button>
+					<button class="action-button hov-sweep-to-right" *ngIf="selectedKeys.length > 0 && selectedParentTab == 0" md-raised-button
+					 color="primary" (click)="manualUnRecon('batchwise','')" [disabled]="buttonRestrict">Un-Reconcile
+						<span *ngIf="sourceRecordRCount">({{sourceRecordRCount | number:'1.0-0'}})</span>
+					</button>
+					<attachment *ngIf="currentReconStatus == 'reconciled'" [attachmentsKey]="reconRuleGroupName" [attachmentCategory]="'Reconciliation'">
+					</attachment>
+				</div>
+				<div class="analytics-window" id="activityWindow">
+					<div class="query-buttons">
+						<div class="summary-header display-flex">
+							<div style="width:100%;">
+								<div class="main-group-by">
+									<div class="group-by display-flex">
+										<div style="width:175px;">
+											<ul *ngIf="currentReconStatus == 'reconciled'" class="resp-tabs-list">
+												<li class="hov-bubble-right" (click)="changeGroupBy('rules')" [class.group-active]="groupBy == 'rules'">Sub Process</li>
+												<li class="hov-bubble-right" (click)="changeGroupBy('days')" [class.group-active]="groupBy == 'days'">Period</li>
+												<li style="border-bottom: 1px solid #d2d2d2 !important;" class="hov-bubble-right" (click)="changeGroupBy('batch');viewAttachment = true;"
+												 [class.group-active]="groupBy == 'batch'">Batch</li>
+												<li class="hov-bubble-right" (click)="changeGroupBy('approvalStatus')" [class.group-active]="groupBy == 'approvalStatus'"
+												 *ngIf="isApproval">Approval status</li>
+												<li class="hov-bubble-right" (click)="changeGroupBy('approvalRule')" [class.group-active]="groupBy == 'approvalRule'" *ngIf="isApproval">Approval Rules</li>
+												<li style="border-bottom: 1px solid #d2d2d2 !important;" class="hov-bubble-right" (click)="changeGroupBy('approvalDate')"
+												 [class.group-active]="groupBy == 'approvalDate'" *ngIf="isApproval">Approved By Date</li>
+											</ul>
+											<ul *ngIf="currentReconStatus == 'reconciled' && recColumnNameData" class="resp-tabs-list">
+												<li *ngFor="let col of recColumnNameData; let i = index;" class="hov-bubble-right" (click)="changeGroupBy('columnName',col.displayName)"
+												 [class.group-active]="groupBy == 'columnName' && columnInd == i">{{col.displayName}}</li>
+											</ul>
+											<ul *ngIf="currentReconStatus == 'unreconciled'" class="resp-tabs-list">
+												<li style="border-bottom: 1px solid #d2d2d2 !important;" class="hov-bubble-right" (click)="changeGroupBy('days')" [class.group-active]="groupBy == 'days'">Period</li>
+											</ul>
+											<ul *ngIf="currentReconStatus == 'unreconciled' && unRecColumnNameData" class="resp-tabs-list">
+												<li *ngFor="let col of unRecColumnNameData; let i = index;" class="hov-bubble-right" (click)="changeGroupBy('columnName',col.displayName)"
+												 [class.group-active]="groupBy == 'columnName' && columnInd == i">{{col.displayName}}</li>
+											</ul>
+											<ul *ngIf="currentReconStatus == 'suggestion'" class="resp-tabs-list">
+												<li class="hov-bubble-right" (click)="changeGroupBy('rules')" [class.group-active]="groupBy == 'rules'">Sub Process</li>
+												<li class="hov-bubble-right" (click)="changeGroupBy('batch')" [class.group-active]="groupBy == 'batch'">Batch</li>
+												<li *ngFor="let col of groupingColumns; let i = index;" class="hov-bubble-right" (click)="changeGroupBy('columnName',i)"
+												 [class.group-active]="groupBy == 'columnName'">{{col.displayName}}</li>
+											</ul>
+										</div>
+										<div class="summary-table" style="text-align:right;" *ngIf="isAnalytics == true && currentReconStatus=='reconciled'">
+											<p-dataTable [value]="reconGroupByAnalytics" [responsive]="true" scrollable="true" scrollHeight="240px">
+												<p-headerColumnGroup>
+													<p-row>
+														<p-column styleClass="dv-header" rowspan="2" header="" [style]="{'text-align':'center','width':'30%'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<p-checkbox [style]="{'float':'left'}" *ngIf="reconGroupByAnalytics.length > 1" name="selectedRow" [(ngModel)]="isChecked" binary="true"
+																 #selectedRow="ngModel" (onChange)="checkAll($event);isReconData = false;" [disabled]="buttonRestrict"></p-checkbox>
+																<span *ngIf="groupBy == 'rules'">Sub Process</span>
+																<span *ngIf="groupBy == 'batch'">Batch</span>
+																<span *ngIf="groupBy == 'columnName'">{{columnLabel}}</span>
+																<span *ngIf="groupBy == 'days'">Period</span>
+																<span *ngIf="groupBy == 'approvalStatus'">Approval Status</span>
+																<span *ngIf="groupBy == 'approvalRule'">Approval Rules</span>
+																<span *ngIf="groupBy == 'approvalDate'">Approved Date</span>
+															</ng-template>
+														</p-column>
+														<p-column *ngIf="isNotCurrency == true" styleClass="dv-header" rowspan="2" header="" [style]="{'text-align':'center'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<span>Currency</span>
+															</ng-template>
+														</p-column>
+														<p-column styleClass="dv-header" colspan="2" [style]="{'text-align':'center','border-bottom':'1px solid white'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<span>{{sourceViewName}}</span>
+															</ng-template>
+														</p-column>
+														<p-column styleClass="dv-header" colspan="2" [style]="{'text-align':'center','border-bottom':'1px solid white'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<span>{{targetViewName}}</span>
+															</ng-template>
+														</p-column>
+													</p-row>
+													<p-row>
+														<p-column header="Count" [style]="{'text-align':'right'}"></p-column>
+														<p-column header="Amount" [style]="{'text-align':'right'}"></p-column>
+														<p-column header="Count" [style]="{'text-align':'right'}"></p-column>
+														<p-column header="Amount" [style]="{'text-align':'right'}"></p-column>
+													</p-row>
+												</p-headerColumnGroup>
+												<p-column header="" [style]="{'text-align':'left','width':'30%'}">
+													<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+														<p-checkbox name="selectedARow{{i}}" [value]="row" [(ngModel)]="selectedKeys"
+														 #selectedARow{{i}}="ngModel" [disabled]="buttonRestrict" (onChange)="getReconciledRecords();showBatchWiseCounts();isReconData = false;"></p-checkbox>
+														<span *ngIf="groupBy == 'days'">{{row.name | date:'mediumDate'}}</span>
+														<span *ngIf="groupBy != 'days'">{{row.name}}</span>
+													</ng-template>
+												</p-column>
+												<p-column *ngIf="isNotCurrency == true" [style]="{'text-align':'center'}" field="currency" [sortable]="true"></p-column>
+												<p-column colspan="2" [style]="{'text-align':'right'}" field="sCount" [sortable]="true"></p-column>
+												<p-column [style]="{'text-align':'right'}" [sortable]="true">
+													<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+														<span>{{row.sAmount | number:'1.2-2'}}</span>
+													</ng-template>
+												</p-column>
+												<p-column [style]="{'text-align':'right'}" field="tCount" [sortable]="true"></p-column>
+												<p-column [style]="{'text-align':'right'}" [sortable]="true">
+													<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+														<span>{{row.tAmount | number:'1.2-2'}}</span>
+													</ng-template>
+												</p-column>
+											</p-dataTable>
+											<md-paginator #summaryPaginator [hidePageSize]="recSummaryLength<=10" [showFirstLastButtons]="recSummaryLength>10" [length]="recSummaryLength" [pageSize]="summaryPageEvent.pageSize"
+											 [pageIndex]="summaryPageEvent.pageIndex" [pageSizeOptions]="summaryPageSizeOptions" (page)="summaryPageEvent=$event;onSummaryPagination(currentReconStatus, groupBy,columnName);"></md-paginator>
+										</div>
+										<div class="summary-table" style="text-align:right;" *ngIf="isAnalytics == true && currentReconStatus=='unreconciled'">
+											<p-dataTable [value]="unReconGroupByAnalytics" [responsive]="true" scrollable="true" scrollHeight="240px">
+												<p-headerColumnGroup>
+													<p-row>
+														<p-column styleClass="dv-header" rowspan="2" header="" [style]="{'text-align':'center','width':'30%'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<p-checkbox [style]="{'float':'left'}" *ngIf="unReconGroupByAnalytics.length > 1" name="selectedRow" [(ngModel)]="isChecked" binary="true"
+																 #selectedRow="ngModel" (onChange)="checkAll($event);isReconData = false;" [disabled]="buttonRestrict"></p-checkbox>
+																<span *ngIf="groupBy == 'rules'">Sub Process</span>
+																<span *ngIf="groupBy == 'batch'">Batch</span>
+																<span *ngIf="groupBy == 'columnName'">{{columnLabel}}</span>
+																<span *ngIf="groupBy == 'days'">Period</span>
+																<span *ngIf="groupBy == 'approvalStatus'">Approval Status</span>
+																<span *ngIf="groupBy == 'approvalRule'">Approval Rules</span>
+																<span *ngIf="groupBy == 'approvalDate'">Approved Date</span>
+															</ng-template>
+														</p-column>
+														<p-column *ngIf="isNotCurrency == true" styleClass="dv-header" rowspan="2" header="" [style]="{'text-align':'center'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<span>Currency</span>
+															</ng-template>
+														</p-column>
+														<p-column styleClass="dv-header" colspan="2" [style]="{'text-align':'center','border-bottom':'1px solid white'}">
+															<ng-template let-row="rowData" let-i="index" pTemplate="header">
+																<span>{{sourceViewName}}</span>
+															</ng-template>
+														</p-column>
+													</p-row>
+													<p-row>
+														<p-column header="Count" [style]="{'text-align':'right'}"></p-column>
+														<p-column header="Amount" [style]="{'text-align':'right'}"></p-column>
+													</p-row>
+												</p-headerColumnGroup>
+												<p-column header="" [style]="{'text-align':'left','width':'30%'}">
+													<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+														<p-checkbox name="selectedARow{{i}}" [value]="row" [(ngModel)]="selectedKeys"
+														 #selectedARow{{i}}="ngModel" [disabled]="buttonRestrict" (onChange)="loadData();showBatchWiseCounts();"></p-checkbox>
+														<span *ngIf="groupBy == 'days'">{{row.name | date:'mediumDate'}}</span>
+														<span *ngIf="groupBy != 'days'">{{row.name}}</span>
+													</ng-template>
+												</p-column>
+												<p-column *ngIf="isNotCurrency == true" [style]="{'text-align':'center'}" field="currency" [sortable]="true"></p-column>
+												<p-column colspan="2" [style]="{'text-align':'right'}" field="sCount" [sortable]="true"></p-column>
+												<p-column [style]="{'text-align':'right'}" [sortable]="true">
+													<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+														<span>{{row.sAmount | number:'1.2-2'}}</span>
+													</ng-template>
+												</p-column>
+											</p-dataTable>
+											<md-paginator #summaryPaginator [hidePageSize]="unRecSummaryLength<=10" [showFirstLastButtons]="unRecSummaryLength>10" [length]="unRecSummaryLength" [pageSize]="summaryPageEvent.pageSize"
+											 [pageIndex]="summaryPageEvent.pageIndex" [pageSizeOptions]="summaryPageSizeOptions" (page)="summaryPageEvent=$event;onSummaryPagination(currentReconStatus, groupBy,columnName);"></md-paginator>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</md-expansion-panel>
+			<md-expansion-panel style="position: relative;" *ngIf="(isReconData == true && selectedKeys.length > 0) || (sourceLines.length > 0 && targetLines.length > 0 && selectedKeys.length > 0)"
+			 [expanded]="(isReconData == true && selectedKeys.length > 0) || (sourceLines.length > 0 && targetLines.length > 0 && selectedKeys.length > 0)">
+				<md-expansion-panel-header>
+					<md-panel-title>
+						<span *ngIf="currentReconStatus == 'reconciled'">Reconciliation Details</span>
+						<span *ngIf="currentReconStatus == 'unreconciled'">Unreconciliation Details</span>
+					</md-panel-title>
+				</md-expansion-panel-header>
+				<div *ngIf="currentReconStatus == 'reconciled'" class="display-flex" style="position:absolute;right:47px;top:5px">
+					<button class="action-button hov-sweep-to-right" *ngIf="selectedSource.length > 0 || selectedTarget.length > 0" color="primary"
+					 md-raised-button (click)="manualUnRecon('recordwise','multiple')" [disabled]="buttonRestrict">Un-Reconcile
+					</button>
+					<input type="text" placeholder="Search" class="form-control" style="width: 200px;border-radius: 20px;display:initial;" [(ngModel)]="reconSearchWord"
+					 (keyup.enter)="reconGlobalSearch();" [disabled]="buttonRestrict" />
+					<md-icon class="hand" (click)="reconGlobalSearch();" style="position: relative;top: 7px;right: 35px;color: gray;">search</md-icon>
+					<button style="position: relative;right: 10px;" md-icon-button (click)="recDataFileExp('csv')" mdTooltip="Export to CSV">
+						<i class="rec-font-csv" style="font-size: 20px;"></i>
+					</button>
+					<button style="position: relative;right: 10px;" md-icon-button mdTooltip="Export to Excel" (click)="recDataFileExp('excel')">
+						<i class="fa fa-file-excel-o" style="color:rgb(0, 85, 0);font-size:20px;"></i>
+					</button>
+					<button md-button id="showIcon" mdTooltip="Full Screen" color="primary" md-icon-button (click)="isFullScreen  = !isFullScreen">
+						<md-icon>fullscreen</md-icon>
+					</button>
+				</div>
+				<div style="margin-top:2px;" class="recon-data-tables">
+					<div id="recontables">
+						<div class="display-flex" style="padding:5px;" *ngIf="(selectedSource.length > 0 || selectedTarget.length > 0) && (currentReconStatus == 'unreconciled' || currentReconStatus == 'suggestion')">
+							<h4 style="position:absolute;left:15px;font-size:20px;" counto [step]="30" [countTo]="selectedSourceAmount" [countFrom]="0"
+							 [duration]="0.5" (countoChange)="a = $event">{{a | number:'1.2-2'}}
+								<span style="font-size: 16px;" *ngIf="!selectedSourceCount">(0)</span>
+								<span style="font-size: 16px;" *ngIf="selectedSourceCount">({{selectedSourceCount}})</span>
+							</h4>
+
+							<h4 counto [step]="30" [countTo]="selectedDifference" [countFrom]="0" [duration]="0.5" (countoChange)="d = $event" style="position:relative;left:47%;display:flex;font-size: 20px;">
+								{{d | number:'1.2-2'}}
+								<p counto [step]="10" [countTo]="selectedDifferencePercent" [countFrom]="100" [duration]="0.5" (countoChange)="c = $event"
+								 style="font-size: 16px;top:4px;left:5px;position:relative;">({{c | number:'1.1-1'}}%)</p>
+								<div style="margin-left:-5px;padding-left:15px;">
+									<button *ngIf="selectedDifferencePercent > -4.0 && selectedDifferencePercent < 4.0" color="primary" md-raised-button (click)="addSetsForMRecon(reconRuleGroupId,sourceDataViewId,targetDataViewId,currentReconStatus)"
+									 [disabled]="buttonRestrict">Reconcile</button>
+								</div>
+							</h4>
+							<h4 style="position:absolute;right:30px;font-size: 20px;" counto [step]="30" [countTo]="selectedTargetAmount" [countFrom]="0"
+							 [duration]="0.5" (countoChange)="b = $event">{{b | number:'1.2-2'}}
+								<span style="font-size: 16px;" *ngIf="!selectedTargetCount">(0)</span>
+								<span style="font-size: 16px;" *ngIf="selectedTargetCount">({{selectedTargetCount}})</span>
+							</h4>
+						</div>
+						<div class="display-flex col-md-12 detail-headers" *ngIf="currentReconStatus != 'reconciled'">
+							<div class="col-md-6 display-flex" style="justify-content: space-between;max-height: 40px;">
+								<h5 style="padding-top: 8px;padding-left: 5px;">{{sourceViewName}}</h5>
+								<div class="s-options" style="display: -webkit-box;">
+									<input type="text" placeholder="Search" class="form-control" style="width: 200px;border-radius: 20px;display:initial;" [(ngModel)]="sourceSearchWord"
+									 (keyup.enter)="searchWithKeyWord(sourceSearchWord,'source');" [disabled]="buttonRestrict" />
+									<button md-icon-button (click)="unRecDataFileExp(sourceViewName,'source','csv')" mdTooltip="Export to CSV">
+										<i class="rec-font-csv" style="font-size: 20px;"></i>
+									</button>
+									<button md-icon-button mdTooltip="Export to Excel" (click)="unRecDataFileExp(sourceViewName,'source','excel')">
+										<i class="fa fa-file-excel-o" style="color:rgb(0, 85, 0);font-size:20px;"></i>
+									</button>
+									<div style="margin-left: 25px;padding-top: 6px;">
+										<p-multiSelect [options]="sourceColumnOptions" mdTooltip="Show/hide Columns" [(ngModel)]="sourceHeaderColumns"></p-multiSelect>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-6 display-flex" style="justify-content: space-between;max-height: 40px;">
+								<h5 style="padding-top: 8px;padding-left: 5px;">{{targetViewName}}</h5>
+								<div class="s-options" style="margin-right: 25px;display: -webkit-box;">
+									<input type="text" placeholder="Search" class="form-control" style="width: 200px;border-radius: 20px;display:initial;" [(ngModel)]="targetSearchWord"
+									 (keyup.enter)="searchWithKeyWord(targetSearchWord,'target');" [disabled]="buttonRestrict" />
+									<button md-icon-button (click)="unRecDataFileExp(targetViewName,'target','csv')" mdTooltip="Export to CSV">
+										<i class="rec-font-csv" style="font-size: 20px;"></i>
+									</button>
+									<button md-icon-button mdTooltip="Export to Excel" (click)="unRecDataFileExp(targetViewName,'target','excel')">
+										<i class="fa fa-file-excel-o" style="color:rgb(0, 85, 0);font-size:20px;"></i>
+									</button>
+									<button md-button id="showIcon" mdTooltip="Full Screen" color="primary" md-icon-button (click)="isFullScreen  = !isFullScreen">
+										<md-icon>fullscreen</md-icon>
+									</button>
+									<div style="margin-left: 25px;padding-top: 6px;">
+										<p-multiSelect [options]="targetColumnOptions" mdTooltip="Show/hide Columns" [(ngModel)]="targetHeaderColumns"></p-multiSelect>	
+									</div>
+								</div>
+							</div>
+						</div>
+						<div *ngIf="currentReconStatus == 'unreconciled'">
+							<vertical-split-pane primary-component-minsize="400" secondary-component-minsize="400" primary-component-initialratio="0.5"
+							 *ngIf="!isVisibleC">
+								<div class="leftpane split-pane-content-primary" style="padding:0 10px;">
+									<div class="source-view-table table-responsive">
+										<p-dataTable [value]="sourceLines" [responsive]="true" scrollable="true" reorderableColumns="true"
+										 columnResizeMode="expand" resizableColumns="true" (onSort)="changeSourceSort($event)">
+											<p-column [style]="{'width':'80px', 'text-align':'left'}" field="" *ngIf="sourceHeaderColumns.length > 0">
+												<ng-template let-row="rowData" pTemplate="header" let-i="rowIndex">
+													<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="showSFilters" md-button mdTooltip="Toggle Filters"
+													 md-icon-button color="primary" (click)="showSFilters = !showSFilters;">
+														<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;" class="fa fa-filter" id="showIcon"></i>
+													</button>
+													<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="!showSFilters" md-button mdTooltip="Toggle Filters"
+													 md-icon-button color="primary" (click)="showSFilters = !showSFilters;">
+														<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;color:grey !important;" class="fa fa-filter"
+														 id="showIcon"></i>
+													</button>
+												</ng-template>
+												<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+													<p-checkbox [name]="'selectedSRow'+i" [value]="row" [(ngModel)]="selectedSource" (onChange)="getSourceTotal($event,i)"></p-checkbox>
+													<button *ngIf="(row['adjustmentType'] == '' || !row['adjustmentType'])" md-icon-button [mdMenuTriggerFor]="moreActions" mdTooltip="More Actions">
+														<i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+													</button>
+													<md-menu [overlapTrigger]="false" #moreActions="mdMenu" yPosition="below" xPosition="after">
+														<ul>
+															<li (click)="getDataForSplit(row,'Add','source');">
+																Add Row
+															</li>
+															<li (click)="getDataForSplit(row,'Split','source');">
+																Split Row
+															</li>
+														</ul>
+													</md-menu>
+												</ng-template>
+											</p-column>
+											<p-column *ngFor="let col of sourceHeaderColumns" style="padding-left:10px;" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+											 [sortable]="true" [filter]="showSFilters">
+												<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+													<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+													<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+													<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+												</ng-template>
+												<ng-template pTemplate="header" let-row let-i="rowIndex">
+													<span>{{col.header}}</span>
+												</ng-template>
+												<ng-template pTemplate="filter" let-row let-i="rowIndex">
+													<div *ngIf="showSFilters">
+														<input *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'" style="width:100%;" name="searchskey{{i}}" [(ngModel)]="col.searchWord"
+														 #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('source');">
+														<input *ngIf="col.dataType == 'DECIMAL'" (keypress)="amountRestrict($event.which? $event.which : $event.keyCode)" style="width:100%;"
+														 name="searchskey{{i}}" [(ngModel)]="col.searchWord" #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('source');">
+														<p-inputMask *ngIf="col.dataType == 'DATE'" mask="9999-99-99" [style]="{'width':'100%'}" name="searchskey{{i}}" [(ngModel)]="col.searchWord"
+														 #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('source');" placeholder="YYYY-MM-DD" slotChar="YYYY-MM-DD"></p-inputMask>
+													</div>
+												</ng-template>
+											</p-column>
+										</p-dataTable>
+									</div>
+									<md-paginator [hidePageSize]="sourceLength<=10" [showFirstLastButtons]="sourceLength>10" [length]="sourceLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page" (page)="onSPaginateChange($event)">
+									</md-paginator>
+								</div>
+								<div class="split-pane-content-secondary rightpane" style="padding:0 10px;">
+									<div class="traget-view-table table-responsive">
+										<p-dataTable [value]="targetLines" [responsive]="true" scrollable="true" reorderableColumns="true" columnResizeMode="expand"
+										 resizableColumns="true" (onSort)="changeTargetSort($event)">
+											<p-column [style]="{'width':'80px', 'text-align':'left'}" field="" *ngIf="targetHeaderColumns.length > 0">
+												<ng-template let-row="rowData" pTemplate="header" let-i="rowIndex">
+													<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="showTFilters" md-button mdTooltip="Toggle Filters"
+													 md-icon-button color="primary" (click)="showTFilters = !showTFilters;">
+														<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;" class="fa fa-filter" id="showIcon"></i>
+													</button>
+													<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="!showTFilters" md-button mdTooltip="Toggle Filters"
+													 md-icon-button color="primary" (click)="showTFilters = !showTFilters;">
+														<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;color:grey !important;" class="fa fa-filter"
+														 id="showIcon"></i>
+													</button>
+												</ng-template>
+												<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+
+													<p-checkbox [name]="'selectedTRow' + i" [value]="row" [(ngModel)]="selectedTarget" (onChange)="getTargetTotal($event,i)"></p-checkbox>
+
+													<button *ngIf="(row['adjustmentType'] == '' || !row['adjustmentType'])" md-icon-button [mdMenuTriggerFor]="tmoreActions"
+													 mdTooltip="More Actions">
+														<i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+													</button>
+													<md-menu [overlapTrigger]="false" #tmoreActions="mdMenu" yPosition="below" xPosition="after">
+														<ul>
+															<li (click)="getDataForSplit(row,'Add','target');">
+																Add Row
+															</li>
+															<li (click)="getDataForSplit(row,'Split','target');">
+																Split Row
+															</li>
+														</ul>
+													</md-menu>
+												</ng-template>
+											</p-column>
+											<p-column *ngFor="let col of targetHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+											 [sortable]="true">
+												<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+													<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number: '1.2-2'}}</span>
+													<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+													<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+												</ng-template>
+												<ng-template pTemplate="header" let-row let-i="rowIndex">
+													<span>{{col.header}}</span>
+												</ng-template>
+												<ng-template pTemplate="filter" let-row let-i="index">
+													<div *ngIf="showTFilters">
+														<input *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'" style="width:100%;" name="searchtkey{{i}}" [(ngModel)]="col.searchWord"
+														 #searchtkey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('target');">
+														<input *ngIf="col.dataType == 'DECIMAL'" (keypress)="amountRestrict($event.which? $event.which : $event.keyCode)" style="width:100%;"
+														 name="searchtkey{{i}}" [(ngModel)]="col.searchWord" #searchtkey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('target');">
+														<p-inputMask *ngIf="col.dataType == 'DATE'" mask="9999-99-99" [style]="{'width':'100%'}" name="searchskey{{i}}" [(ngModel)]="col.searchWord"
+														 #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('target');" placeholder="YYYY-MM-DD" slotChar="YYYY-MM-DD"></p-inputMask>
+													</div>
+												</ng-template>
+											</p-column>
+										</p-dataTable>
+									</div>
+									<md-paginator [hidePageSize]="targetLength<=10" [showFirstLastButtons]="targetLength>10" [length]="targetLength" [pageSize]="itemsPerPage1" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page1"
+									 (page)="onTPaginateChange($event)">
+									</md-paginator>
+								</div>
+							</vertical-split-pane>
+						</div>
+						<div *ngIf="currentReconStatus == 'reconciled'">
+							<p-dataTable [value]="reconciledRecords" [responsive]="true" scrollable="true" expandableRows="true" (onRowExpand)="onRowExpand($event,'target',targetDataViewId);onRowExpand($event,'source',sourceDataViewId)"
+							 [sortField]="headerSortField" rowExpandMode="single" (onSort)="changeSort($event)">
+								<p-headerColumnGroup>
+									<p-row>
+										<p-column [sortable]="false" header="" rowspan="2" [style]="{'width':'80px', 'text-align':'left','border-right': '1px solid black'}"
+										 styleClass="text-center" styleClass="center"></p-column>
+										<p-column [sortable]="false" header="" rowspan="2" [style]="{'width':'45px', 'text-align':'left','border-right': '1px solid black'}"
+										 styleClass="text-center" styleClass="center"></p-column>
+										<p-column [sortable]="true" header="Recon Reference" field="reconReference" rowspan="2" styleClass="text-center" styleClass="center"
+										 [style]="{'border-right': '1px solid black'}">
+										</p-column>
+										<p-column [sortable]="true" [header]="reconciledLines.groupingColumn.header" [field]="reconciledLines.groupingColumn.field"
+										 rowspan="2" styleClass="text-center" styleClass="center" [style]="{'border-right': '1px solid black'}" [sortable]="true"></p-column>
+										<p-column header="" [colspan]="3" styleClass="text-center" styleClass="center">
+											<ng-template let-row="rowData" let-i="index" pTemplate="header">
+												<span style="font-weight:bold;">{{sourceViewName}}</span>
+											</ng-template>
+										</p-column>
+										<p-column header="" [colspan]="3" styleClass="text-center" styleClass="center">
+											<ng-template let-row="rowData" let-i="index" pTemplate="header">
+												<span style="font-weight:bold;">{{targetViewName}}</span>
+											</ng-template>
+										</p-column>
+									</p-row>
+									<p-row>
+										<p-column styleClass="left" [style]="{'text-align':'right'}" field="srcCount" [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+												<div style="display:grid;">
+													<span>Transaction</span>
+													<span>Count</span>
+												</div>
+											</ng-template>
+										</p-column>
+										<p-column styleClass="left" [style]="{'text-align':'right'}" field="srcAmount" [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+												<div style="display:grid;">
+													<span>Reconciled</span>
+													<span>Amount</span>
+												</div>
+											</ng-template>
+										</p-column>
+										<p-column styleClass="left" [style]="{'text-align':'right'}" field="srcTolAmount" [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+												<div style="display:grid;">
+													<span>Variance</span>
+													<span>Amount</span>
+												</div>
+											</ng-template>
+										</p-column>
+										<p-column styleClass="left" [style]="{'text-align':'right'}" field="trCount" [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+												<div style="display:grid;">
+													<span>Transaction</span>
+													<span>Count</span>
+												</div>
+											</ng-template>
+										</p-column>
+										<p-column styleClass="left" [style]="{'text-align':'right'}" field="trAmount" [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+												<div style="display:grid;">
+													<span>Reconciled</span>
+													<span>Amount</span>
+												</div>
+											</ng-template>
+										</p-column>
+										<p-column styleClass="left" [style]="{'text-align':'right'}" field="trTolAmount" [sortable]="true">
+											<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+												<div style="display:grid;">
+													<span>Variance</span>
+													<span>Amount</span>
+												</div>
+											</ng-template>
+										</p-column>
+									</p-row>
+								</p-headerColumnGroup>
+								<p-column [style]="{'width':'80px', 'text-align':'left'}" field="">
+									<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+										<p-checkbox [name]="'selectedTRow' + i" [value]="row" [(ngModel)]="selectedSource"></p-checkbox>
+										<button *ngIf="currentReconStatus == 'reconciled'" md-icon-button mdTooltip="View Reconciliation" mdTooltipPosition="below"
+										 (click)="totalCustomFilter(row);fetchTargetOnSourceRecord(reconRuleGroupId,sourceDataViewId,targetDataViewId,row)">
+											<i class="fa fa-eye" aria-hidden="true"></i>
+										</button>
+									</ng-template>
+								</p-column>
+								<p-column expander="true" mdTooltip="Expand" styleClass="col-icon" header="" field="" [style]="{'width':'45px'}"></p-column>
+								<p-column styleClass="text-center" styleClass="center" field="reconReference" header="Recon Reference" [sortable]="true">
+									<ng-template let-row="rowData" let-ref="rowIndex" pTemplate="body">
+										<span>
+											{{row.reconReference}}
+										</span>
+									</ng-template>
+								</p-column>
+								<p-column styleClass="text-center" styleClass="center" [style]="{'border-right':'1px solid #ececec'}" [header]="reconciledLines.groupingColumn.header"
+								 [field]="reconciledLines.groupingColumn.field" [sortable]="true">
+									<ng-template let-row="rowData" let-ref="rowIndex" pTemplate="body">
+										<span>
+											{{row.groupingCol}}
+										</span>
+									</ng-template>
+								</p-column>
+								<p-column colspan="1" *ngFor="let col of reconciledLines.source;let c = index" [style]="{'text-align':'right'}" [header]="col.header"
+								 [field]="col.field" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+										<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number: '.2'}}</span>
+										<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date:'mediumDate'}}</span>
+										<span *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'">{{row[col.field]}}</span>
+									</ng-template>
+								</p-column>
+								<p-column colspan="1" *ngFor="let col of reconciledLines.target;let d = index" [style]="{'text-align':'right','border-left': col.borderLeft}"
+								 [header]="col.header" [field]="col.field" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+										<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number: '.2'}}</span>
+										<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date:'mediumDate'}}</span>
+										<span *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'">{{row[col.field]}}</span>
+									</ng-template>
+								</p-column>
+								<ng-template let-child pTemplate="rowexpansion">
+									<div class="d-flex">
+										<div style="padding-left:50px;padding-bottom:10px;" class="acct-childtable col-md-6">
+											<p-dataTable [value]="child.sourceChild" reorderableColumns="true" [responsive]="true" columnResizeMode="expand" scrollable="true"
+											 scrollHeight="100px" resizableColumns="true" [sortable]="true">
+												<p-column *ngFor="let col of sourceColumns1ByRuleId" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+												 [filter]="showSFilters">
+													<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+														<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+														<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+														<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+													</ng-template>
+												</p-column>
+											</p-dataTable>
+											<p *ngIf="child && child.sourceChild && child.sourceChild.length > 3">
+												<a style="color:dodgerblue;text-decoration:underline;" (click)="totalCustomFilter(selectedExpandRow);fetchTargetOnSourceRecord(reconRuleGroupId,sourceDataViewId,targetDataViewId,selectedExpandRow)">Click here to view more transactions</a>
+											</p>
+										</div>
+										<div style="padding-left:50px;padding-bottom:10px;" class="acct-childtable col-md-6">
+											<p-dataTable [value]="child.targetChild" reorderableColumns="true" [responsive]="true" columnResizeMode="expand" scrollable="true"
+											 scrollHeight="100px" resizableColumns="true" [sortable]="true">
+												<p-column *ngFor="let col of targetColumns1ByRuleId" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+												 [filter]="showSFilters">
+													<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+														<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+														<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+														<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+													</ng-template>
+												</p-column>
+											</p-dataTable>
+											<p style="float:right;" *ngIf="child && child.targetChild && child.targetChild.length > 3">
+												<a style="color:dodgerblue;text-decoration:underline;" (click)="totalCustomFilter(selectedExpandRow);fetchTargetOnSourceRecord(reconRuleGroupId,sourceDataViewId,targetDataViewId,selectedExpandRow)">Click here to view more transactions</a>
+											</p>
+										</div>
+									</div>
+								</ng-template>
+							</p-dataTable>
+							<md-paginator hidePageSize="true" showFirstLastButtons="false" style="justify-content:center;" [length]="reconciledLength" [pageSize]="recItemsPerPage" [pageSizeOptions]="pageSizeOptions"
+							 [pageIndex]="recPage" (page)="onRecPaginateChange($event);">
+							</md-paginator>
+						</div>
+					</div>
+				</div>
+			</md-expansion-panel>
+		</md-accordion>
+	</div>
+	<p-dialog modal="modal" header="Run Accounting" [resizable]="false" [draggable]="true" [responsive]="true" [(visible)]="runAcctShow"
+	 width="400">
+		<label>Accounting For :</label>
+		<h6>{{sourceViewName}}</h6>
+		<md-select placeholder="Accounting Process" required name="AcctRuleGroupName" [(ngModel)]="acctRuleGroupId">
+			<md-option *ngFor="let type of acctRuleGroups" [value]="type.groupId">
+				{{ type.groupName }} </md-option>
+		</md-select>
+		<p-footer>
+			<button class="action-button hov-sweep-to-right" md-raised-button (click)="initiateReconJob('Accounting');" [disabled]="buttonRestrict">Submit</button>
+		</p-footer>
+	</p-dialog>
+
+	<p-dialog modal="modal" header="Approval Initiation" [resizable]="false" [draggable]="true" [responsive]="true" [(visible)]="isRejected"
+	 width="400">
+		<md-select placeholder="Approval Process" required name="ApprovlaGroupName" [(ngModel)]="approvalGroupId" disabled="true">
+			<md-option *ngFor="let type of approvalRuleGroups" [value]="type.groupId">
+				{{ type.groupName }} </md-option>
+		</md-select>
+		<p-footer>
+			<button class="action-button hov-sweep-to-right" md-raised-button (click)="initiateReconJob('Recon Approvals');" [disabled]="buttonRestrict">Initiate Approval</button>
+		</p-footer>
+	</p-dialog>
+
+	<p-dialog modal="modal" header="Batch Reconciliation" [resizable]="false" [draggable]="true" [responsive]="true" [(visible)]="displayConfirmDialog">
+		<h6>Do you want to Run with Existing Rules or Create a New Rule?</h6>
+		<p-footer>
+			<button class="action-button hov-sweep-to-right" md-raised-button (click)="displayConfirmDialog = false; buildRule();">Create Rule</button>
+			<span>(OR)</span>
+			<button md-raised-button class="action-button hov-sweep-to-right" (click)="displayConfirmDialog = false;initiateReconJob('Reconciliation')"
+			 [disabled]="buttonRestrict">Run With Existing Rules</button>
+		</p-footer>
+	</p-dialog>
+	<p-dialog header="Build Rule" modal="modal" [resizable]="false" [draggable]="true" [responsive]="true" [(visible)]="reconcileService.ENABLE_RULE_BLOCK">
+		<div *ngIf="reconcileService.ENABLE_RULE_BLOCK">
+			<jhi-rule-group-reconciliation [accountingMode]="create"></jhi-rule-group-reconciliation>
+		</div>
+	</p-dialog>
+
+
+
+	<p-dialog header="Filters" [responsive]="true" [(visible)]="showFilterView">
+		<div class="table-responsive">
+			<table id="customFilterTable" class="table table-bordered table-hover">
+				<thead class="tableheader">
+					<tr>
+						<th>Filter Name</th>
+						<th>Source Column</th>
+						<th>Operator</th>
+						<th>Target Column</th>
+						<th>Key Value</th>
+					</tr>
+				</thead>
+				<tbody class="createmode">
+					<tr *ngFor="let col of formFilterArray;let i = index;" id="hideIconTable">
+						<td>{{col.parameter}}</td>
+						<td>
+							{{col.sColName}}
+						</td>
+						<td>
+							<input type="text" name="operator" [(ngModel)]="col.operator" />
+						</td>
+						<td>
+							{{col.tColName}}
+						</td>
+						<td>
+							<input *ngIf="col.parameter == 'TRANSDATE'" type="text" name="value" [(ngModel)]="col.value" />
+						</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+		<p-footer>
+			<button class="action-button hov-sweep-to-right" md-raised-button [disabled]="buttonRestrict">Save</button>
+		</p-footer>
+	</p-dialog>
+	<div class="acct-split">
+		<p-dialog modal="modal" [header]="rowAction" [resizable]="false" [draggable]="true" [responsive]="true" [(visible)]="showSplit">
+			<label style="font-size:12px;">Data Source :</label>
+			<h6 *ngIf="splitType == 'source'" style="padding-bottom:10px;">{{sourceViewName}}</h6>
+			<h6 *ngIf="splitType == 'target'" style="padding-bottom:10px;">{{targetViewName}}</h6>
+			<div class="table-responsive" *ngIf="splitType == 'source'">
+				<p-dataTable [value]="splitRow" scrollHeight="100px" columnResizeMode="expand" resizableColumns="true" scrollable="true"
+				 [responsive]="true">
+					<p-column *ngFor="let col of sourceHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}">
+						<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+							<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | currency:row[sCurrencyQualifierName]:'symbol-narrow':'1.2-2'}}</span>
+							<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+							<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+			</div>
+			<div class="table-responsive" *ngIf="splitType == 'target'">
+				<p-dataTable [value]="splitRow" scrollHeight="100px" columnResizeMode="expand" resizableColumns="true" scrollable="true"
+				 [responsive]="true">
+					<p-column *ngFor="let col of targetHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}">
+						<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+							<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | currency:row[tCurrencyQualifierName]:'symbol-narrow':'1.2-2'}}</span>
+							<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+							<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+						</ng-template>
+					</p-column>
+				</p-dataTable>
+			</div>
+			<form novalidate #splitForm="ngForm">
+				<div *ngIf="rowAction == 'Add Row'" class="display-flex" style="padding:10px 0px;">
+					<p-dataTable [value]="addRowArray" scrollHeight="180px" scrollable="true" [responsive]="true">
+						<p-column field="adjustmentType" header="Adjustment Type"></p-column>
+						<p-column field="rowDescription" header="Description">
+							<ng-template pTemplate="body" let-row="rowData" let-i="rowIndex">
+								<input name="desc{{i}}" [(ngModel)]="row.rowDescription" #desc{{i}}="ngModel" required>
+							</ng-template>
+						</p-column>
+						<p-column field="amount" header="Amount">
+							<ng-template pTemplate="body" let-row="rowData" let-i="rowIndex">
+								<!-- <span>{{row['amount'] | currency:row[tCurrencyQualifierName]:'symbol-narrow':'1.2-2'}}</span> -->
+								<input type="number" min="1" name="splitamount{{i}}" [ngModel]="row.amount" (ngModelChange)="row.amount=$event" #splitamount{{i}}="ngModel"
+								 required>
+							</ng-template>
+						</p-column>
+					</p-dataTable>
+				</div>
+				<div *ngIf="rowAction == 'Split Row'" class="display-flex" style="padding:10px 0px;">
+					<div class="col-md-4">
+						<md-input-container>
+							<input mdInput (blur)="updateSplitTable(rowCount);" (keyup.enter)="updateSplitTable(rowCount);" [(ngModel)]="rowCount" placeholder="No of Rows" name="rcount" #rcount="ngModel"
+							 type="number" min="2" required>
+						</md-input-container>
+					</div>
+					<div class="col-md-4" style="text-align:center;">
+						<!-- <md-checkbox [disabled]="!rowCount" class="example-margin" [(ngModel)]="isEvenly" (change)="isEvenlyTrue();" name="isEven"
+							#isEven="ngModel" required>Evenly</md-checkbox> -->
+						<md-radio-group style="display: block;padding-top: 18px;" [(ngModel)]="isEvenly" (change)="isEvenlyTrue();" name="method">
+							<md-radio-button value="Evenly">Evenly</md-radio-button>
+							<md-radio-button value="Percent">Percentage</md-radio-button>
+						</md-radio-group>
+					</div>
+					<div class="col-md-4">
+						<md-input-container>
+							<input mdInput disabled="true" [ngModel]="selectedAmount | currency:splitCurreny:'symbol-narrow':'1.2-2'" (ngModelChange)="selectedAmount = $event"
+							 placeholder="Divisible Amount" name="sAmount" #sAmount="ngModel" type="text" required>
+						</md-input-container>
+					</div>
+				</div>
+				<div *ngIf="rowAction == 'Split Row' && splitRowArray.length > 0" class="table-responsive split-table">
+					<p-dataTable [value]="splitRowArray" scrollHeight="180px" scrollable="true" [responsive]="true">
+						<p-column field="adjustmentType" header="Adjustment Type"></p-column>
+						<p-column field="rowDescription" header="Description">
+							<ng-template pTemplate="body" let-row="rowData" let-i="rowIndex">
+								<input name="desc{{i}}" [(ngModel)]="row.rowDescription" #desc{{i}}="ngModel" required>
+							</ng-template>
+						</p-column>
+						<p-column *ngIf="isEvenly == 'Percent'" field="percentValue" header="Percent Value">
+							<ng-template pTemplate="body" let-row="rowData" let-i="rowIndex">
+								<input type="number" min=1 max="99" name="pValue{{i}}" (keypress)="amountRestrict($event.keyCode)" (keyup.enter)="updateSplitAmount(row.percentValue,i)" (blur)="updateSplitAmount(row.percentValue,i)"
+								 [(ngModel)]="row.percentValue" #pValue{{i}}="ngModel" required>
+							</ng-template>
+						</p-column>
+						<p-column field="amount" header="Amount">
+							<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+								<input type="number" min="1" name="splitamount{{j}}" [(ngModel)]="row.amount"
+								 #splitamount{{j}}="ngModel" disabled="true" required>
+							</ng-template>
+						</p-column>
+					</p-dataTable>
+				</div>
+			</form>
+			<p-footer>
+				<button class="action-button hov-sweep-to-right" md-raised-button style="color:#003ea5;" [disabled]="!splitForm.valid" (click)="saveSplitRow();">Save</button>
+			</p-footer>
+		</p-dialog>
+	</div>
+
+	<div class="view-reconciliation">
+		<p-dialog modal="modal" header="View Reconciliation" [resizable]="false" [draggable]="true" [responsive]="true" [(visible)]="showReconciliation">
+			<div>
+				<div class="col-md-12 display-flex">
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Reconciled For :</p>
+						<h6 style="padding: 1px 10px;font-size:16px;">{{sourceViewName}}</h6>
+					</div>
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Reconciled Count :</p>
+						<h6 style="padding:1px 10px;font-size:16px;">{{sVariances?.srcCount}}</h6>
+					</div>
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Reconciled Amount :</p>
+						<h6 style="color:green;padding:1px 10px;font-size:16px;">{{sVariances?.srcAmount | number: '1.2-2'}}</h6>
+					</div>
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Variance Amount :</p>
+						<h6 style="color:orangered;padding:1px 10px;font-size:16px;">{{sVariances?.srcTolAmount | number: '1.2-2'}}</h6>
+					</div>
+
+				</div>
+				<div style="padding-left:20px;" class="table-responsive">
+					<p-dataTable [value]="reconciledSource" scrollHeight="200px" columnResizeMode="expand" resizableColumns="true" scrollable="true"
+					 [responsive]="true">
+						<p-column *ngFor="let col of sourceColumns1ByRuleId" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}">
+							<ng-template pTemplate="body" let-row="rowData" let-j="index">
+								<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+								<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+								<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+							</ng-template>
+						</p-column>
+					</p-dataTable>
+					<div *ngIf="sVariances && sVariances.srcCount">
+						<md-paginator [hidePageSize]="sVariances.srcCount<=10" [showFirstLastButtons]="sVariances.srcCount>10" [length]="sVariances.srcCount" [pageSize]="sitemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="sPage"
+						 (page)="sReconPaginate($event)">
+						</md-paginator>
+					</div>
+				</div>
+			</div>
+			<div style="padding-top:30px;">
+				<div class="col-md-12 display-flex">
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Reconciled For :</p>
+						<h6 style="padding:1px 10px;font-size:16px;">{{targetViewName}}</h6>
+					</div>
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Reconciled Count :</p>
+						<h6 style="padding:1px 10px;font-size:16px;">{{sVariances?.trCount}}</h6>
+					</div>
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Reconciled Amount :</p>
+						<h6 style="color:green;padding:1px 10px;font-size:16px;">{{sVariances?.trAmount | number: '1.2-2'}}</h6>
+					</div>
+					<div class="col-md-3 display-flex">
+						<p style="font-size:14px;">Variance Amount :</p>
+						<h6 style="color:orangered;padding:1px 10px;font-size:16px;">{{sVariances?.trTolAmount | number: '1.2-2'}}</h6>
+					</div>
+				</div>
+				<div style="padding-left:20px;" class="table-responsive">
+					<p-dataTable [value]="reconciledTarget" scrollHeight="200px" columnResizeMode="expand" resizableColumns="true" scrollable="true"
+					 [responsive]="true">
+						<p-column *ngFor="let col of targetColumns1ByRuleId" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}">
+							<ng-template pTemplate="body" let-row="rowData" let-j="index">
+								<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+								<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+								<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+							</ng-template>
+						</p-column>
+					</p-dataTable>
+					<div *ngIf="sVariances && sVariances.trCount">
+						<md-paginator [hidePageSize]="sVariances.trCount<=10" [showFirstLastButtons]="sVariances.trCount>10" [length]="sVariances.trCount" [pageSize]="titemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="tPage"
+						 (page)="tReconPaginate($event)">
+						</md-paginator>
+					</div>
+				</div>
+			</div>
+			<p-footer>
+				<button class="action-button hov-sweep-to-right" md-raised-button style="color:#003ea5;" (click)="manualUnRecon('recordwise','single');">Un-Reconcile</button>
+			</p-footer>
+		</p-dialog>
+	</div>
+
+	<p-sidebar [(visible)]="isFullScreen" [fullScreen]="true" [baseZIndex]="10000" [blockScroll]="false">
+		<h4 style="padding-top: 10px;font-size:20px;padding-left:15px;">Activity Details </h4>
+		<hr>
+		<div class="recon-data-tables">
+			<div id="recontables">
+				<div class="display-flex" *ngIf="(selectedSource.length > 0 || selectedTarget.length > 0) && (currentReconStatus == 'unreconciled' || currentReconStatus == 'suggestion')">
+					<h4 style="position:absolute;left:30px;font-size:20px;" counto [step]="30" [countTo]="selectedSourceAmount" [countFrom]="0"
+					 [duration]="0.5" (countoChange)="a = $event">{{a | number:'1.2-2'}}
+						<span style="font-size: 16px;" *ngIf="!selectedSourceCount">(0)</span>
+						<span style="font-size: 16px;" *ngIf="selectedSourceCount">({{selectedSourceCount}})</span>
+					</h4>
+
+					<h4 counto [step]="30" [countTo]="selectedDifference" [countFrom]="0" [duration]="0.5" (countoChange)="d = $event" style="position:relative;left:47%;display:flex;font-size: 20px;">
+						{{d | number:'1.2-2'}}
+						<p counto [step]="10" [countTo]="selectedDifferencePercent" [countFrom]="100" [duration]="0.5" (countoChange)="c = $event"
+						 style="font-size: 16px;top:4px;left:5px;position:relative;">({{c | number:'1.1-1'}}%)</p>
+						<div style="margin-left:-5px;padding-left:15px;">
+							<button *ngIf="selectedDifferencePercent > -4.0 && selectedDifferencePercent < 4.0" color="primary" md-raised-button (click)="addSetsForMRecon(reconRuleGroupId,sourceDataViewId,targetDataViewId,currentReconStatus)"
+							 [disabled]="buttonRestrict">Reconcile</button>
+						</div>
+					</h4>
+					<h4 style="position:absolute;right:30px;font-size: 20px;" counto [step]="30" [countTo]="selectedTargetAmount" [countFrom]="0"
+					 [duration]="0.5" (countoChange)="b = $event">{{b | number:'1.2-2'}}
+						<span style="font-size: 16px;" *ngIf="!selectedTargetCount">(0)</span>
+						<span style="font-size: 16px;" *ngIf="selectedTargetCount">({{selectedTargetCount}})</span>
+					</h4>
+				</div>
+				<div class="display-flex col-md-12 detail-headers" *ngIf="currentReconStatus != 'reconciled'">
+					<div class="col-md-6 display-flex" style="justify-content: space-between;">
+						<h5 style="padding-top: 8px;padding-left: 5px;">{{sourceViewName}}</h5>
+						<div class="s-options" style="display: -webkit-box;">
+							<input type="text" placeholder="Search" class="form-control" style="width: 200px;border-radius: 20px;display:initial;" [(ngModel)]="sourceSearchWord"
+							 (keyup.enter)="searchWithKeyWord(sourceSearchWord,'source');" [disabled]="buttonRestrict" />
+							<button md-icon-button (click)="unRecDataFileExp(sourceViewName,'target','csv')" mdTooltip="Export to CSV">
+								<i class="rec-font-csv" style="font-size: 20px;"></i>
+							</button>
+							<button md-icon-button mdTooltip="Export to Excel" (click)="unRecDataFileExp(sourceViewName,'target','excel')">
+								<i class="fa fa-file-excel-o" style="color:rgb(0, 85, 0);font-size:20px;"></i>
+							</button>
+							<div style="margin-left: 25px;padding-top: 6px;">
+								<p-multiSelect [options]="sourceColumnOptions" mdTooltip="Show/hide Columns" [(ngModel)]="sourceHeaderColumns"></p-multiSelect>
+							</div>
+						</div>
+
+					</div>
+					<div class="col-md-6 display-flex" style="justify-content: space-between;">
+						<h5 style="padding-top: 8px;padding-left: 5px;">{{targetViewName}}</h5>
+						<div class="s-options" style="display: -webkit-box;">
+							<input type="text" placeholder="Search" class="form-control" style="width: 200px;border-radius: 20px;display:initial;" [(ngModel)]="targetSearchWord"
+							 (keyup.enter)="searchWithKeyWord(targetSearchWord,'target');" [disabled]="buttonRestrict" />
+							<button md-icon-button (click)="unRecDataFileExp(targetViewName,'target','csv')" mdTooltip="Export to CSV">
+								<i class="rec-font-csv" style="font-size: 20px;"></i>
+							</button>
+							<button md-icon-button mdTooltip="Export to Excel" (click)="unRecDataFileExp(targetViewName,'target','excel')">
+								<i class="fa fa-file-excel-o" style="color:rgb(0, 85, 0);font-size:20px;"></i>
+							</button>
+							<div style="margin-left: 25px;padding-top: 6px;">
+								<p-multiSelect [options]="targetColumnOptions" mdTooltip="Show/hide Columns" [(ngModel)]="targetHeaderColumns"></p-multiSelect>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div *ngIf="currentReconStatus == 'unreconciled'">
+					<vertical-split-pane primary-component-minsize="400" secondary-component-minsize="400" primary-component-initialratio="0.5"
+					 *ngIf="!isVisibleC">
+						<div class="leftpane split-pane-content-primary" style="padding:0 10px;">
+							<div class="source-view-table table-responsive">
+								<p-dataTable [value]="sourceLines" [responsive]="true" scrollable="true" scrollHeight="calc(100vh - 280px)" reorderableColumns="true"
+								 columnResizeMode="expand" resizableColumns="true" (onSort)="changeSourceSort($event)">
+									<p-column [style]="{'width':'70px', 'text-align':'left'}" field="" *ngIf="sourceHeaderColumns.length > 0">
+										<ng-template let-row="rowData" pTemplate="header" let-i="rowIndex">
+											<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="showSFilters" md-button mdTooltip="Toggle Filters"
+											 md-icon-button color="primary" (click)="showSFilters = !showSFilters;">
+												<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;" class="fa fa-filter" id="showIcon"></i>
+											</button>
+											<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="!showSFilters" md-button mdTooltip="Toggle Filters"
+											 md-icon-button color="primary" (click)="showSFilters = !showSFilters;">
+												<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;color:grey !important;" class="fa fa-filter"
+												 id="showIcon"></i>
+											</button>
+										</ng-template>
+										<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+											<p-checkbox [name]="'selectedSRow'+i" [value]="row" [(ngModel)]="selectedSource" (onChange)="getSourceTotal($event,i)"></p-checkbox>
+											<button *ngIf="(row['adjustmentType'] == '' || !row['adjustmentType'])" md-icon-button [mdMenuTriggerFor]="moreActions" mdTooltip="More Actions">
+												<i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+											</button>
+											<md-menu [overlapTrigger]="false" #moreActions="mdMenu" yPosition="below" xPosition="after">
+												<ul>
+													<li (click)="getDataForSplit(row,'Add','source');">
+														Add Row
+													</li>
+													<li (click)="getDataForSplit(row,'Split','source');">
+														Split Row
+													</li>
+												</ul>
+											</md-menu>
+										</ng-template>
+									</p-column>
+									<p-column *ngFor="let col of sourceHeaderColumns" style="padding-left:10px;" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+									 [sortable]="true" [filter]="showSFilters">
+										<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+											<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+											<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+											<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+										</ng-template>
+										<ng-template pTemplate="header" let-row let-i="rowIndex">
+											<span>{{col.header}}</span>
+										</ng-template>
+										<ng-template pTemplate="filter" let-row let-i="rowIndex">
+											<div *ngIf="showSFilters">
+												<input *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'" style="width:100%;" name="searchskey{{i}}" [(ngModel)]="col.searchWord"
+												 #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('source');">
+												<input *ngIf="col.dataType == 'DECIMAL'" (keypress)="amountRestrict($event.which? $event.which : $event.keyCode)" style="width:100%;"
+												 name="searchskey{{i}}" [(ngModel)]="col.searchWord" #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('source');">
+												<p-inputMask *ngIf="col.dataType == 'DATE'" mask="9999-99-99" [style]="{'width':'100%'}" name="searchskey{{i}}" [(ngModel)]="col.searchWord"
+												 #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('source');" placeholder="YYYY-MM-DD" slotChar="YYYY-MM-DD"></p-inputMask>
+											</div>
+										</ng-template>
+									</p-column>
+								</p-dataTable>
+							</div>
+							<md-paginator [hidePageSize]="sourceLength<=10" [showFirstLastButtons]="sourceLength>10" [length]="sourceLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page" (page)="onSPaginateChange($event)">
+							</md-paginator>
+						</div>
+						<div class="split-pane-content-secondary rightpane" style="padding:0 10px;">
+							<div class="traget-view-table table-responsive">
+								<p-dataTable [value]="targetLines" [responsive]="true" scrollable="true" reorderableColumns="true" columnResizeMode="expand"
+								 resizableColumns="true" scrollHeight="calc(100vh - 280px)" (onSort)="changeTargetSort($event)">
+									<p-column [style]="{'width':'70px', 'text-align':'left'}" field="" *ngIf="targetHeaderColumns.length > 0">
+										<ng-template let-row="rowData" pTemplate="header" let-i="rowIndex">
+											<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="showTFilters" md-button mdTooltip="Toggle Filters"
+											 md-icon-button color="primary" (click)="showTFilters = !showTFilters;">
+												<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;" class="fa fa-filter" id="showIcon"></i>
+											</button>
+											<button style="top: 10px;left:22px;width:25px;line-height:24px;height:25px;" *ngIf="!showTFilters" md-button mdTooltip="Toggle Filters"
+											 md-icon-button color="primary" (click)="showTFilters = !showTFilters;">
+												<i style="position: absolute;height:24px;width:24px;top:1px;left:1px;font-size:16px;color:grey !important;" class="fa fa-filter"
+												 id="showIcon"></i>
+											</button>
+										</ng-template>
+										<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+
+											<p-checkbox [name]="'selectedTRow' + i" [value]="row" [(ngModel)]="selectedTarget" (onChange)="getTargetTotal($event,i)"></p-checkbox>
+
+											<button *ngIf="(row['adjustmentType'] == '' || !row['adjustmentType'])" md-icon-button [mdMenuTriggerFor]="tmoreActions"
+											 mdTooltip="More Actions">
+												<i class="fa fa-ellipsis-v" aria-hidden="true"></i>
+											</button>
+											<md-menu [overlapTrigger]="false" #tmoreActions="mdMenu" yPosition="below" xPosition="after">
+												<ul>
+													<li (click)="getDataForSplit(row,'Add','target');">
+														Add Row
+													</li>
+													<li (click)="getDataForSplit(row,'Split','target');">
+														Split Row
+													</li>
+												</ul>
+											</md-menu>
+										</ng-template>
+									</p-column>
+									<p-column *ngFor="let col of targetHeaderColumns" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+									 [sortable]="true">
+										<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+											<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number: '1.2-2'}}</span>
+											<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+											<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+										</ng-template>
+										<ng-template pTemplate="header" let-row let-i="rowIndex">
+											<span>{{col.header}}</span>
+										</ng-template>
+										<ng-template pTemplate="filter" let-row let-i="index">
+											<div *ngIf="showTFilters">
+												<input *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'" style="width:100%;" name="searchtkey{{i}}" [(ngModel)]="col.searchWord"
+												 #searchtkey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('target');">
+												<input *ngIf="col.dataType == 'DECIMAL'" (keypress)="amountRestrict($event.which? $event.which : $event.keyCode)" style="width:100%;"
+												 name="searchtkey{{i}}" [(ngModel)]="col.searchWord" #searchtkey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('target');">
+												<p-inputMask *ngIf="col.dataType == 'DATE'" mask="9999-99-99" [style]="{'width':'100%'}" name="searchskey{{i}}" [(ngModel)]="col.searchWord"
+												 #searchskey{{i}}="ngModel" (keyup.enter)="colLevelSearchWithKeyWord('target');" placeholder="YYYY-MM-DD" slotChar="YYYY-MM-DD"></p-inputMask>
+											</div>
+										</ng-template>
+									</p-column>
+								</p-dataTable>
+							</div>
+							<md-paginator [hidePageSize]="targetLength<=10" [showFirstLastButtons]="targetLength>10" [length]="targetLength" [pageSize]="itemsPerPage1" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page1"
+							 (page)="onTPaginateChange($event)">
+							</md-paginator>
+						</div>
+					</vertical-split-pane>
+				</div>
+				<div *ngIf="currentReconStatus == 'reconciled'">
+					<div *ngIf="currentReconStatus == 'reconciled'" class="display-flex" style="position:absolute;right:47px;top:8px">
+						<button class="action-button hov-sweep-to-right" *ngIf="selectedSource.length > 0 || selectedTarget.length > 0" color="primary"
+						 md-raised-button (click)="manualUnRecon('recordwise','multiple')" [disabled]="buttonRestrict">Un-Reconcile
+						</button>
+						<input type="text" placeholder="Search" class="form-control" style="width: 200px;border-radius: 20px;display:initial;" [(ngModel)]="reconSearchWord"
+						 (keyup.enter)="reconGlobalSearch();" [disabled]="buttonRestrict" />
+						<md-icon class="hand" (click)="reconGlobalSearch();" style="position: relative;top: 7px;right: 35px;color: gray;">search</md-icon>
+						<button style="position: relative;right: 10px;" md-icon-button (click)="recDataFileExp('csv')" mdTooltip="Export to CSV">
+							<i class="rec-font-csv" style="font-size: 20px;"></i>
+						</button>
+						<button style="position: relative;right: 10px;" md-icon-button mdTooltip="Export to Excel" (click)="recDataFileExp('excel')">
+							<i class="fa fa-file-excel-o" style="color:rgb(0, 85, 0);font-size:20px;"></i>
+						</button>
+					</div>
+					<p-dataTable [value]="reconciledRecords" [responsive]="true" scrollable="true" expandableRows="true" (onRowExpand)="onRowExpand($event,'target',targetDataViewId);onRowExpand($event,'source',sourceDataViewId)"
+					 scrollHeight="calc(100vh - 280px)" [sortField]="headerSortField" rowExpandMode="single" (onSort)="changeSort($event)">
+						<p-headerColumnGroup>
+							<p-row>
+								<p-column [sortable]="false" header="" rowspan="2" [style]="{'width':'80px', 'text-align':'left','border-right': '1px solid black'}"
+								 styleClass="text-center" styleClass="center"></p-column>
+								<p-column [sortable]="false" header="" rowspan="2" [style]="{'width':'45px', 'text-align':'left','border-right': '1px solid black'}"
+								 styleClass="text-center" styleClass="center"></p-column>
+								<p-column [sortable]="true" header="Recon Reference" field="reconReference" rowspan="2" styleClass="text-center" styleClass="center"
+								 [style]="{'border-right': '1px solid black'}">
+								</p-column>
+								<p-column [sortable]="true" [header]="reconciledLines.groupingColumn.header" [field]="reconciledLines.groupingColumn.field"
+								 rowspan="2" styleClass="text-center" styleClass="center" [style]="{'border-right': '1px solid black'}" [sortable]="true"></p-column>
+								<p-column header="" [colspan]="3" styleClass="text-center" styleClass="center">
+									<ng-template let-row="rowData" let-i="index" pTemplate="header">
+										<span style="font-weight:bold;">{{sourceViewName}}</span>
+									</ng-template>
+								</p-column>
+								<p-column header="" [colspan]="3" styleClass="text-center" styleClass="center">
+									<ng-template let-row="rowData" let-i="index" pTemplate="header">
+										<span style="font-weight:bold;">{{targetViewName}}</span>
+									</ng-template>
+								</p-column>
+							</p-row>
+							<p-row>
+								<p-column styleClass="left" [style]="{'text-align':'right'}" field="srcCount" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+										<div style="display:grid;">
+											<span>Transaction</span>
+											<span>Count</span>
+										</div>
+									</ng-template>
+								</p-column>
+								<p-column styleClass="left" [style]="{'text-align':'right'}" field="srcAmount" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+										<div style="display:grid;">
+											<span>Reconciled</span>
+											<span>Amount</span>
+										</div>
+									</ng-template>
+								</p-column>
+								<p-column styleClass="left" [style]="{'text-align':'right'}" field="srcTolAmount" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+										<div style="display:grid;">
+											<span>Variance</span>
+											<span>Amount</span>
+										</div>
+									</ng-template>
+								</p-column>
+								<p-column styleClass="left" [style]="{'text-align':'right'}" field="trCount" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+										<div style="display:grid;">
+											<span>Transaction</span>
+											<span>Count</span>
+										</div>
+									</ng-template>
+								</p-column>
+								<p-column styleClass="left" [style]="{'text-align':'right'}" field="trAmount" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+										<div style="display:grid;">
+											<span>Reconciled</span>
+											<span>Amount</span>
+										</div>
+									</ng-template>
+								</p-column>
+								<p-column styleClass="left" [style]="{'text-align':'right'}" field="trTolAmount" [sortable]="true">
+									<ng-template let-row="rowData" let-i="rowIndex" pTemplate="header">
+										<div style="display:grid;">
+											<span>Variance</span>
+											<span>Amount</span>
+										</div>
+									</ng-template>
+								</p-column>
+							</p-row>
+						</p-headerColumnGroup>
+						<p-column [style]="{'width':'80px', 'text-align':'left'}" field="">
+							<ng-template let-row="rowData" pTemplate="body" let-i="rowIndex">
+								<p-checkbox [name]="'selectedTRow' + i" [value]="row" [(ngModel)]="selectedSource"></p-checkbox>
+								<button *ngIf="currentReconStatus == 'reconciled'" md-icon-button mdTooltip="View Reconciliation" mdTooltipPosition="below"
+								 (click)="totalCustomFilter(row);fetchTargetOnSourceRecord(reconRuleGroupId,sourceDataViewId,targetDataViewId,row)">
+									<i class="fa fa-eye" aria-hidden="true"></i>
+								</button>
+							</ng-template>
+						</p-column>
+						<p-column expander="true" mdTooltip="Expand" styleClass="col-icon" header="" field="" [style]="{'width':'45px'}"></p-column>
+						<p-column styleClass="text-center" styleClass="center" field="reconReference" header="Recon Reference" [sortable]="true">
+							<ng-template let-row="rowData" let-ref="rowIndex" pTemplate="body">
+								<span>
+									{{row.reconReference}}
+								</span>
+							</ng-template>
+						</p-column>
+						<p-column styleClass="text-center" styleClass="center" [style]="{'border-right':'1px solid #ececec'}" [header]="reconciledLines.groupingColumn.header"
+						 [field]="reconciledLines.groupingColumn.field" [sortable]="true">
+							<ng-template let-row="rowData" let-ref="rowIndex" pTemplate="body">
+								<span>
+									{{row.groupingCol}}
+								</span>
+							</ng-template>
+						</p-column>
+						<p-column colspan="1" *ngFor="let col of reconciledLines.source;let c = index" [style]="{'text-align':'right'}" [header]="col.header"
+						 [field]="col.field" [sortable]="true">
+							<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+								<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number: '.2'}}</span>
+								<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date:'mediumDate'}}</span>
+								<span *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'">{{row[col.field]}}</span>
+							</ng-template>
+						</p-column>
+						<p-column colspan="1" *ngFor="let col of reconciledLines.target;let d = index" [style]="{'text-align':'right','border-left': col.borderLeft}"
+						 [header]="col.header" [field]="col.field" [sortable]="true">
+							<ng-template let-row="rowData" let-i="rowIndex" pTemplate="body">
+								<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number: '.2'}}</span>
+								<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date:'mediumDate'}}</span>
+								<span *ngIf="col.dataType != 'DECIMAL' && col.dataType != 'DATE'">{{row[col.field]}}</span>
+							</ng-template>
+						</p-column>
+						<ng-template let-child pTemplate="rowexpansion">
+							<div class="d-flex">
+								<div style="padding-left:50px;padding-bottom:10px;" class="acct-childtable col-md-6">
+									<p-dataTable [value]="child.sourceChild" reorderableColumns="true" [responsive]="true" columnResizeMode="expand" scrollable="true"
+									 scrollHeight="100px" resizableColumns="true" [sortable]="true">
+										<p-column *ngFor="let col of sourceColumns1ByRuleId" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+										 [filter]="showSFilters">
+											<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+												<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+												<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+												<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+											</ng-template>
+										</p-column>
+									</p-dataTable>
+									<p *ngIf="child && child.sourceChild && child.sourceChild.length > 3">
+										<a style="color:dodgerblue;text-decoration:underline;" (click)="totalCustomFilter(selectedExpandRow);fetchTargetOnSourceRecord(reconRuleGroupId,sourceDataViewId,targetDataViewId,selectedExpandRow)">Click here to view more transactions</a>
+									</p>
+								</div>
+								<div style="padding-left:50px;padding-bottom:10px;" class="acct-childtable col-md-6">
+									<p-dataTable [value]="child.targetChild" reorderableColumns="true" [responsive]="true" columnResizeMode="expand" scrollable="true"
+									 scrollHeight="100px" resizableColumns="true" [sortable]="true">
+										<p-column *ngFor="let col of targetColumns1ByRuleId" [field]="col.field" [header]="col.header" [style]="{'width':col.width,'text-align':col.align}"
+										 [filter]="showSFilters">
+											<ng-template pTemplate="body" let-row="rowData" let-j="rowIndex">
+												<span *ngIf="col.dataType == 'DECIMAL'">{{row[col.field] | number:'1.2-2'}}</span>
+												<span *ngIf="col.dataType == 'DATE'">{{row[col.field] | date}}</span>
+												<span *ngIf="col.dataType != 'DATE' && col.dataType != 'DECIMAL'">{{row[col.field]}}</span>
+											</ng-template>
+										</p-column>
+									</p-dataTable>
+									<p style="float:right;" *ngIf="child && child.targetChild && child.targetChild.length > 3">
+										<a style="color:dodgerblue;text-decoration:underline;" (click)="totalCustomFilter(selectedExpandRow);fetchTargetOnSourceRecord(reconRuleGroupId,sourceDataViewId,targetDataViewId,selectedExpandRow)">Click here to view more transactions</a>
+									</p>
+								</div>
+							</div>
+						</ng-template>
+					</p-dataTable>
+					<md-paginator [hidePageSize]="reconciledLength<=10" [showFirstLastButtons]="reconciledLength>10" style="justify-content:center;" [length]="reconciledLength" [pageSize]="recItemsPerPage" [pageSizeOptions]="pageSizeOptions"
+					 [pageIndex]="recPage" (page)="onRecPaginateChange($event);">
+					</md-paginator>
+				</div>
+			</div>
+		</div>
+	</p-sidebar>
+
+
+</div>
+<p-dialog header="Scheduling" [(visible)]="reconcileService.reconSchJob" modal="modal" width="300" responsive="true">
+	<scheduling [basicInfo]="reconSchedObj" (changeDisplay)="hideSchDialog($event)"></scheduling>
+</p-dialog>

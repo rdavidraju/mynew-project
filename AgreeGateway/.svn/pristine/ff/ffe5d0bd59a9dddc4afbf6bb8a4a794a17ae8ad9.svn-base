@@ -1,0 +1,443 @@
+<!-- <div style="height: 100%; width: 100%">
+    <vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+        <div id="sticky" class="leftpane split-pane-content-primary">
+            <functionality-side-bar></functionality-side-bar>
+        </div>
+        <div class="split-pane-content-secondary rightpane">
+            <span class="fa fa-bars hand ripple sbclose" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew"></span>
+
+</div>
+    </vertical-split-pane>
+
+</div> -->
+<div class="component-body">
+    <div class="botom-dotted-blue-border component-title">
+        <div class="col-md-6 col-sm-6 col-xs-6 pageTitle" style="padding-left: 0px !important;">
+            <h3 *ngIf="isCreateNew">Functionality Creation:</h3>
+            <h3 *ngIf="!isCreateNew">Functionality Details</h3>
+        </div>
+        <div class="col-md-6 col-sm-6 col-xs-6">
+            <div class="row float-right">
+
+                <button *ngIf="!isViewOnly && f.valid" md-icon-button class="pull-right color-green" aria-hidden="true" mdTooltip="Save"
+                    (click)="saveFunctionality()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !f.valid" md-icon-button class="pull-right color-gray" aria-hidden="true" mdTooltip="Fill mandatory fields"
+                    (click)="validationMsg()">
+                    <md-icon>save</md-icon>
+                </button>
+
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/functionality', {outlets: {'content': [functionality.id]+'/edit'}}]">
+					<md-icon>mode_edit</md-icon>
+				</button>
+                <button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/functionality', {outlets: {'content': [functionality.id]+'/details'}}]">
+					<md-icon>clear</md-icon>
+				</button>
+                <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/functionality', {outlets: {'content': ['functionality-home']}}]">
+					<md-icon>clear</md-icon>
+				</button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back" [routerLink]="['/functionality', {outlets: {'content': ['functionality-home']}}]">
+					<md-icon>undo</md-icon>
+				</button>
+            </div>
+        </div>
+    </div>
+    
+    <div>
+        <br>
+        <form novalidate #f="ngForm">
+            <div class="row">
+                <div class="col-md-3 col-sm-6 col-xs-12">
+                    <md-input-container>
+                        <input mdInput [(ngModel)]="functionality.funcName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Name"
+                            name="funcName" required #funcName="ngModel" id="funcName">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-sm-6 col-xs-12" *ngIf="functionality.funcDesc || !isViewOnly">
+                    <md-input-container>
+                        <input mdInput [(ngModel)]="functionality.funcDesc" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Description"
+                            name="funcDesc" #funcDesc="ngModel">
+                    </md-input-container>
+                </div>
+
+                <div class="col-md-3 col-sm-6 col-xs-12">
+                    <md-input-container>
+                        <input mdInput [(ngModel)]="functionality.funcType" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Type"
+                            name="funcType" required #funcType="ngModel">
+                    </md-input-container>
+                </div>
+        
+                <div [class]="!isCreateNew ? 'col-md-2 col-sm-6 col-xs-12' : 'col-md-3 col-sm-6 col-xs-12'">
+                    <md-form-field> <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                            [(ngModel)]="functionality.funcStartDate" [max]="functionality.funcEndDate" name="functionalitytartDate" required>
+                        <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #stpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+
+                <div class="col-md-3 col-sm-6 col-xs-12" *ngIf="functionality.funcStartDate && (functionality.funcEndDate || !isViewOnly)">
+                    <md-form-field> <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="functionality.funcStartDate" [ngClass]="{'color-black' : isViewOnly}"
+                            [disabled]="isViewOnly" [(ngModel)]="functionality.funcEndDate" name="funcEndDate">
+                        <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #edpicker></md-datepicker>
+                    </md-form-field>
+                </div>
+
+                <div class="col-md-1" *ngIf="isEdit" style="display:flex;">
+                    <span *ngIf="functionality.funcActiveFlag" style="padding-right:10px">Active</span>
+                    <span *ngIf="!functionality.funcActiveFlag" style="padding-right:10px">Inactive</span>
+                    <md-slide-toggle class="pull right example-margin" color="primary" [disabled]="!isEdit" mdTooltip="Set Status" placeholder="Status"
+                        [(ngModel)]="functionality.funcActiveFlag" name="funcActiveFlag" style="padding-top:5px">
+                    </md-slide-toggle>
+        
+                </div>
+                <div class="col-md-1" *ngIf="isViewOnly">
+                    <span class="badge badge-success" *ngIf="functionality.funcActiveFlag == true">Active</span>
+                    <span class="badge badge-warning" *ngIf="functionality.funcActiveFlag == false">Inactive</span>
+                </div>
+            </div>
+
+            <div class="pull-right" *ngIf="isCreateNew && functionality.funcName && functionality.funcType && functionality.funcStartDate && rolesSelected.length < 1">
+                <button md-raised-button (click)="tagRoles();">Tag Role(s)</button>
+                <br>
+            </div>
+
+            <!-- Table of Assigned Roles -->
+            <md-tab-group *ngIf="displayTaggedRoles">
+                <md-tab label="Roles">
+                    <div class="table-responsive">
+                        <perfect-scrollbar>
+                            <table class="table recon-table-hover">
+                                <thead class="tableheader">
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th>View</th>
+                                        <th>Insert</th>
+                                        <th>Update</th>
+                                        <th>Execute</th>
+                                        <th>Delete</th>
+                                        <th>
+                                            <span class="pull-right hand" md-icon-button mdTooltip="Tag More Roles" (click)="display = true">
+                                                <md-icon>add</md-icon>
+                                            </span>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let col of rolesSelected;let i = index;" id="hideIconTable">
+                                        <td>
+                                            <div>{{col.roleName}}</div>
+                                        </td>
+                                        <td>
+                                            <div>{{col.roleDesc}}</div>
+                                        </td>
+                                        <td class="matbasictabletd">
+                                            <md-form-field>
+                                                <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="col.startDate" [max]="col.endDate" name="startDate-{{i}}" required>
+                                                <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                                <md-datepicker #stpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td class="matbasictabletd">
+                                            <md-form-field>
+                                                <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="col.endDate" [min]="col.startDate" name="endDate-{{i}}">
+                                                <md-datepicker-toggle mdSuffix [for]="edpicker" ></md-datepicker-toggle>
+                                                <md-datepicker #edpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canView" name="canView-{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canInsert" name="canInsert-{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canUpdate" name="canUpdate-{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canExecute" name="canExecute-{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canDelete" name="canDelete-{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </perfect-scrollbar>
+                    </div>
+                </md-tab>
+            </md-tab-group>
+        </form>
+    </div>
+
+    <div class="dnd-usermgmt">
+        <div class="target-data">
+            <p-dialog header="Roles Assignment" [(visible)]="display" [resizable]="true" [responsive]="true" [class]="moreRole ? '' : 'pdialogRoles'">
+                <div *ngIf="!dndRole">
+                    <p>
+                        <h5>Drag and Drop desired Roles</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+
+                                <div class="MyPanel" dnd-sortable-container [sortableData]="unassignedRole">
+                                    <div class="Heading BlueTitleDiv">List of available Roles</div>
+                                    <perfect-scrollbar class="table-responsive" style="height: 300px;">
+                                        <div class="panel-body" dnd-droppable [dropZones]="['source-dropZone']">
+                                            <ul class="list-group">
+                                                <li *ngFor="let unRole of unassignedRole; let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true"
+                                                    [dragData]="unRole">{{unRole.roleName}}</li>
+                                            </ul>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+
+                            </div>
+                            <div class="col-md-6">
+
+                                <div class="MyPanel" dnd-sortable-container [sortableData]="selectedRole">
+                                    <div class="Heading BlueTitleDiv">Selected Roles</div>
+                                    <perfect-scrollbar class="table-responsive" style="height: 300px;">
+                                        <div class="panel-body" dnd-droppable  [dropZones]="['source-dropZone']">
+                                            <ul class="list-group">
+                                                <li *ngFor="let curRole of curFuncRoleList; let j = index" class="list-group-item" style="color:gray;"><b *ngIf="curRole && curRole.roleName">{{curRole.roleName}}</b></li>
+                                                <li *ngFor="let selRole of selectedRole; let x = index" class="list-group-item" dnd-sortable [sortableIndex]="x" [dragEnabled]="true"><b *ngIf="selRole && selRole.roleName">{{selRole.roleName}}</b></li>
+                                            </ul>
+                                        </div>
+                                    </perfect-scrollbar>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </p>
+                </div>
+                <div *ngIf="dndRole">
+                    <div class="table-responsive">
+                        <perfect-scrollbar style="max-height:300px;">
+                            <table class="table tableView roleFuncTable">
+                                <thead>
+                                    <tr>
+                                        <th>Role Name</th>
+                                        <th>Role Description</th>
+                                        <th>Start Date</th>
+                                        <th>End Date</th>
+                                        <th class="text-center">View</th>
+                                        <th class="text-center">Insert</th>
+                                        <th class="text-center">Update</th>
+                                        <th class="text-center">Execute</th>
+                                        <th class="text-center">Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr *ngFor="let col of selectedRole;let i = index;">
+                                        <td style="padding-top:8px !important">
+                                            <div>{{col.roleName}}</div>
+                                        </td>
+                                        <td style="padding-top:8px !important">
+                                            <div>{{col.roleDesc}}</div>
+                                        </td>
+                                        <td class="matbasictabletd">
+                                            <md-form-field>
+                                                <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="col.startDate" [max]="col.endDate" name="startDate{{i}}" required>
+                                                <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                                <md-datepicker #stpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td class="matbasictabletd">
+                                            <md-form-field>
+                                                <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="col.endDate" name="endDate{{i}}" [min]="col.startDate">
+                                                <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                                <md-datepicker #edpicker></md-datepicker>
+                                            </md-form-field>
+                                        </td>
+                                        <td style="padding-top:8px !important" class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canView" name="canView{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td style="padding-top:8px !important" class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canInsert" name="canInsert{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td style="padding-top:8px !important" class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canUpdate" name="canUpdate{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td style="padding-top:8px !important" class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canExecute" name="canExecute{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                        <td style="padding-top:8px !important" class="text-center">
+                                            <md-checkbox [(ngModel)]="col.canDelete" name="canDelete{{i}}" color="primary"></md-checkbox>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </perfect-scrollbar>
+                    </div>
+                </div>
+                <p-footer>
+                    <button *ngIf="isCreateNew" type="button" pButton icon="fa-check" (click)="display=false;confirmRoles();" label="Confirm"></button>
+                    <md-icon style="margin-top:-11px;margin-left:-15px;" class="pull-left hand md-48" *ngIf="isViewOnly && moreRole" mdTooltip="Assign More" (click)="moreRole = false;dndRole = false">chevron_left</md-icon>
+                    <md-icon class="pull-right hand md-48" *ngIf="isViewOnly && !moreRole" mdTooltip="Next" (click)="moreRole = true;dndRole = true;confirmRoles()">chevron_right</md-icon>
+                    <button *ngIf="isViewOnly && dndRole"  [disabled]="selectedRole.length < 1" type="button" pButton icon="fa-check" (click)="addMoreRole();" label="Confirm"></button>
+                </p-footer>
+            </p-dialog>
+        </div>
+    </div>
+    
+    <md-tab-group *ngIf="!isCreateNew">
+        <md-tab label="Roles">
+            <span *ngIf="curFuncRoleList.length < 1">No roles tagged to this functionality! Click <md-icon class="hand" mdTooltip="Tag New Roles" (click)="tagRoles()">add</md-icon>to tag one</span>
+            <div class="table-responsive" *ngIf="curFuncRoleList.length > 0">
+                <perfect-scrollbar id="funcRoleDet" style="max-height:500px">
+                <table class="table roleFuncTable tableView">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Description</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>View</th>
+                            <th>Insert</th>
+                            <th>Update</th>
+                            <th>Execute</th>
+                            <th>Delete</th>
+                            <th>Status</th>
+                            <th>
+                                <span class="pull-right hand" md-icon-button mdTooltip="Tag New Roles" (click)="tagRoles()">
+                                    <md-icon>add</md-icon>
+                                </span>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let funcRole of curFuncRoleList; let i = index" id="hideIconTable">
+                            <td>
+                                <div>{{funcRole.roleName}}</div>
+                            </td>
+                            <td>
+                                <div>{{funcRole.roleDescription}}</div>
+                            </td>
+                            <td [class]="funcRole.columnEdit ? 'matbasictabletd' : ''">
+                                <div *ngIf="!isCreateNew && !funcRole.columnEdit">{{funcRole.startDate | date : "MM/dd/y"}}</div>
+                                <div *ngIf="funcRole.columnEdit">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="stpicker" [ngClass]="{'color-black' : isViewOnly}" [disabled]="!funcRole.columnEdit" [(ngModel)]="funcRole.startDate"
+                                            [max]="funcRole.endDate" name="startDate-{{i}}" required>
+                                        <md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+                                        <md-datepicker #stpicker></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                            </td>
+                            <td [class]="funcRole.columnEdit ? 'matbasictabletd' : ''">
+                                <div *ngIf="!isCreateNew && !funcRole.columnEdit">{{funcRole.endDate | date : "MM/dd/y"}}</div>
+                                <div *ngIf="funcRole.columnEdit">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="edpicker" [ngClass]="{'color-black' : isViewOnly}" [disabled]="!funcRole.columnEdit" [(ngModel)]="funcRole.endDate"
+                                            [min]="funcRole.startDate" name="endDate-{{i}}">
+                                        <md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+                                        <md-datepicker #edpicker></md-datepicker>
+                                    </md-form-field>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <md-checkbox [(ngModel)]="funcRole.canView" name="canView-{{i}}" color="primary" [disabled]="!funcRole.columnEdit"></md-checkbox>
+                            </td>
+                            <td class="text-center">
+                                <md-checkbox [(ngModel)]="funcRole.canInsert" name="canInsert-{{i}}" color="primary" [disabled]="!funcRole.columnEdit"></md-checkbox>
+                            </td>
+                            <td class="text-center">
+                                <md-checkbox [(ngModel)]="funcRole.canUpdate" name="canUpdate-{{i}}" color="primary" [disabled]="!funcRole.columnEdit"></md-checkbox>
+                            </td>
+                            <td class="text-center">
+                                <md-checkbox [(ngModel)]="funcRole.canExecute" name="canExecute-{{i}}" color="primary" [disabled]="!funcRole.columnEdit"></md-checkbox>
+                            </td>
+                            <td class="text-center">
+                                <md-checkbox [(ngModel)]="funcRole.canDelete" name="canDelete-{{i}}" color="primary" [disabled]="!funcRole.columnEdit"></md-checkbox>
+                            </td>
+                            <td>
+                                <div *ngIf="!isCreateNew && !funcRole.columnEdit">
+                                    <i *ngIf="funcRole.activeFlag == true" style="color: darkgrey" class="material-icons">check_circle</i>
+                                    <i *ngIf="funcRole.activeFlag == false" style="color: darkgrey" class="material-icons" aria-hidden="true">error</i>
+                                </div>
+                                <md-slide-toggle color="primary" *ngIf="funcRole.columnEdit" [disabled]="!funcRole.columnEdit" mdTooltip="Set Status" placeholder="Status"
+                                    [(ngModel)]="funcRole.activeFlag" name="activeFlag-{{i}}">
+                                </md-slide-toggle>
+                            </td>
+                            <td>
+                                <div class="display-flex pull-right" id="showIcon">
+                                    <button *ngIf="funcRole.columnEdit && isViewOnly" md-icon-button class="color-green" style="font-size: 24px;" aria-hidden="true"
+                                        mdTooltip="Save" (click)="funcRole.columnEdit = false;updateFuncRole(funcRole)">
+                                        <md-icon>save</md-icon>
+                                    </button>
+                                    <button *ngIf="funcRole.columnEdit && isViewOnly" (click)="funcRole.columnEdit = false;cancelEdit()" md-icon-button class="pull-right color-gray"
+                                        style="font-size: 24px;" mdTooltip="Cancel">
+                                        <md-icon>clear</md-icon>
+                                    </button>
+                                    <button md-icon-button mdTooltip="Edit" (click)="funcRole.columnEdit = true" *ngIf="!funcRole.columnEdit && isViewOnly">
+                                        <md-icon>mode_edit</md-icon>
+                                    </button>
+                                    <button md-icon-button mdTooltip="Delete" *ngIf="!funcRole.columnEdit && isViewOnly" (click)="deleteFuncRole(funcRole)">
+                                        <md-icon>delete</md-icon>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </perfect-scrollbar>
+            </div>
+        </md-tab>
+    </md-tab-group>
+
+</div>
+<!-- 
+<div *ngIf="functionality">
+    <h2><span jhiTranslate="agreeGatewayV1App.functionality.detail.title">Functionality</span> {{functionality.id}}</h2>
+    <hr>
+    <jhi-alert-error></jhi-alert-error>
+    <dl class="row-md jh-entity-details">
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.funcName">Func Name</span></dt>
+        <dd>
+            <span>{{functionality.funcName}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.funcDesc">Func Desc</span></dt>
+        <dd>
+            <span>{{functionality.funcDesc}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.funcType">Func Type</span></dt>
+        <dd>
+            <span>{{functionality.funcType}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.startDate">Start Date</span></dt>
+        <dd>
+            <span>{{functionality.startDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.endDate">End Date</span></dt>
+        <dd>
+            <span>{{functionality.endDate | date:'mediumDate'}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.activeInd">Active Ind</span></dt>
+        <dd>
+            <span>{{functionality.activeInd}}</span>
+        </dd>
+        <dt><span jhiTranslate="agreeGatewayV1App.functionality.tenantId">Tenant Id</span></dt>
+        <dd>
+            <span>{{functionality.tenantId}}</span>
+        </dd>
+    </dl>
+
+    <button type="submit"
+            (click)="previousState()"
+            class="btn btn-info">
+        <span class="fa fa-arrow-left"></span>&nbsp;<span jhiTranslate="entity.action.back"> Back</span>
+    </button>
+
+    <button type="button"
+            [routerLink]="['/', { outlets: { popup: 'functionality/'+ functionality.id + '/edit'} }]"
+            replaceUrl="true"
+            class="btn btn-primary">
+        <span class="fa fa-pencil"></span>&nbsp;<span jhiTranslate="entity.action.edit"> Edit</span>
+    </button>
+</div>
+ -->

@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { FxRates } from './fx-rates.model';
+import { FxRatesService } from './fx-rates.service';
+
+@Component({
+    selector: 'jhi-fx-rates-detail',
+    templateUrl: './fx-rates-detail.component.html'
+})
+export class FxRatesDetailComponent implements OnInit, OnDestroy {
+
+    fxRates: FxRates;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private fxRatesService: FxRatesService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInFxRates();
+    }
+
+    load(id) {
+        this.fxRatesService.find(id).subscribe((fxRates) => {
+            this.fxRates = fxRates;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInFxRates() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'fxRatesListModification',
+            (response) => this.load(this.fxRates.id)
+        );
+    }
+}

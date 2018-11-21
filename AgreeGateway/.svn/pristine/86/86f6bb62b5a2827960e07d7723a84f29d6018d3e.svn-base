@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { DataViewsSrcMappings } from './data-views-src-mappings.model';
+import { DataViewsSrcMappingsPopupService } from './data-views-src-mappings-popup.service';
+import { DataViewsSrcMappingsService } from './data-views-src-mappings.service';
+
+@Component({
+    selector: 'jhi-data-views-src-mappings-dialog',
+    templateUrl: './data-views-src-mappings-dialog.component.html'
+})
+export class DataViewsSrcMappingsDialogComponent implements OnInit {
+
+    dataViewsSrcMappings: DataViewsSrcMappings;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private dataViewsSrcMappingsService: DataViewsSrcMappingsService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.dataViewsSrcMappings.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.dataViewsSrcMappingsService.update(this.dataViewsSrcMappings));
+        } else {
+            this.subscribeToSaveResponse(
+                this.dataViewsSrcMappingsService.create(this.dataViewsSrcMappings));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<DataViewsSrcMappings>) {
+        result.subscribe((res: DataViewsSrcMappings) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: DataViewsSrcMappings) {
+        this.eventManager.broadcast({ name: 'dataViewsSrcMappingsListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-data-views-src-mappings-popup',
+    template: ''
+})
+export class DataViewsSrcMappingsPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private dataViewsSrcMappingsPopupService: DataViewsSrcMappingsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.dataViewsSrcMappingsPopupService
+                    .open(DataViewsSrcMappingsDialogComponent as Component, params['id']);
+            } else {
+                this.dataViewsSrcMappingsPopupService
+                    .open(DataViewsSrcMappingsDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

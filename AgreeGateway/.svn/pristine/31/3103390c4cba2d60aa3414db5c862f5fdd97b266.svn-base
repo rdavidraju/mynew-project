@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { AccountingDataMapping } from './accounting-data-mapping.model';
+import { AccountingDataMappingPopupService } from './accounting-data-mapping-popup.service';
+import { AccountingDataMappingService } from './accounting-data-mapping.service';
+
+@Component({
+    selector: 'jhi-accounting-data-mapping-dialog',
+    templateUrl: './accounting-data-mapping-dialog.component.html'
+})
+export class AccountingDataMappingDialogComponent implements OnInit {
+
+    accountingDataMapping: AccountingDataMapping;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private accountingDataMappingService: AccountingDataMappingService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.accountingDataMapping.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.accountingDataMappingService.update(this.accountingDataMapping));
+        } else {
+            this.subscribeToSaveResponse(
+                this.accountingDataMappingService.create(this.accountingDataMapping));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<AccountingDataMapping>) {
+        result.subscribe((res: AccountingDataMapping) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: AccountingDataMapping) {
+        this.eventManager.broadcast({ name: 'accountingDataMappingListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-accounting-data-mapping-popup',
+    template: ''
+})
+export class AccountingDataMappingPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private accountingDataMappingPopupService: AccountingDataMappingPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.accountingDataMappingPopupService
+                    .open(AccountingDataMappingDialogComponent as Component, params['id']);
+            } else {
+                this.accountingDataMappingPopupService
+                    .open(AccountingDataMappingDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

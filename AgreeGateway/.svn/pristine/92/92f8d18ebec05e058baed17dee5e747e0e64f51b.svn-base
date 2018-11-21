@@ -1,0 +1,120 @@
+<!-- HEADER -->
+<div class="component-body">
+	<div class="botom-dotted-blue-border component-title">
+		<div class="col-md-6 col-sm-6 col-xs-6 pageTitle">
+			<h3 class="ellipsis-text" mdTooltip="{{jobs.jobName}}" matTooltipShowDelay="1000">{{jobs.jobName}}</h3>
+		</div>
+		<div class="col-md-6 col-sm-6 col-xs-6">
+			<div class="row float-right">
+				<button md-icon-button mdTooltip="Kill" (click)="killJob(jobs.frequencies[0]['oozieJobId'])" *ngIf="showKillIcon">
+					<md-icon>alarm_off</md-icon>
+				</button>
+				<button md-icon-button mdTooltip="Go Back" mdTooltipPosition="below" (click)="closeGoBack()">
+					<md-icon>undo</md-icon>
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- BODY -->
+<div class="row" style="padding-top:10px;" *ngIf="disHeader">
+	<div class="col-md-4 col-sm-6 plr10px">
+		<md-input-container>
+			<input mdInput [(ngModel)]="jobs.jobName" placeholder="Name" name="jobName" class="color-black" disabled>
+		</md-input-container>
+	</div>
+	<div class="col-md-4 col-sm-6 plr10px" *ngIf="jobs.jobDesc">
+		<md-input-container>
+			<input mdInput [(ngModel)]="jobs.jobDesc" placeholder="Description" name="description" class="color-black" disabled>
+		</md-input-container>
+	</div>
+	<div class="col-md-4 col-sm-6 plr10px">
+		<md-select [(ngModel)]="jobs.programId" placeholder="Type" name="program" class="color-black dis-mat-sel" disabled>
+			<md-option *ngFor="let program of programsList" [value]="program.id">{{program.prgmName}}</md-option>
+		</md-select>
+	</div>
+</div>
+<hr>
+
+<p-accordion [multiple]="true" (onOpen)="accordionToggle()" (onClose)="accordionToggle()">
+	<div class="row">
+		<div class="col-md-6 plr10px jobs-hght100" style="padding-left: 0 !important;" *ngIf="disParameters">
+			<!-- PARAMETERS -->
+			<p-accordionTab header="Parameters" [selected]="accTab" class="acrdn-pt0px strt-frm-title">
+				<md-card style="padding:20px !important">
+					<div class="display-flex" *ngFor="let parameter of jobs.parameters;">
+						<p class="materialLabelProcess col-md-4" style="margin-right:20px;">{{parameter.paramName}}:</p>
+						<ul class="col-md-8">
+							<ng-container *ngFor="let pv of parameter.value;let i=index;">
+								<li *ngIf="i < disLisVal" class="ellipsis-text" style="padding-bottom:10px;" mdTooltip="{{pv}}" matTooltipShowDelay="1000">{{pv ? pv : 'All'}}</li>
+								<li *ngIf=" i == parameter?.value?.length - 1 && parameter?.value?.length > 2" class="badge badge-default hand" (click)="dislist(parameter?.value?.length)">{{!toggleDisLisVal ? 'More ('+(parameter?.value?.length - 2)+')' : 'Less'}}</li>
+							</ng-container>
+						</ul>
+					</div>
+				</md-card>
+			</p-accordionTab>
+		</div>
+		<div class="col-md-6 plr10px jobs-hght100" *ngIf="disSchedule">
+			<!-- SCHEDULES -->
+			<p-accordionTab header="Schedule" [selected]="accTab" class="acrdn-pt0px strt-frm-title">
+				<md-card style="padding:20px !important">
+					<p class="display-flex" style="align-items:center;margin-bottom:0;">
+						<md-icon style="font-size:20px;">schedule</md-icon>
+						<span style="align-self: flex-start;">{{jobs.scheStartDate | date : 'MMMM d, y, h:mm'}}
+							<span *ngIf="jobs.scheEndDate" class="font-weight-bold">to</span> {{jobs.scheEndDate | date : 'MMMM d, y, h:mm'}}</span>
+					</p>
+					<p *ngIf="jobs?.frequencies" style="margin-bottom:0;margin-left: 24px; font-size: 13px; color: gray;">{{jobs.frequencies[0]?.type | titlecase}}
+						<span *ngIf="jobs.frequencies[0]?.time">at</span> {{jobs.frequencies[0]?.time}}
+						<span *ngIf="jobs.frequencies && jobs.frequencies[0]?.weekDay?.length > 0 || jobs.frequencies[0]?.month?.length > 0">({{jobs.frequencies[0]?.weekDay}} {{jobs.frequencies[0]?.month}})</span>
+					</p>
+					<div style="margin-top:10px;" *ngIf="lastRun?.lastModifiedTime || nextRun?.nextMatdTime">
+						<div class="display-flex" *ngIf="lastRun?.lastModifiedTime">
+							<md-icon style="font-size:20px;">undo</md-icon>
+							<p class="no-mb">
+								<span>Previous Run: </span>
+								<span>{{lastRun?.lastModifiedTime | date : 'MMMM d, y, h:mm'}} ({{lastRun?.status}})</span>
+							</p>
+						</div>
+						<div class="display-flex" *ngIf="nextRun?.nextMatdTime">
+							<md-icon style="font-size:20px;">redo</md-icon>
+							<p class="no-mb">
+								<span>Next Run: </span>
+								<span>{{nextRun?.nextMatdTime | date : 'MMMM d, y, h:mm'}}</span>
+							</p>
+						</div>
+					</div>
+				</md-card>
+			</p-accordionTab>
+		</div>
+	</div>
+</p-accordion>
+
+<p-accordion *ngIf="disRuns">
+	<div style="margin: 0px 15px;">
+		<p-accordionTab header="Runs" selected="true" class="acrdn-pt0px strt-frm-title">
+			<md-card style="padding:0px 20px !important">
+				<div class="table-responsive">
+		
+					<table class="table table-hover">
+						<thead>
+							<tr>
+								<th>Start</th>
+								<th>End</th>
+								<th>Status</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr *ngFor="let run of runs">
+								<td>{{run.startTime | date : 'MMMM d, y, h:mm'}}</td>
+								<td>{{run.endTime | date : 'MMMM d, y, h:mm'}}</td>
+								<td>{{run.status}}</td>
+							</tr>
+						</tbody>
+					</table>
+		
+				</div>
+			</md-card>
+		</p-accordionTab>
+	</div>
+</p-accordion>

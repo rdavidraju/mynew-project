@@ -1,0 +1,82 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { ApprovalRuleAssignment } from './approval-rule-assignment.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+
+@Injectable()
+export class ApprovalRuleAssignmentService {
+
+    private resourceUrl = 'agreeapplication/api/approval-rule-assignments';
+    private resourceSearchUrl = 'agreeapplication/api/_search/approval-rule-assignments';
+
+    constructor(private http: Http, private dateUtils: JhiDateUtils) { }
+
+    create(approvalRuleAssignment: ApprovalRuleAssignment): Observable<ApprovalRuleAssignment> {
+        const copy = this.convert(approvalRuleAssignment);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(approvalRuleAssignment: ApprovalRuleAssignment): Observable<ApprovalRuleAssignment> {
+        const copy = this.convert(approvalRuleAssignment);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<ApprovalRuleAssignment> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.creationDate = this.dateUtils
+            .convertDateTimeFromServer(entity.creationDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(approvalRuleAssignment: ApprovalRuleAssignment): ApprovalRuleAssignment {
+        const copy: ApprovalRuleAssignment = Object.assign({}, approvalRuleAssignment);
+
+        copy.creationDate = this.dateUtils.toDate(approvalRuleAssignment.creationDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(approvalRuleAssignment.lastUpdatedDate);
+        return copy;
+    }
+}

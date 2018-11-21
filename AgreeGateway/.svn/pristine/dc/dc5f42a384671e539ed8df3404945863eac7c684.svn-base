@@ -1,0 +1,149 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+import { Router, NavigationEnd } from '@angular/router';
+import { PageEvent } from '@angular/material';
+import { Response } from '@angular/http';
+
+import { CommonService } from '../common.service';
+import { Jobs, JobsSchedules, SchedulerActions } from './jobs.model';
+import { JobDetailsService } from './job-details.service';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { SelectItem } from 'primeng/primeng';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import { ITEMS_PER_PAGE } from '../../shared';
+import { OverlayPanel } from 'primeng/primeng';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-jobs-sched-list',
+    templateUrl: './jobs-schedulars-list.component.html'
+})
+export class JobsSchedularDetailsComponent implements OnInit, OnDestroy {
+    
+    routeSub: any;
+    jobScheListsHeight: any;
+    presentPath: any;
+    columnOptions: SelectItem[];
+    schedularsList: JobsSchedules[] = [];
+    selSingleSchedule = new JobsSchedules();
+    selectedScheduls: JobsSchedules[] = [];
+    schedulsTableColumns = [                  //  Job list source columns
+        { field: 'programName', header: 'Program Name' },
+        { field: 'parametes', header: 'Parameters' },
+        { field: 'oozieStatus', header: 'Status' },
+        { field: 'frequencyType', header: 'Frequency Type' }
+       
+        
+    ];
+    
+    length: number;
+    pageSize: number;
+    pageSizeOptions = [5, 10, 25, 100];
+    pageEvent: PageEvent = new PageEvent();
+
+    pageChange(pageEvent: any){
+        console.log(pageEvent);
+    }
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private jobDetailsService: JobDetailsService,
+        private notificationsService: NotificationsService,
+        private router: Router,
+        private commonService: CommonService,
+        private route: ActivatedRoute
+    ) {
+        this.pageSize = ITEMS_PER_PAGE;
+        this.pageEvent.pageIndex = 0;
+        this.pageEvent.pageSize = this.pageSize;
+        this.columnOptions = [];
+        for (let i = 0; i < this.schedulsTableColumns.length; i++) {
+            this.columnOptions.push({ label: this.schedulsTableColumns[i].header, value: this.schedulsTableColumns[i] });
+        }
+        this.loadAllSchedulersList();
+    }
+    
+    loadAllSchedulersList(){
+        this.jobDetailsService.getSchedulersList(this.pageEvent.pageIndex+1,this.pageEvent.pageSize).subscribe((resp: Response)=>{
+            this.schedularsList = resp.json();
+            this.length= +resp.headers.get('x-count');
+        });
+    }
+    
+    ngOnInit() {
+        this.jobScheListsHeight = (this.commonService.screensize().height - 340) + 'px';
+        this.routeSub = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+        });
+        
+        $(".search-icon-body").click(function() {   
+            if ( $( ".ftlSearch md-input-container" ).hasClass( "hidethis" ) ) {
+                $( ".ftlSearch md-input-container" ).removeClass( "hidethis" );
+                $( ".ftlSearch md-input-container" ).addClass( "show-this" );
+            } else if ( $( ".ftlSearch md-input-container" ).hasClass( "show-this" ) ) {
+                var value = $( '.ftlSearch md-input-container .mySearchBox' ).filter( function() {
+                    return this.value != '';
+                } );
+                if ( value.length <= 0 ) { // zero-length string
+                    $( ".ftlSearch md-input-container" ).removeClass( "show-this" );
+                    $( ".ftlSearch md-input-container" ).addClass( "hidethis" );
+                }
+            } else {
+                $( ".ftlSearch md-input-container" ).addClass( "show-this" );
+            }
+        } );
+        $( ".ftlSearch md-input-container .mySearchBox" ).blur( function() {
+            var value = $( '.ftlSearch md-input-container .mySearchBox' ).filter( function() {
+                return this.value != '';
+            } );
+            if ( value.length <= 0 ) { // zero-length string
+                $( ".ftlSearch md-input-container" ).removeClass( "show-this" );
+                $( ".ftlSearch md-input-container" ).addClass( "hidethis" );
+            }
+        } );
+    }
+
+    ngOnDestroy() {
+        
+    }
+
+    rerunSchedule(id: any) {
+        this.jobDetailsService.rerunSchedule(id, 'action', 1).subscribe((resp: any) => {
+            console.log(resp);
+            this.loadAllSchedulersList();
+        });
+    }
+
+    stopSchedule(id: any, rangeType: any, scope: any) {
+        this.jobDetailsService.killSchedule(id, 'action', 1).subscribe((resp: any) => {
+            console.log(resp);
+            this.loadAllSchedulersList();
+        });
+    }
+    
+    showScheduleLog(id: any){
+        this.jobDetailsService.showScheduleLog(id).subscribe((resp: any)=>{
+            console.log(resp);
+        });
+    }
+    schedulerActions: SchedulerActions[] = [];
+    showActionsLog: boolean = false;
+    
+    getScheduleActions(schedule: JobsSchedules, id: any){
+        this.selSingleSchedule = schedule;
+        this.jobDetailsService.getScheduleActions(id).subscribe((resp: SchedulerActions[])=>{
+            this.schedulerActions=resp;
+            this.showActionsLog=true;
+        });
+    }
+    
+    resetmodal(){
+        this.showActionsLog=false;
+    }
+        
+}

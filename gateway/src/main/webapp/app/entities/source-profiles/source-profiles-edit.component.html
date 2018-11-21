@@ -1,0 +1,518 @@
+<div style="height: 100%; width: 100%">
+	<vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+		<div *jhiHasAnyAuthority="['SRC_PROFILE_VIEW','SRC_PROFILE_EDIT']">
+			<div id="sticky" class="leftpane split-pane-content-primary" *ngIf="!isCreateNew" style="min-height: calc(100vh - 130px);">
+				<profiles-side-bar> </profiles-side-bar>
+			</div>
+		</div>
+		<div class="split-pane-content-secondary rightpane">
+			<div class="component-body">
+				<div class="botom-dotted-blue-border component-title">
+					<!-- <div *ngIf="isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+						<h4  class="pageListTitle">Create New Profile</h4>
+					</div>
+					<div *ngIf="!isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle">
+						<h4 *ngIf="!isCreateNew">{{sourceProfile.sourceProfileName}}</h4>
+					</div> -->
+					<div class="col-md-8">
+						<!-- <h4 class="pageListTitle">Create New Template</h4> -->
+						<!-- <button md-icon-button class="hand" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew">
+							<span class="fa fa-bars hand ripple sbclose"></span>
+						</button> -->
+						<h4>{{(!isCreateNew && !copyTemplate) ? sourceProfile?.sourceProfileName : 'Create New Pipeline'}}</h4>
+					</div>
+					<!-- <div class="col-md-6 col-sm-6 col-xs-6 pageTitle">
+				<h3 *ngIf="isCreateNew">Create New Profile</h3>
+				<h3 *ngIf="!isCreateNew">{{sourceProfile.sourceProfileName}}</h3>
+			</div> -->
+					<div class="col-lg-4 col-md-4 col-sm-4 col-xs-4">
+						<div class="float-right">
+							<button *ngIf="!isViewOnly && f.valid && !duplicateProfileName" md-icon-button class="pull-right" aria-hidden="true" mdTooltip="Save Profile"
+							 (click)="saveProfile()">
+								<md-icon>save</md-icon>
+							</button>
+							<button *ngIf="!isViewOnly && (!f.valid || duplicateProfileName)" md-icon-button class="pull-right color-gray" aria-hidden="true"
+							 mdTooltip="Fill Mandatory Fields" (click)="profileValidationMsg()">
+								<md-icon>save</md-icon>
+							</button>
+							<button md-icon-button mdTooltip="Edit Profile" *ngIf="isViewOnly" [routerLink]="['/source-profiles', {outlets: {'content': [sourceProfile.idForDisplay]+'/edit'}}]">
+								<md-icon>edit</md-icon>
+							</button>
+							<!-- <div *jhiHasAnyAuthority="['SRC_PROFILE_COPY']">
+							<button md-icon-button [routerLink]="['/source-profiles', {outlets: {'content': [sourceProfile.idForDisplay]+'/copyedit'}}]" *ngIf="isViewOnly" mdTooltip="Copy Profile">
+								<md-icon >content_copy</md-icon>
+							</button>
+							</div>
+
+							<div *jhiHasAnyAuthority="['SRC_PROFILE_EDIT']">
+							<button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/source-profiles', {outlets: {'content': [sourceProfile.idForDisplay]+'/edit'}}]">
+								<md-icon >mode_edit</md-icon>
+							</button>
+							</div> -->
+
+							<!-- <button *ngIf="!isViewOnly" md-icon-button class="pull-right color-gray" mdTooltip="Close" (click)="close()">
+								<md-icon>clear</md-icon>
+							</button> -->
+							<!-- <button *ngIf="isCreateNew" md-icon-button
+						class="pull-right color-gray" mdTooltip="Close"
+						[routerLink]="['/source-profiles', {outlets: {'content': ['source-profiles-list']}}]">
+						<md-icon>clear</md-icon>
+					</button> -->
+						<button *ngIf="isViewOnly" md-icon-button mdTooltip="Tag To Process" (click)="isTagging = true;openTaggingDialog();">
+							<md-icon>loyalty</md-icon>
+						</button>
+							<button  class="pull-right" md-icon-button mdTooltip="View List" *ngIf="sourceProfileAssignmentService.ftToProf || sourceConnectionDetailsService.conToProf"
+							[routerLink]="(sourceConnectionDetailsService.conToProf) ? ['/source-connection-details', {outlets: {'content': [sourceConnectionDetailsService.conToProf]+'/details'}}]
+							 : ['/file-templates', {outlets : {'content': [this.sourceProfileAssignmentService.ftToProf]+'/details'}}]">
+								<md-icon>clear</md-icon>
+							</button>
+							<button  class="pull-right" md-icon-button mdTooltip="View List" *ngIf="!sourceProfileAssignmentService.ftToProf && !sourceConnectionDetailsService.conToProf"
+							[routerLink]="['/source-profiles', {outlets: {'content': ['source-profiles-list']}}]">
+								<md-icon>clear</md-icon>
+							</button>
+
+						</div>
+					</div>
+				</div>
+				<tagging *ngIf="isTagging" [basicInfor]="taggingObject"></tagging>
+				<form novalidate #f="ngForm">
+					<div class="row col-md-12" style="top: 10px;margin: 0px 0px !important;">
+						<div [class]="startEndDateClass()" style="display: inline-block;">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceProfile.sourceProfileName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+								 placeholder="Pipeline" (ngModelChange)="checkSourceProfileName($event)" name="sourceProfileName" required
+								 #sourceProfileName="ngModel"> </md-input-container>
+							<p class="help-block errorFont validation-error"  *ngIf="duplicateProfileName">Pipeline already exists with this name</p>
+							<p class="help-block errorFont validation-error" *ngIf="f.hasError('required', 'sourceProfileName') && submitted">Pipeline name is required.
+							</p>
+						</div>
+						<div [class]="startEndDateClass()">
+							<md-input-container class="example-full-width">
+								<input mdInput [(ngModel)]="sourceProfile.profileDescription" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+								 placeholder="Description" name="description"> </md-input-container>
+						</div>
+						<div [ngClass]="isCreateNew ? 'col-md-3 col-sm-6 date-field-size':'col-md-2 col-sm-6 date-field-size'">
+							<md-form-field>
+								<input mdInput [mdDatepicker]="stpicker" placeholder="From" [min]="today" required (dateChange)="startDateChange=true;startDateChanged(sourceProfile.startDate);"
+								 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="sourceProfile.startDate" name="startDate"
+								 required>
+								<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+								<md-datepicker #stpicker></md-datepicker>
+							</md-form-field>
+							<p class="help-block errorFont validation-error" *ngIf="f.hasError('required', 'startDate') && submitted">Start date is required.</p>
+						</div>
+						<div [ngClass]="isCreateNew ? 'col-md-3 col-sm-6 date-field-size':'col-md-2 col-sm-6 date-field-size'" *ngIf="sourceProfile.startDate">
+							<md-form-field>
+								<input mdInput [mdDatepicker]="edpicker" placeholder="To" (dateChange)="endDateChange=true;" [min]="sourceProfile.startDate"
+								 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="sourceProfile.endDate" name="endDate">
+								<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+								<md-datepicker #edpicker></md-datepicker>
+							</md-form-field>
+						</div>
+						<div class="col-md-1  col-xs-6 " *ngIf="isViewOnly">
+								<md-input-container class="example-full-width">
+										<input mdInput placeholder="Status" [(ngModel)]="sourceProfile.status" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="status" 
+										required #source="ngModel">
+									 </md-input-container>
+							<!-- <p class="badge badge-success" *ngIf="sourceProfile.enabledFlag || sourceProfile.enabledFlag == true">Active</p>
+							<p class="badge badge-warning" *ngIf="sourceProfile.enabledFlag == false">Inactive</p> -->
+						</div>
+						<div class="col-md-1 col-sm-4 col-xs-6 display-flex" style="top: 20px;" *ngIf="isEdit && !copyProfile">
+							<p *ngIf="sourceProfile.enabledFlag" style="margin-top: -4px;">Active</p>
+							<p *ngIf="!sourceProfile.enabledFlag" style="margin-top: -4px;">Inactive</p>
+							<md-slide-toggle class="example-margin" style="padding-left: 9px;" color="primary" [(ngModel)]="sourceProfile.enabledFlag"
+							 name="status" [disabled]="!isEdit">
+							</md-slide-toggle>
+						</div>
+					</div>
+					<div class="setups-accordian" style="padding-top: 10px;" >
+						<!-- <div class="row connection-in-profiles">
+							<span style="padding-top:6px;padding-left:10px">
+								Connection
+							</span>
+						</div> -->
+						<!-- <md-accordion *ngIf="dsplyConnections">
+							<md-expansion-panel expanded="true">
+								<md-expansion-panel-header>
+									<md-panel-title>
+										Connection
+									</md-panel-title>
+								</md-expansion-panel-header> -->
+								<div class="row " style="padding-top: 7px;margin-left: 0px;">
+									<div class="col-md-3">
+										<!-- <md-select placeholder="Connector Type" (change)="getConnections()" required [(ngModel)]="sourceProfile.connectionType"
+										 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="connectionType">
+											<md-option size="50" *ngFor="let connectionType of connectionTypesList; let k = index;" [value]="connectionType.connectionTypeCode">{{connectionType.connectionTypeMeaning}}</md-option>
+										</md-select> -->
+										<md-select  [(ngModel)]="sourceProfile.connectionType" placeholder="Connector Type" (change)="getConnections()"  [materialFilter]="connectionType" #connectionType name="connectionType" [disabled]="isViewOnly" [materialFilterModel]="connectionTypeSearchModel"
+													[materialFilterInput]="connectionTypeSearchInput"
+                                                	required  [ngClass]="{'color-black' : isViewOnly}">
+                                                	<input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="connectionTypeSearch" name="connectionTypeSearch" #connectionTypeSearchModel="ngModel"
+                                                    #connectionTypeSearchInput>
+                                                	<md-option *ngFor="let connectionType of connectionTypesList | searchFilter:connectionTypeSearch" [value]="connectionType.connectionTypeCode" > {{connectionType.connectionTypeMeaning}}</md-option>
+                               			 </md-select>
+										<p class="help-block errorFont validation-error" *ngIf="f.hasError('required', 'connectionType') && submitted">Connection type is required.</p>
+									</div>
+									<div class="col-md-3" *ngIf="sourceProfile.connectionType">
+										<md-select  [(ngModel)]="sourceProfile.connectionId" placeholder="Connector" (change)="getConnectionDetails()"  [materialFilter]="connectionName" #connectionName name="connectionName" [disabled]="isViewOnly"
+													[materialFilterModel]="connectionNameSearchModel"
+													[materialFilterInput]="connectionNameSearchInput"
+                                                	required  [ngClass]="{'color-black' : isViewOnly}">
+                                                	<input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="connectionNameSearch" name="connectionNameSearch" #connectionNameSearchModel="ngModel"
+													#connectionNameSearchInput>
+													<perfect-scrollbar style="max-height: 200px;">
+															<md-option *ngFor="let connection of connectionDetails | searchFilter:connectionNameSearch" [value]="connection.id"> {{connection.name}}</md-option>
+													</perfect-scrollbar>
+                               			 </md-select>
+
+										<!-- <md-select placeholder="Connector" (change)="getConnectionDetails()" required [(ngModel)]="sourceProfile.connectionId"
+										 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="connectionName">
+											<perfect-scrollbar style="max-height: 200px;">
+												<md-option *ngFor="let connection of connectionDetails" [value]="connection.id">{{connection.name}}</md-option>
+											</perfect-scrollbar>
+										</md-select> -->
+										<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', 'connectionName') && submitted">Connection name is required.</p>
+									</div>
+
+								</div>
+
+
+								<!-- <br>
+								<div class="row ">
+									<div class="col-md-3" *ngFor="let myObj of finalCols; let i = index;">
+										<div *ngIf="i < 4">
+											<div style="margin-top: -1.3%;">
+												<md-input-container class="example-full-width" *ngIf="myObj.display != 'Password'">
+													<input mdInput class="color-black" [disabled]="true" [placeholder]="myObj.display" [(ngModel)]="myObj.value" [name]="myObj.display"
+													 ngModel> </md-input-container>
+												<md-input-container class="example-full-width" *ngIf="myObj.display == 'Password'">
+													<input mdInput class="color-black" [disabled]="true" [placeholder]="myObj.display" [(ngModel)]="myObj.value" [name]="myObj.display"
+													 ngModel type="password"> </md-input-container>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-3" *ngFor="let myObj of finalCols; let i = index;">
+										<div *ngIf="i > 3 && i < 8">
+											<div style="margin-top: -1.3%;">
+												<md-input-container class="example-full-width" *ngIf="myObj.display != 'Password'">
+													<input mdInput class="color-black" [disabled]="true" [placeholder]="myObj.display" [(ngModel)]="myObj.value" [name]="myObj.display"
+													 ngModel> </md-input-container>
+												<md-input-container class="example-full-width" *ngIf="myObj.display == 'Password'">
+													<input mdInput class="color-black" [disabled]="true" [placeholder]="myObj.display" [(ngModel)]="myObj.value" [name]="myObj.display"
+													 ngModel type="password"> </md-input-container>
+											</div> 
+										</div>
+									</div>
+								</div>
+								<div class="row">
+									<div class="col-md-3" *ngFor="let myObj of finalCols; let i = index;">
+										<div *ngIf="i > 7 && i < 12">
+											<div style="margin-top: -1.3%;">
+												<md-input-container class="example-full-width" *ngIf="myObj.display != 'Password'">
+													<input mdInput class="color-black" [disabled]="true" [placeholder]="myObj.display" [(ngModel)]="myObj.value" [name]="myObj.display"
+													 ngModel> </md-input-container>
+												<md-input-container class="example-full-width" *ngIf="myObj.display == 'Password'">
+													<input mdInput class="color-black" [disabled]="true" [placeholder]="myObj.display" [(ngModel)]="myObj.value" [name]="myObj.display"
+													 ngModel type="password"> </md-input-container>
+											</div>
+										</div>
+									</div>
+								</div> -->
+							<!-- </md-expansion-panel>
+						</md-accordion> -->
+					</div>
+					<div class="setups-form-last-accordian" style="padding-top: 10px;padding-left: 5px" *ngIf="sourceProfile.connectionId">
+						<div class="setups-accordian template-to-prof-acc">
+							<md-accordion *ngIf="dsplyFiletmplts">
+								<md-expansion-panel expanded="true" [disabled]="true">
+									<md-expansion-panel-header>
+										<md-panel-title>
+											Data Template
+										</md-panel-title>
+									</md-expansion-panel-header>
+									<div class="row md-accordian-row-padding" style="margin-left:0px">
+									
+										<div *ngIf="!profileFileAssignments ||  profileFileAssignments.length<=0 && isViewOnly">
+											<i> No templates assigned</i>
+										</div>
+										<!-- <form #ftlAssignment="ngForm"> -->
+										<div class="col-md-12  col-xs-12 table-header-backgrounds hover-row table-header-styles" style="padding-left:24px" *ngIf="isViewOnly">
+												<table class="table" *ngIf=" profileFileAssignments && profileFileAssignments.length>0">
+														<thead style="background-color : rgba(0, 0, 0, 0.04) !important;">
+															<tr>
+																<th>File Template</th>
+																<th>File Name Format</th>
+																<th>File Extension</th>
+																<th>File Description</th>
+																<th>Source Directory Path</th>
+															</tr>
+														</thead>
+														<tbody>
+															<tr *ngFor="let fileAssignment of profileFileAssignments; let i=index;" (mouseover)="mouseOverRowNo = i">
+																<td>
+																		<div *ngIf="!fileAssignment.edit">
+																				<span class="hand" style="font-weight:bold" (click)="sourceProfileAssignmentService.profToFt=sourceProfile.idForDisplay" 
+																				[routerLink]="['/file-templates', {outlets	: {'content': [fileAssignment.sourceProfileIdForDisplay]+'/details'}}]" *ngIf="!sourceProfileAssignmentService.ftToProf">
+																					{{fileAssignment.templateName}}</span>
+																					<span *ngIf="sourceProfileAssignmentService.ftToProf">
+																					{{fileAssignment.templateName}}</span>
+															
+																			</div>
+																</td>
+																<td>
+																	<div *ngIf="!fileAssignment.edit">
+																		{{fileAssignment.fileNameFormat}}</div>
+																</td>
+																<td>
+																	<div *ngIf="!fileAssignment.edit">
+																		{{fileAssignment.fileExtension}}</div>
+																</td>
+																<td>
+																	<div *ngIf="!fileAssignment.edit">
+																		{{fileAssignment.fileDescription}}</div>
+																</td>
+																<td>
+																	<div *ngIf="!fileAssignment.edit">
+																		{{fileAssignment.sourceDirectoryPath}}</div>
+																</td>
+															</tr>
+														</tbody>
+													</table> 
+										</div>	
+										<div style="padding-left:7px;" *ngIf="!isViewOnly && (!fileTemplates || fileTemplates.length<=0)" >
+											All data templates are tagged to one or the other pipelines.
+										</div> 
+										<div class="col-md-12  col-xs-12 table-header-backgrounds" *ngIf="!isViewOnly && fileTemplates && fileTemplates.length > 0">
+									
+											<div class="row" style="height:57px;margin-left: 10px;">
+												<div class="col-md-3" style="background-color: #f5f5f5">
+													<p style="font-weight:bold;padding-top:14px"> Template Name*</p>
+												</div>
+												<div class="col-md-2" style="background-color: #f5f5f5">
+													<p style="font-weight:bold;padding-top:14px"> File Name Format*</p>
+												</div>
+												<div class="col-md-1" style="background-color: #f5f5f5">
+													<p style="font-weight:bold;padding-top:14px">File Extension*</p>
+												</div>
+												<div class="col-md-2" style="background-color: #f5f5f5">
+													<p style="font-weight:bold;padding-top:14px">File Description</p>
+												</div>
+												<div class="col-md-2" style="background-color: #f5f5f5">
+													<p style="font-weight:bold;padding-top:14px">Source Directory Path*</p>
+												</div>
+												<div class="col-md-1" style="background-color: #f5f5f5" *ngIf="!isViewOnly">
+													
+												</div>
+											</div>
+											<ng-template ngFor let-fileAssignment [ngForOf]="profileFileAssignments" let-i="index">
+												<div class="row" style="height:28px;margin-left: 5px;" [ngStyle]="{'padding-top' : (i==0) ? '6px' : '25px' }">
+												<div class="col-md-3">
+													<!-- <div *ngIf="!fileAssignment.edit">
+														<span class="hand" (click)="sourceProfileAssignmentService.profToFt=sourceProfile.idForDisplay" 
+														[routerLink]="['/file-templates', {outlets	: {'content': [fileAssignment.sourceProfileIdForDisplay]+'/details'}}]" *ngIf="!sourceProfileAssignmentService.ftToProf">
+															<b>{{fileAssignment.templateName}}</b></span>
+															<span *ngIf="sourceProfileAssignmentService.ftToProf">
+															{{fileAssignment.templateName}}</span>
+									
+													</div> -->
+													<div *ngIf="fileAssignment.edit">
+														<md-select class="example-full-width md-no-placeholder" required (change)="selectedProfile()" [disabled]="!sourceProfile.connectionId" [(ngModel)]="fileAssignment.templateId" name="tempId{{i}}"
+														 #tempId{{i}}="ngModel">
+															<perfect-scrollbar style="height: 200px;">
+																	<ng-template ngFor let-template [ngForOf]="fileTemplates" let-i="index" >
+																			<md-option [value]="template.id" *ngIf="template">
+																					{{template.templateName}}
+																				</md-option>
+																	</ng-template>
+																
+																<md-option [value]="fileAssignment.templateId" *ngIf="fileAssignment.templateId && fileAssignment.templateName">{{fileAssignment.templateName}}</md-option>
+															</perfect-scrollbar>
+														</md-select>
+														<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', 'tempId'+i) && submitted">Template
+															is required.</p>
+									
+													</div>
+												</div>
+												<div class="col-md-2">
+														<!-- <div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.fileNameFormat}}</div> -->
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.fileNameFormat" [ngClass]="{'color-black' : isViewOnly}" [disabled]="!fileAssignment.edit"
+																		required name="fileNameFormat_{{i}}" #fileNameFormat_{{i}}="ngModel" required>
+																</md-input-container>
+																<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', 'fileNameFormat_'+i) && submitted">File name format is required.</p>
+															</div>
+												</div>
+												<div class="col-md-1">
+														<!-- <div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.fileExtension}}</div> -->
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.fileExtension" required name="fileExtension_{{i}}" #fileExtension_{{i}}="ngModel"> </md-input-container>
+																<p class="help-block errorFont validation-error" *ngIf="f.hasError('required', 'fileExtension_'+i) && submitted">File extension is required.</p>
+															</div>
+												</div>
+												<div class="col-md-2">
+														<!-- <div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.fileDescription}}</div> -->
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.fileDescription" name="fileDescription_{{i}}" #fileDescription_{{i}}="ngModel">
+																</md-input-container>
+															</div>
+												</div>
+												<div class="col-md-2">
+														<!-- <div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.sourceDirectoryPath}}
+														</div> -->
+														<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.sourceDirectoryPath" required name="sourceDirectoryPath_{{i}}" #sourceDirectoryPath_{{i}}="ngModel"
+																		required>
+																</md-input-container>
+																<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', 'sourceDirectoryPath_'+i) && submitted">Source Dir path is required.</p>
+														</div>
+														
+												</div>
+												<div class="col-md-1">
+														<div class="display-flex" *ngIf="!isViewOnly">
+																<button md-icon-button (click)="removeAssignment(fileAssignment.id,i)" mdTooltip="UnTag Assignment">
+																	<md-icon>delete</md-icon>
+																</button>
+																<!-- <button md-icon-button (click)="clearFields(i)" *ngIf="!isViewOnly" mdTooltip="Clear">
+																	<md-icon>clear</md-icon>
+																</button> -->
+
+															   <button md-icon-button class="pull-right" mdTooltip="Clear" style="font-size: 17px;" (click)="clearFields(i)" 
+															   *ngIf="!isViewOnly">
+																	  <i class="fa fa-eraser " aria-hidden="true"></i>
+							 									 </button>
+																<button md-icon-button *ngIf="!isViewOnly && ( i == profileFileAssignments.length-1)" class="pull-right" mdTooltip="Assign New Template"
+																 (click)="addNewAssignment()" [disabled]="f.hasError('required', 'tempId'+i) || f.hasError('required', 'fileNameFormat_'+i)
+																 || f.hasError('required', 'fileExtension_'+i) ||f.hasError('required', 'sourceDirectoryPath_'+i) ">
+																	<md-icon>exposure_plus_1</md-icon>
+																</button>
+											
+														</div>
+												</div>
+											</div>
+											</ng-template>
+											<!-- <table class="table" *ngIf=" profileFileAssignments && profileFileAssignments.length>0">
+												<thead>
+													<tr>
+														<th>File Template</th>
+														<th>File Name Format</th>
+														<th>File Extension</th>
+														<th>File Description</th>
+														<th>Source Directory Path</th>
+													
+														<th *ngIf="!isViewOnly">Actions</th>
+													</tr>
+												</thead>
+												<tbody>
+													<tr *ngFor="let fileAssignment of profileFileAssignments; let i=index;" (mouseover)="mouseOverRowNo = i">
+														<td>
+															<div *ngIf="!fileAssignment.edit">
+																<span class="hand" (click)="sourceProfileAssignmentService.profToFt=sourceProfile.idForDisplay" [routerLink]="['/file-templates', {outlets	: {'content': [fileAssignment.sourceProfileIdForDisplay]+'/details'}}]">
+																	{{fileAssignment.templateName}}</span>
+										
+															</div>
+															<div *ngIf="fileAssignment.edit">
+																<md-select class="example-full-width" required (change)="selectedProfile()" [(ngModel)]="fileAssignment.templateId" name="tempId{{i}}"
+																 #tempId{{i}}="ngModel">
+																	<perfect-scrollbar style="height: 200px;">
+																		<md-option *ngFor="let template of fileTemplates" [value]="template.id">{{template.templateName}}</md-option>
+																		<md-option [value]="fileAssignment.templateId">{{fileAssignment.templateName}}</md-option>
+																	</perfect-scrollbar>
+																</md-select>
+																<p class="help-block errorFont" style="margin-left: 32px;" *ngIf="f.hasError('required', 'tempId'+i) && submitted">Template
+																	is required.</p>
+										
+															</div>
+										
+														</td>
+														<td>
+															<div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.fileNameFormat}}</div>
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.fileNameFormat" [ngClass]="{'color-black' : isViewOnly}" [disabled]="!fileAssignment.edit"
+																	 required name="fileNameFormat_{{i}}" #fileNameFormat_{{i}}="ngModel" required>
+																</md-input-container>
+																<p class="help-block errorFont" style="margin-left: 32px;" *ngIf="f.hasError('required', 'fileNameFormat_'+i) && submitted">File
+																	name format is required.</p>
+															</div>
+														</td>
+														<td>
+															<div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.fileExtension}}</div>
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.fileExtension" required name="fileExtension_{{i}}" #fileExtension_{{i}}="ngModel">							</md-input-container>
+																<p class="help-block errorFont" style="margin-left: 32px;" *ngIf="f.hasError('required', 'fileExtension_'+i) && submitted">File
+																	extension is required.</p>
+															</div>
+														</td>
+														<td>
+															<div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.fileDescription}}</div>
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.fileDescription" name="fileDescription_{{i}}" #fileDescription_{{i}}="ngModel">
+																</md-input-container>
+															</div>
+														</td>
+														<td>
+															<div *ngIf="!fileAssignment.edit">
+																{{fileAssignment.sourceDirectoryPath}}</div>
+															<div *ngIf="fileAssignment.edit">
+																<md-input-container class="example-full-width ">
+																	<input mdInput [(ngModel)]="fileAssignment.sourceDirectoryPath" required name="sourceDirectoryPath_{{i}}" #sourceDirectoryPath_{{i}}="ngModel"
+																	 required>
+																</md-input-container>
+																<p class="help-block errorFont" style="margin-left: 32px;" *ngIf="f.hasError('required', 'sourceDirectoryPath_'+i) && submitted">Source
+																	Dir path is required.</p>
+															</div>
+														</td>
+										
+														<td>
+															<div class="display-flex" *ngIf="!isViewOnly">
+																<button md-icon-button (click)="removeAssignment(fileAssignment.id,i)" mdTooltip="UnTag Assignment">
+																	<md-icon>delete</md-icon>
+																</button>
+																<button md-icon-button (click)="clearFields(i)" *ngIf="!isViewOnly" mdTooltip="Clear">
+																	<md-icon>clear</md-icon>
+																</button>
+																<button md-icon-button *ngIf="!isViewOnly && ( i == profileFileAssignments.length-1)" class="pull-right" mdTooltip="Assign New Template"
+																 (click)="addNewAssignment()">
+																	<md-icon>exposure_plus_1</md-icon>
+																</button>
+										
+															</div>
+															<div class="display-flex" *ngIf="!fileAssignment.edit">
+										
+															</div>
+										
+														</td>
+										
+													</tr>
+												</tbody>
+											</table> -->
+										</div>
+										<!-- </form> -->
+									</div>
+								</md-expansion-panel>
+							</md-accordion>
+						</div>
+					</div>
+				</form>
+			</div>
+
+
+		</div>
+	</vertical-split-pane>
+
+</div>

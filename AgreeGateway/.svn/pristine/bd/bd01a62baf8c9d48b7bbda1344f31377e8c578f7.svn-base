@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { LinkedDataViews } from './linked-data-views.model';
+import { LinkedDataViewsPopupService } from './linked-data-views-popup.service';
+import { LinkedDataViewsService } from './linked-data-views.service';
+
+@Component({
+    selector: 'jhi-linked-data-views-delete-dialog',
+    templateUrl: './linked-data-views-delete-dialog.component.html'
+})
+export class LinkedDataViewsDeleteDialogComponent {
+
+    linkedDataViews: LinkedDataViews;
+
+    constructor(
+        private linkedDataViewsService: LinkedDataViewsService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.linkedDataViewsService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'linkedDataViewsListModification',
+                content: 'Deleted an linkedDataViews'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-linked-data-views-delete-popup',
+    template: ''
+})
+export class LinkedDataViewsDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private linkedDataViewsPopupService: LinkedDataViewsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.linkedDataViewsPopupService
+                .open(LinkedDataViewsDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

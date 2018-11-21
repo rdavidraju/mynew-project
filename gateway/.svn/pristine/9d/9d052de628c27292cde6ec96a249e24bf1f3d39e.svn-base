@@ -1,0 +1,116 @@
+<div class="component-title">
+    <div class="col-lg-4" style="margin:auto;">
+        <h4>Aging Bucket Definition</h4>
+    </div>
+    <div class="col-lg-8 flex-end" style="align-items:center;">
+        <button *ngIf="isViewOnly" md-icon-button class="pull-right" [mdTooltip]="'Copy '+currentBucket.bucketName" (click)="copyBucket();">
+            <md-icon>content_copy</md-icon>
+        </button>
+        <button *ngIf="isViewOnly" md-icon-button class="pull-right add-item md-36" mdTooltip="Edit" (click)="enableEdit();">
+            <md-icon style="font-weight: bold;">mode_edit</md-icon>
+        </button>
+        <button md-icon-button class="pull-right add-item md-36" mdTooltip="Close" (click)="closeWindow();">
+            <md-icon>clear</md-icon>
+        </button>
+    </div>
+</div>
+<div class="component-body">
+    <form novalidate #bucketDefinition="ngForm">
+        <div class="row" style="margin-top:20px;">
+            <div class="col-md-3">
+                <div class="mat-c-input-wrapper">
+                <md-input-container class="example-full-width">
+                    <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" (blur)="checkBucketName()" [(ngModel)]="currentBucket.bucketName"
+                     placeholder="Bucket Name" name="bucketName" required>
+                </md-input-container>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="mat-c-select-wrapper">
+                <md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Bucket Type"
+                 [(ngModel)]="currentBucket.type" name="bucketType" (change)="updateBucketCount(0)" required>
+                    <md-option *ngFor="let type of bucketTypes" [value]="type.lookUpCode">{{type.meaning}}</md-option>
+                </md-select>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="mat-c-input-wrapper">
+                <md-input-container class="example-full-width">
+                    <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="!currentBucket.type || isViewOnly" (blur)="updateBucketCount(currentBucket.count)" [(ngModel)]="currentBucket.count"
+                     value="0" placeholder="Buckets Count" name="bucketCount" (keypress)="keyHandlerCount($event.keyCode)" type="number" min="0" required>
+                </md-input-container>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="mat-c-input-wrapper">
+                <md-form-field> 
+                    <input mdInput	[mdDatepicker]="stpicker" placeholder="From" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" [(ngModel)]="currentBucket.startDate" [max]="today" name="startDate" (focus)="stpicker.open()" required> 
+                    <md-datepicker-toggle mdSuffix [for]="stpicker"	*ngIf="!isViewOnly"></md-datepicker-toggle> 
+                    <md-datepicker #stpicker></md-datepicker>
+                </md-form-field>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="mat-c-input-wrapper">
+                <md-form-field> 
+                    <input mdInput	[mdDatepicker]="edpicker" placeholder="To" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" [(ngModel)]="currentBucket.endDate" name="endDate" [min]="currentBucket.startDate" (focus)="edpicker.open()"> 
+                    <md-datepicker-toggle mdSuffix [for]="edpicker"	*ngIf="!isViewOnly"></md-datepicker-toggle> 
+                    <md-datepicker #edpicker></md-datepicker>
+                </md-form-field>
+                </div>
+            </div>
+        </div>
+    
+        <div style="margin-top:25px;border: 1px solid #f2f2f2;">
+            <div class="aging-buckets-list">
+                <perfect-scrollbar [ngStyle]="{'max-height':cmpHeight}">
+                    <div class="row" style="min-height:100px;">
+                        <div class="col-md-3" *ngFor="let bucket of bucketsList; let i=index; let first = first; let last = last;" id="hideIconTable">
+                            <div class="each-bucket">
+                                <div class="bucket-head">
+                                    <div style="margin-top: 15px;">
+                                        <h6>Bucket #: {{i+1}}</h6>
+                                    </div>
+                                    <div>
+                                        <button *ngIf="!isViewOnly" md-icon-button mdTooltip="Remove" mdTooltipPosition="below" id="showIcon" (click)="deleteBucket(i);">
+                                            <md-icon style="font-size: 20px !important;">delete</md-icon>
+                                        </button>
+                                        <button *ngIf="!isViewOnly && last" md-icon-button mdTooltip="Add New" mdTooltipPosition="below" id="showIcon" (click)="updateBucketCount(currentBucket.count+1)">
+                                            <md-icon style="font-size: 20px !important;">exposure_plus_1</md-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row bucket-body">
+                                    <div class="col-md-6 md-no-placeholder text-center">
+                                        <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" type="number" [min]="i>0?bucketsList[i-1].toValue+1:undefined"
+                                                [(ngModel)]="bucket.fromValue" [name]="'fromValue'+i" (keypress)="keyHandlerCount($event.keyCode)"
+                                                (blur)="checkBucketValue(i,bucket.toValue,true)" [required]="!first" placeholder="From Value">
+                                        </md-input-container>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 md-no-placeholder text-center">
+                                        <div class="mat-c-input-wrapper">
+                                        <md-input-container>
+                                            <input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" type="number" [min]="bucket.fromValue" [(ngModel)]="bucket.toValue"
+                                                [name]="'toValue'+i" (keypress)="keyHandlerCount($event.keyCode)" (blur)="checkBucketValue(i,bucket.toValue,false)"
+                                                [required]="!last" placeholder="To Value">
+                                        </md-input-container>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </perfect-scrollbar>
+            </div>
+            <div class="top-border">
+                <button style="margin: 10px;" *ngIf="!isViewOnly" class="pull-right" md-raised-button mdTooltip="Save Bucket Info" mdTooltipPosition="below" (click)="saveBucketsInfo();"
+                    [disabled]="!bucketDefinition.valid || bucketsList.length<1 || (bucketsList.length==1 && !bucketsList[0].fromValue && !bucketsList[0].toValue)">Save</button>
+            </div>
+        </div>
+    </form>
+</div>

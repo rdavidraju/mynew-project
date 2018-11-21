@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { DataViewUnion } from './data-view-union.model';
+import { DataViewUnionPopupService } from './data-view-union-popup.service';
+import { DataViewUnionService } from './data-view-union.service';
+
+@Component({
+    selector: 'jhi-data-view-union-dialog',
+    templateUrl: './data-view-union-dialog.component.html'
+})
+export class DataViewUnionDialogComponent implements OnInit {
+
+    dataViewUnion: DataViewUnion;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private dataViewUnionService: DataViewUnionService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.dataViewUnion.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.dataViewUnionService.update(this.dataViewUnion));
+        } else {
+            this.subscribeToSaveResponse(
+                this.dataViewUnionService.create(this.dataViewUnion));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<DataViewUnion>) {
+        result.subscribe((res: DataViewUnion) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: DataViewUnion) {
+        this.eventManager.broadcast({ name: 'dataViewUnionListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-data-view-union-popup',
+    template: ''
+})
+export class DataViewUnionPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private dataViewUnionPopupService: DataViewUnionPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.dataViewUnionPopupService
+                    .open(DataViewUnionDialogComponent as Component, params['id']);
+            } else {
+                this.dataViewUnionPopupService
+                    .open(DataViewUnionDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

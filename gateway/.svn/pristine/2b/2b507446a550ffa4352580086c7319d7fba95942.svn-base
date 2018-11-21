@@ -1,0 +1,226 @@
+<div style="height: 100%; width: 100%">
+    <div class="component-title">
+        <div class="col-md-6">
+            <h4>
+                <span *ngIf="!fxRates.name">Exchange Rate {{isCreateNew ? 'Creation' : 'Detail'}}</span>
+                <span *ngIf="fxRates.name">
+                    <span>Exchange Rate: </span>
+                    <span style="color:black">{{fxRates.name}}</span>
+                </span>
+            </h4>
+        </div>
+        <div class="col-md-6">
+            <div class="pull-right">
+                <button *ngIf="!isViewOnly && f.valid" md-icon-button aria-hidden="true" mdTooltip="Save" (click)="saveFxRates()">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="!isViewOnly && !f.valid" md-icon-button aria-hidden="true" mdTooltip="Fill mandatory fields"
+                    (click)="validationMsg('fxRates')">
+                    <md-icon>save</md-icon>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/fx-rates', {outlets: {'content': [fxRates.id]+'/edit'}}]">
+                    <md-icon>mode_edit</md-icon>
+                </button>
+                <button *ngIf="isCreateNew || isEdit" md-icon-button mdTooltip="Close" [routerLink]="['/fx-rates', {outlets: {'content': ['fx-rates-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+                <button md-icon-button mdTooltip="Export to CSV" (click)="exportFXratesDetails(fxRates.id, 'csv')"
+                    *ngIf="fxRates.id && isViewOnly">
+                    <i class="rec-font-csv" style="font-size:24px;"></i>
+                </button>
+                <button md-icon-button mdTooltip="Export to Excel" (click)="exportFXratesDetails(fxRates.id, 'excel')"
+                    *ngIf="fxRates.id && isViewOnly">
+                    <i class="fa fa-file-excel-o" style="font-size:24px;"></i>
+                </button>
+                <button *ngIf="isViewOnly" md-icon-button mdTooltip="View List" [routerLink]="['/fx-rates', {outlets: {'content': ['fx-rates-home']}}]">
+                    <md-icon>clear</md-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="component-body">
+        <!-- Form Start Here -->
+        <div style="padding-top:10px;">
+            <form novalidate #f="ngForm">
+                <div class="row m-0">
+                    <div class="col-md-4 d-inline-block">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="fxRates.name" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" placeholder="Name" name="name" required #name="ngModel" id="name"
+                                    (blur)="isNameExist(fxRates.name,fxRates.id)" (ngModelChange)="nameExist = ''">
+                            </md-input-container>
+                        </div>
+                        <small class="form-text text-danger" *ngIf="nameExist">{{nameExist}}</small>
+                    </div>
+
+                    <div class="col-md-4" *ngIf="fxRates.description || !isViewOnly">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container>
+                                <input mdInput [(ngModel)]="fxRates.description" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" placeholder="Description" name="description" #description="ngModel">
+                            </md-input-container>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Conversion Type" [(ngModel)]="fxRates.conversionType" name="conversionType"
+                                [disabled]="isViewOnly" [style.width]="'100%'" required>
+                                <md-option *ngFor="let col of conversionType" [(value)]="col.lookUpCode">{{ col.meaning }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="mat-c-input-wrapper">
+                            <md-form-field>
+                                <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date"
+                                    [ngClass]="{'color-black' : isViewOnly}" [disabled]="!isCreateNew" [(ngModel)]="fxRates.startDate"
+                                    [min]="currentDate" name="startDate" required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4" *ngIf="fxRates.startDate && (fxRates.endDate || !isViewOnly)">
+                        <div class="mat-c-input-wrapper">
+                            <md-input-container *ngIf="fxRates.endDate == '-'">
+                                <input mdInput [(ngModel)]="fxRates.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="End Date"
+                                    name="endDate">
+                            </md-input-container>
+                            <md-form-field *ngIf="fxRates.endDate != '-'">
+                                <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="fxRates.startDate"
+                                    [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="fxRates.endDate"
+                                    name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4" *ngIf="!isCreateNew">
+                        <div class="mat-c-select-wrapper">
+                            <md-select placeholder="Status" [(ngModel)]="fxRates.enabledFlag" name="status" [disabled]="isViewOnly" required>
+                                <md-option *ngFor="let sts of statuses" [(value)]="sts.code">{{ sts.value }}</md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FX Rates Details -->
+                <br>
+                <div class="table-responsive" style="overflow-y:hidden;">
+                    <table class="table basicTable theme-table">
+                        <thead>
+                            <tr>
+                                <th>From Currency*</th>
+                                <th>To Currency*</th>
+                                <th mdTooltip="(From Currency to To Currency)">Conversion Rate*</th>
+                                <th mdTooltip="(To Currency to From Currency)">Inverse Rate*</th>
+                                <th>From Date*</th>
+                                <th>To Date*</th>
+                                <th *ngIf="!isCreateNew">Status</th>
+                                <th>
+                                    <button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add FX Rates"
+                                        (click)="addNewFxRates()">
+                                        <md-icon>exposure_plus_1</md-icon>
+                                    </button>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let col of fxRates.fxRatesDetails;let i = index;" id="hideIconTable">
+                                <td class="md-no-placeholder" style="width:200px;">
+                                    <md-select [(ngModel)]="col.fromCurrency" name="fromCurrency-{{i}}" style="width:200px;"
+                                        style="padding-top:7px" required [disabled]="!col.columnEdit" [ngModelOptions]="{standalone: true}"
+                                        (change)="checkFromToCurrency(col, 'fromCurrency', i)" #frmCur [materialFilter]="frmCur"
+                                        [materialFilterModel]="frmCrnSrchMdl" [materialFilterInput]="frmCrnSrchInpt">
+                                        <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="col.frmCrnSrch" name="frmCrnSrch" #frmCrnSrchMdl="ngModel" #frmCrnSrchInpt>
+                                        <md-option *ngFor="let col of currencies | searchFilter:col.frmCrnSrch" [(value)]="col.cc">{{ col.cv }}</md-option>
+                                    </md-select>
+                                </td>
+                                <td class="md-no-placeholder" style="width:200px;">
+                                    <md-select [(ngModel)]="col.toCurrency" name="toCurrency-{{i}}" style="width:200px;"
+                                        style="padding-top:7px" required [disabled]="!col.columnEdit" [ngModelOptions]="{standalone: true}"
+                                        (change)="checkFromToCurrency(col, 'toCurrency', i)" #toCur [materialFilter]="toCur"
+                                        [materialFilterModel]="toCrnSrchMdl" [materialFilterInput]="toCrnSrchInpt">
+                                        <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="col.toCrnSrch" name="toCrnSrch" #toCrnSrchMdl="ngModel" #toCrnSrchInpt>
+                                        <md-option *ngFor="let col of currencies | searchFilter:col.toCrnSrch" [(value)]="col.cc">{{ col.cv }}</md-option>
+                                    </md-select>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-input-container>
+                                        <input mdInput type="number" [(ngModel)]="col.conversionRate" name="conversionRate-{{i}}"
+                                            required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                    </md-input-container>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-input-container>
+                                        <input mdInput type="number" [(ngModel)]="col.inverseRate" name="inverseRate-{{i}}"
+                                            required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                    </md-input-container>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="stpicker" [(ngModel)]="col.fromDate" [max]="col.toDate"
+                                            name="fromDate-{{i}}" required [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                        <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                        <md-datepicker #stpicker></md-datepicker>
+                                    </md-form-field>
+                                </td>
+                                <td class="matbasictabletd">
+                                    <md-form-field>
+                                        <input mdInput [mdDatepicker]="edpicker" [(ngModel)]="col.toDate" name="toDate-{{i}}"
+                                            required [min]="col.fromDate" [disabled]="!col.columnEdit" [ngClass]="{'color-black' : !col.columnEdit}"
+                                            [ngModelOptions]="{standalone: true}">
+                                        <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="col.columnEdit"></md-datepicker-toggle>
+                                        <md-datepicker #edpicker></md-datepicker>
+                                    </md-form-field>
+                                </td>
+                                <td *ngIf="!isCreateNew">
+                                    <div *ngIf="!col.columnEdit">
+                                        <i *ngIf="col.enabledFlag == true" style="color: darkgrey" class="material-icons">check_circle</i>
+                                        <i *ngIf="col.enabledFlag == false" style="color: darkgrey" class="material-icons"
+                                            aria-hidden="true">error</i>
+                                    </div>
+                                    <i *ngIf="col.newFxrateDetStatus" style="color: darkgrey" class="material-icons">check_circle</i>
+                                    <md-slide-toggle color="primary" *ngIf="col.columnEdit && !col.newFxrateDetStatus"
+                                        mdTooltip="Set Status" placeholder="Status" [(ngModel)]="col.enabledFlag" name="enabledFlag-{{i}}"
+                                        [ngModelOptions]="{standalone: true}">
+                                    </md-slide-toggle>
+                                </td>
+                                <td>
+                                    <div class="display-flex pull-right" id="showIcon" [ngClass]="col.columnEdit ? 'edit-mode' : ''">
+                                        <button *ngIf="col.columnEdit && isViewOnly" md-icon-button class="color-green"
+                                            style="font-size: 24px;" aria-hidden="true" mdTooltip="Save" (click)="updateFxRatesDetail(col)">
+                                            <md-icon>save</md-icon>
+                                        </button>
+                                        <button *ngIf="col.columnEdit && isViewOnly" (click)="cancelEdit()"
+                                            md-icon-button class="pull-right color-gray" style="font-size: 24px;"
+                                            mdTooltip="Cancel">
+                                            <md-icon>clear</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Edit" (click)="editFXRatesDetail(i)" *ngIf="!col.columnEdit && isViewOnly">
+                                            <md-icon>mode_edit</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly"
+                                        deleteConfirmation (deleteIt)="deleteFxRatesDetail(col)">
+                                            <md-icon>delete</md-icon>
+                                        </button>
+                                        <button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew" (click)="deleteRow(i)">
+                                            <md-icon>delete</md-icon>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+        </div>
+    </div>

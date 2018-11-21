@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { SourceProfileUsages } from './source-profile-usages.model';
+import { SourceProfileUsagesPopupService } from './source-profile-usages-popup.service';
+import { SourceProfileUsagesService } from './source-profile-usages.service';
+
+@Component({
+    selector: 'jhi-source-profile-usages-delete-dialog',
+    templateUrl: './source-profile-usages-delete-dialog.component.html'
+})
+export class SourceProfileUsagesDeleteDialogComponent {
+
+    sourceProfileUsages: SourceProfileUsages;
+
+    constructor(
+        private sourceProfileUsagesService: SourceProfileUsagesService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.sourceProfileUsagesService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'sourceProfileUsagesListModification',
+                content: 'Deleted an sourceProfileUsages'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-source-profile-usages-delete-popup',
+    template: ''
+})
+export class SourceProfileUsagesDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private sourceProfileUsagesPopupService: SourceProfileUsagesPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.sourceProfileUsagesPopupService
+                .open(SourceProfileUsagesDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,259 @@
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiLanguageService } from 'ng-jhipster';
+import { Response } from '@angular/http';
+
+import { ProfileService } from '../profiles/profile.service';
+import { JhiLanguageHelper, Principal, LoginModalService, LoginService } from '../../shared';
+import { NavBarService } from './navbar.service';
+import { CommonService} from '../../entities/common.service';
+import { VERSION, DEBUG_INFO_ENABLED } from '../../app.constants';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import { SessionStorageService,LocalStorageService } from 'ng2-webstorage';
+import {JobDetailsService} from '../../entities/jobs/job-details.service';
+import {SelectItem} from 'primeng/primeng';
+declare var $: any;
+declare var jQuery: any;
+@Component({
+    selector: 'jhi-navbar',
+    templateUrl: './navbar.component.html',
+    styleUrls: [
+        'navbar.scss'
+    ]
+})
+export class NavbarComponent implements OnInit {
+
+    inProduction: boolean;
+    isNavbarCollapsed: boolean;
+    languages: any = [];
+    swaggerEnabled: boolean;
+    modalRef: NgbModalRef;
+    version: string;
+    schedularList: any = [];
+    notificationlist: any =[];
+    currentAccount: any;
+    dynamicTheme: string;
+    dynamicFont:string = "josefin-sans";
+    themes = [
+        { value: 'light-theme', label: 'Purple-Cyan' },
+        { value: 'dark-light-theme', label: 'Deep Dark' },
+        { value: 'deep-orange-theme', label: 'Green-Yellow' },
+        { value: 'dark-night-theme', label: 'Deep Blue' },
+        { value: 'full-light-theme', label: 'Light' }
+    ];
+    fonts: SelectItem[];
+
+    UserData: any;
+    constructor(
+        private loginService: LoginService,
+        private languageService: JhiLanguageService,
+        private navbarService: NavBarService,
+        private languageHelper: JhiLanguageHelper,
+        private principal: Principal,
+        private loginModalService: LoginModalService,
+        private profileService: ProfileService,
+        private router: Router,
+        private $sessionStorage: SessionStorageService,
+        private $localStorage: LocalStorageService,
+        private commonService: CommonService,
+        private jobDetailsService : JobDetailsService
+    ) {
+        
+        this.version = VERSION ? 'v' + VERSION : '';
+        this.isNavbarCollapsed = true;
+
+        this.fonts = [
+            { value: 'josefin-sans', label: 'Josefin Sans' },
+            { value: 'artifika-serif', label: 'Artifika serif' },
+            { value: 'gentium-basic', label: 'Gentium Basic' },
+            { value: 'noto-serif', label: 'Noto Serif' },
+            { value: 'pt-serif', label: 'PT Serif' },
+            { value: 'baumans', label: 'Baumans' },
+            { value: 'play', label: 'Play' },
+            { value: 'roboto', label: 'Roboto' },
+            { value: 'roboto-condensed', label: 'Roboto Condensed' },
+            { value: 'pt-sansnarrow', label: 'PT Sans Narrow' },
+            { value: 'exo-2', label: 'Exo 2' },
+            { value: 'domine', label: 'Domine' },
+            { value: 'istok-web', label: 'Istok Web' }
+    
+        ];
+
+        // this.fonts = [
+        //     { value: 'josefin-sans', label: 'Josefin Sans' },
+        //     { value: 'artifika-serif', label: 'Artifika serif' },
+        //     { value: 'gentium-basic', label: 'Gentium Basic' },
+        //     { value: 'neuton', label: 'Neuton' },
+        //     { value: 'cormorant-sc', label: 'Cormorant SC' },
+        //     { value: 'buda', label: 'Buda' },
+        //     { value: 'noto-serif', label: 'Noto Serif' },
+        //     { value: 'raleway', label: 'Raleway' },
+        //     { value: 'pt-serif', label: 'PT Serif' },
+        //     { value: 'alegreya', label: 'Alegreya' },
+        //     { value: 'baumans', label: 'Baumans' },
+        //     { value: 'katibeh', label: 'Katibeh' },
+        //     { value: 'play', label: 'Play' },
+        //     { value: 'antic-slab', label: 'Antic Slab' },
+        //     { value: 'roboto', label: 'Roboto' },
+        //     { value: 'roboto-condensed', label: 'Roboto Condensed' },
+        //     { value: 'frank-ruhllibre', label: 'Frank Ruhl Libre' },
+        //     { value: 'pt-sansnarrow', label: 'PT Sans Narrow' },
+        //     { value: 'exo-2', label: 'Exo 2' },
+        //     { value: 'domine', label: 'Domine' },
+        //     { value: 'istok-web', label: 'Istok Web' }
+    
+        // ];
+
+    }
+
+    ngOnInit() {
+        $('body').removeClass('login');
+        this.onThemeChange();
+        this.onFontChange();
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        
+        this.languageHelper.getAll().then((languages) => {
+            this.languages = languages;
+        });
+
+        this.profileService.getProfileInfo().subscribe((profileInfo) => {
+            this.inProduction = profileInfo.inProduction;
+            this.swaggerEnabled = profileInfo.swaggerEnabled;
+        });
+        
+        
+        this.getuserinfo();
+
+        //Load Initial - User Notification and jobs schedulers
+        if(this.UserData == undefined){
+            // console.log('Userdata undefined');
+        }else{
+            this.navbarService.getNotificationList(this.UserData).subscribe((res: Response) => {
+                this.navbarService.notificationlist = res;
+            });
+            this.loadschedularList();
+        }
+
+        //Load Notification and scheduler jobs Interval 30Sec
+        /* setInterval(() => {
+            if(this.isAuthenticated()){
+                this.getuserinfo();
+                this.navbarService.getNotificationList(this.UserData).subscribe((res: Response) => {
+                    this.navbarService.notificationlist = res;
+                });
+                this.loadschedularList();
+            }
+        }, 30000); */
+        
+    }
+
+    onThemeSelect(theme) {
+       this.$localStorage.store('key-theme',theme);
+        this.onThemeChange();
+    }
+    onThemeChange(){
+        if(this.$localStorage.retrieve('key-theme') != null || undefined || ''){
+            this.commonService.DYNAMIC_THEME = this.$localStorage.retrieve('key-theme');
+        } else {
+            this.commonService.DYNAMIC_THEME = 'dark-night-theme';
+        }
+    }
+
+    onFontSelect(font) {
+       this.$localStorage.store('key-font',font);
+        this.onFontChange();
+    }
+    onFontChange(){
+        if(this.$localStorage.retrieve('key-font') != null || undefined || ''){
+            this.commonService.DYNAMIC_FONT = this.$localStorage.retrieve('key-font');
+        } else {
+            this.commonService.DYNAMIC_FONT = 'josefin-sans';
+        }
+    }
+
+
+
+    changeLanguage(languageKey: string) {
+      this.languageService.changeLanguage(languageKey);
+    }
+    getuserinfo(){
+        if(this.$sessionStorage.retrieve('userData')){
+            this.UserData = this.$sessionStorage.retrieve('userData');
+            return this.UserData;
+        }    
+    
+    }
+    collapseNavbar() {
+        this.isNavbarCollapsed = true;
+    }
+
+    isAuthenticated() {
+        return this.principal.isAuthenticated();
+    }
+
+    login() {
+        this.modalRef = this.loginModalService.open();
+    }
+    
+    loadschedularList(){
+        this.getuserinfo();
+        this.navbarService.getSchedulersList(1,6,this.UserData).subscribe((resp: Response)=>{
+        this.schedularList = [];
+            this.schedularList = resp.json();
+        });
+    }
+
+    
+
+    loadnotification(){
+        const isViewedArray = [];
+        this.getuserinfo();
+        this.navbarService.getNotificationList(this.UserData).subscribe((res: Response)=>{
+            this.navbarService.notificationlist= res;
+
+            //If any unread notification push in isViewedArray
+            for(var i=0; i<this.navbarService.notificationlist.data.length; i++){
+                if(this.navbarService.notificationlist.data[i].isViewed == false ||
+                   this.navbarService.notificationlist.data[i].isViewed == null){
+                    isViewedArray.push(this.navbarService.notificationlist.data[i].id);
+                }
+            }
+    
+            if(isViewedArray.length > 0){
+                setTimeout(()=>{
+                    this.navbarService.notificationisViewed(isViewedArray).subscribe((res: any)=>{
+                        this.navbarService.getNotificationList(this.UserData).subscribe((res: Response)=>{
+                            this.navbarService.notificationlist= res;
+                            console.log('isViewedArray ' + JSON.stringify(isViewedArray));
+                        });
+                    });
+                }, 2000);
+            }
+        });
+    }
+
+    logout() {
+        this.collapseNavbar();
+        this.loginService.logout();
+        this.router.navigate(['']);
+        location.reload();
+    }
+
+    toggleNavbar() {
+        this.isNavbarCollapsed = !this.isNavbarCollapsed;
+    }
+
+    getImageUrl() {
+        return this.isAuthenticated() ? this.principal.getImageUrl() : null;
+    }
+
+    userSetting(){
+        this.$sessionStorage.store('userSetting',true);
+        let link = ['/user-management', {outlets: {'content': [this.UserData.id]+'/details'}}];
+        this.router.navigate(link);
+    }
+}

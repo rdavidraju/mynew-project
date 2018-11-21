@@ -1,0 +1,477 @@
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { ApprovalActions } from './approval-actions.model';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiLanguageService } from 'ng-jhipster';
+import { JhiDateUtils } from 'ng-jhipster';
+import { RuleGroup } from './rule-group.model';
+import { RuleGroupPopupService } from './rule-group-popup.service';
+import { RuleGroupService } from './rule-group.service';
+import { RuleGroupWithRulesAndConditions } from './ruleGroupWithRulesAndConditions.model'
+import { RuleGroupAndRuleWithLineItem } from './ruleGroupAndRuleWithLineItem.model';
+import { AccRule } from './accRule.model';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { LineItem } from './LineItem.model';
+import { COALines } from './COALines.model';
+import { LookUpCodeService } from '../look-up-code/look-up-code.service';
+import { DataViewsService } from '../data-views/data-views.service';
+import { AccountingRuleConditions } from './accounting-rule-conditions.model';
+import {ApprovalRuleGRoupWithRules} from './approval-rule-groupWithRules.model';
+import { FormGroup, FormBuilder, FormArray, Validators } from '@angular/forms';
+import { RulesService } from '../rules/rules.service';
+import { Rules } from '../rules/rules.model';
+import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import { SessionStorageService } from 'ng2-webstorage';
+import { MappingSetService } from '../mapping-set/mapping-set.service';
+import { CommonService } from '../common.service';
+import { Router, NavigationEnd } from '@angular/router';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { FormControl } from '@angular/forms';
+import { Observable } from 'rxjs/Observable';
+import {ApprovalRules} from './approval-rules.model';
+import {ApprovalConditions} from './approval-conditions.model';
+import {ApprovalActionDetails} from './approval-action-details.model';
+import {UserService} from '../../shared/user/user.service';
+import {ApprovalGroupsService} from  '../approval-groups/approval-groups.service';
+import 'rxjs/add/operator/startWith';
+import 'rxjs/add/operator/map';
+declare var jQuery: any;
+declare var $: any;
+const URL = '';
+@Component( {
+    selector: 'jhi-rule-group-approvals',
+    templateUrl: './rule-group-approvals.component.html'
+} )
+export class RuleGroupApprovalsComponent {
+
+   
+    approvalRuleGRoupWithRules = new ApprovalRuleGRoupWithRules();
+    routeSub: any;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    
+    existingRules = [];
+    
+    srcDataViewformsArray: FormGroup[] = [];
+    ruleListformArray: FormGroup[] = [];    
+    
+    ruleListArrays: any[] = [];
+    sourceDataViewsArrays:any[]=[];
+    
+    sourceDataViewsAndColumns = [];
+    targetDataViewsAndColumns = [];
+    
+    columnLOV=[];
+    operators=[];
+    
+    logicalOperators=[];
+    
+    usersList = [];
+    groupsList = [];
+    groupMembers =[];
+    
+    approvalType = [];
+    
+    userListformArray: any = [];  
+    
+    group = [
+             {
+        "id":1,
+        "name":"shobha",
+        "email":"Shobha@nekkantisystems.com"
+        
+    },
+    {
+        "id":2,
+        "name":"Bhagath",
+        "email":"Bhagath@nekkantisystems.com"
+        
+    },
+    {
+        "id":3,
+        "name":"Naveena",
+        "email":"Naveena@nekkantisystems.com"
+        
+    }
+    ];
+    users = [
+             {
+            "id":3,
+            "name":"Naveena",
+            "email":"Naveena@nekkantisystems.com"
+            
+        }
+    
+    ];
+    constructor(
+        private jhiLanguageService: JhiLanguageService,
+        private ruleGroupService: RuleGroupService,
+        private eventManager: JhiEventManager,
+        private dateUtils: JhiDateUtils,
+        private config: NgbDatepickerConfig,
+        private lookUpCodeService: LookUpCodeService,
+        private dataViewsService: DataViewsService,
+        private builder: FormBuilder,
+        private rulesService: RulesService,
+        private _sanitizer: DomSanitizer,
+        private $sessionStorage: SessionStorageService,
+        private mappingSetService: MappingSetService,
+        private commonService: CommonService,
+        private router: Router,
+        private route: ActivatedRoute,
+        private notificationsService: NotificationsService,
+        private userService : UserService,
+        private approvalGroupsService : ApprovalGroupsService
+
+    ) {
+    }
+
+    clear() {
+        // this.activeModal.dismiss('cancel');
+    }
+
+    ngOnInit() {
+        //fetch logical operators
+        this.lookUpCodeService.fetchLookUpsByLookUpType( 'LOGICAL_OPERATOR' ).subscribe(( res: any ) => {
+            this.logicalOperators = res;
+        } );
+        this.lookUpCodeService.fetchLookUpsByLookUpType( 'APPROVAL_TYPE' ).subscribe(( res: any ) => {
+            this.approvalType = res;
+        } );
+        
+        let url = this.route.snapshot.url.map( segment => segment.path ).join( '/' );
+        this.routeSub = this.route.params.subscribe( params => {
+            this.dataViewsService.dataViewList().subscribe((res:any)=>{
+                this.sourceDataViewsAndColumns = res;
+                this.rulesService.getApprovalRules('APPROVALS').subscribe(( res: any ) => {
+                    this.existingRules=res;
+               
+                console.log('params has '+params['id']);
+                if ( params['id'] ) {
+                    this.fetchApprovalRuleGroup(params['id'] );
+                   
+                     
+                        if ( url.endsWith( 'edit' ) ) {
+                            this.isEdit = true;   
+                           }
+                           else
+                               {
+                                   this.isViewOnly=true;
+                               }
+                    
+                } else {
+                    this.isCreateNew= true;
+                   this.buildObjectsWhileNew();
+                }
+                });
+            });
+           
+        });
+        this.addNewRuleObject(0);
+    }
+    createFormsAndDisplay()
+    {
+        let i = 0;
+        if( this.approvalRuleGRoupWithRules .rules)
+        {
+            this.approvalRuleGRoupWithRules.rules.forEach( rule => {
+                let data = { "id": rule.sourceDataViewId,
+                        "dataViewDispName" : rule.sourceDataViewName};
+                let value = {"data":data};
+               // this.fetchSrcColumns( "", i, value );
+                //operators based on cols
+                if(rule.approvalActions.assigneeType=='group')
+                {
+                    this.getGroupMembers(rule.approvalActions.actionDetails[0].assigneeId);
+                }
+                else
+                {
+                    let actnIndx : number = 0;
+                    rule.approvalActions.actionDetails.forEach(actnDet=>{
+                        this.setFormForUser(i,actnIndx);
+                    });
+                }
+                this.setFormsForAutocompletes(i);
+                i=i+1;
+                
+            } );
+        }
+       
+    }
+    fetchApprovalRuleGroup(groupId : any)
+    {
+        this.ruleGroupService.fetchApprovalRules(groupId).subscribe(( res: any ) => {
+           let approvalRuleGRoupWithRules : any;
+                approvalRuleGRoupWithRules = res;
+            console.log('after fetchinggg'+JSON.stringify(approvalRuleGRoupWithRules ));
+            this.approvalRuleGRoupWithRules = approvalRuleGRoupWithRules;
+            this.userService.fetchUsersByTenant().subscribe((res:any)=>{
+                this.usersList = res;
+                console.log('this.usersList '+JSON.stringify(this.usersList));
+                this.createFormsAndDisplay();
+            });
+        });
+    }
+    fetchDataViewsbyTenant()
+    {
+        this.dataViewsService.dataViewList().subscribe((res:any)=>{
+            this.sourceDataViewsAndColumns = res;
+            this.targetDataViewsAndColumns = this.sourceDataViewsAndColumns;
+        });
+    }
+    buildObjectsWhileNew()
+    {
+        //add one new rule object
+       
+        this.addNewRuleObject(0);
+        
+    }
+    setFormsForAutocompletes(ind : any)
+    {
+        let ruleListForm: FormGroup;
+        ruleListForm = this.builder.group( {
+            data: "",
+        } );
+        this.ruleListformArray[ind] = ruleListForm;
+        if ( !this.ruleListArrays )
+            this.ruleListArrays = [];
+
+        this.ruleListArrays[ind] = [];
+        this.ruleListArrays[ind] = this.existingRules;
+    //add filtered rule list to the above array
+        
+        let myForm1: FormGroup;
+        myForm1 = this.builder.group( {
+            data: "",
+        } );
+        this.srcDataViewformsArray[ind] = ( myForm1 );
+        this.sourceDataViewsArrays[ind] = [];
+        //add source dv array
+        this.sourceDataViewsArrays[ind] = this.sourceDataViewsAndColumns;
+        
+        this.operators[ind]=[];
+       
+    }
+    setFormForUser(i,j)
+    {
+        let userListForm: FormGroup;
+        userListForm = this.builder.group( {
+            data: "",
+        } );
+        if(!this.userListformArray[i] )
+        {
+            this.userListformArray[i] = [];
+        }
+        this.userListformArray[i][j] = userListForm;
+        
+    }
+    autocompleListFormatter = ( data: any ) => {
+        let html = `<span >${data.ruleCode}  </span>`;
+        return this._sanitizer.bypassSecurityTrustHtml( html );
+    }
+    autocompleteSrcDataViewListFormatter = ( data: any ) => {
+        let html = `<span >${data.dataViewDispName}  </span>`;
+        return this._sanitizer.bypassSecurityTrustHtml( html );
+    }
+    autocompleListFormatterForUser = ( data: any ) => {
+        let html = `<span >${data.login}  </span>`;
+        return this._sanitizer.bypassSecurityTrustHtml( html );
+    }
+    addNewRuleObject(i)
+    {
+        let newRule = new ApprovalRules();
+        if(!this.approvalRuleGRoupWithRules.rules)
+        {
+            let  rules : ApprovalRules[]=[];
+        this.approvalRuleGRoupWithRules.rules=rules;
+        }
+        this.approvalRuleGRoupWithRules.rules[i]=(newRule);
+        this.setFormsForAutocompletes(i);
+        this.approvalRuleGRoupWithRules.rules[i].approvalConditions=[];
+        this.addNewCondition(i, 0);
+        this.addNewAction(i);
+    }
+    addNewCondition(i,j)
+    {
+        let condition = new ApprovalConditions();
+        this.approvalRuleGRoupWithRules.rules[i].approvalConditions[j] = condition;
+    }
+    addNewAction(i)
+    {
+        let approvalActions = new ApprovalActions();
+        let actionDetails:ApprovalActionDetails[];
+        let actionDetail = new ApprovalActionDetails();
+        this.approvalRuleGRoupWithRules.rules[i].approvalActions=approvalActions;
+       
+    }
+    addNewUser()
+    {
+        
+    }
+    saveToSession()
+    {
+        this.$sessionStorage.store('approvalsRuleList', this.approvalRuleGRoupWithRules);
+        if(this.approvalRuleGRoupWithRules.rules.length<=0)
+            {
+            this.notificationsService.error(
+                    'Warning!',
+                    'Tag atleast one rule' 
+                    )
+''            }
+        else
+            {
+            this.notificationsService.success(
+                    '',
+                    this.approvalRuleGRoupWithRules.rules.length + ' rules tagged successfully!'
+                )
+            }
+        //approvalsRuleList
+    }
+    changeSourceDataView(dvName, i)
+    {
+        
+    }
+    
+    fetchSrcColumns( srcDataViewName: any, indexVal: any, value: any ) {
+        console.log('fetched source cols are'+JSON.stringify(value));
+        if(value && value.data  && value.data.id)
+        {
+            console.log('insideee');
+            this.approvalRuleGRoupWithRules.rules[indexVal].sourceDataViewId=value.data.id;
+            if(value.data.dataViewDispName)
+            this.approvalRuleGRoupWithRules.rules[indexVal].sourceDataViewName=value.data.dataViewDispName;
+            this.dataViewsService.getDataViewById( value.data.id ).subscribe(( res: any ) => {
+                let dvAndCols = res;
+                if ( dvAndCols && dvAndCols[0] && dvAndCols[0].dataViewsColumnsList )
+                    this.columnLOV[indexVal] = [];
+                this.columnLOV[indexVal] = ( dvAndCols[0].dataViewsColumnsList );
+                this.operators[indexVal] = [];
+            } );
+            }
+        else if(this.approvalRuleGRoupWithRules.rules[indexVal].sourceDataViewId)
+            {
+            console.log('11insideee'+this.approvalRuleGRoupWithRules.rules[indexVal].sourceDataViewId);
+            this.dataViewsService.getDataViewById( this.approvalRuleGRoupWithRules.rules[indexVal].sourceDataViewId).subscribe(( res: any ) => {
+                let dvAndCols = res;
+                console.log('dvAndColsdvAndColsdvAndCols'+JSON.stringify(dvAndCols));
+                if ( dvAndCols && dvAndCols[0] && dvAndCols[0].dataViewsColumnsList )
+                    this.columnLOV[indexVal] = [];
+                this.columnLOV[indexVal] = ( dvAndCols[0].dataViewsColumnsList );
+                this.operators[indexVal] = [];
+                let condIndex : number = 0;
+                this.approvalRuleGRoupWithRules.rules[indexVal].approvalConditions.forEach(condition=>{
+               this.SelectColumn(indexVal,condIndex,condition.columnId);
+                condIndex = condIndex + 1;
+                
+            });
+                console.log('data view colsssss'+JSON.stringify(this.columnLOV[indexVal]));
+            } );
+            }
+    }
+    SelectColumn( i: any, childIndex: any, id: any ) {
+        console.log('select column called');
+        this.approvalRuleGRoupWithRules.rules[i].approvalConditions[childIndex].columnId = id;
+        for ( var val = 0; val < this.columnLOV[i].length; val++ ) {
+            if ( this.columnLOV[i][val].id == id ) {
+                this.approvalRuleGRoupWithRules.rules[i].approvalConditions[childIndex].column = this.columnLOV[i][val].columnName;
+
+                if ( this.columnLOV[i][val].colDataType ) {
+                    this.lookUpCodeService.fetchLookUpsByLookUpType(  this.columnLOV[i][val].colDataType  ).subscribe(( res: any ) => {
+                        let operatorss = res;
+                        if(!this.operators[i])
+                            this.operators[i]=[];
+                        if(!this.operators[i][childIndex])
+                        this.operators[i][childIndex] = operatorss;
+
+                    } );
+                }
+
+
+            }
+        }
+    }
+    SelectOperator()
+    {
+        
+    }
+    addNewActionDetails(i : any)
+    {
+        console.log('change event called with'+ this.approvalRuleGRoupWithRules.rules[i].approvalActions.assigneeType );
+        this.approvalRuleGRoupWithRules.rules[i].approvalActions.actionDetails=[];
+        this.setFormForUser(i,0);
+        let actiondDet=new ApprovalActionDetails();
+        this.approvalRuleGRoupWithRules.rules[i].approvalActions.actionDetails.push(actiondDet);
+        if ( this.approvalRuleGRoupWithRules.rules[i].approvalActions.assigneeType == 'user' ) {
+            //fetch users
+            this.userService.fetchUsersByTenant().subscribe((res:any)=>{
+                
+                this.usersList = res;
+                console.log('  this.usersList '+JSON.stringify(this.usersList));
+            });
+        }
+        else if ( this.approvalRuleGRoupWithRules.rules[i].approvalActions.assigneeType == 'group' ) {
+            //fetch groups and group details
+            this.approvalGroupsService.approvalgroupsForTenant().subscribe((res:any)=>{
+                this.groupsList=res;
+                console.log('  this.groupsList '+JSON.stringify(this.groupsList));
+            });
+        }
+    }
+    setUser(userName,i,actionDetailsIndex,value)
+    {
+        console.log('set user for'+ this.approvalRuleGRoupWithRules.rules[i].approvalActions.actionDetails[actionDetailsIndex].assigneeName );
+        if ( value.data && value.data.id )
+            {
+            this.approvalRuleGRoupWithRules.rules[i].approvalActions.actionDetails[actionDetailsIndex].assigneeName  = value.data.login;
+            this.approvalRuleGRoupWithRules.rules[i].approvalActions.actionDetails[actionDetailsIndex].assigneeId =  value.data.id;
+            this.approvalRuleGRoupWithRules.rules[i].approvalActions.actionDetails[actionDetailsIndex].notification=true;
+            }
+           
+    }
+    setRuleObject(rulename,i,value)
+    {
+        console.log('set rule with values as'+JSON.stringify(value));
+        if ( value.data && value.data.ruleCode )
+            {
+            this.approvalRuleGRoupWithRules.rules[i].ruleCode = value.data.ruleCode;
+            this.approvalRuleGRoupWithRules.rules[i].id = value.data.id;
+            this.approvalRuleGRoupWithRules.rules[i].sourceDataViewId = 
+                value.data.sourceDataViewId;
+            this.approvalRuleGRoupWithRules.rules[i].sourceDataViewName= 
+                value.data.sourceDataViewName;
+            this.approvalRuleGRoupWithRules.rules[i].startDate =
+                this.dateUtils.convertLocalDateFromServer( value.data.startDate );
+            this.approvalRuleGRoupWithRules.rules[i].approvalNeededTypeMeaning=
+                value.data.approvalNeededTypeMeaning;
+            this.approvalRuleGRoupWithRules.rules[i].endDate =
+                this.dateUtils.convertLocalDateFromServer( value.data.endDate );
+            this.approvalRuleGRoupWithRules.rules[i].approvalConditions = 
+                value.data.approvalConditions;
+            this.approvalRuleGRoupWithRules.rules[i].approvalActions=
+                value.data.approvalActions;
+            }
+        else
+        {
+        console.log('in else set rule');
+        }
+    }
+    getGroupMembers(groupId : any)
+    {
+        this.approvalGroupsService.getGroupMembers(groupId).subscribe((res:any)=>{
+        this.groupMembers=res;
+        console.log('this.groupMembersthis.groupMembers'+JSON.stringify(this.groupMembers));
+        });
+    }
+    deleteRuleObject( i ) {
+
+        this.approvalRuleGRoupWithRules.rules.splice( i, 1 );
+        if ( this.approvalRuleGRoupWithRules.rules.length == 0 ) {
+            this.addNewRuleObject( 0);
+          
+        }
+    }
+    clearRuleObject( i ) {
+    
+    }
+}

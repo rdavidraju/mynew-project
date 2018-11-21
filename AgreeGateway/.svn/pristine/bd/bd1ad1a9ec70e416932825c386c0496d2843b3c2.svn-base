@@ -1,0 +1,256 @@
+<div class="container-fluid component-body">
+	<div class="row botom-dotted-blue-border component-title margin-left-22">
+		<div class="col-md-6 pageTitle">
+			<h2 *ngIf="isCreateNew">Create New Job</h2>
+			<h2 *ngIf="!isCreateNew">{{jobs.jobName}}</h2>
+		</div>
+		<div class="col-md-6">
+			<div class="row float-right">
+				<button *ngIf="!isViewOnly" md-icon-button [ngClass]="[jobDetailsForm.valid ? 'color-green' : 'color-gray']" class="pull-right"
+				 aria-hidden="true" mdTooltip="Save Profile" mdTooltipPosition="below" (click)="saveJob()" [disabled]="!jobDetailsForm.valid">
+					<md-icon>save</md-icon>
+				</button>
+
+				<!-- <button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit"
+					mdTooltipPosition="below"
+					[routerLink]="['/jobs', {outlets: {'content': [jobs.id]+'/edit'}}]">
+					<md-icon>mode_edit</md-icon>
+				</button> -->
+				<button *ngIf="isEdit" md-icon-button class="pull-right color-gray" mdTooltip="Close" mdTooltipPosition="below" [routerLink]="['/jobs', {outlets: {'content': ['schedulars-list']}}]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" mdTooltipPosition="below" [routerLink]="['/jobs', {outlets: {'content': ['schedulars-list']}}]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="Go Back" mdTooltipPosition="below" [routerLink]="['/jobs', {outlets: {'content': ['schedulars-list']}}]">
+					<md-icon>undo</md-icon>
+				</button>
+
+			</div>
+		</div>
+	</div>
+	<form novalidate #jobDetailsForm="ngForm">
+		<div class="row col-md-12">
+
+			<div class="col-lg-3 col-md-4 col-sm-6">
+				<md-input-container class="example-full-width">
+					<input mdInput [(ngModel)]="jobs.jobName" (blur)="checkJobName(jobs.jobName)" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+					 placeholder="Job Name" name="jobName" (ngModelChange)="duplicateJobName = false" required> </md-input-container>
+				<span class="help-block errorFont" style="margin-left: 32px;" *ngIf="duplicateJobName">Job name already exists.</span>
+			</div>
+			<div class="col-lg-3 col-md-4 col-sm-6">
+				<md-input-container class="example-full-width">
+					<input mdInput [(ngModel)]="jobs.jobDesc" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Description"
+					 name="description"> </md-input-container>
+			</div>
+			<div class="col-lg-3 col-md-4 col-sm-6">
+				<md-select class="example-full-width" [(ngModel)]="jobs.programId" name="program" (change)="programSelected(jobs.programId)"
+				 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" placeholder="Program" style="margin-top: 2%;" required>
+					<md-option *ngFor="let program of programsList" [value]="program.programId">{{program.programName}}</md-option>
+				</md-select>
+			</div>
+			<div class="col-lg-3 col-md-4 col-sm-6 isactive">
+				<!-- <md-slide-toggle [disabled]="isViewOnly" *ngIf="!isCreateNew" class="toggle-button" [(ngModel)]="jobs.jobStatus" style="margin-top: -20px !important;" name="status">
+	        <span *ngIf="jobs.jobStatus">Active</span>
+	        <span *ngIf="!jobs.jobStatus">Deactive</span>
+	      </md-slide-toggle> -->
+			</div>
+		</div>
+
+		<div class="row" style="padding-top: 2% !important;">
+			<div class="col-lg-4 col-md-6 col-sm-12" style="padding-left: 2.5% !important;">
+				<span>Start Date & Time*:
+					<p-calendar [disabled]="isViewOnly" showIcon="true" placeholder="" showButtonBar="true" showTime="true"
+					 [(ngModel)]="jobs.scheStartDate" name="startDate" (onSelect)="startDateChange(jobs.scheStartDate)" required></p-calendar>
+				</span>
+			</div>
+			<div class="col-lg-4 col-md-6 col-sm-12" style="padding-left: 2.5% !important;">
+				<span *ngIf="jobs.scheStartDate">End Date & Time:
+					<p-calendar [disabled]="isViewOnly" showIcon="true" placeholder="" showButtonBar="true" showTime="true"
+					 [(ngModel)]="jobs.scheEndDate" name="endDate" [minDate]="minEndDate" (onSelect)="endDateChange(jobs.scheEndDate)"></p-calendar>
+				</span>
+			</div>
+		</div>
+	</form>
+	<p-accordion [multiple]="true">
+		<p-accordionTab header="Parameters" selected=true>
+			<div class="row accordioncontenet">
+				<div class="col-lg-6 col-md-6 col-sm-12">
+					<table class="table" *ngIf="jobs.programId">
+						<thead>
+							<tr>
+								<th class="text-center">S No</th>
+								<th class="text-center">Parameter Set</th>
+								<th class="text-center">Value</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr *ngFor="let parameter of selectedParameters; let i=index;">
+								<td class="text-center" style="padding-top: 22px !important;">
+									<span>{{i+1}}</span>
+								</td>
+								<td style="padding-top: 22px !important;">
+									<span>{{parameter.paramName}}</span>
+								</td>
+								<td class="text-center" style="margin-top: -1%;" *ngIf="!isViewOnly && parameter.dependency != null && ( !parameter.valuesList || parameter.valuesList.length <1)">
+										<span class="linetext-input" style="top: 28px" *ngIf="selectedParameters[i-1].selectedValue && parameter.valuesList.length==0">No Data found </span>
+										<span class="linetext-input" style="top: 28px" *ngIf="!selectedParameters[i-1].selectedValue">Select {{selectedParameters[i-1].paramName}} </span>
+								
+								
+								</td>
+								<td class="text-center" style="margin-top: -1%;" *ngIf="!isViewOnly && parameter.valuesList && parameter.valuesList.length >0">
+									<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="parameter.selectedValue" [disabled]="isViewOnly"
+									 name="value" style="margin-top: -1%;" (change)="getvaluesList(i)" *ngIf="!parameter.mandatory">
+										<md-option *ngFor="let item of parameter.valuesList" [value]="item[parameter.bindValue]">{{item[parameter.showValue]}}</md-option>
+									</md-select>
+									<md-select class="example-full-width" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="parameter.selectedValue" [disabled]="isViewOnly"
+									 name="value" style="margin-top: -1%;" (change)="getvaluesList(i)" required *ngIf="parameter.mandatory">
+										<md-option *ngFor="let item of parameter.valuesList" [value]="item[parameter.bindValue]">{{item[parameter.showValue]}}</md-option>
+									</md-select>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</p-accordionTab>
+		<p-accordionTab header="Schedular">
+			<form novalidate #frequencyForm="ngForm">
+				<div class="row" *ngIf="(!isViewOnly) && (!hideScheduleOpt)&&selectedFrequencies == [] || selectedFrequencies.length<1">
+					<span class="linetext-input">
+						<b>Frequency</b>
+					</span>
+				</div>
+				<br>
+				<div class="row display-flex" *ngIf="(!isViewOnly) && (!hideScheduleOpt)&&selectedFrequencies == [] || selectedFrequencies.length<1">
+					<div class="col-lg-2 col-md-4 col-sm-6">
+						<md-select placeholder="Frequency Type" (change)="frequencyChanged(currentFrequency.type)" [(ngModel)]="currentFrequency.type"
+						 name="freqType" style="margin-top: -0.5%; margin-left: 0px !important;" required>
+							<md-option *ngFor="let myVal of schedulerTypes" [value]="myVal.lookUpCode">{{myVal.meaning}}</md-option>
+						</md-select>
+					</div>
+					<div class="col-lg-3 col-md-4 col-sm-6" style="text-align: -webkit-center;" *ngIf="(currentFrequency.type === 'MINUTES' || currentFrequency.type === 'HOURLY') && currentFrequency.type !== 'ONDEMAND'">
+						<md-input-container style="margin-left: -10%; margin-top: -1%; width: 50px;">
+							<input type="number" step="1" value="1" [(ngModel)]="currentFrequency.occurance" mdInput placeholder="Every" name="every"
+							 min="1" required>
+						</md-input-container>
+					</div>
+					<div class="col-lg-3 col-md-4 col-sm-6" *ngIf="currentFrequency.type === 'MONTHLY' && currentFrequency.type !== 'ONDEMAND'">
+						<span *ngIf="currentFrequency.type === 'MONTHLY'" style="font-size: 12px;">Select months:</span>
+						<angular2-multiselect [data]="monthsOfYear" [(ngModel)]="currentFrequency.month" *ngIf="currentFrequency.type === 'MONTHLY'"
+						 [settings]="multiSelectSettings" name="months">
+						</angular2-multiselect required>
+					</div>
+					<div class="col-lg-3 col-md-4 col-sm-6" *ngIf="currentFrequency.type === 'MONTHLY' || currentFrequency.type === 'WEEKLY'">
+						<span *ngIf="currentFrequency.type === 'WEEKLY'" style="font-size: 12px;">Select days:</span>
+						<angular2-multiselect [data]="daysOfWeek" [(ngModel)]="currentFrequency.weekDay" *ngIf="currentFrequency.type === 'WEEKLY'"
+						 [settings]="multiSelectSettings" name="weekDays" required>
+						</angular2-multiselect>
+						<span *ngIf="currentFrequency.type === 'MONTHLY'" style="font-size: 12px;">Select dates:</span>
+						<angular2-multiselect [data]="daysOfMonth" [(ngModel)]="currentFrequency.day" *ngIf="currentFrequency.type === 'MONTHLY'"
+						 [settings]="multiSelectSettings" name="monthDays" required>
+						</angular2-multiselect>
+					</div>
+					<div class="col-lg-3 col-md-4 col-sm-6" *ngIf="currentFrequency.type !== 'MINUTES' && currentFrequency.type !== 'HOURLY' && currentFrequency.type !== 'ONDEMAND'">
+						<div class="col-lg-4 col-md-4 col-sm-6" *ngIf="currentFrequency.type === 'ONETIME'" style="margin-top: 1.1%;">
+							<span>Date:</span>
+							<p-calendar showIcon="true" placeholder="" [(ngModel)]="currentFrequency.date" showButtonBar="true" (onSelect)="freqDateChange(currentFrequency.date)"
+							 [minDate]="schedulerMidDate" [maxDate]="jobs.scheEndDate" required name="freqDate"></p-calendar>
+						</div>
+						<div class="col-lg-4 col-md-4 col-sm-6" style="margin-top: 1.1%;">
+							<span>Time:</span>
+							<p-calendar showIcon="true" placeholder="" [(ngModel)]="currentFrequency.time" timeOnly="true" [minDate]="schedulerMidDate"
+							 required name="freqTime"></p-calendar>
+						</div>
+					</div>
+					<div class="col-lg-1 col-md-2 col-sm-3" style="padding-top: 1.5%; text-align: -webkit-right;">
+						<button md-raised-button [disabled]="!frequencyForm.valid" (click)="saveFrequency(currentFrequency)" name="addFreq">
+							Add Frequency
+						</button>
+						<!-- <button md-icon-button [ngClass]="[frequencyForm.valid ? 'color-green' : 'color-gray']" [disabled]="!frequencyForm.valid" class="md-75" mdTooltip="Add another frequency" (click)="saveFrequency(currentFrequency)" mdTooltipPosition="above" name="addFreq">
+											<md-icon>add</md-icon>
+										</button> -->
+					</div>
+				</div>
+				<div class="row" *ngIf="selectedFrequencies.length>0">
+					<table class="table">
+						<thead>
+							<tr>
+								<th class="text-center">S No</th>
+								<th class="text-center">Frequency Type</th>
+								<th class="text-center">Occurance</th>
+								<th class="text-center">Month/Date</th>
+								<th class="text-center">Day</th>
+								<th class="text-center">Time</th>
+								<th *ngIf="!isViewOnly" class="text-center">Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr *ngFor="let item of selectedFrequencies; let i = index;">
+								<td style="width:5%" class="text-center" style="padding-top: 10px !important;">
+									<span>{{i+1}}</span>
+								</td>
+								<td style="width:20%" class="text-center" style="padding-top: 10px !important;">
+									<span>{{item.typeMeaning}}</span>
+								</td>
+								<td style="width:10%" class="text-center" style="padding-top: 10px !important;">
+									<md-input-container *ngIf="(item.type === 'MINUTES' || item.type === 'HOURLY') && !isViewOnly" class="num-input-table" name="occuranceValue">
+										<input type="number" [(ngModel)]="item.occurance" min="1" step="1" mdInput [ngModelOptions]="{standalone: true}" style="width: 40px;">
+									</md-input-container>
+									<span *ngIf="isViewOnly">{{item.occurance}}</span>
+								</td>
+								<td style="width:10%" class="text-center">
+									<angular2-multiselect [data]="monthsOfYear" *ngIf="item.type === 'MONTHLY' && !isViewOnly" [(ngModel)]="item.month" [ngModelOptions]="{standalone: true}"
+									 [settings]="multiSelectSettings">
+									</angular2-multiselect>
+									<span *ngIf="isViewOnly && item.type === 'MONTHLY'">{{item.month+' ' | uppercase}}</span>
+									<p-calendar [disabled]="isViewOnly" *ngIf="item.type === 'ONETIME'" showIcon="true" placeholder="" showButtonBar="true" [(ngModel)]="item.date"
+									 [ngModelOptions]="{standalone: true}"></p-calendar>
+
+								</td>
+								<td style="width:10%" class="text-center">
+									<angular2-multiselect [data]="daysOfMonth" [(ngModel)]="item.day" *ngIf="item.type === 'MONTHLY' && !isViewOnly" [settings]="multiSelectSettings"
+									 name="monthDays">
+									</angular2-multiselect>
+									<span *ngIf="(item.type === 'yearly' || item.type === 'MONTHLY') && isViewOnly">{{item.day}}</span>
+									<angular2-multiselect [data]="daysOfWeek" [(ngModel)]="item.weekDay" *ngIf="item.type === 'WEEKLY' && !isViewOnly" [settings]="multiSelectSettings"
+									 name="weekDays">
+									</angular2-multiselect>
+									<span *ngIf="item.type === 'WEEKLY' && isViewOnly">{{item.weekDay+' ' | uppercase}}</span>
+
+								</td>
+								<td style="width:20%" class="text-center" style="padding-top: 10px !important;">
+									<p-calendar [disabled]="isViewOnly" *ngIf="item.type !== 'MINUTES' && item.type !== 'HOURLY' && item.type !== 'ONDEMAND'"
+									 showIcon="true" timeOnly="true" [(ngModel)]="item.time" [ngModelOptions]="{standalone: true}"></p-calendar>
+								</td>
+								<td *ngIf="!isViewOnly" style="width:20%" class="text-center" style="padding-top: 10px !important;" style="align-self: baseline; text-align: -webkit-center;">
+									<button md-icon-button mdTooltip="Remove this" mdTooltipPosition="below" (click)="removeThisFrequency(i)">
+										<md-icon>delete</md-icon>
+									</button>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<!-- <p-accordion [multiple]="true">
+						<p-accordionTab header="Frequency" *ngIf="(!isViewOnly) && (!hideScheduleOpt)" selected=true>
+								
+						</p-accordionTab>
+						<p-accordionTab header="List of Selected Frequencies" selected=true >
+								
+						</p-accordionTab>
+				</p-accordion> -->
+			</form>
+		</p-accordionTab>
+		<!-- <p-accordionTab header="Additional Details">
+					<div class="display-flex">
+						<md-checkbox [disabled]="isViewOnly" class="example-margin" [(ngModel)]="allowConcFails" color="primary">Allow consecutive failures</md-checkbox>
+						<md-input-container [disabled]="isViewOnly" *ngIf="allowConcFails" class="num-input-width10">
+						  <input type="number" step="1" value="1" mdInput placeholder="Max" [(ngModel)]="jobs.maxConsecutiveFails" name="consefails" style="width: 60px;">
+						</md-input-container>
+					</div>
+			</p-accordionTab> -->
+	</p-accordion>
+
+</div>

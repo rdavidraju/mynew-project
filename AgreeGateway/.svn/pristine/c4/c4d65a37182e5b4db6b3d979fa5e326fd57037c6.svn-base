@@ -1,0 +1,173 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+import { Reports, ReportTypes, DataViews, DefinitionColsInfo, DataViewInfo } from './reports.model';
+import { ReportsService } from './reports.service';
+import { LookUpCode } from '../look-up-code/look-up-code.model';
+import { NotificationsService } from 'angular2-notifications-lite';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-reports-detail',
+    templateUrl: './reports-detail.component.html'
+})
+export class ReportsDetailComponent implements OnInit, OnDestroy {
+
+    private report = new Reports();
+    private userCols: DefinitionColsInfo[] = [];
+    private sysColumns: DefinitionColsInfo[] = [];
+    private selView = new DataViewInfo();
+    private srcViews: DataViews[] = [];
+    private selReportType = new ReportTypes();
+    private srcReportTypes: ReportTypes[] = [];
+    private parameterTypes: LookUpCode[] = [];
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private reportsService: ReportsService,
+        private notificationsService: NotificationsService,
+        private route: ActivatedRoute
+    ) {
+        this.reportsService.getReportTypes().subscribe((res: ReportTypes[]) => {
+            this.srcReportTypes = res;
+        });
+
+        this.reportsService.getLookupValues('FORM_CONTROLS').subscribe((res: LookUpCode[]) => {
+            this.parameterTypes = res;
+        })
+    }
+
+    ngOnInit() {
+        $('table').on('scroll', function() {
+            $("table > *").width($("table").width() + $("table").scrollLeft());
+        });
+
+        this.routeSub = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            let presentPath = this.route.snapshot.url;
+            if (params['id']) {
+                this.reportsService.getReportDefinition(params['id']).subscribe((res: Reports) => {
+                    this.report = res;
+                    this.viewChanged();
+                    this.srcReportTypes.forEach(item => {
+                        if (item.type == this.report.reportType) {
+                            this.selReportType = item;
+                        }
+                    });
+                    this.reportsService.getDataViewsList().subscribe((res: DataViews[]) => {
+                        this.srcViews = res;
+                        this.srcViews.forEach(item => {
+                            if (item.id == this.report.sourceViewId) {
+                                this.selView = item;
+                            }
+                        })
+                    });
+                    res.columnsDefinition.forEach(item => {
+                        if (item.columnType == 'FIN_FUNCTION') {
+                            this.sysColumns.push(item);
+                        } else {
+                            this.userCols.push(item);
+                        }
+                    })
+                })
+                if (url.endsWith('edit')) {
+                    this.isEdit = true;
+                } else {
+                    this.isViewOnly = true;
+                }
+            }
+            else {
+                this.isCreateNew = true;
+                this.reportsService.getDataViewsList().subscribe((res: DataViews[]) => {
+                    this.srcViews = res;
+                });
+            }
+        });
+    }
+
+    ngOnDestroy() {
+
+    }
+
+    checkReportName() {
+        if (!this.report.reportName || this.report.reportName.length < 1)
+            return;
+        this.reportsService.checkReportNameAvailable(this.report.reportName).subscribe((res: number) => {
+            if (res > 0) {
+                if (this.report.id == res) {
+                    return;
+                } else {
+                    this.report.reportName = '';
+                    this.notificationsService.error('Oops...!', 'Sorry, report name is not available.');
+                }
+            }
+        });
+    }
+
+    saveReport() {
+        this.report.columnsDefinition = this.userCols.concat(this.sysColumns);
+        this.reportsService.postReportDef(this.report).subscribe((res) => {
+            if (res.status === 200) {
+                this.notificationsService.success(
+                    'Saved!',
+                    this.report.reportName + ' saved successfully!'
+                )
+            } else {
+                this.notificationsService.error(
+                    'Oops...!',
+                    this.report.reportName + ' not saved! Try again.'
+                )
+            }
+        });
+    }
+
+    reportTypeChnaged() {
+        this.report.reportTypeId = this.selReportType.id;
+        this.report.reportType = this.selReportType.type;
+        this.userCols = [];
+        this.sysColumns = [];
+        if (this.selReportType.type == 'Account Analysis') {
+            this.report.allowDrilldown = false;
+            this.report.show = undefined;
+        } else {
+            this.report.coa = undefined;
+        }
+
+        this.reportsService.getLookupValues(this.selReportType.type).subscribe((res: LookUpCode[]) => {
+            res.forEach(item => {
+                let newItem = new DefinitionColsInfo();
+                newItem.ColumnId = item.id;
+                newItem.columnDisplayName = item.lookUpCode;
+                newItem.userDisplayColName = item.meaning;
+                newItem.columnType = 'FIN_FUNCTION';
+                newItem.groupBy = false;
+                newItem.parameterType = '';
+                this.sysColumns.push(newItem);
+            });
+        });
+    }
+
+    viewChanged() {
+        this.userCols = [];
+        this.reportsService.getColsListByDVid(this.report.sourceViewId).subscribe((res: DataViewInfo) => {
+            this.selView = res;
+        })
+    }
+
+    addNewColumn(colType: string) {
+        this.userCols.push(new DefinitionColsInfo());
+        this.userCols[this.userCols.length - 1].columnType = colType;
+    }
+
+    removeThisCol(index: number) {
+        this.userCols.splice(index, 1);
+    }
+}

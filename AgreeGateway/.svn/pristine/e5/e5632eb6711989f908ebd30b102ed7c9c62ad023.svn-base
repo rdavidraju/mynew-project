@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { RuleUsages } from './rule-usages.model';
+import { RuleUsagesService } from './rule-usages.service';
+
+@Component({
+    selector: 'jhi-rule-usages-detail',
+    templateUrl: './rule-usages-detail.component.html'
+})
+export class RuleUsagesDetailComponent implements OnInit, OnDestroy {
+
+    ruleUsages: RuleUsages;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private ruleUsagesService: RuleUsagesService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInRuleUsages();
+    }
+
+    load(id) {
+        this.ruleUsagesService.find(id).subscribe((ruleUsages) => {
+            this.ruleUsages = ruleUsages;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInRuleUsages() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'ruleUsagesListModification',
+            (response) => this.load(this.ruleUsages.id)
+        );
+    }
+}

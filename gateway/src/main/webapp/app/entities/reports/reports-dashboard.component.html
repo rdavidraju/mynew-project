@@ -1,0 +1,262 @@
+<div class="component-title">
+    <div class="col-lg-9">
+        <div class="customToggleTabsReport">
+            <md-button-toggle-group [(ngModel)]="selDashBoardForView">
+                <md-button-toggle *ngFor="let card of dashboardList; let i=index" [value]="card" (click)="loadDashBoardData(card.id);">{{card.name}}</md-button-toggle>
+            </md-button-toggle-group>
+        </div>
+        
+    </div>
+    <div class="col-lg-3 flex-end" style="align-items:center;">
+        <!-- <button *ngIf="selDashBoardForView.id" md-icon-button class="pull-right add-item md-36" (click)="loadDashBoardData(selDashBoardForView.id);" mdTooltip="Refresh">
+            <md-icon style="margin-top: -4px;">cached</md-icon>
+        </button> -->
+        <!-- <button md-icon-button *ngIf="selDashBoardForView.id && usecaseList.length>0" mdTooltip="Save Layout" (click)="saveDashboardPreferences();">
+            <md-icon style="font-weight: bold;">save</md-icon>
+        </button> -->
+        <button md-icon-button [mdMenuTriggerFor]="menu">
+            <md-icon>settings</md-icon>
+        </button>
+        <md-menu #menu="mdMenu" yPosition="below" xPosition="before">
+            <button md-menu-item (click)="addNewDashboard();">
+                <md-icon style="font-weight: bold;">add</md-icon>
+                <span>New Dashboard</span>
+            </button>
+            <button md-menu-item (click)="isEditDB=true;showDashboardDef(selDashBoardForView.id, false);">
+                <md-icon style="font-weight: bold;">playlist_add</md-icon>
+                <span>New Usecase</span>
+            </button>
+            <button md-menu-item (click)="isEditDB=true;showDashboardDef(selDashBoardForView.id);" [disabled]="!selDashBoardForView.id">
+                <md-icon style="font-weight: bold;">edit</md-icon>
+                <span>Edit Dashboard</span>
+            </button>
+            <button md-menu-item [disabled]="!selDashBoardForView.id" (click)="deleteDashboard(selDashBoardForView.name,selDashBoardForView.id)">
+                <md-icon style="font-weight: bold;">delete</md-icon>
+                <span>Remove Dashboard</span>
+            </button>
+        </md-menu>
+        <button md-icon-button class="pull-right" mdTooltip="Reports List" [routerLink]="['/reports', {outlets: {'content': ['report-list']}}]">
+            <md-icon>clear</md-icon>
+        </button>
+    </div>
+</div>
+    <div *ngIf="showFullScreenFlag" class="main-content reporting-dashboard" style="padding: 10px 30px;">
+        <div style="margin-bottom:20px;border: 2px solid whitesmoke;box-shadow: 0px 0px 5px 0px lightgrey;">
+            <div class="row" style="margin:0px;border-bottom: 1px solid #ccc;background: #f2f2f2;">
+                <div class="col-md-9">
+                    <h5 class="panel-title" style="padding: 10px 0px;margin:0px;font-weight: bold;">{{ fullscreenUsecase.name }}</h5>
+                </div>
+                <div style="width:100%" class="flex-end col-md-3">
+                    <button md-icon-button mdTooltip="Refresh" (click)="reRunUsecase(fullScreenIndex,fullscreenUsecase);">
+                        <md-icon>refresh</md-icon>
+                    </button>
+                    <button md-icon-button mdTooltip="Exit Full Screen" (click)="exitFullScreen();">
+                        <md-icon>fullscreen_exit</md-icon>
+                    </button>
+                    <md-menu #downLoadMenu="mdMenu" yPosition="below" xPosition="before">
+                        <button md-menu-item (click)="exportReport(fullScreenIndex,'excel');">
+                            <i class="fa fa-file-excel-o" aria-hidden="true"></i>
+                            <span>Download As Excel</span>
+                        </button>
+                        <button md-menu-item (click)="exportReport(fullScreenIndex,'pdf');">
+                            <i class="fa fa-file-pdf-o" aria-hidden="true"></i>
+                            <span>Download As PDF</span>
+                        </button>
+                        <button md-menu-item (click)="exportReport(fullScreenIndex,'csv');">
+                            <i class="fa fa-code" aria-hidden="true"></i>
+                            <span>Download As HTML</span>
+                        </button>
+                    </md-menu>
+                    <button md-icon-button mdTooltip="Download" [mdMenuTriggerFor]="downLoadMenu" [disabled]="!fullscreenUsecase.pivotOptions.dataSource.data || fullscreenUsecase.pivotOptions.dataSource.data.length==0">
+                        <md-icon>system_update_alt</md-icon>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <wbr-pivot [attr.id]="'fullscreentable'" [customizeCell]="customizeCellFunction" [width]="'100%'" [height]="1000"
+                    [report]="fullscreenUsecase.pivotOptions">
+                    Report output will appear here
+                </wbr-pivot>
+            </div>
+        </div>
+    
+    </div>
+    <div *ngIf="!showFullScreenFlag" class="main-content reporting-dashboard" style="padding: 10px 30px;">
+        <div *ngFor="let usecase of usecaseList; let indx = index" style="margin-bottom:20px;border: 2px solid whitesmoke;box-shadow: 0px 0px 5px 0px lightgrey;">
+            <div class="row" style="margin:0px;border-bottom: 1px solid #ccc;background: #f2f2f2;">
+                <div class="col-md-9">
+                    <h5 class="panel-title" style="padding: 10px 0px;margin:0px;font-weight: bold;">{{ usecase.name }}</h5>
+                </div>
+                <div style="width:100%" class="flex-end col-md-3">
+                    <button md-icon-button mdTooltip="Refresh" (click)="reRunUsecase(indx,usecase);">
+                        <md-icon>refresh</md-icon>
+                    </button>
+                    <button md-icon-button mdTooltip="Download" [mdMenuTriggerFor]="downLoadMenu" [disabled]="!usecase.pivotOptions.dataSource.data || usecase.pivotOptions.dataSource.data.length==0">
+                        <md-icon>system_update_alt</md-icon>
+                    </button>
+                    <md-menu #downLoadMenu="mdMenu" yPosition="below" xPosition="before">
+                        <button md-menu-item (click)="exportReport(indx,'excel');">
+                            <i class="fa fa-file-excel-o" aria-hidden="true"></i>
+                            <span>Download As Excel</span>
+                        </button>
+                        <button md-menu-item (click)="exportReport(indx,'pdf');">
+                            <i class="fa fa-file-pdf-o" aria-hidden="true"></i>
+                            <span>Download As PDF</span>
+                        </button>
+                        <button md-menu-item (click)="exportReport(indx,'csv');">
+                            <i class="fa fa-code" aria-hidden="true"></i>
+                            <span>Download As HTML</span>
+                        </button>
+                    </md-menu>
+                    <button md-icon-button mdTooltip="Full Screen" (click)="showFullScreen(indx);">
+                        <md-icon>fullscreen</md-icon>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <wbr-pivot [attr.id]="'table' + indx" [customizeCell]="customizeCellFunction" [width]="'100%'" [height]="'40%'" [report]="usecase.pivotOptions">
+                    Report output will appear here
+                </wbr-pivot>
+            </div>
+        </div>
+        <!-- <gridster [options]="gridsterOptions" [draggableOptions]="gridsterDraggableOptions" #gridster>
+                <gridster-item *ngFor="let usecase of usecaseList; let indx = index" [(x)]="usecase.x" [(y)]="usecase.y" [(w)]="usecase.w" [(h)]="usecase.h">
+                    <div class="panel-heading row" style="margin:0px;">
+                        <div class="col-md-6">
+                            <h5 class="panel-title">{{ usecase.name }}</h5>
+                        </div>
+                        <div style="width:100%" class="flex-end col-md-6">
+                            <button md-icon-button mdTooltip="Refresh" (click)="refreshUsecase(indx,usecase.usecaseId);">
+                                <md-icon style="font-weight: bold;">cached</md-icon>
+                            </button>
+                            <button md-icon-button mdTooltip="Download" [mdMenuTriggerFor]="downLoadMenu">
+                                <md-icon style="font-weight: bold;">system_update_alt</md-icon>
+                            </button>
+                            <md-menu #downLoadMenu="mdMenu" yPosition="below" xPosition="before">
+                                <button md-menu-item (click)="exportReport(indx,'pdf');">
+                                    <i class="fa fa-file-pdf-o" aria-hidden="true"></i>
+                                    <span>Download As PDF</span>
+                                </button>
+                                <button md-menu-item (click)="exportReport(indx,'excel');">
+                                    <i class="fa fa-file-excel-o" aria-hidden="true"></i>
+                                    <span>Download As Excel</span>
+                                </button>
+                                <button md-menu-item (click)="exportReport(indx,'html');">
+                                    <i class="fa fa-code" aria-hidden="true"></i>
+                                    <span>Download As HTML</span>
+                                </button>
+                            </md-menu>
+                        </div>
+                    </div>
+                    <div class="panel-body">
+                        <wbr-pivot [attr.id]="'table' + indx" [customizeCell]="customizeCellFunction" [width]="'100%'" [report]="usecase.pivotOptions">
+                            Report output will appear here
+                        </wbr-pivot>
+                    </div>
+                </gridster-item>
+        </gridster> -->
+    </div>
+
+      
+<!-- New Dashboard Creation -->
+<p-dialog header="Dashboard Definition" class="reporting-dashboard" [(visible)]="displayDashboardDef" width="800" [responsive]="true" [modal]="true" [resizable]="false" (onHide)="dashboardViewOnly=false;isEditDB=false;">
+    <form novalidate #dashboardDefinition="ngForm">
+        <div class="col-md-6">
+            <div class="mat-c-input-wrapper">
+            <md-input-container class="example-full-width">
+                <input mdInput [ngClass]="{'color-black' : dashboardViewOnly}" [(ngModel)]="currentDashboard.name" [disabled]="dashboardViewOnly" (blur)="checkDashBoardName()"
+                placeholder="Dashboard Name" name="dbName" required>
+            </md-input-container>
+            </div>
+        </div>
+    
+        <div style="padding-top: 20px;">
+            <h6 style="font-style: italic;color: gray;border-bottom: 1px solid lightgray;padding-bottom: 5px;">Usecases List:</h6>
+            <div style="margin: 10px;">
+                <perfect-scrollbar style="max-height: 400px;">
+                    <div *ngFor="let eachCase of currentUsecasesList; let i=index; let first = first; let last = last" id="hideIconTable" style="border: 1px solid #f2f2f2; margin: 10px 0px; padding: 5px;">
+                        <div class="row">
+                            <div class="col-md-6"><h6 style="margin-top: 10px;">Seq #: {{i+1}}</h6></div>
+                            <div class="col-md-6 flex-end" *ngIf="!dashboardViewOnly" style="align-items:center;">
+                                <button md-icon-button class="pull-right" mdTooltip="Remove" id="showIcon" (click)="removeUsecase(i);">
+                                    <md-icon>delete</md-icon>
+                                </button>
+                                <button md-icon-button class="pull-right" *ngIf="last" mdTooltip="Add New" id="showIcon" (click)="addNewUsecase();">
+                                    <md-icon>add</md-icon>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div style="margin-top: 7px;" class="col-md-4">
+                                <div class="head-field">
+                                    <md-input-container>
+                                        <input mdInput [ngClass]="{'color-black' : dashboardViewOnly}" [(ngModel)]="eachCase.usecaseName" placeholder="Name :" [disabled]="dashboardViewOnly"
+                                            [name]="'usecase'+i" required="true">
+                                    </md-input-container>
+                                </div>
+                            </div>
+                            <div style="margin-top: 7px;" class="col-md-4">
+                                <div class="head-field">
+                                    <md-select [ngClass]="{'color-black' : dashboardViewOnly}" [disabled]="dashboardViewOnly || !eachCase.usecaseName" [(ngModel)]="eachCase.reportTempId"
+                                        (change)="getReportCols(eachCase)" placeholder="Report Template :" [name]="'template'+i" required>
+                                        <md-option *ngFor="let item of rprtTempList" [value]="item.idForDisplay">{{item.reportName}}</md-option>
+                                    </md-select>
+                                    <!-- <md-select [(ngModel)]="eachCase.reportTempId" #langKey [materialFilter]="langKey" [materialFilterModel]="langSearchModel" [materialFilterInput]="langSearchInput">
+                                        <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="rprtTempList" name="langSearch" #langSearchModel="ngModel" #langSearchInput>
+                                        <md-option *ngFor="let item of rprtTempList | searchFilter:rprtTempList" [value]="item.idForDisplay">{{ item.reportName }}</md-option>
+                                    </md-select> -->
+                                </div>
+                            </div>
+                            <div style="margin-top: 7px;" class="col-md-4">
+                                <div class="head-field">
+                                    <md-select [ngClass]="{'color-black' : dashboardViewOnly}" [disabled]="dashboardViewOnly || !eachCase.reportTempId" [(ngModel)]="eachCase.outputType"
+                                        placeholder="Type :" [name]="'type'+i" required>
+                                        <md-option value="TABLE">Table</md-option>
+                                        <md-option value="PIVOT">Pivot</md-option>
+                                    </md-select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" *ngIf="eachCase.outputType" style="margin-top: 15px;">
+                            <div*ngIf="eachCase.outputType=='PIVOT'" class="col-md-4">
+                                <div class="head-field">
+                                    <div class="field-title" style="white-space: nowrap;margin: 0px;">Rows:</div>
+                                    <angular2-multiselect [data]="eachCase.srcGroupbyCol" [disabled]="dashboardViewOnly" [(ngModel)]="eachCase.selGroupbyCol"
+                                        [ngModelOptions]="{standalone: true}" [settings]="limitSelectionSettings" required>
+                                    </angular2-multiselect>
+                                </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="head-field">
+                                <div class="field-title" style="white-space: nowrap;margin: 0px;">Columns:</div>
+                                <angular2-multiselect [data]="eachCase.srcColbyCol" [disabled]="dashboardViewOnly" [(ngModel)]="eachCase.selColbyCol" [ngModelOptions]="{standalone: true}"
+                                    [settings]="limitSelectionSettings" required>
+                                </angular2-multiselect>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="head-field">
+                                <div class="field-title" style="white-space: nowrap;margin: 0px;">Values:</div>
+                                <angular2-multiselect [data]="eachCase.srcValbyCol" [disabled]="dashboardViewOnly" [(ngModel)]="eachCase.selValbyCol" [ngModelOptions]="{standalone: true}"
+                                    [settings]="limitSelectionSettings" required>
+                                </angular2-multiselect>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </perfect-scrollbar>
+            </div>
+        </div>
+    </form>
+    <div style="border-top: 1px solid #D5D5D5;padding-top:10px;">
+        <button *ngIf="!dashboardViewOnly" style="margin-bottom: 10px;" [disabled]="!dashboardDefinition.valid" class="pull-right"
+            md-raised-button mdTooltip="Save Bucket Info" mdTooltipPosition="below" (click)="saveDashboard();" [disabled]="!dashboardDefinition.valid">Save</button>
+        <md-checkbox style="margin-right: 30px;margin-top: 5px;" class="pull-right" [(ngModel)]="currentDashboard.defaultFlag" [ngClass]="{'color-black' : dashboardViewOnly}"
+            [disabled]="dashboardViewOnly" name="defltDb">Set As Default</md-checkbox>
+    </div>
+    
+</p-dialog>
+
+<p-dialog [header]="selUsecase.name" [(visible)]="displayRerunWizard" [modal]="true" [resizable]="false" [responsive]="true">
+	<jhi-report-run-wizard [selectedReportId]="selectedReportId" [selectedReportName]="selectedReportName" (toggleDialog)="toggleReportRunDialog($event)"></jhi-report-run-wizard>		
+</p-dialog>

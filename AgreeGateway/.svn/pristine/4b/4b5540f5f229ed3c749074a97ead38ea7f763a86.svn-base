@@ -1,0 +1,64 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { BatchHeader } from './batch-header.model';
+import { BatchHeaderService } from './batch-header.service';
+
+@Injectable()
+export class BatchHeaderPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private batchHeaderService: BatchHeaderService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.batchHeaderService.find(id).subscribe((batchHeader) => {
+                    batchHeader.extractedDatetime = this.datePipe
+                        .transform(batchHeader.extractedDatetime, 'yyyy-MM-ddThh:mm');
+                    batchHeader.transformedDatetime = this.datePipe
+                        .transform(batchHeader.transformedDatetime, 'yyyy-MM-ddThh:mm');
+                    batchHeader.createdDate = this.datePipe
+                        .transform(batchHeader.createdDate, 'yyyy-MM-ddThh:mm');
+                    batchHeader.lastUpdatedate = this.datePipe
+                        .transform(batchHeader.lastUpdatedate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.batchHeaderModalRef(component, batchHeader);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.batchHeaderModalRef(component, new BatchHeader());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    batchHeaderModalRef(component: Component, batchHeader: BatchHeader): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.batchHeader = batchHeader;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

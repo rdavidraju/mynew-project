@@ -1,0 +1,201 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { Reports } from './reports.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class ReportsService {
+
+    private resourceUrl = 'agreeapplication/api/reports';
+    private resourceSearchUrl = 'agreeapplication/api/_search/reports';
+    private reportsListUrl = 'agreeapplication/api/getReportsByTenant';
+    private reportFieldsInfoUrl = 'agreeapplication/api/getReportFieldsInfo';
+    private reportTypesUrl = 'agreeapplication/api/reportTypesByTenantId';
+    private dataViewsListUrl = 'agreeapplication/api/dataViewsByTenanat';
+    private dataViewColsListUrl = 'agreeapplication/api/getDataViewsNColsByTenant';
+    private lookupCodesUrl = 'agreeapplication/api/lookup-codes';
+    private postReportDefUrl = 'agreeapplication/api/reportDefination';
+    private checkReportNameUrl = 'agreeapplication/api/validateReportName';
+    private reportDefByIdUrl = 'agreeapplication/api/getReportDefinations';
+    private runTabluarReportUrl = 'agreeapplication/api/generateReport';
+    private runPivotReportUrl = 'agreeapplication/api/generatePivot';
+    private runChartReportUrl = 'agreeapplication/api/generateChart';
+    
+    
+    private UserData = this.sessionStorage.retrieve('userData');
+
+    constructor(private http: Http, private dateUtils: JhiDateUtils, private sessionStorage: SessionStorageService) { }
+    
+    // ******* Get Report Types list @Rk *************
+    getReportTypes() {
+        return this.http.get( `${this.reportTypesUrl}/?tenantId=${this.UserData.tenantId}` ).map(( res: Response ) =>{ return res.json() });
+    }
+    
+    // ******* Get available Reports list @Rk *************
+    getAllReportsList() {
+        return this.http.get( `${this.reportsListUrl}/?tenantId=${this.UserData.tenantId}` ).map(( res: Response ) =>{ return res.json() });
+    }
+    
+    // ******* Get selected Report fields info, to present form controls while running the report @Rk *************
+    getReportFieldsInfo(reportId: number) {
+        return this.http.get( `${this.reportFieldsInfoUrl}/?tenantId=${this.UserData.tenantId}&reportId=${reportId}` ).map(( res: Response ) =>{ return res.json() });
+    }
+    
+    // ******* Get Data Views List info @Rk *************
+    getDataViewsList() {
+        return this.http.get( `${this.dataViewsListUrl}/?tenantId=${this.UserData.tenantId}` ).map(( res: Response ) =>{ return res.json() });
+    }
+    
+    // ******* Get columns list by data view id List info @Rk *************
+    getColsListByDVid(dataViewId: number) {
+        return this.http.get( `${this.dataViewColsListUrl}/?tenantId=${this.UserData.tenantId}&dataViewId=${dataViewId}` ).map(( res: Response ) =>{ return res.json()[0] });
+    }
+    
+    // ******* Get Data View Columns List info @Rk *************
+    getDataViewColsList(dataViewId: number) {
+        return this.http.get( `${this.reportFieldsInfoUrl}/?tenantId=${this.UserData.tenantId}&dataViewId=${dataViewId}` ).map(( res: Response ) =>{ return res.json() });
+    }
+    
+    // ******* Get lookup values based on lookup code @Rk *************
+    getLookupValues(lookupType: string) {
+        return this.http.get( `${this.lookupCodesUrl}/${lookupType}/${this.UserData.tenantId}` ).map(( res: Response ) =>{return res.json();  });
+    }
+    
+    // ******* Post reports definition @Rk *************
+    postReportDef(report: any) : Observable<Response> {
+        report.createdBy=this.UserData.id;
+        return this.http.post( `${this.postReportDefUrl}/?tenantId=${this.UserData.tenantId}`, report).map(( res: Response ) =>{ return res  });
+    }
+    
+    // ******* Check report name availability @Rk *************
+    checkReportNameAvailable(reportName: string){
+        return this.http.get( `${this.checkReportNameUrl}/?tenantId=${this.UserData.tenantId}&reportName=${reportName}` ).map(( res: Response ) =>{
+            return res.json();
+        });
+     }
+    
+    // ******* Get Report Definition based on report ID @Rk *************
+    getReportDefinition(reportId: any) {
+        return this.http.get( `${this.reportDefByIdUrl}/?reportId=${reportId}`).map(( res: Response ) =>{ 
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+    
+    // ******* Get Tabular Report output based on parameters @Rk *************
+    getTabularReportOutput(reportId, paramsObj: any, PaginnationOptions?: any) {
+        const options = createRequestOption(PaginnationOptions);
+        return this.http.post( `${this.runTabluarReportUrl}/?reportId=${reportId}&tenanatId=${this.UserData.tenantId}`,paramsObj).map(( res: Response ) =>{ 
+            console.log(JSON.stringify(res.json()));
+            return res.json();
+        });
+    }
+    
+    // ******* Get Pivot Report output based on parameters @Rk *************
+    getPivotReportOutput(reportId, paramsObj: any) {
+        return this.http.post( `${this.runPivotReportUrl}/?reportId=${reportId}&tenanatId=${this.UserData.tenantId}`,paramsObj).map(( res: Response ) =>{ 
+            console.log(res.json());
+            return res.json();
+        });
+    }
+    
+    // ******* Get Chart Report output based on parameters @Rk *************
+    getChartReportOutput(reportId, paramsObj: any) {
+        console.log(JSON.stringify(paramsObj));
+        return this.http.post( `${this.runChartReportUrl}/?reportId=${reportId}&tenanatId=${this.UserData.tenantId}`,paramsObj).map(( res: Response ) =>{ 
+            console.log(res.json());
+            return res.json();
+        });
+//        return this.tempChart;
+    }
+    
+    getChartData(){
+        return this.tempChart;
+    }
+
+    create(reports: Reports): Observable<Reports> {
+        const copy = this.convert(reports);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(reports: Reports): Observable<Reports> {
+        const copy = this.convert(reports);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<Reports> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.startDate = this.dateUtils
+            .convertLocalDateFromServer(entity.startDate);
+        entity.endDate = this.dateUtils
+            .convertLocalDateFromServer(entity.endDate);
+        entity.creationDate = this.dateUtils
+            .convertDateTimeFromServer(entity.creationDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(reports: Reports): Reports {
+        const copy: Reports = Object.assign({}, reports);
+        copy.startDate = this.dateUtils
+            .convertLocalDateToServer(reports.startDate);
+        copy.endDate = this.dateUtils
+            .convertLocalDateToServer(reports.endDate);
+
+        copy.creationDate = this.dateUtils.toDate(reports.creationDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(reports.lastUpdatedDate);
+        return copy;
+    }
+    
+    tempChart = {
+                labels: ['VISA', 'MASTER'],
+                datasets: [
+                    { data: [100, 200], backgroundColor: '#80A6F9', fill: false, label: 'USD' }
+                ]
+            };
+}

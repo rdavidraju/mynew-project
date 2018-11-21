@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { DataViewUnion } from './data-view-union.model';
+import { DataViewUnionService } from './data-view-union.service';
+
+@Component({
+    selector: 'jhi-data-view-union-detail',
+    templateUrl: './data-view-union-detail.component.html'
+})
+export class DataViewUnionDetailComponent implements OnInit, OnDestroy {
+
+    dataViewUnion: DataViewUnion;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private dataViewUnionService: DataViewUnionService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInDataViewUnions();
+    }
+
+    load(id) {
+        this.dataViewUnionService.find(id).subscribe((dataViewUnion) => {
+            this.dataViewUnion = dataViewUnion;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInDataViewUnions() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'dataViewUnionListModification',
+            (response) => this.load(this.dataViewUnion.id)
+        );
+    }
+}

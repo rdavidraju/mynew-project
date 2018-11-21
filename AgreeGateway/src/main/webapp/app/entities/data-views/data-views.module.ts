@@ -1,0 +1,69 @@
+import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { RouterModule } from '@angular/router';
+import {DataTableModule,SharedModule, MultiSelectModule} from 'primeng/primeng';
+import {PaginatorModule,AccordionModule} from 'primeng/primeng';
+import { AgreeGatewayV1SharedModule } from '../../shared';
+import { AgreePlugInsSharedModule } from '../../agree-plugins-shared.module';
+
+
+
+import {
+    DataViewsService,
+    DataViewsPopupService,
+    DataViewsComponent,
+    DataViewsDetailComponent,
+   // DataViewsDialogComponent,
+   // DataViewsPopupComponent,
+    //DataViewsDeletePopupComponent,
+    //DataViewsDeleteDialogComponent,
+    dataViewsRoute,
+    DataViewHomeComponent,
+    DataViewsSideBarComponent,
+    DataViewsResolvePagingParams,
+    /* dataViewsPopupRoute, */
+    
+} from './';
+
+let ENTITY_STATES = [
+    ...dataViewsRoute,
+    /* ...dataViewsPopupRoute, */
+];
+
+@NgModule({
+    imports: [
+        AgreeGatewayV1SharedModule,
+        DataTableModule,
+        SharedModule,
+        MultiSelectModule,
+        AgreePlugInsSharedModule,
+        PaginatorModule,
+        AccordionModule,
+        RouterModule.forRoot(ENTITY_STATES, { useHash: true })
+    ],
+    declarations: [
+        DataViewsComponent,
+        DataViewsDetailComponent,
+       // DataViewsDialogComponent,
+       // DataViewsDeleteDialogComponent,
+       // DataViewsPopupComponent,
+       // DataViewsDeletePopupComponent,
+        DataViewHomeComponent,
+        DataViewsSideBarComponent
+    ],
+    entryComponents: [
+        DataViewsComponent,
+        //DataViewsDialogComponent,
+        //DataViewsPopupComponent,
+       // DataViewsDeleteDialogComponent,
+        //DataViewsDeletePopupComponent,
+        DataViewHomeComponent,
+        DataViewsSideBarComponent
+    ],
+    providers: [
+        DataViewsService,
+        DataViewsPopupService,
+        DataViewsResolvePagingParams,
+    ],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA]
+})
+export class AgreeGatewayV1DataViewsModule {}

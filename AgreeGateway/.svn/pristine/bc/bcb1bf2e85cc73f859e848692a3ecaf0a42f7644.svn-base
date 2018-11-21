@@ -1,0 +1,272 @@
+<div class="container-fluid component-body">
+	<div class="row botom-dotted-blue-border component-title margin-left-22">
+		<div class="col-md-6 pageTitle">
+			<h2>Run Reports</h2>
+		</div>
+		<div class="col-md-6">
+			<!-- <button class="pull-right" md-raised-button color="primary" style="float: right;" mdTooltip="Submit" mdTooltipPosition="above" (click)="myFun()">Test</button> -->
+		</div>
+	</div>
+	<div class="reports">
+		<div class="row">
+			<div class="col-lg-4 col-md-4 col-sm-8">
+				<md-select class="example-full-width" name="Report" placeholder="Report Name" [(ngModel)]="selectedReportId" [ngModelOptions]="{standalone: true}">
+					<md-option *ngFor="let rpt of reportsList" [value]="rpt.id" (click)="reportSelected(rpt.id)">{{rpt.reportName}}</md-option>
+				</md-select>
+			</div>
+			<div class="col-lg-8 col-md-8 col-sm-4">
+			
+			</div>
+		</div>
+		<p-accordion [multiple]="true">
+			<p-accordionTab header="Report Parameters" [selected]="expandRptParams">
+			<div *ngIf="reportInfo.fields" class="report-wizard row" [ngClass]="{'report-wizard-with-coa' : reportInfo.coa, 'report-wizard-without-coa' : !reportInfo.coa}">
+				<div class="col-md-12 row" id="headerrow">
+					<div [ngClass]="getCSSClasses(reportInfo.coa)" class="section-1">
+						<div id="header">Parmeters</div>
+						<div class="row parameters-list">
+							<ul>
+								<li *ngFor="let field of reportInfo.fields">
+									<div *ngIf="field.fieldType === 'AUTO_COMPLETE'">
+										<span class="field-title">{{field.fieldName}}  :</span>
+										<md-select class="example-full-width control" [(ngModel)]="field.selectedValue"  [ngModelOptions]="{standalone: true}">
+									    	<md-option *ngFor="let eachValue of field.fieldValuesList" [value]="eachValue">{{eachValue}}</md-option>
+										</md-select>
+									</div>
+									<div *ngIf="field.fieldType === 'SINGLE_SELECT_LOV'">
+									<span class="field-title">{{field.fieldName}}  :</span>
+										<md-select class="example-full-width control" [(ngModel)]="field.selectedValue"  [ngModelOptions]="{standalone: true}">
+									    	<md-option *ngFor="let eachValue of field.fieldValuesList" [value]="eachValue">{{eachValue}}</md-option>
+										</md-select>
+									</div>
+									
+									<div class="section-select" *ngIf="field.fieldType === 'MULTI_SELECT_LOV'">
+										<span class="field-title">{{field.fieldName}}  :</span>
+										<angular2-multiselect class="control" [data]="field.fieldValuesList" [(ngModel)]="field.selectedValue"  [ngModelOptions]="{standalone: true}" 
+												[settings]="limitSelectionSettings"
+												mdTooltip="Select Values">
+										</angular2-multiselect>
+									</div>
+									
+									<div class="section-select" *ngIf="field.fieldType === 'SINGLE_SELECTION'">
+										<span class="field-title">{{field.fieldName}}  :</span>
+										<div>
+											<md-radio-group class="control list-view" [(ngModel)]="field.selectedValue" [ngModelOptions]="{standalone: true}">
+											  <md-radio-button *ngFor="let val of field.fieldValuesList" [value]="val">{{val}}</md-radio-button>
+											</md-radio-group>
+										</div>
+									</div>
+									
+									<div *ngIf="field.fieldType === 'TEXT_BOX'">
+									<span class="field-title">{{field.fieldName}}  :</span>
+										<md-input-container class="control">
+										<input mdInput [(ngModel)]="field.selectedValue" [ngModelOptions]="{standalone: true}"> </md-input-container>
+									</div>
+									
+									<div *ngIf="field.fieldType === 'DATE_RANGE'">
+										<div class="row date-range">
+											<div class="col-lg-6 col-md-6 col-md-12">
+											<span class="field-title">From Date :</span>
+											<md-form-field> 
+												<input class="control" mdInput [mdDatepicker]="stpicker" [(ngModel)]="field.selectedValue.fromValue" [ngModelOptions]="{standalone: true}" required>
+												<md-datepicker-toggle mdSuffix [for]="stpicker"></md-datepicker-toggle>
+												<md-datepicker #stpicker></md-datepicker>
+											</md-form-field>
+											</div>
+											<div class="col-lg-6 col-md-6 col-md-12">
+												<span class="field-title">To Date :</span>
+												<md-form-field> 
+													<input class="control" mdInput [mdDatepicker]="edpicker" [(ngModel)]="field.selectedValue.toValue" [ngModelOptions]="{standalone: true}" required>
+													<md-datepicker-toggle mdSuffix [for]="edpicker"></md-datepicker-toggle>
+													<md-datepicker #edpicker></md-datepicker> 
+												</md-form-field>
+											</div>
+										</div>
+									</div>
+									
+									<div *ngIf="field.fieldType === 'MONTH_RANGE'">
+										<div class="row period-group">
+											<div class="col-lg-6 col-md-6 col-md-12">
+												<span class="field-title">From Period  :</span>
+												<period-picker (change)="field.selectedValue.fromValue = $event.target.value" [ngModelOptions]="{standalone: true}"></period-picker>
+											</div>
+											<div class="col-lg-6 col-md-6 col-md-12">
+												<span class="field-title">To Period  :</span>
+												<period-picker (change)="field.selectedValue.toValue = $event.target.value" [ngModelOptions]="{standalone: true}"></period-picker>
+											</div>
+										</div>
+									</div>
+									
+									<div *ngIf="field.fieldType === 'BOOLEAN'">
+										<md-checkbox class="example-margin control" [(ngModel)]="field.selectedValue" color="primary" [ngModelOptions]="{standalone: true}">{{field.fieldName}}</md-checkbox>
+									</div>
+									
+									<div *ngIf="field.fieldType === 'AMOUNT_RANGE'">
+										<span class="field-title">Amount Range:</span>
+										<div class="row">
+											<div class="col-lg-6 col-md-6 col-md-12">
+												<md-input-container class="example-full-width">
+													<input mdInput placeholder="From" [(ngModel)]="field.selectedValue.fromValue" [ngModelOptions]="{standalone: true}"> 
+												</md-input-container>
+											</div>
+											<div class="col-lg-6 col-md-6 col-md-12">
+												<md-input-container *ngIf="field.selOperator=='Between'" class="example-full-width">
+													<input mdInput placeholder="To" [(ngModel)]="field.selectedValue.fromValue" [ngModelOptions]="{standalone: true}"> 
+												</md-input-container>
+											</div>
+										</div>
+									</div>
+								</li>
+							</ul>
+						</div>
+					</div>
+					<div [ngClass]="getCSSClasses(reportInfo.coa)" class="col-lg-4 col-md-4 col-sm-12 section-2">
+						<div id="header">Additional</div>
+						<div class="additional">
+							<!-- <div class="accounted-mode">
+								<span class="field-title">Accounting Mode  :</span>
+								<div>
+									<md-radio-group class="control list-view" [(ngModel)]="reportInfo.accVal" [ngModelOptions]="{standalone: true}">
+										<md-radio-button value="Accounted" color="primary">Accounted</md-radio-button>
+										<md-radio-button value="Un-Accounted" color="primary">Un-Accounted</md-radio-button>
+										<md-radio-button value="Both" color="primary">Both</md-radio-button>
+									</md-radio-group>
+								</div>
+							</div> -->
+							
+							<div class="output-type">
+								<span class="field-title">Output View  :</span>
+								<div>
+									<md-radio-group class="control" [(ngModel)]="reportInfo.outputType" [ngModelOptions]="{standalone: true}" (change)="outputTypeChanged()">
+										<md-radio-button *ngFor="let type of reportOutput" [value]="type.lookUpCode" color="primary">{{type.meaning}}</md-radio-button>
+									</md-radio-group>
+								</div>
+								
+								<div class="report-mode" *ngIf="reportInfo.outputType == 'TABLE'">
+									<span class="field-title">Reporting Mode  :</span>
+									<div>
+										<md-radio-group class="control" [(ngModel)]="reportInfo.reportMode" [ngModelOptions]="{standalone: true}">
+											<md-radio-button [disabled]="reportMode == 'Detailed'" value="Summary" color="primary">Summary</md-radio-button>
+											<md-radio-button [disabled]="reportMode == 'Summary'" value="Detail" color="primary">Detail</md-radio-button>
+										</md-radio-group>
+									</div>
+								</div>
+								
+								<div class="pivot-type" *ngIf="reportInfo.outputType != 'TABLE'">
+									<span class="field-title" *ngIf="reportInfo.outputType == 'CHART'">Chart Type  :</span>
+									<div *ngIf="reportInfo.outputType == 'CHART'">
+										<md-radio-group class="control" [(ngModel)]="reportInfo.chartType" [ngModelOptions]="{standalone: true}">
+											<md-radio-button *ngFor="let type of chartTypes" [value]="type.lookUpCode" color="primary">{{type.meaning}}</md-radio-button>
+										</md-radio-group>
+									</div>
+									
+									<div  *ngIf="reportInfo.outputType == 'PIVOT'">
+										<span class="field-title">Pivot Column  :</span>
+										<md-select class="example-full-width control" [(ngModel)]="singleSelCol"  [ngModelOptions]="{standalone: true}">
+										  	<md-option *ngFor="let eachValue of reportAllCols.columnsDefinition" [value]="eachValue">{{eachValue.userDisplayColName}}</md-option>
+										</md-select>
+										
+										<span class="field-title">Pivot Rows  :</span>
+										<angular2-multiselect class="control" [data]="multiSelCols" [(ngModel)]="multiSelRows"  [ngModelOptions]="{standalone: true}" 
+												[settings]="limitSelectionSettings" mdTooltip="Select Values">
+										</angular2-multiselect>
+										
+										<span class="field-title">Value  :</span>
+										<md-select class="example-full-width control" [(ngModel)]="rptValCol"  [ngModelOptions]="{standalone: true}">
+										  	<md-option *ngFor="let eachValue of reportAllCols.columnsDefinition" [value]="eachValue">{{eachValue.userDisplayColName}}</md-option>
+										</md-select>
+									</div>
+									
+									<div  *ngIf="reportInfo.outputType == 'CHART'">
+										
+										<span class="field-title">Labels  :</span>
+										<md-select class="example-full-width control" [(ngModel)]="singleSelCol"  [ngModelOptions]="{standalone: true}">
+										  	<md-option *ngFor="let eachValue of reportAllCols.columnsDefinition" [value]="eachValue">{{eachValue.userDisplayColName}}</md-option>
+										</md-select>
+										
+										<span class="field-title">Value  :</span>
+										<angular2-multiselect *ngIf="reportInfo.chartType !== 'PIE'" class="control" [data]="multiSelCols" [(ngModel)]="multiSelRows"  [ngModelOptions]="{standalone: true}" 
+												[settings]="multiSelectionSettingsCharts" mdTooltip="Select Max Two Columns">
+										</angular2-multiselect>
+										
+										<md-select *ngIf="reportInfo.chartType === 'PIE'" class="example-full-width control" [(ngModel)]="rptValCol"  [ngModelOptions]="{standalone: true}">
+										  	<md-option *ngFor="let eachValue of reportAllCols.columnsDefinition" [value]="eachValue">{{eachValue.userDisplayColName}}</md-option>
+										</md-select>
+										
+									</div>
+								</div>
+							</div>
+							
+						</div>
+					</div>
+					<div *ngIf="reportInfo.coa" class="col-lg-4 col-md-4 col-sm-12 section-3">
+						<div id="header">Accounting Code Combination</div>
+						<div class="segments-section">
+							<div *ngFor="let seg of reportInfo.segments" class="row segments">
+								<div class="col-md-4 segment-name"><span class="field-title">{{seg.segment}}  :</span></div>
+								<div  class="col-md-4">
+									<md-input-container class="example-full-width reset-margin"><input mdInput [(ngModel)]="seg.from" placeholder="From"> </md-input-container>
+								</div>
+								<div class="col-md-4">
+									<md-input-container class="example-full-width reset-margin"><input mdInput [(ngModel)]="seg.to" placeholder="To"> </md-input-container>
+								</div>
+							</div>
+						</div>
+					</div>
+					
+				</div>
+				<div class="report-wizard-footer">
+					<button class="pull-right" md-raised-button color="primary" style="float: right;" mdTooltip="Submit" mdTooltipPosition="above" (click)="runReport()">Submit</button>
+				</div>
+			</div>
+			</p-accordionTab>
+			<p-accordionTab header="Report Output" [selected]="showReportOutput">
+				<div class="report-output" *ngIf="showTabular">
+					<div class="report-output-table">
+						<p-dataTable [value]="reportResult" selectionMode="single" scrollable="true" scrollHeight="500px" #dt [(selection)]="selectedRows"
+						  [headerCheckboxToggleAllPages]="true" (onRowSelect)="onDrilldown($event)">
+							<p-header title="Show/Hide Columns">
+						        <div style="text-align: right">
+						        	<button type="button" pButton icon="fa-file-o" iconPos="left" label="Save" (click)="dt.exportCSV()" style="float:left"></button>
+						        	<!-- <button *ngIf="selectedRows.length > 0" type="button" pButton icon="fa fa-download" iconPos="left" label="Drilldown" style="float:left" (click)="drilldown()"></button> -->
+									<p-multiSelect [options]="columnOptions" [(ngModel)]="reportsTableColumns"></p-multiSelect>
+								</div>
+					    	</p-header>
+							<p-column *ngFor="let col of reportsTableColumns" styleClass="left" [field]="col.field" [header]="col.header" [sortable]="true" [style]="{'width':'150px'}"> </p-column>
+						</p-dataTable>
+					</div>
+				</div>
+				<p-chart type="bar" [options]="chartOptions" width="400" height="400" [data]="chartResult" *ngIf="reportInfo.chartType == 'BAR' && showChart" (onDataSelect)="onDrilldown($event)"></p-chart>
+				<p-chart type="line" [options]="chartOptions" width="400" height="400" [data]="chartResult" *ngIf="reportInfo.chartType == 'LINE' && showChart" (onDataSelect)="onDrilldown($event)"></p-chart>
+				<p-chart type="pie" [options]="chartOptions" width="400" height="400" [data]="chartResult" *ngIf="reportInfo.chartType == 'PIE' && showChart" (onDataSelect)="onDrilldown($event)"></p-chart>
+				<div id="pvtoutput"></div>
+			</p-accordionTab>
+		</p-accordion>
+		
+		<p-dialog class="drilldown-section" header="Drilldown" [(visible)]="showDrilldown" [responsive]="true" [resizable]="true">
+			<div class="row">
+				<md-select class="control" placeholder="Select Label Column" [ngModelOptions]="{standalone: true}">
+					<md-option value="">Col-1</md-option>
+					<md-option value="">Col-2</md-option>
+				</md-select>
+			</div>
+			<div class="row">
+				<div class="col-md-4 graph-section">
+					<p-chart type="pie" [options]="chartOptions" width="200" height="200" [data]="ddChartResult" (onDataSelect)="onDDdrilldown($event)"></p-chart>
+				</div>
+				<div class="col-md-4 graph-section">
+					<p-chart type="bar" [options]="chartOptions" [data]="ddChartResult" width="200" height="200" (onDataSelect)="onDDdrilldown($event)"></p-chart>
+				</div>
+				<div class="col-md-4 graph-section">
+					<p-chart type="line" [options]="chartOptions" [data]="ddChartResult" width="200" height="200" (onDataSelect)="onDDdrilldown($event)"></p-chart>
+				</div>
+			</div>
+			<div class="table-section">
+			<md-checkbox [(ngModel)]="showAllDD" class="example-margin" color="primary" (change)="toggleShowAll()">Show All</md-checkbox>
+				<p-dataTable [value]="drilldownResult" scrollable="true" scrollHeight="300px" #ddt>
+					<p-column *ngFor="let col of drilldownTableColumns" styleClass="left" [field]="col.field" [header]="col.header" [sortable]="true" [style]="{'width':'150px'}"> </p-column>
+				</p-dataTable>
+			</div>
+		</p-dialog>
+	</div>
+</div>

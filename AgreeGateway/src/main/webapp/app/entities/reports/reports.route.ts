@@ -1,0 +1,117 @@
+import { Injectable } from '@angular/core';
+import { Resolve, ActivatedRouteSnapshot, RouterStateSnapshot, Routes, CanActivate } from '@angular/router';
+
+import { UserRouteAccessService } from '../../shared';
+import { JhiPaginationUtil } from 'ng-jhipster';
+
+import { ReportsBreadCrumbTitles } from './reports.model';
+import { ReportsComponent } from './reports.component';
+import { ReportsDetailComponent } from './reports-detail.component';
+import { ReportsHomeComponent } from './reports-home.component';
+import { RunReportsComponent } from './run-reports.component'
+
+//@Injectable()
+//export class ReportsResolvePagingParams implements Resolve<any> {
+//
+//    constructor(private paginationUtil: JhiPaginationUtil) {}
+//
+//    resolve(route: ActivatedRouteSnapshot, state: RouterStateSnapshot) {
+//        const page = route.queryParams['page'] ? route.queryParams['page'] : '1';
+//        const sort = route.queryParams['sort'] ? route.queryParams['sort'] : 'id,asc';
+//        return {
+//            page: this.paginationUtil.parsePage(page),
+//            predicate: this.paginationUtil.parsePredicate(sort),
+//            ascending: this.paginationUtil.parseAscending(sort)
+//      };
+//    }
+//}
+
+export const reportsRoute: Routes = [
+  {
+    path: 'reports',
+    component: ReportsHomeComponent,
+    data: {
+      authorities: ['ROLE_USER'],
+      pageTitle: 'Reports'
+    },
+    children: [
+      {
+        path: 'report-list',
+        component: ReportsComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.reportsList,
+          lablesArray: ['Setup', 'Reports', 'Reports List']
+        },
+        outlet: 'content'
+      },
+      {
+        path: 'run-reports',
+        component: RunReportsComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.reports,
+          lablesArray: ['Process', 'Reports', 'Run Report']
+        },
+        outlet: 'content'
+      },
+      {
+        path: ':id/run-reports',
+        component: RunReportsComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.reports,
+          lablesArray: ['Setup', 'Reports', 'Run Report']
+        },
+        outlet: 'content'
+      },
+      {
+        path: 'run-reports/:reqId/:id',
+        component: RunReportsComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.reports,
+          lablesArray: ['Setup', 'Reports', 'Report By Request']
+        },
+        outlet: 'content'
+      },
+      {
+        path: 'new-report',
+        component: ReportsDetailComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.createReport,
+          lablesArray: ['Setup', 'Reports', 'Create Report']
+        },
+        outlet: 'content'
+      },
+      {
+        path: ':id/details',
+        component: ReportsDetailComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.showReport,
+          lablesArray: ['Setup', 'Reports', 'Report Definition']
+        },
+        outlet: 'content'
+      },
+      {
+        path: ':id/edit',
+        component: ReportsDetailComponent,
+        data: {
+          authorities: ['ROLE_USER'],
+          pageTitle: 'agreeGatewayV1App.reports.home.title',
+          breadcrumb: ReportsBreadCrumbTitles.editReport,
+          lablesArray: ['Setup', 'Reports', 'Edit Report Definition']
+        },
+        outlet: 'content'
+      }
+    ]
+  }
+];

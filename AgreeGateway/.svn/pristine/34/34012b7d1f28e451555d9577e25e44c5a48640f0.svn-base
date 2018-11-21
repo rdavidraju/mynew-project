@@ -1,0 +1,129 @@
+<div class="component-body">
+	<div class="botom-dotted-blue-border component-title">
+		<div class="col-md-6 col-sm-6 col-xs-6 pageTitle">
+			<h3>Jobs Schedulars Details</h3>
+		</div>
+		<div class="col-md-6 col-sm-6 col-xs-6 ftlSearch">
+			
+			<button class="pull-right md-36" md-icon-button (click)="openDialog()" mdTooltip="Add New Job">
+				<md-icon>add</md-icon>
+			</button>
+			<button class="pull-right md-36" mdTooltip="Refresh" md-icon-button (click)="refreshSchedulerList()">
+				<md-icon>replay</md-icon>
+			</button>
+			<button md-icon-button class="pull-right search-icon-body" mdTooltip="Search">
+                    <md-icon>search</md-icon>
+                </button>
+			<md-input-container class="pull-right hidethis">
+				<input class="mySearchBox" mdInput #gb placeholder="What're we looking for?"> </md-input-container>
+		</div>
+	</div>
+	<div style="text-align: right" class="show-hide-class">
+		<p-multiSelect [options]="columnOptions" [(ngModel)]="schedulsTableColumns"></p-multiSelect>
+		<!-- <div>export</div> -->
+	</div>
+	<p-dataTable [value]="schedularsList" scrollable="true" scrollHeight="{{jobScheListsHeight}}" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" [responsive]="true" [headerCheckboxToggleAllPages]="true"
+	 [globalFilter]="gb" #dt [rows]="5">
+		<p-column field="oozieJobId" header="Request Id" styleClass="left" [style]="{'width':'400px'}">
+			<ng-template let-col let-row="rowData" pTemplate="body">
+				<!-- <span (mouseenter)="getScheduleActions(row, row['oozieJobId'])" (mouseleave)="resetmodal()" style="text-decoration: underline;">{{row[col.field]}}</span> -->
+				<span (click)="getScheduleActions(row, row['oozieJobId'])" style="text-decoration: underline;">{{row[col.field]}}</span>
+			</ng-template>
+		</p-column>
+		<p-column field="jobName" header="Name" styleClass="left" [style]="{'width':'150px'}">
+			<ng-template let-col let-row="rowData" pTemplate="body">
+				<span [routerLink]="['/jobs', {outlets: {'content': [row['jobId']]+'/details'}}]" style="text-decoration: underline;">{{row[col.field]}}</span>
+			</ng-template>
+		</p-column>
+		<p-column *ngFor="let col of schedulsTableColumns" styleClass="left" [field]="col.field" [header]="col.header" [style]="{'width':'150px'}">
+		</p-column>
+
+		<p-column field="startTime" header="Start Date & Time" styleClass="left" [style]="{'width':'150px'}">
+			<ng-template let-col let-row="rowData" pTemplate="body">
+				<span>{{row[col.field] | date:'medium'}}</span>
+			</ng-template>
+		</p-column>
+		<p-column field="endTime" header="End Date & Time" styleClass="left" [style]="{'width':'150px'}">
+			<ng-template let-col let-row="rowData" pTemplate="body">
+				<span>{{row[col.field] | date:'medium'}}</span>
+			</ng-template>
+		</p-column>
+		<p-column field="actions" header="Actions" styleClass="center sm-button" [style]="{'width':'100px'}">
+			<ng-template let-col let-row="rowData" pTemplate="body">
+				<!-- rerun -->
+				<button class="mt-sm-btn" *ngIf="row['oozieStatus'] === 'KILLED' || row['oozieStatus'] === 'SUCCEEDED'" md-icon-button aria-hidden="true" mdTooltip="Rerun"
+				 mdTooltipPosition="below" (click)="rerunSchedule(row['oozieJobId'])">
+                        <md-icon>replay</md-icon>
+                    </button>
+				<button class="mt-sm-btn" *ngIf="row['oozieStatus'] === 'RUNNING' || row['oozieStatus'] === 'READY'" md-icon-button aria-hidden="true" mdTooltip="Stop this"
+				 mdTooltipPosition="below" (click)="killJob(row['oozieJobId'])">
+                        <md-icon>stop</md-icon>
+                    </button>
+				<button class="mt-sm-btn" *ngIf="row['oozieStatus'] !== 'RUNNING'" md-icon-button aria-hidden="true" mdTooltip="Show Log" mdTooltipPosition="below"
+				 (click)="showScheduleLog(row['oozieJobId'])">
+                        <md-icon>event_note</md-icon>
+                    </button>
+				<!--  <button  md-icon-button aria-hidden="true" mdTooltip="View Detail" mdTooltipPosition="above" [routerLink]="['/jobs', {outlets: {'content': [row['jobId']]+'/details'}}]"">
+                        <md-icon style="color: gray">more_horiz</md-icon>
+                    </button> -->
+				<!-- hold job -->
+				<button class="mt-sm-btn" *ngIf="row['oozieStatus'] === 'RUNNING'" md-icon-button mdTooltip="Hold job" mdTooltipPosition="below" (click)="suspendJob(row['oozieJobId'])">
+						<md-icon>pause</md-icon>
+					</button>
+				<!-- resume -->
+				<button class="mt-sm-btn" *ngIf="row['oozieStatus'] === 'SUSPENDED'" md-icon-button mdTooltip="Resume Job" mdTooltipPosition="below" (click)="resumeJob(row['oozieJobId'])">
+						<md-icon>play_arrow</md-icon>
+					</button>
+			</ng-template>
+		</p-column>
+	</p-dataTable>
+	<md-paginator *ngIf="length >pageSize" [length]="length" [pageSize]="pageSize" [pageSizeOptions]="pageSizeOptions" (page)="pageEvent = $event; loadAllSchedulersList(jobId)">
+	</md-paginator>
+	<div class="jobs-section jobs-scheduler" >
+		<p-dialog [header]="selSingleSchedule.schedulerName + ' Actions Log'" [(visible)]="showActionsLog" [responsive]="true">
+
+			<p-header>
+				<i class="material-icons hand pull-right" (click)="getScheduleActions(selSingleSchedule, selSingleSchedule.oozieJobId)" mdTooltip="Refresh">refresh</i>
+			</p-header>
+
+			<div *ngIf="schedulerActions && !schedulerActions.length" class="abs-hv-center">No action Logs</div>
+			<div class="table-responsive" *ngIf="schedulerActions && schedulerActions.length">
+				<table class="table">
+					<thead>
+						<tr>
+							<th>Action</th>
+							<th class="no-wrap">Start Time</th>
+							<th class="no-wrap">End Time</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr *ngFor="let action of schedulerActions">
+							<td>{{action.actionName}}</td>
+							<td class="no-wrap">{{action.startTime | date:'medium'}}</td>
+							<td class="no-wrap">{{action.endTime | date:'medium'}}</td>
+							<td>
+								<i *ngIf="action.status === 'Success'" class="material-icons">check_circle</i>
+								<i *ngIf="action.status === 'Fail'" class="material-icons" aria-hidden="true">error</i>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+
+
+
+
+
+			<!-- 
+		<p-dataTable [value]="schedulerActions">
+			        <p-column field="actionName" header="Action"></p-column>
+			        <p-column field="status" header="Status">
+			        	<ng-template let-col let-row="rowData" pTemplate="body"> 
+							<i *ngIf="row[col.field] === 'Success'" style="color: gray" class="material-icons">check_circle</i> 
+							<i *ngIf="row[col.field] === 'Fail'" style="color: gray" class="material-icons" aria-hidden="true">error</i> 
+						</ng-template> 
+			        </p-column>
+			    </p-dataTable> --></p-dialog>
+	</div>
+</div>

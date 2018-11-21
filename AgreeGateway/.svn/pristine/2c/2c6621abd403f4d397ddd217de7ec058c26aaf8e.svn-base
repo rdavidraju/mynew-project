@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { TemplAttributeMapping } from './templ-attribute-mapping.model';
+import { TemplAttributeMappingService } from './templ-attribute-mapping.service';
+
+@Injectable()
+export class TemplAttributeMappingPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private templAttributeMappingService: TemplAttributeMappingService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.templAttributeMappingService.find(id).subscribe((templAttributeMapping) => {
+                    templAttributeMapping.createdDate = this.datePipe
+                        .transform(templAttributeMapping.createdDate, 'yyyy-MM-ddThh:mm');
+                    templAttributeMapping.lastUpdatedDate = this.datePipe
+                        .transform(templAttributeMapping.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.templAttributeMappingModalRef(component, templAttributeMapping);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.templAttributeMappingModalRef(component, new TemplAttributeMapping());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    templAttributeMappingModalRef(component: Component, templAttributeMapping: TemplAttributeMapping): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.templAttributeMapping = templAttributeMapping;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

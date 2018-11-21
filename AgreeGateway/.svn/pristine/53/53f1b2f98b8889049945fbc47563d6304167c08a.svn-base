@@ -1,0 +1,64 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager } from 'ng-jhipster';
+
+import { DataViews } from './data-views.model';
+import { DataViewsPopupService } from './data-views-popup.service';
+import { DataViewsService } from './data-views.service';
+
+@Component({
+    selector: 'jhi-data-views-delete-dialog',
+    templateUrl: './data-views-delete-dialog.component.html'
+})
+export class DataViewsDeleteDialogComponent {
+
+    dataViews: DataViews;
+
+    constructor(
+        private dataViewsService: DataViewsService,
+        public activeModal: NgbActiveModal,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    confirmDelete(id: number) {
+        this.dataViewsService.delete(id).subscribe((response) => {
+            this.eventManager.broadcast({
+                name: 'dataViewsListModification',
+                content: 'Deleted an dataViews'
+            });
+            this.activeModal.dismiss(true);
+        });
+    }
+}
+
+@Component({
+    selector: 'jhi-data-views-delete-popup',
+    template: ''
+})
+export class DataViewsDeletePopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private dataViewsPopupService: DataViewsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            this.dataViewsPopupService
+                .open(DataViewsDeleteDialogComponent as Component, params['id']);
+        });
+    }
+
+    ngOnDestroy() {
+        //this.routeSub.unsubscribe();
+    }
+}

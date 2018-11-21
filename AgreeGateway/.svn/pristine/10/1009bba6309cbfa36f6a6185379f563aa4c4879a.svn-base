@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { NotificationBatch } from './notification-batch.model';
+import { NotificationBatchService } from './notification-batch.service';
+
+@Component({
+    selector: 'jhi-notification-batch-detail',
+    templateUrl: './notification-batch-detail.component.html'
+})
+export class NotificationBatchDetailComponent implements OnInit, OnDestroy {
+
+    notificationBatch: NotificationBatch;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private notificationBatchService: NotificationBatchService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInNotificationBatches();
+    }
+
+    load(id) {
+        this.notificationBatchService.find(id).subscribe((notificationBatch) => {
+            this.notificationBatch = notificationBatch;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInNotificationBatches() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'notificationBatchListModification',
+            (response) => this.load(this.notificationBatch.id)
+        );
+    }
+}

@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { SourceFileInbHistory } from './source-file-inb-history.model';
+import { SourceFileInbHistoryPopupService } from './source-file-inb-history-popup.service';
+import { SourceFileInbHistoryService } from './source-file-inb-history.service';
+
+@Component({
+    selector: 'jhi-source-file-inb-history-dialog',
+    templateUrl: './source-file-inb-history-dialog.component.html'
+})
+export class SourceFileInbHistoryDialogComponent implements OnInit {
+
+    sourceFileInbHistory: SourceFileInbHistory;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private sourceFileInbHistoryService: SourceFileInbHistoryService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.sourceFileInbHistory.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.sourceFileInbHistoryService.update(this.sourceFileInbHistory));
+        } else {
+            this.subscribeToSaveResponse(
+                this.sourceFileInbHistoryService.create(this.sourceFileInbHistory));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<SourceFileInbHistory>) {
+        result.subscribe((res: SourceFileInbHistory) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: SourceFileInbHistory) {
+        this.eventManager.broadcast({ name: 'sourceFileInbHistoryListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-source-file-inb-history-popup',
+    template: ''
+})
+export class SourceFileInbHistoryPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private sourceFileInbHistoryPopupService: SourceFileInbHistoryPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.sourceFileInbHistoryPopupService
+                    .open(SourceFileInbHistoryDialogComponent as Component, params['id']);
+            } else {
+                this.sourceFileInbHistoryPopupService
+                    .open(SourceFileInbHistoryDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

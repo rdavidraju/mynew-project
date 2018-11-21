@@ -1,0 +1,147 @@
+import { Injectable } from '@angular/core';
+import { Http, Headers, Response,RequestOptions, URLSearchParams, BaseRequestOptions } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+import { JournalsHeaderData } from './journals-header-data.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class JournalsHeaderDataService {
+
+    private resourceUrl = 'agreeapplication/api/journals-header-data';
+    private resourceSearchUrl = 'agreeapplication/api/_search/journals-header-data';
+    private lookUpUrl = 'agreeapplication/api/lookupCodesAndMeaning';
+    private mappingSetsUrl = 'agreeapplication/api/mapping-sets';
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private getJournalsListUrl = 'agreeapplication/api/getJournalsTemplateDetails';
+    private postingTemplateDetailsUrl = 'agreeapplication/api/postingTemplateDetails';
+    private getJournalsDetailsUrl = 'agreeapplication/api/getTemplateDetails';
+    
+
+    constructor(private http: Http, private dateUtils: JhiDateUtils,
+                private $sessionStorage: SessionStorageService) { }
+
+    create(journalsHeaderData: JournalsHeaderData): Observable<JournalsHeaderData> {
+        const copy = this.convert(journalsHeaderData);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(journalsHeaderData: JournalsHeaderData): Observable<JournalsHeaderData> {
+        const copy = this.convert(journalsHeaderData);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.startDate = this.dateUtils
+            .convertLocalDateFromServer(entity.startDate);
+        entity.endDate = this.dateUtils
+            .convertLocalDateFromServer(entity.endDate);
+        entity.jeBatchDate = this.dateUtils
+            .convertLocalDateFromServer(entity.jeBatchDate);
+        entity.glDate = this.dateUtils
+            .convertLocalDateFromServer(entity.glDate);
+        entity.runDate = this.dateUtils
+            .convertLocalDateFromServer(entity.runDate);
+        entity.createdDate = this.dateUtils
+            .convertDateTimeFromServer(entity.createdDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(journalsHeaderData: JournalsHeaderData): JournalsHeaderData {
+        const copy: JournalsHeaderData = Object.assign({}, journalsHeaderData);
+        copy.jeBatchDate = this.dateUtils
+            .convertLocalDateToServer(journalsHeaderData.jeBatchDate);
+        copy.glDate = this.dateUtils
+            .convertLocalDateToServer(journalsHeaderData.glDate);
+        copy.runDate = this.dateUtils
+            .convertLocalDateToServer(journalsHeaderData.runDate);
+
+        copy.createdDate = this.dateUtils.toDate(journalsHeaderData.createdDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(journalsHeaderData.lastUpdatedDate);
+        return copy;
+    }
+    getLookUps(code: any): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.lookUpUrl}/${code}/${this.UserData.tenantId}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+    });
+    }
+    getmappingSets(): Observable<JournalsHeaderData> {
+            return this.http.get(`${this.mappingSetsUrl}`).map((res: Response) => {
+                let jsonResponse = res.json();
+                return jsonResponse;
+        });
+        }
+
+    /* Service to get Journals List */
+    journalsList() :Observable<Response>
+    {
+        return this.http.get(`${this.getJournalsListUrl}?tenantId=${this.UserData.tenantId}`).map((res: Response)=>{
+            let jsonResponse = res.json();
+            // console.log('journals List from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse; 
+        });
+    }
+    /* Service to post journals details*/
+    postJournalsHeaderData(journalsHeaderData: JournalsHeaderData): Observable<JournalsHeaderData> {
+        return this.http.post(`${this.postingTemplateDetailsUrl}?tenantId=${this.UserData.tenantId}&userId=${this.UserData.id}`, journalsHeaderData).map((res: Response) => {
+            return res.json();
+        });
+    }
+    /* Service to get journal details by id */
+    getJournalsById(id: number): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.getJournalsDetailsUrl}?tenantId=${this.UserData.tenantId}&templateId=${id}`).map((res: Response) => {
+            let jsonResponse = res.json();
+                jsonResponse.startDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse.startDate);
+            jsonResponse.endDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse.endDate);
+                //console.log('fetch : ' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+    
+}

@@ -1,0 +1,321 @@
+package com.nspl.app.service;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Properties;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import com.jcraft.jsch.Channel;
+import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.Session;
+import com.jcraft.jsch.SftpException;
+
+@Service
+public class SFTPUtilService {
+	
+	private static final Logger log = LoggerFactory.getLogger(SFTPUtilService.class);
+	
+	public Channel getConnection(String Host, int port, String userName, String password)
+	{
+		 	log.info("In getConnection for sftp connection");
+	        Session session = null;
+	        Channel channel = null;
+	         try {
+	            JSch jsch = new JSch();
+	            session = jsch.getSession(userName, Host, port);
+	            session.setPassword(password);
+	            java.util.Properties config = new java.util.Properties();
+	            config.put("StrictHostKeyChecking", "no");
+	            session.setConfig(config);
+	            log.info("Before Establising Sftp connection");
+	            session.connect();
+	            channel = session.openChannel("sftp");
+	            channel.connect(360000);
+	          log.info("sftp connection established for host: "+Host);
+	        }
+	         catch (JSchException ex) {
+	        	 log.info("Network Connection Error, Connection failed in reports");
+		            ex.printStackTrace();
+		        }
+	         
+	         catch (Exception ex) {
+	            ex.printStackTrace();
+	        }
+		return channel ;
+	}
+	
+	public void putFile(Channel channel, String targetFolder, String fileToTransfer, InputStream sourceStream)
+	{
+		System.out.println("targetFolder:."+targetFolder+">"+fileToTransfer);
+		ChannelSftp channelSftp = (ChannelSftp) channel;
+
+    		String tTargetFolder = targetFolder;
+    		log.info("Target Folder: "+targetFolder);
+    		/***/
+    		try {
+				channelSftp.cd("/");
+			} catch (SftpException e2) {
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
+    		String[] folders = targetFolder.split( "/" );
+    		for ( String folder : folders ) {
+    		    if ( folder.length() > 0 ) {
+    		        try {
+    		        	channelSftp.cd( folder );
+    		        	log.info("Change Folder: "+folder);
+    		        }
+    		        catch ( SftpException e ) {
+    		        	try {
+							channelSftp.mkdir( folder );
+							log.info("Creating Folder: "+folder);
+							channelSftp.chmod(0777, folder);
+							channelSftp.cd( folder );
+							log.info("Change Folder: "+folder);
+						} catch (SftpException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
+    		        	
+    		        }
+    		    }
+    		}
+    		/***/
+    	//	channelSftp.mkdir(targetFolder);
+		
+        try {
+        	channelSftp.cd(targetFolder);
+        }
+        catch(Exception e)
+        {
+        	
+        }
+        	try {	
+			FileInputStream fis = null;
+			if(sourceStream == null)
+			{
+			File f = new File(fileToTransfer);
+			fis = new FileInputStream(f);
+			channelSftp.put(fis, f.getName());
+			}
+			else
+			{
+				log.info("Copying file to server "+fileToTransfer);
+				channelSftp.put(sourceStream, fileToTransfer);
+			}
+			if(fis != null)
+			{
+				try {
+					fis.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+        }
+			catch (SftpException e) {
+			// TODO Auto-generated catch block
+			log.error("SFTP Exception "+e.getMessage());
+			e.printStackTrace();
+			this.disconnect(channel);
+		} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+			log.error("File Not Found Exception "+e.getMessage());
+			e.printStackTrace();
+			}
+	}
+	public InputStream getFile(Channel channel, String sourceFolder, String fileToTransfer)
+	{
+		ChannelSftp channelSftp = (ChannelSftp) channel;
+		InputStream fis = null;
+        try{
+        	log.info("Source Folder: "+sourceFolder+" fileToTransfer: "+fileToTransfer);
+    		channelSftp.cd(sourceFolder);		
+        }	
+        catch(Exception e)
+        {
+        	log.info("Error while changing folder to "+sourceFolder);
+        }
+		try {
+			log.info("sourceFolder+fileToTransfer: "+sourceFolder+fileToTransfer);
+				fis = channelSftp.get(sourceFolder+fileToTransfer);
+			} catch (SftpException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+        	return fis;
+	}
+	
+	public void disconnect(Channel channel)
+	{
+		try {
+		Session session = channel.getSession();
+		channel.disconnect();
+		session.disconnect();
+		} catch (JSchException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void createDirectory(Channel channel, String targetFolder)
+	{
+		log.info("targetFolder:createDirectory"+targetFolder);
+		ChannelSftp channelSftp = (ChannelSftp) channel;
+		try {
+			channelSftp.mkdir(targetFolder);
+		} catch (SftpException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+
+	public  Properties getPropertiesFromClasspath(String propFileName)
+	{
+	Properties props = new Properties();
+	InputStream inputStream = this.getClass().getClassLoader().getResourceAsStream(propFileName);
+	
+	if (inputStream == null)
+	{
+		try {
+			throw new FileNotFoundException("property file '" + propFileName
+			+ "' not found in the classpath");
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	try {
+		props.load(inputStream);
+	} catch (IOException e) {
+		// TODO Auto-generated catch block
+		e.printStackTrace();
+	}
+	return props;
+	}
+	
+	
+	
+	public HashMap checkSFTConnection(String Host, int port, String userName, String password)
+	{
+		 HashMap sftp=new HashMap();
+	        Session session = null;
+	        Channel channel = null;
+	         try {
+	            JSch jsch = new JSch();
+	            session = jsch.getSession(userName, Host, port);
+	            session.setPassword(password);
+	            java.util.Properties config = new java.util.Properties();
+	            config.put("StrictHostKeyChecking", "no");
+	            session.setConfig(config);
+	            log.info("==========config========="+config);
+	            session.connect();
+	            channel = session.openChannel("sftp");
+	            log.info("==========channel=========="+channel);
+	            channel.connect();
+	          log.info("success connection");
+	          sftp.put("status", "Success");
+	          sftp.put("message", userName);
+	        } catch (Exception ex) {
+	        	 sftp.put("status", "failure");
+		         sftp.put("message", "UserName:"+ex.getLocalizedMessage());
+	            ex.printStackTrace();
+	        }
+		return sftp ;
+	}
+	
+	
+	public void toMoveFile(Channel channel, String targetFolder, String fileToTransfer, InputStream sourceStream)
+	{
+		System.out.println("targetFolder:."+targetFolder+">"+fileToTransfer);
+		ChannelSftp channelSftp = (ChannelSftp) channel;
+
+    		String tTargetFolder = targetFolder;
+    		log.info("Target Folder: "+targetFolder);
+    		/***/
+    		try {
+				channelSftp.cd("/");
+			} catch (SftpException e2) {
+				// TODO Auto-generated catch block
+				e2.printStackTrace();
+			}
+    		String[] folders = targetFolder.split( "/" );
+    		for ( String folder : folders ) {
+    		    if ( folder.length() > 0 ) {
+    		        try {
+    		        	channelSftp.cd( folder );
+    		        	log.info("Change Folder: "+folder);
+    		        }
+    		        catch ( SftpException e ) {
+    		        	try {
+							channelSftp.mkdir( folder );
+							log.info("Creating Folder: "+folder);
+							channelSftp.chmod(0777, folder);
+							channelSftp.cd( folder );
+							log.info("Change Folder: "+folder);
+						} catch (SftpException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
+    		        	
+    		        }
+    		    }
+    		}
+    		/***/
+    	//	channelSftp.mkdir(targetFolder);
+		
+        try {
+        	channelSftp.cd(targetFolder);
+        }
+        catch(Exception e)
+        {
+        	
+        }
+        	try {	
+			FileInputStream fis = null;
+			if(sourceStream == null)
+			{
+			File f = new File(fileToTransfer);
+			fis = new FileInputStream(f);
+			channelSftp.put(fis, f.getName());
+			}
+			else
+			{
+				log.info("Copying file to server ");
+				channelSftp.put(sourceStream, fileToTransfer);
+			}
+			if(fis != null)
+			{
+				try {
+					fis.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+        }
+			catch (SftpException e) {
+			// TODO Auto-generated catch block
+			log.error("SFTP Exception "+e.getMessage());
+			e.printStackTrace();
+			this.disconnect(channel);
+		} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+			log.error("File Not Found Exception "+e.getMessage());
+			e.printStackTrace();
+			}
+	}
+	
+	
+}

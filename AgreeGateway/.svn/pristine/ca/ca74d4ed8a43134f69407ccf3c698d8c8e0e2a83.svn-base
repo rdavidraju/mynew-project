@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { MappingSetValues } from './mapping-set-values.model';
+import { MappingSetValuesService } from './mapping-set-values.service';
+
+@Component({
+    selector: 'jhi-mapping-set-values-detail',
+    templateUrl: './mapping-set-values-detail.component.html'
+})
+export class MappingSetValuesDetailComponent implements OnInit, OnDestroy {
+
+    mappingSetValues: MappingSetValues;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private mappingSetValuesService: MappingSetValuesService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInMappingSetValues();
+    }
+
+    load(id) {
+        this.mappingSetValuesService.find(id).subscribe((mappingSetValues) => {
+            this.mappingSetValues = mappingSetValues;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInMappingSetValues() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'mappingSetValuesListModification',
+            (response) => this.load(this.mappingSetValues.id)
+        );
+    }
+}

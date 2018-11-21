@@ -1,0 +1,60 @@
+import { Injectable, Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { DatePipe } from '@angular/common';
+import { DataViewsSrcMappings } from './data-views-src-mappings.model';
+import { DataViewsSrcMappingsService } from './data-views-src-mappings.service';
+
+@Injectable()
+export class DataViewsSrcMappingsPopupService {
+    private ngbModalRef: NgbModalRef;
+
+    constructor(
+        private datePipe: DatePipe,
+        private modalService: NgbModal,
+        private router: Router,
+        private dataViewsSrcMappingsService: DataViewsSrcMappingsService
+
+    ) {
+        this.ngbModalRef = null;
+    }
+
+    open(component: Component, id?: number | any): Promise<NgbModalRef> {
+        return new Promise<NgbModalRef>((resolve, reject) => {
+            const isOpen = this.ngbModalRef !== null;
+            if (isOpen) {
+                resolve(this.ngbModalRef);
+            }
+
+            if (id) {
+                this.dataViewsSrcMappingsService.find(id).subscribe((dataViewsSrcMappings) => {
+                    dataViewsSrcMappings.creationDate = this.datePipe
+                        .transform(dataViewsSrcMappings.creationDate, 'yyyy-MM-ddThh:mm');
+                    dataViewsSrcMappings.lastUpdatedDate = this.datePipe
+                        .transform(dataViewsSrcMappings.lastUpdatedDate, 'yyyy-MM-ddThh:mm');
+                    this.ngbModalRef = this.dataViewsSrcMappingsModalRef(component, dataViewsSrcMappings);
+                    resolve(this.ngbModalRef);
+                });
+            } else {
+                // setTimeout used as a workaround for getting ExpressionChangedAfterItHasBeenCheckedError
+                setTimeout(() => {
+                    this.ngbModalRef = this.dataViewsSrcMappingsModalRef(component, new DataViewsSrcMappings());
+                    resolve(this.ngbModalRef);
+                }, 0);
+            }
+        });
+    }
+
+    dataViewsSrcMappingsModalRef(component: Component, dataViewsSrcMappings: DataViewsSrcMappings): NgbModalRef {
+        const modalRef = this.modalService.open(component, { size: 'lg', backdrop: 'static'});
+        modalRef.componentInstance.dataViewsSrcMappings = dataViewsSrcMappings;
+        modalRef.result.then((result) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        }, (reason) => {
+            this.router.navigate([{ outlets: { popup: null }}], { replaceUrl: true });
+            this.ngbModalRef = null;
+        });
+        return modalRef;
+    }
+}

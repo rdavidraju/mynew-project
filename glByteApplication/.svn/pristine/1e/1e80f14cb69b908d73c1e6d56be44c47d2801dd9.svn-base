@@ -1,0 +1,91 @@
+package com.nspl.app.repository;
+
+import com.nspl.app.domain.JobDetails;
+import com.nspl.app.domain.NotificationBatch;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
+
+import java.math.BigInteger;
+import java.util.List;
+
+/**
+ * Spring Data JPA repository for the NotificationBatch entity.
+ */
+@SuppressWarnings("unused")
+public interface NotificationBatchRepository extends JpaRepository<NotificationBatch,Long> {
+
+	
+	List<NotificationBatch> findByTenantIdAndCurrentApproverOrderById(
+			Long tenantId, Long userId);
+
+	@Query(value="select * from t_notification_batch where tenant_id= :tenantId and current_approver in(:resourceList) and module in(:moduleList) and process_instance_id!=0 order by id desc",nativeQuery=true)
+	List<NotificationBatch> fetchByTenantIdAndModuleAndCurrentApproverInOrderByIdDesc(
+			@Param(value ="tenantId") Long tenantId , @Param(value ="resourceList")  List<Long> resourceList, @Param(value ="moduleList") List<String> moduleList);
+
+	List<NotificationBatch> findByParentBatch(Long notificationId);
+
+	List<NotificationBatch> findByTenantIdAndStatusAndCurrentApproverOrderById(
+			Long tenantId, String string, Long userId);
+	
+	@Query(value="select * from t_notification_batch where tenant_id= :tenantId and status= :status and current_approver in(:resourceList) and module in(:moduleList) and process_instance_id!=0 order by id desc",nativeQuery=true)
+	List<NotificationBatch> fetchByTenantIdAndStatusAndModuleAndCurrentApproverInOrderByIdDesc(
+			@Param(value ="tenantId")  Long tenantId, @Param(value ="status")  String status, @Param(value ="resourceList")  List<Long> resourceList, @Param(value ="moduleList") List<String> moduleList);
+
+	Page<NotificationBatch> findByTenantIdAndStatusAndCurrentApproverOrderById(
+			Long tenantId, String string, Long userId,
+			Pageable generatePageRequest2);
+	
+	Page<NotificationBatch> findByTenantIdAndStatusAndModuleInAndCurrentApproverInOrderById(
+			Long tenantId, String status, List<String> moduleList, List<Long> userIdList,
+			Pageable generatePageRequest2);
+
+
+
+	Page<NotificationBatch> findByTenantIdAndCurrentApproverOrderById(
+			Long tenantId, Long userId, Pageable generatePageRequest2);
+	
+	Page<NotificationBatch> findByTenantIdAndModuleInAndCurrentApproverInOrderById(
+			Long tenantId, List<String> moduleList, List<Long> userId, Pageable generatePageRequest2);
+
+	List<NotificationBatch> findByTenantIdAndParentBatch(Long tenantId, Long i);
+
+	Page<NotificationBatch> findByTenantIdAndParentBatch(Long tenantId, long l,
+			Pageable generatePageRequest2);
+
+	
+	@Query(value="select * from t_notification_batch where process_instance_id =:processId and parent_batch!=0",nativeQuery=true)
+	List<NotificationBatch> findByProcessInstanceIdAndParentIdNotZero(
+			@Param(value ="processId") Long processId);
+
+	NotificationBatch findByCurrentApproverAndProcessInstanceId(Long valueOf,
+			Long processId);
+
+	List<NotificationBatch> findByTenantIdAndParentBatchAndModuleIn(
+			Long tenantId, long l, List<String> module);
+
+	Page<NotificationBatch> findByTenantIdAndParentBatchAndModuleIn(
+			Long tenantId, long l, List<String> module, Pageable generatePageRequest2);
+
+	
+	@Query(value="select * from t_notification_batch where tenant_id= :tenantId and match(notification_name, module, status) against (:keyWord) limit :pageNumber, :limit",nativeQuery=true)
+	List<NotificationBatch> fetchRecordsWithKeyWord(@Param("tenantId") Long tenantId, @Param("keyWord") String keyWord, @Param("pageNumber") Long pageNumber, @Param("limit") Long limit);
+
+	@Query(value="select distinct(current_approver) from t_notification_batch where rule_group_id =:ruleGrpId and status='IN_PROCESS'",nativeQuery=true)
+	List<BigInteger> findCurrentApproversByRuleGroupId(@Param(value ="ruleGrpId") Long ruleGrpId);
+
+	List<NotificationBatch> findByCurrentApproverAndRuleGroupIdAndStatus(
+			long longValue, Long apprRuleGrpId, String string);
+
+	Page<NotificationBatch> findByTenantIdAndModuleInAndCurrentApproverInOrderByIdDesc(
+			Long tenantId, List<String> moduleList, List<Long> resourceList,
+			Pageable generatePageRequestWithSortColumn);
+
+	Page<NotificationBatch> findByTenantIdAndStatusAndModuleInAndCurrentApproverInOrderByIdDesc(
+			Long tenantId, String status, List<String> moduleList,
+			List<Long> resourceList, Pageable generatePageRequestWithSortColumn);
+
+	
+}

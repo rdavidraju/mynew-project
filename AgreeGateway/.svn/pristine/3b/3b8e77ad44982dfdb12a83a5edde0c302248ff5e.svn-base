@@ -1,0 +1,241 @@
+<div class="component-body">
+	<div class="botom-dotted-blue-border component-title">
+		<div class="col-md-8 col-sm-6 col-xs-6 pageTitle" style="padding-left: 0px">
+            <div class="row">
+                <div class="col-md-4">
+                    <h3>Lookup Code(s)</h3>
+                </div>
+                <div class="col-md-4">
+                    <angular2-multiselect [data]="lookupTypesDropDown" [(ngModel)]="lookupType" [settings]="dropdownSettings" (onSelect)="changeLookup()" name="lookupTypes"></angular2-multiselect>
+                    <!-- <md-select style="padding-top:13px" [(ngModel)]="lookupType" placeholder="Lookup Type" name="lookupTypes" (change)="loadAll(lookupType)">
+                        <md-option *ngFor="let col of lookupTypesList" [(value)]="col.lookUpType">{{ col.meaning }}</md-option>
+                    </md-select> -->
+                </div>
+            </div>
+		</div>
+		<div class="col-md-4 col-sm-6 col-xs-6 ftlSearch">
+			<button md-icon-button [routerLink]="['/look-up-code', {outlets: { 'content': ['look-up-code-new']}}]" class="pull-right  md-36" mdTooltip="Add new Lookup Code">
+				<md-icon>add</md-icon>
+			</button>
+			<button md-icon-button class="pull-right search-icon-body" mdTooltip="Search">
+				<md-icon>search</md-icon>
+			</button>
+			<md-input-container class="pull-right hidethis">
+                <input class="mySearchBox" mdInput #gb placeholder="What're we looking for?">
+            </md-input-container>
+		</div>
+	</div>
+    
+    <div style="text-align:right" class="show-hide-class">
+        <p-multiSelect [options]="columnOptions" [(ngModel)]="lookupCodesTableColumns" title="Show/Hide Columns">
+        </p-multiSelect>
+    </div>
+    <div class="dataTableEditIcon">
+        <p-dataTable [value]="lookUpCodes" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand" scrollable="true"
+            scrollHeight={{TemplatesHeight}} [responsive]="true" [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="10"
+            [editable]="true">
+    
+            <p-column field="lookUpCode" header="Lookup Code" styleClass="left" [style]="{'width':'200px'}" [sortable]="true">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <!-- <a [routerLink]="['/look-up-code', {outlets: {'content': [row['id']]+'/details'}}]">{{row[col.field]}}</a> -->
+                    <span>{{row[col.field]}}</span>
+                </ng-template>
+            </p-column>
+    
+            <p-column *ngFor="let col of lookupCodesTableColumns; let i = index" [style]="{'width':col.width,'text-align':col.align}"
+                [field]="col.field" [header]="col.header" [sortable]="true">
+            </p-column>
+    
+            <p-column field="activeStartDate" header="Start Date" styleClass="left" [style]="{'width':'200px'}" [sortable]="true">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    {{row[col.field] | date:'mediumDate'}}
+                </ng-template>
+            </p-column>
+            <p-column field="activeEndDate" header="End Date" styleClass="left" [style]="{'width':'200px'}" [sortable]="true">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    {{row[col.field] | date:'mediumDate'}}
+                </ng-template>
+            </p-column>
+    
+            <p-column [style]="{'width':'80px' }" field="enableFlag" header="Status" styleClass="text-center" styleClass="center" [sortable]="true">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <i *ngIf="row[col.field]==true" class="material-icons">check_circle</i>
+                    <i *ngIf="row[col.field]==false" class="material-icons" aria-hidden="true">error</i>
+                </ng-template>
+            </p-column>
+    
+            <p-column header="Action" styleClass="left" [style]="{'width':'80px'}" [sortable]="true" styleClass="text-center" styleClass="center">
+                <ng-template let-col let-row="rowData" let-i="rowIndex" pTemplate="body">
+                    <i class="material-icons hand editIcon" mdTooltip="Edit" (click)="editLookupCode(row, i)">mode_edit</i>
+                </ng-template>
+            </p-column>
+    
+        </p-dataTable>
+    </div>
+
+    <!-- Dialog - To Update Individual Lookup Code -->
+    <div class="dnd-usermgmt">
+        <div class="target-data">
+            <p-dialog header="Edit Lookup Code" [(visible)]="editLookupCodeDialog" [resizable]="true" [responsive]="true" [dismissableMask]="true" (onHide)="dialogHide()">
+                    <div class="table-responsive">
+                        <perfect-scrollbar style="max-height:300px;">
+                        <table class="table tableView basicTable">
+                            <thead>
+                                <tr>
+                                    <th>Meaning</th>
+                                    <th>Description</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="editLookUpCodeDetails.meaning" name="meaning" [ngModelOptions]="{standalone: true}">
+                                        </md-input-container>
+                                    </td>
+                                    <td>
+                                        <md-input-container>
+                                            <input mdInput [(ngModel)]="editLookUpCodeDetails.description" name="description" [ngModelOptions]="{standalone: true}">
+                                        </md-input-container>
+                                    </td>
+                                    <td>
+                                        <md-form-field>
+                                            <input mdInput [mdDatepicker]="valueStpicker" [(ngModel)]="editLookUpCodeDetails.activeStartDate" [max]="editLookUpCodeDetails.activeEndDate" name="activeStartDate" required [ngModelOptions]="{standalone: true}">
+                                            <md-datepicker-toggle mdSuffix [for]="valueStpicker"></md-datepicker-toggle>
+                                            <md-datepicker #valueStpicker></md-datepicker>
+                                        </md-form-field>
+                                    </td>
+                                    <td>
+                                        <md-form-field>
+                                            <input mdInput [mdDatepicker]="valueEdpicker" [min]="editLookUpCodeDetails.activeStartDate" [(ngModel)]="editLookUpCodeDetails.activeEndDate" name="activeEndDate" [ngModelOptions]="{standalone: true}">
+                                            <md-datepicker-toggle mdSuffix [for]="valueEdpicker"></md-datepicker-toggle>
+                                            <md-datepicker #valueEdpicker></md-datepicker>
+                                        </md-form-field>
+                                    </td>
+                                    <td>
+                                        <md-slide-toggle mdTooltip="Set status" [(ngModel)]="editLookUpCodeDetails.enableFlag" name="enableFlag"  [ngModelOptions]="{standalone: true}"></md-slide-toggle>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </perfect-scrollbar>
+                    </div>
+                <p-footer>
+                    <button type="button" pButton (click)="updateLookupCode()" label="Update"></button>
+                </p-footer>
+            </p-dialog>
+        </div>
+    </div>
+</div>
+
+
+<!-- <div>
+    <h2>
+        <span jhiTranslate="agreeGatewayApp.lookUpCode.home.title">Look Up Codes</span>
+        <button class="btn btn-primary float-right jh-create-entity create-look-up-code" [routerLink]="['/', { outlets: { popup: ['look-up-code-new'] } }]">
+            <span class="fa fa-plus"></span>
+            <span class="hidden-sm-down"  jhiTranslate="agreeGatewayApp.lookUpCode.home.createLabel">
+            Create new Look Up Code
+            </span>
+        </button>
+    </h2>
+    <jhi-alert></jhi-alert>
+    <div class="row">
+        <div class="col-sm-12">
+            <form name="searchForm" class="form-inline">
+                <div class="input-group w-100 mt-3">
+                    <input type="text" class="form-control" [(ngModel)]="currentSearch" id="currentSearch" name="currentSearch" placeholder="{{ 'agreeGatewayApp.lookUpCode.home.search' | translate }}">
+                    <button class="input-group-addon btn btn-info" (click)="search(currentSearch)">
+                        <span class="fa fa-search"></span>
+                    </button>
+                    <button class="input-group-addon btn btn-danger" (click)="clear()" *ngIf="currentSearch">
+                        <span class="fa fa-trash-o"></span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <br/>
+    <div class="table-responsive" *ngIf="lookUpCodes">
+        <table class="table table-striped">
+            <thead>
+            <tr jhiSort [(predicate)]="predicate" [(ascending)]="reverse" [callback]="transition.bind(this)">
+            <th jhiSortBy="id"><span jhiTranslate="global.field.id">ID</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="tenantId"><span jhiTranslate="agreeGatewayApp.lookUpCode.tenantId">Tenant Id</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lookUpCode"><span jhiTranslate="agreeGatewayApp.lookUpCode.lookUpCode">Look Up Code</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lookUpType"><span jhiTranslate="agreeGatewayApp.lookUpCode.lookUpType">Look Up Type</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="meaning"><span jhiTranslate="agreeGatewayApp.lookUpCode.meaning">Meaning</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="description"><span jhiTranslate="agreeGatewayApp.lookUpCode.description">Description</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="enableFlag"><span jhiTranslate="agreeGatewayApp.lookUpCode.enableFlag">Enable Flag</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="activeStartDate"><span jhiTranslate="agreeGatewayApp.lookUpCode.activeStartDate">Active Start Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="activeEndDate"><span jhiTranslate="agreeGatewayApp.lookUpCode.activeEndDate">Active End Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="secureAttribute1"><span jhiTranslate="agreeGatewayApp.lookUpCode.secureAttribute1">Secure Attribute 1</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="secureAttribute2"><span jhiTranslate="agreeGatewayApp.lookUpCode.secureAttribute2">Secure Attribute 2</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="secureAttribute3"><span jhiTranslate="agreeGatewayApp.lookUpCode.secureAttribute3">Secure Attribute 3</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="createdBy"><span jhiTranslate="agreeGatewayApp.lookUpCode.createdBy">Created By</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="creationDate"><span jhiTranslate="agreeGatewayApp.lookUpCode.creationDate">Creation Date</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lastUpdatedBy"><span jhiTranslate="agreeGatewayApp.lookUpCode.lastUpdatedBy">Last Updated By</span> <span class="fa fa-sort"></span></th>
+            <th jhiSortBy="lastUpdatedDate"><span jhiTranslate="agreeGatewayApp.lookUpCode.lastUpdatedDate">Last Updated Date</span> <span class="fa fa-sort"></span></th>
+            <th></th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr *ngFor="let lookUpCode of lookUpCodes ;trackBy: trackId">
+                <td><a [routerLink]="['../look-up-code', lookUpCode.id ]">{{lookUpCode.id}}</a></td>
+                <td>{{lookUpCode.tenantId}}</td>
+                <td>{{lookUpCode.lookUpCode}}</td>
+                <td>{{lookUpCode.lookUpType}}</td>
+                <td>{{lookUpCode.meaning}}</td>
+                <td>{{lookUpCode.description}}</td>
+                <td>{{lookUpCode.enableFlag}}</td>
+                <td>{{lookUpCode.activeStartDate | date:'mediumDate'}}</td>
+                <td>{{lookUpCode.activeEndDate | date:'mediumDate'}}</td>
+                <td>{{lookUpCode.secureAttribute1}}</td>
+                <td>{{lookUpCode.secureAttribute2}}</td>
+                <td>{{lookUpCode.secureAttribute3}}</td>
+                <td>{{lookUpCode.createdBy}}</td>
+                <td>{{lookUpCode.creationDate | date:'medium'}}</td>
+                <td>{{lookUpCode.lastUpdatedBy}}</td>
+                <td>{{lookUpCode.lastUpdatedDate | date:'medium'}}</td>
+                <td class="text-right">
+                    <div class="btn-group flex-btn-group-container">
+                        <button type="submit"
+                                [routerLink]="['../look-up-code', lookUpCode.id ]"
+                                class="btn btn-info btn-sm">
+                            <span class="fa fa-eye"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.view">View</span>
+                        </button>
+                        <button type="submit"
+                                [routerLink]="['/', { outlets: { popup: 'look-up-code/'+ lookUpCode.id + '/edit'} }]"
+                                replaceUrl="true"
+                                class="btn btn-primary btn-sm">
+                            <span class="fa fa-pencil"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.edit">Edit</span>
+                        </button>
+                        <button type="submit"
+                                [routerLink]="['/', { outlets: { popup: 'look-up-code/'+ lookUpCode.id + '/delete'} }]"
+                                replaceUrl="true"
+                                class="btn btn-danger btn-sm">
+                            <span class="fa fa-remove"></span>
+                            <span class="hidden-md-down" jhiTranslate="entity.action.delete">Delete</span>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+        Pager is not implemented yet, so this is normal pagination instead
+        <div *ngIf="lookUpCodes && lookUpCodes.length">
+            <div class="row justify-content-center">
+                <jhi-item-count [page]="page" [total]="queryCount" [itemsPerPage]="itemsPerPage"></jhi-item-count>
+            </div>
+            <div class="row justify-content-center">
+                <ngb-pagination [collectionSize]="totalItems" [(page)]="page"  (pageChange)="loadPage(page)"></ngb-pagination>
+            </div>
+        </div>
+</div>
+ -->

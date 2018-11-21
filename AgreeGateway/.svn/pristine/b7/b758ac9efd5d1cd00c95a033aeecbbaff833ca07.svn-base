@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { DataViews } from './data-views.model';
+import { DataViewsPopupService } from './data-views-popup.service';
+import { DataViewsService } from './data-views.service';
+
+@Component({
+    selector: 'jhi-data-views-dialog',
+    templateUrl: './data-views-dialog.component.html'
+})
+export class DataViewsDialogComponent implements OnInit {
+
+    dataViews: DataViews;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private dataViewsService: DataViewsService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.dataViews.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.dataViewsService.update(this.dataViews));
+        } else {
+            this.subscribeToSaveResponse(
+                this.dataViewsService.create(this.dataViews));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<DataViews>) {
+        result.subscribe((res: DataViews) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: DataViews) {
+        this.eventManager.broadcast({ name: 'dataViewsListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-data-views-popup',
+    template: ''
+})
+export class DataViewsPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private dataViewsPopupService: DataViewsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.dataViewsPopupService
+                    .open(DataViewsDialogComponent as Component, params['id']);
+            } else {
+                this.dataViewsPopupService
+                    .open(DataViewsDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        //this.routeSub.unsubscribe();
+    }
+}

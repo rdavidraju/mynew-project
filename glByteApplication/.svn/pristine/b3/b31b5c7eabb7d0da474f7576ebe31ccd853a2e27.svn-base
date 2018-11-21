@@ -1,0 +1,179 @@
+package com.nspl.app.web.rest;
+
+import io.github.jhipster.web.util.ResponseUtil;
+import io.swagger.annotations.ApiParam;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.codahale.metrics.annotation.Timed;
+import com.nspl.app.domain.MappingSetValues;
+import com.nspl.app.repository.MappingSetValuesRepository;
+import com.nspl.app.service.UserJdbcService;
+import com.nspl.app.web.rest.util.HeaderUtil;
+import com.nspl.app.web.rest.util.PaginationUtil;
+
+/**
+ * REST controller for managing MappingSetValues.
+ */
+@RestController
+@RequestMapping("/api")
+public class MappingSetValuesResource {
+
+    private final Logger log = LoggerFactory.getLogger(MappingSetValuesResource.class);
+
+    private static final String ENTITY_NAME = "mappingSetValues";
+        
+    private final MappingSetValuesRepository mappingSetValuesRepository;
+    
+    @Inject
+    UserJdbcService userJdbcService;
+
+    public MappingSetValuesResource(MappingSetValuesRepository mappingSetValuesRepository) {
+        this.mappingSetValuesRepository = mappingSetValuesRepository;
+    }
+
+    /**
+     * POST  /mapping-set-values : Create a new mappingSetValues.
+     *
+     * @param mappingSetValues the mappingSetValues to create
+     * @return the ResponseEntity with status 201 (Created) and with body the new mappingSetValues, or with status 400 (Bad Request) if the mappingSetValues has already an ID
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PostMapping("/mapping-set-values")
+    @Timed
+    public ResponseEntity<MappingSetValues> createMappingSetValues(@RequestBody MappingSetValues mappingSetValues) throws URISyntaxException {
+        log.debug("REST request to save MappingSetValues : {}", mappingSetValues);
+        if (mappingSetValues.getId() != null) {
+            return ResponseEntity.badRequest().headers(HeaderUtil.createFailureAlert(ENTITY_NAME, "idexists", "A new mappingSetValues cannot already have an ID")).body(null);
+        }
+        MappingSetValues result = mappingSetValuesRepository.save(mappingSetValues);
+        return ResponseEntity.created(new URI("/api/mapping-set-values/" + result.getId()))
+            .headers(HeaderUtil.createEntityCreationAlert(ENTITY_NAME, result.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * PUT  /mapping-set-values : Updates an existing mappingSetValues.
+     *
+     * @param mappingSetValues the mappingSetValues to update
+     * @return the ResponseEntity with status 200 (OK) and with body the updated mappingSetValues,
+     * or with status 400 (Bad Request) if the mappingSetValues is not valid,
+     * or with status 500 (Internal Server Error) if the mappingSetValues couldnt be updated
+     * @throws URISyntaxException if the Location URI syntax is incorrect
+     */
+    @PutMapping("/mapping-set-values")
+    @Timed
+    public ResponseEntity<MappingSetValues> updateMappingSetValues(@RequestBody MappingSetValues mappingSetValues) throws URISyntaxException {
+        log.debug("REST request to update MappingSetValues : {}", mappingSetValues);
+        if (mappingSetValues.getId() == null) {
+            return createMappingSetValues(mappingSetValues);
+        }
+        MappingSetValues result = mappingSetValuesRepository.save(mappingSetValues);
+        return ResponseEntity.ok()
+            .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, mappingSetValues.getId().toString()))
+            .body(result);
+    }
+
+    /**
+     * GET  /mapping-set-values : get all the mappingSetValues.
+     *
+     * @param pageable the pagination information
+     * @return the ResponseEntity with status 200 (OK) and the list of mappingSetValues in body
+     */
+    @GetMapping("/mapping-set-values")
+    @Timed
+    public ResponseEntity<List<MappingSetValues>> getAllMappingSetValues(@ApiParam Pageable pageable) {
+        log.debug("REST request to get a page of MappingSetValues");
+        Page<MappingSetValues> page = mappingSetValuesRepository.findAll(pageable);
+        HttpHeaders headers = PaginationUtil.generatePaginationHttpHeaders(page, "/api/mapping-set-values");
+        return new ResponseEntity<>(page.getContent(), headers, HttpStatus.OK);
+    }
+
+    /**
+     * GET  /mapping-set-values/:id : get the "id" mappingSetValues.
+     *
+     * @param id the id of the mappingSetValues to retrieve
+     * @return the ResponseEntity with status 200 (OK) and with body the mappingSetValues, or with status 404 (Not Found)
+     */
+    @GetMapping("/mapping-set-values/{id}")
+    @Timed
+    public ResponseEntity<MappingSetValues> getMappingSetValues(@PathVariable Long id) {
+        log.debug("REST request to get MappingSetValues : {}", id);
+        MappingSetValues mappingSetValues = mappingSetValuesRepository.findOne(id);
+        return ResponseUtil.wrapOrNotFound(Optional.ofNullable(mappingSetValues));
+    }
+
+    /**
+     * DELETE  /mapping-set-values/:id : delete the "id" mappingSetValues.
+     *
+     * @param id the id of the mappingSetValues to delete
+     * @return the ResponseEntity with status 200 (OK)
+     */
+    @DeleteMapping("/mapping-set-values/{id}")
+    @Timed
+    public ResponseEntity<Void> deleteMappingSetValues(@PathVariable Long id) {
+        log.debug("REST request to delete MappingSetValues : {}", id);
+        mappingSetValuesRepository.delete(id);
+        return ResponseEntity.ok().headers(HeaderUtil.createEntityDeletionAlert(ENTITY_NAME, id.toString())).build();
+    }
+    
+    /**
+     * Author: Shiva
+     * Description:Create or Updating Mapping Set Values Information
+     * @param MappingSet, tenantId, userId
+     */
+    @PutMapping("/createOrUpdateMappingSetValues")
+    @Timed
+    public ResponseEntity<MappingSetValues> createOrUpdateMappingSetValues(HttpServletRequest request,@RequestBody MappingSetValues mappingSetValues) throws URISyntaxException {
+    	HashMap map=userJdbcService.getuserInfoFromToken(request);
+      	Long userId=Long.parseLong(map.get("userId").toString());
+        log.debug("REST request to update MappingSetValues : {}", mappingSetValues);
+        if (mappingSetValues.getId() == null) {	// Creating new record
+        	mappingSetValues.setCreatedBy(userId);
+        	mappingSetValues.setLastUpdatedBy(userId);
+        	mappingSetValues.setCreatedDate(ZonedDateTime.now());
+        	mappingSetValues.setLastUpdatedDate(ZonedDateTime.now());
+        	mappingSetValues.setStartDate(mappingSetValues.getStartDate());
+        	if(mappingSetValues.getEndDate()!=null)
+        	mappingSetValues.setEndDate(mappingSetValues.getEndDate());
+            return createMappingSetValues(mappingSetValues);
+        }
+        else
+        {
+        	mappingSetValues.setLastUpdatedBy(userId);
+        	mappingSetValues.setLastUpdatedDate(ZonedDateTime.now());
+        	mappingSetValues.setStartDate(mappingSetValues.getStartDate());
+        	if(mappingSetValues.getEndDate()!=null)
+        	mappingSetValues.setEndDate(mappingSetValues.getEndDate());
+            MappingSetValues result = mappingSetValuesRepository.save(mappingSetValues);
+            return ResponseEntity.ok()
+                .headers(HeaderUtil.createEntityUpdateAlert(ENTITY_NAME, mappingSetValues.getId().toString()))
+                .body(result);
+        }
+    }
+}

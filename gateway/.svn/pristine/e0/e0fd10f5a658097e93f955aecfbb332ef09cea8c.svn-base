@@ -1,0 +1,287 @@
+import { Injectable } from '@angular/core';
+import { Http, Headers, Response, RequestOptions, URLSearchParams, BaseRequestOptions, ResponseContentType } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+import { JournalsHeaderData } from './journals-header-data.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class JournalsHeaderDataService {
+
+    private resourceUrl = 'agreeapplication/api/journals-header-data';
+    private resourceSearchUrl = 'agreeapplication/api/_search/journals-header-data';
+    private lookUpUrl = 'agreeapplication/api/lookupCodesAndMeaning';
+    private mappingSetsUrl = 'agreeapplication/api/mapping-sets';
+   // private UserData = this.$sessionStorage.retrieve('userData');
+    private getJournalsListUrl = 'agreeapplication/api/getJournalsTemplateDetails';
+    private postingTemplateDetailsUrl = 'agreeapplication/api/postingTemplateDetails';
+    private getJournalsDetailsUrl = 'agreeapplication/api/getTemplateDetails';
+    private getBatchJournalsListUrl = 'agreeapplication/api/getBatchDetailsByTenantId';
+    private getBatchJournalsDetailsListUrl = 'agreeapplication/api/getJournalsResult';
+    private sideBarAPIForJournalHeaderUrl = 'agreeapplication/api/sideBarAPIForJournalHeader';
+    private LedgerAndPeriodListUrl = 'agreeapplication/api/LedgerAndPeriodList';
+    private journalHeaderGroupedInfoUrl = 'agreeapplication/api/journalHeaderGroupedInfo';
+    private journalHeaderDetailOrSummaryInfoUrl = 'agreeapplication/api/journalHeaderDetailOrSummaryInfo';
+    private reverseFunctionalityUrl = 'agreeapplication/api/reverseFunctionality';
+    private generateJQETempUrl = 'agreeapplication/api/generateJQETemp';
+    private getListOfJQETempUrl = 'agreeapplication/api/distincttemplateNames';
+    private getJeLineDetailsViewsUrl = 'agreeapplication/api/accountingDrillDown';
+    private getJEHeaderExcelUrl = 'agreeapplication/api/journalHeaderGroupedInfoExcel';
+    private jobIntiateForAcctAndRecUrl = "agreeapplication/api/jobIntiateForAcctAndRec"
+    /* jobIntiateForAcctAndRec?tenantId=8&userId=8&progType=Journals */
+    //journalHeaderGroupedInfoExcel?tenantId=11
+    constructor(private http: Http, private dateUtils: JhiDateUtils,
+        private $sessionStorage: SessionStorageService) { }
+
+    create(journalsHeaderData: JournalsHeaderData): Observable<JournalsHeaderData> {
+        const copy = this.convert(journalsHeaderData);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(journalsHeaderData: JournalsHeaderData): Observable<JournalsHeaderData> {
+        const copy = this.convert(journalsHeaderData);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.startDate = this.dateUtils
+            .convertLocalDateFromServer(entity.startDate);
+        entity.endDate = this.dateUtils
+            .convertLocalDateFromServer(entity.endDate);
+        entity.jeBatchDate = this.dateUtils
+            .convertLocalDateFromServer(entity.jeBatchDate);
+        entity.glDate = this.dateUtils
+            .convertLocalDateFromServer(entity.glDate);
+        entity.runDate = this.dateUtils
+            .convertLocalDateFromServer(entity.runDate);
+        entity.createdDate = this.dateUtils
+            .convertDateTimeFromServer(entity.createdDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(journalsHeaderData: JournalsHeaderData): JournalsHeaderData {
+        const copy: JournalsHeaderData = Object.assign({}, journalsHeaderData);
+        copy.jeBatchDate = this.dateUtils
+            .convertLocalDateToServer(journalsHeaderData.jeBatchDate);
+        copy.glDate = this.dateUtils
+            .convertLocalDateToServer(journalsHeaderData.glDate);
+        copy.runDate = this.dateUtils
+            .convertLocalDateToServer(journalsHeaderData.runDate);
+
+        copy.createdDate = this.dateUtils.toDate(journalsHeaderData.createdDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(journalsHeaderData.lastUpdatedDate);
+        return copy;
+    }
+    getLookUps(code: any): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.lookUpUrl}/${code}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    getmappingSets(): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.mappingSetsUrl}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /* Service to get Journals List */
+    journalsList(): Observable<Response> {
+        return this.http.get(`${this.getJournalsListUrl}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            // console.log('journals List from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    /* Service to get Batch Journals List */
+    journalsBatchList(): Observable<Response> {
+        return this.http.get(`${this.getBatchJournalsListUrl}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            // console.log('journals List from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    /* Service to post journals details*/
+    postJournalsHeaderData(journalsHeaderData: JournalsHeaderData): Observable<JournalsHeaderData> {
+        return this.http.post(`${this.postingTemplateDetailsUrl}`, journalsHeaderData).map((res: Response) => {
+            return res.json();
+        });
+    }
+    /* Service to get journal details by id */
+    getJournalsById(id: number): Observable<JournalsHeaderData> {
+        return this.http.get(`${this.getJournalsDetailsUrl}&templateId=${id}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            jsonResponse.startDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse.startDate);
+            jsonResponse.endDate = this.dateUtils
+                .convertLocalDateFromServer(jsonResponse.endDate);
+            //console.log('fetch : ' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    /* Service to get Batch Journals List */
+    getBatchDetailsId(id: any): Observable<Response> {
+        return this.http.get(`${this.getBatchJournalsDetailsListUrl}?journalHeaderId=${id}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            // console.log('journals List from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    getJournalsSideBar(): Observable<Response> {
+        //sideBarAPIForJournalHeader?tableName=JournalsHeaderData&columnName=jeTempId&tenantId=9&parentTableName=TemplateDetails&parentColumnName=templateName
+        return this.http.get(`${this.sideBarAPIForJournalHeaderUrl}?tableName=JournalsHeaderData&columnName=jeTempId&parentTableName=TemplateDetails&parentColumnName=templateName`).map((res: Response) => {
+            let jsonResponse = res.json();
+            // console.log('journals List from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+        });
+    }
+
+    getLedgerAndPeriodList(jeId?: any): Observable<Response> {
+        //console.log('jeId ' + jeId);
+        if (jeId) {
+            return this.http.get(`${this.LedgerAndPeriodListUrl}?jeTempId=${jeId}`).map((res: Response) => {
+                //console.log('jeId ' + JSON.stringify(res.json()));
+                let jsonResponse = res.json();
+                //console.log('this.periodsList ::' + JSON.stringify(res.json()));
+                //console.log('this.ledgersList ::' + JSON.stringify(res.json()));
+                return jsonResponse;
+            });
+        } else {
+            return this.http.get(`${this.LedgerAndPeriodListUrl}`).map((res: Response) => {
+                //console.log('njeId ' + JSON.stringify(res.json()));
+                let jsonResponse = res.json();
+                //console.log('this.periodsList1 ::' + JSON.stringify(res.json()));
+                //console.log('this.ledgersList1 ::' + JSON.stringify(res.json()));
+                return jsonResponse;
+            });
+        }
+    }
+
+    getJournalHeaderGroupedInfo(data: any,pageNumber:any,pageSize:any) {
+        //console.log('data ' + JSON.stringify(data));
+        //console.log('pageNumber ' + pageNumber);
+        //console.log('pageSize ' + pageSize);
+        if (data.jeTempId == 'ALL') {
+            delete data.jeTempId;
+        }//&pageNumber=1&pageSize=20
+        return this.http.post(`${this.journalHeaderGroupedInfoUrl}?pageNumber=${pageNumber}&pageSize=${pageSize}`, data).map((res: Response) => {
+            return res;
+        });
+    }
+    //journalHeaderDetailOrSummaryInfo?batchId=1&desc=details
+    getJournalHeaderDetailOrSummaryInfo(batchId: any, page: number, per_page: number, desc?: any) {
+        //console.log('batchId ' + batchId + ' page ' + page + ' per_page ' + per_page + ' desc ' + desc);
+        if (desc) {
+            return this.http.post(`${this.journalHeaderDetailOrSummaryInfoUrl}?page=${page}&size=${per_page}&batchId=${batchId}&desc=${desc}`, {}).map((res: Response) => {
+                return res;
+            });
+        } else {
+            return this.http.post(`${this.journalHeaderDetailOrSummaryInfoUrl}?page=${page}&size=${per_page}&batchId=${batchId}`, {}).map((res: Response) => {
+                return res;
+            });
+        }
+    }
+
+    getReverseFunctionality(batchId: any, type: any): Observable<Response> {
+        //console.log('batchId ' + batchId + ' type ' + type);
+        return this.http.get(`${this.reverseFunctionalityUrl}?jeBatchId=${batchId}&functionality=${type}`).map((res: Response) => {
+            // console.log('batchId ' + JSON.stringify(res.json()));
+            let jsonResponse = res;
+            return jsonResponse;
+        });
+    }
+    //generateJQETemp?batchId=1&desc=details
+
+    generateJQETempExcel(batchId: any, type: any, desc?: any) {
+        return this.http.post(`${this.generateJQETempUrl}?batchId=${batchId}${desc ? `&desc=${desc}` : ''}&fileType=${type}`, {},{ responseType: ResponseContentType.Blob }).map((res: Response) => {
+            return res;
+        });
+    }
+
+    /* Service to download excel */
+
+     generateJournalBatchExcel(obj:any,batchName:any,type:any) {
+        //  console.log('JEBATCH ' + JSON.stringify(obj));
+            /* return this.http.post(`${this.getJEHeaderExcelUrl}?tenantId=${this.UserData.tenantId}'?batchName='${batchName}`, {obj}).map((res: Response) => {
+                return res.json();
+            }); *///journalHeaderGroupedInfoExcel?batchName=JournalBatches&tenantId=7
+            return this.http.post(`${this.getJEHeaderExcelUrl}?batchName=${batchName}&fileType=${type}`, obj,{ responseType: ResponseContentType.Blob }).map((res: Response) => {
+                return res;
+            });
+    } 
+
+    //distincttemplateNames?tenantId=10
+
+    getJETempList(): Observable<Response> {
+        return this.http.get(`${this.getListOfJQETempUrl}`).map((res: Response) => {
+            let jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /**Get JE Line Details Views */
+    getJeLineDetailsViews(batchId,page,perPage,jeLines){
+        return this.http.post(this.getJeLineDetailsViewsUrl+'?batchId='+batchId+'&page='+page+'&per_page='+perPage,jeLines).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /* Service to run journals Job */
+    postJEJob(obj:any) {
+        //console.log('JEBATCH ' + JSON.stringify(obj));
+        return this.http.post(this.jobIntiateForAcctAndRecUrl+'?progType=Journals', obj).map((res: Response) => {
+            return res.json();
+        });
+    } 
+
+    /* private jobIntiateForAcctAndRecUrl = "agreeapplication/api/jobIntiateForAcctAndRec" */
+    /* jobIntiateForAcctAndRec?tenantId=8&userId=8&progType=Journals */
+}

@@ -1,0 +1,53 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+
+import { SourceProfileUsages } from './source-profile-usages.model';
+import { SourceProfileUsagesService } from './source-profile-usages.service';
+
+@Component({
+    selector: 'jhi-source-profile-usages-detail',
+    templateUrl: './source-profile-usages-detail.component.html'
+})
+export class SourceProfileUsagesDetailComponent implements OnInit, OnDestroy {
+
+    sourceProfileUsages: SourceProfileUsages;
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+
+    constructor(
+        private eventManager: JhiEventManager,
+        private sourceProfileUsagesService: SourceProfileUsagesService,
+        private route: ActivatedRoute
+    ) {
+    }
+
+    ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInSourceProfileUsages();
+    }
+
+    load(id) {
+        this.sourceProfileUsagesService.find(id).subscribe((sourceProfileUsages) => {
+            this.sourceProfileUsages = sourceProfileUsages;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInSourceProfileUsages() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'sourceProfileUsagesListModification',
+            (response) => this.load(this.sourceProfileUsages.id)
+        );
+    }
+}

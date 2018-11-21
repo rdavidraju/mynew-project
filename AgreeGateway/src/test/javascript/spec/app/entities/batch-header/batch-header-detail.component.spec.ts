@@ -1,0 +1,62 @@
+// /* tslint:disable max-line-length */
+// import { ComponentFixture, TestBed, async, inject } from '@angular/core/testing';
+// import { OnInit } from '@angular/core';
+// import { DatePipe } from '@angular/common';
+// import { ActivatedRoute } from '@angular/router';
+// import { Observable } from 'rxjs/Rx';
+// import { JhiDateUtils, JhiDataUtils, JhiEventManager } from 'ng-jhipster';
+// import { AgreeGatewayV1TestModule } from '../../../test.module';
+// import { MockActivatedRoute } from '../../../helpers/mock-route.service';
+// //import { BatchHeaderDetailComponent } from '../../../../../../main/webapp/app/entities/batch-header/batch-header-detail.component';
+// //mport { BatchHeaderService } from '../../../../../../main/webapp/app/entities/batch-header/batch-header.service';
+// //import { BatchHeader } from '../../../../../../main/webapp/app/entities/batch-header/batch-header.model';
+
+// describe('Component Tests', () => {
+
+//     describe('BatchHeader Management Detail Component', () => {
+//         let comp: BatchHeaderDetailComponent;
+//         let fixture: ComponentFixture<BatchHeaderDetailComponent>;
+//         let service: BatchHeaderService;
+
+//         beforeEach(async(() => {
+//             TestBed.configureTestingModule({
+//                 imports: [AgreeGatewayV1TestModule],
+//                 declarations: [BatchHeaderDetailComponent],
+//                 providers: [
+//                     JhiDateUtils,
+//                     JhiDataUtils,
+//                     DatePipe,
+//                     {
+//                         provide: ActivatedRoute,
+//                         useValue: new MockActivatedRoute({id: 123})
+//                     },
+//                     BatchHeaderService,
+//                     JhiEventManager
+//                 ]
+//             }).overrideTemplate(BatchHeaderDetailComponent, '')
+//             .compileComponents();
+//         }));
+
+//         beforeEach(() => {
+//             fixture = TestBed.createComponent(BatchHeaderDetailComponent);
+//             comp = fixture.componentInstance;
+//             service = fixture.debugElement.injector.get(BatchHeaderService);
+//         });
+
+//         describe('OnInit', () => {
+//             it('Should call load all on init', () => {
+//             // GIVEN
+
+//             spyOn(service, 'find').and.returnValue(Observable.of(new BatchHeader(10)));
+
+//             // WHEN
+//             comp.ngOnInit();
+
+//             // THEN
+//             expect(service.find).toHaveBeenCalledWith(123);
+//             expect(comp.batchHeader).toEqual(jasmine.objectContaining({id: 10}));
+//             });
+//         });
+//     });
+
+// });

@@ -1,0 +1,103 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { MappingSetValues } from './mapping-set-values.model';
+import { MappingSetValuesPopupService } from './mapping-set-values-popup.service';
+import { MappingSetValuesService } from './mapping-set-values.service';
+
+@Component({
+    selector: 'jhi-mapping-set-values-dialog',
+    templateUrl: './mapping-set-values-dialog.component.html'
+})
+export class MappingSetValuesDialogComponent implements OnInit {
+
+    mappingSetValues: MappingSetValues;
+    isSaving: boolean;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private mappingSetValuesService: MappingSetValuesService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.mappingSetValues.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.mappingSetValuesService.update(this.mappingSetValues));
+        } else {
+            this.subscribeToSaveResponse(
+                this.mappingSetValuesService.create(this.mappingSetValues));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<MappingSetValues>) {
+        result.subscribe((res: MappingSetValues) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: MappingSetValues) {
+        this.eventManager.broadcast({ name: 'mappingSetValuesListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-mapping-set-values-popup',
+    template: ''
+})
+export class MappingSetValuesPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private mappingSetValuesPopupService: MappingSetValuesPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.mappingSetValuesPopupService
+                    .open(MappingSetValuesDialogComponent as Component, params['id']);
+            } else {
+                this.mappingSetValuesPopupService
+                    .open(MappingSetValuesDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}

@@ -1,0 +1,490 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService } from 'ng-jhipster';
+import { FormGroup, FormControl } from '@angular/forms';
+import { Reports, ReportColsInfo } from './reports.model';
+import { ReportsService } from './reports.service';
+import { ITEMS_PER_PAGE, Principal, ResponseWrapper, ChartData } from '../../shared';
+import { LookUpCode } from '../look-up-code/look-up-code.model';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import {Observable} from 'rxjs/Observable';
+import { PageEvent } from '@angular/material';
+import 'rxjs/add/operator/startWith';
+import 'rxjs/add/operator/map';
+
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+import 'pivottable/dist/pivot.min.js';
+declare var $:any;
+declare var jQuery: any;
+ 
+@Component({
+    selector: 'jhi-run-reports',
+    templateUrl: './run-reports.component.html'
+})
+export class RunReportsComponent implements OnInit, OnDestroy {
+    reportsList: Reports[]=[];
+    processing: boolean = true;
+    currentAccount: any;
+    eventSubscriber: Subscription;
+    currentSearch: string;
+    selectedReportId: string;
+    reportType: string;
+    selectedItems=[];
+    showReportOutput: boolean = false;
+    checked: boolean = false;
+    showTabular: boolean = false;
+    showPivot: boolean = false;
+    showChart: boolean = false;
+    expandRptParams: boolean = false;
+    showAllDD: boolean = false;
+    reportMode: string;
+    accountedMode: string;
+    limitSelectionSettings = {
+        text: "You can select multiple",
+        selectAllText: 'Select All',
+        unSelectAllText: 'UnSelect All',
+        enableSearchFilter: true,
+        badgeShowLimit: 2
+    };
+    
+    multiSelectionSettingsCharts = {
+        text: "You can select multiple",
+        selectAllText: 'Select All',
+        unSelectAllText: 'UnSelect All',
+        enableSearchFilter: true,
+        limitSelection: 1,
+        badgeShowLimit: 2
+    };
+    
+    reportsTableColumns = [];
+    drilldownTableColumns = [];
+    columnOptions: any[]=[];
+    reportInfo = new ReportColsInfo();
+    reportResult: any[]=[];
+    pvtReportResult: any[]=[];
+    chartResult: ChartData = new ChartData();
+    ddChartResult: ChartData = new ChartData();
+    selectedRows: any[]=[];
+    
+    length: number;
+    pageSize: number;
+    pageSizeOptions = [5, 10, 25, 100];
+    pageEvent: PageEvent = new PageEvent();
+    reportOutput: LookUpCode[] =[];
+    chartTypes: LookUpCode[] =[];
+    reportAllCols: Reports = new Reports();
+    
+    multiSelCols: any[]=[];
+    multiSelRows: any[]=[];
+    singleSelCol: any;
+    rptValCol: any;
+    chartType: string;
+    fnlObj;
+    showDrilldown: boolean = false;
+    drilldownResult: any[]=[];
+    
+    chartOptions = {
+      responsive: false,
+      maintainAspectRatio: false
+    }
+    
+    chartColors = [  "#E7E9ED",
+                    "#FF6384",
+                    "#4BC0C0",
+                    "#FFCE56",
+                    "#36A2EB"
+                ];
+//    sectionHeight:any;
+//    sectionSelectHeight:any;
+    constructor(
+        private reportsService: ReportsService,
+        private eventManager: JhiEventManager,
+        private activatedRoute: ActivatedRoute,
+        private principal: Principal
+    ) {
+        this.pageSize = ITEMS_PER_PAGE;
+        this.pageEvent.pageIndex = 0;
+        this.pageEvent.pageSize = this.pageSize;
+        this.reportsService.getLookupValues('REPORT_OUTPUT_TYPE').subscribe((res: LookUpCode[])=>{
+            this.reportOutput = res;
+        });
+        this.reportsService.getLookupValues('CHART_TYPE').subscribe((res: LookUpCode[])=>{
+            this.chartTypes = res;
+        });
+    }
+    ngOnInit() {
+//        this.sectionHeight = parseInt($('.section-1').outerWidth());
+//        this.sectionSelectHeight = (this.sectionHeight - 20)+'px';
+//        console.log('section width:'+this.sectionSelectHeight );
+//        $('.cuppa-dropdown').css('width',this.sectionSelectHeight);
+        
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        this.processing = true;
+        this.reportsService.getAllReportsList().subscribe((res: any)=>{
+            this.reportsList = res;
+            this.processing = false;
+        })
+    }
+
+    ngOnDestroy() {
+       
+    }
+    
+    getPivotData() {
+          
+    }
+    
+    reportSelected(reportId: number) {
+        this.reportInfo = new ReportColsInfo();
+        this.reportsService.getReportFieldsInfo(reportId).subscribe((res: ReportColsInfo) => {
+            this.reportInfo = res;
+            this.reportInfo.outputType = 'TABLE';
+            this.reportMode = res.reportMode;
+            this.accountedMode = res.accVal;
+            this.reportInfo.fields.forEach(item => {
+                let newValueList = [];
+                if (item.fieldType == 'MULTI_SELECT_LOV') {
+                    for (var i = 0; i < item.fieldValuesList.length; i++) {
+                        newValueList.push({
+                            "id": i,
+                            "itemName": item.fieldValuesList[i],
+                            "dataName": item.fieldValuesList[i]
+                        })
+                    }
+                    item.fieldValuesList = newValueList;
+                    item.selectedValue = [];
+                }
+                this.expandRptParams=true;
+            })
+        })
+    }
+
+    myFun(){
+        
+    }
+    
+    outputTypeChanged(){
+        if(this.reportInfo.outputType != 'TABLE'){
+            this.reportAllCols = new Reports();
+            this.reportsService.getReportDefinition(this.selectedReportId).subscribe((res: Reports)=>{
+                this.reportAllCols = res;
+                this.multiSelRows = [];
+                this.multiSelCols = [];
+                this.reportAllCols.columnsDefinition.forEach(item=>{
+                    this.multiSelCols.push({
+                        "id": item.ColumnId,
+                        "itemName": item.userDisplayColName,
+                        "dataName": item.columnDisplayName
+                    });
+                })
+                switch(this.reportInfo.outputType){
+                    case 'PIVOT': 
+                        this.reportInfo.groupingCols=[];
+                        this.reportInfo.columnCols=[];
+                        this.reportInfo.valueCols=[]
+                    break;
+                    case 'CHART': 
+                        this.reportInfo.chartType = 'BAR';
+                    break;
+                }
+            })
+        }
+    }
+    
+    changed(){
+        console.log('Changed');
+    }
+    
+    onPeriodChange(event: any){
+        console.log(event);    
+    }
+    
+    selectData(event: any){
+        console.log(event);
+        console.log(this.chartResult.datasets);
+        console.log(this.chartResult.datasets[event.element._datasetIndex].data[event.element._index]);
+    }
+    
+    runReport() {
+        this.fnlObj = jQuery.extend(true, {}, this.reportInfo);
+        this.fnlObj.fields.forEach(item => {
+            if (item.fieldType == 'MULTI_SELECT_LOV') {
+                let newValues = [];
+                item.selectedValue.forEach(val => {
+                    newValues.push(val.dataName);
+                });
+                item.selectedValue = newValues;
+            }
+            item.fieldValuesList=[];
+        });
+        this.columnOptions = [];
+        this.showReportOutput = true;
+        switch (this.fnlObj.outputType) {
+            case 'TABLE':
+                this.reportsService.getTabularReportOutput(this.selectedReportId, this.fnlObj,
+                    {
+                        page: this.pageEvent.pageIndex + 1,
+                        size: this.pageEvent.pageSize
+                    }).subscribe((res: any) => {
+                        if (res.length < 1) {
+                            this.reportResult = [];
+                            return;
+                        }
+                        this.showTabular = true;
+                        this.showChart = false;
+                        this.showPivot = false;
+                        this.expandRptParams = false;
+                        this.pvtReportResult = [];
+                        this.reportsTableColumns = [];
+                        this.columnOptions = [];
+                        this.reportResult = res;
+                        let keys = Object.keys(this.reportResult[0]);
+                        for (var i = 0; i < keys.length; i++) {
+                            this.reportsTableColumns.push({ field: keys[i], header: keys[i] });
+                            this.columnOptions.push({ label: keys[i], value: this.reportsTableColumns[i] });
+                        }
+                    });
+                break;
+            case 'PIVOT':
+                this.fnlObj.columnCols = [];
+                this.fnlObj.valueCols = [];
+                this.fnlObj.valueCols = [];
+                let pvtRows=[];
+                let pvtCols=[];
+                let pvtVals=[];
+                this.multiSelRows.forEach(selCol => {
+                    this.reportAllCols.columnsDefinition.forEach(srcCol => {
+                        if (selCol.id == srcCol.ColumnId && selCol.dataName == srcCol.columnDisplayName) {
+                            this.fnlObj.groupingCols.push(srcCol);
+                            pvtRows.push(selCol.itemName);
+                        }
+                    });
+                });
+                this.fnlObj.columnCols.push(this.singleSelCol);
+                pvtCols.push(this.singleSelCol.userDisplayColName);
+                this.fnlObj.valueCols.push(this.rptValCol);
+                pvtVals.push(this.rptValCol.userDisplayColName);
+                this.reportsService.getPivotReportOutput(this.selectedReportId, this.fnlObj).subscribe((res: any) => {
+                        if (res.length < 1) {
+                            this.pvtReportResult = [];
+                            return;
+                        }
+                        this.showTabular = false;
+                        this.showChart = false;
+                        this.showPivot = true;
+                        this.expandRptParams = false;
+                        this.pvtReportResult = res;
+                        //***************** Build Pivot *****************
+                        var derivers = $.pivotUtilities.derivers;
+                        var renderers = $.extend($.pivotUtilities.renderers, $.pivotUtilities.gchart_renderers);
+                        var utils = $.pivotUtilities;
+                        var sum = $.pivotUtilities.aggregatorTemplates.sum;
+                        var numberFormat = $.pivotUtilities.numberFormat;
+                        var intFormat = numberFormat({ digitsAfterDecimal: 2 });
+                        
+                        $("#pvtoutput").pivotUI(
+                            this.pvtReportResult,
+                            {
+                                rows: pvtRows,
+                                cols: pvtCols,
+                                vals: pvtVals,
+                                aggregator: sum(intFormat)(pvtVals),
+                                aggregatorName: "Sum",
+                                rendererOptions: {
+                                    table: {
+                                        clickCallback: 
+                                        function(e, value, filters, pivotData) {
+                                            
+                                        }
+                                    }
+                                },
+                                rendererName: "Table"
+                            }
+                        );
+                        //**********************************************
+                    });
+                break;
+            case 'CHART':
+                switch (this.fnlObj.chartType) {
+                    case 'BAR':
+                    case 'LINE':
+                        this.fnlObj.groupingCols = [];
+                        this.fnlObj.valueCols = [];
+                        this.fnlObj.columnCols = [];
+                        this.fnlObj.groupingCols.push(this.singleSelCol);
+                        this.multiSelRows.forEach(selCol => {
+                            this.reportAllCols.columnsDefinition.forEach(srcCol => {
+                                if (selCol.id == srcCol.ColumnId && selCol.dataName == srcCol.columnDisplayName) {
+                                    this.fnlObj.valueCols.push(srcCol);
+                                }
+                            });
+                        });
+                        break;
+                    case 'PIE':
+                        this.fnlObj.groupingCols = [];
+                        this.fnlObj.valueCols = [];
+                        this.fnlObj.groupingCols.push(this.singleSelCol);
+                        this.fnlObj.valueCols.push(this.rptValCol);
+                        break;
+                }
+                this.reportsService.getChartReportOutput(this.selectedReportId, this.fnlObj).subscribe((res: any) => {
+                    if (res.length < 1) {
+                        this.chartResult = new ChartData();;
+                        return;
+                    }
+                    this.pvtReportResult = [];
+                    this.chartResult = res;
+                    var j=0;
+                    for (var i = 0; i < this.chartResult.datasets.length; i++) {
+                        this.chartResult.datasets[i].backgroundColor = this.chartColors[j];
+                        j++;
+                        if (j == this.chartColors.length) {
+                            j = 0;
+                        }
+                    }
+                    this.showTabular = false;
+                    this.showChart = true;
+                    this.showPivot = false;
+                    this.expandRptParams = false;
+                });
+                break;
+        }
+    }
+    
+    onDrilldown(event: any){
+        this.showAllDD = true;
+        this.ddChartResult = this.reportsService.getChartData();
+        var j=0;
+        for (var i = 0; i < this.ddChartResult.datasets.length; i++) {
+            this.ddChartResult.datasets[i].backgroundColor = this.chartColors[j];
+            j++;
+            if (j == this.chartColors.length) {
+                j = 0;
+            }
+        }
+        console.log(this.ddChartResult.datasets[0]);
+        this.drilldownResult = this.drillDownTable;
+        let keys = Object.keys(this.drilldownResult[0]);
+        this.drilldownTableColumns = [];
+        for (var i = 0; i < keys.length; i++) {
+            this.drilldownTableColumns.push({ field: keys[i], header: keys[i] });
+        }
+        this.showDrilldown = true;
+    }
+    
+    onDDdrilldown(event: any){
+        this.showAllDD = false;
+        this.drilldownResult = this.scndDrillDownTable;
+        let keys = Object.keys(this.drilldownResult[0]);
+        this.drilldownTableColumns = [];
+        for (var i = 0; i < keys.length; i++) {
+            this.drilldownTableColumns.push({ field: keys[i], header: keys[i] });
+        }
+        this.showDrilldown = true;
+    }
+    
+    toggleShowAll(){
+        if(this.showAllDD){
+            this.drilldownResult = this.drillDownTable;
+        }else{
+            this.drilldownResult = this.scndDrillDownTable;
+        }
+    }
+    
+    clearDrilldownContent(){
+        
+    }
+    
+    getCSSClasses(flag:string) {
+       let cssClasses;
+       if(flag) {  
+            cssClasses = {
+           'col-lg-4': true,
+           'col-md-4': true,
+           'col-sm-12': true
+        }
+       } else {  
+            cssClasses = {
+           'col-lg-6': true,
+           'col-md-6': true,
+           'col-sm-12': true  
+        }   
+       }
+       return cssClasses;
+    }
+    
+    scndDrillDownTable=[
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "GBP",
+        "Opening Balance": 0,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "CAD",
+        "Opening Balance": 690059.93,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "EUR",
+        "Opening Balance": 0,
+        "Additions Amount": 1908321.4,
+        "Reconciliation Amount": 0
+    }
+];
+    
+    drillDownTable=[
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "GBP",
+        "Opening Balance": 0,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "CAD",
+        "Opening Balance": 690059.93,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "EUR",
+        "Opening Balance": 0,
+        "Additions Amount": 1908321.4,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "NZD",
+        "Opening Balance": 0,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "AUD",
+        "Opening Balance": 1036873.4,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    },
+    {
+        "Card Type": "MASTERCARD",
+        "Currency": "USD",
+        "Opening Balance": 0,
+        "Additions Amount": 0,
+        "Reconciliation Amount": 0
+    }
+];
+    
+   
+}

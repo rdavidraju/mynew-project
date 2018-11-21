@@ -1,0 +1,773 @@
+import { Component, OnInit, OnDestroy} from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager  } from 'ng-jhipster';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { LookUpCode } from '../look-up-code/look-up-code.model';
+import { Jobs, Programs, Frequencies, Parameters } from './jobs.model';
+//import { JobsService } from './jobs.service';
+import { JobDetailsService } from './job-details.service';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { CommonService } from '../common.service';
+import { SessionStorageService } from 'ng2-webstorage';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'jhi-jobs-detail',
+    templateUrl: './jobs-detail.component.html'
+})
+export class JobsDetailComponent implements OnInit, OnDestroy {
+    private breadCrumb = this.$sessionStorage.retrieve('sessionbreadcrumbhis');
+    index:number=-1;
+    jobs = new Jobs();
+    programsList: Programs[];
+    selectedParameters: Parameters[];
+    currentFrequency = new Frequencies();
+    selectedFrequencies: Frequencies[]=[];
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    allowConcFails: boolean = false;
+    duplicateJobName: boolean = false;
+    hideScheduleOpt: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    daysOfMonth=[];
+    schedulerMidDate = new Date();
+    schedulerTypes: LookUpCode[] = [];
+    freqTypeMeanings: any = {};
+    ondemandFreq: any;
+    minEndDate: any;
+    minStartdate:any;
+    daysOfWeek=[
+        {id: 0, itemName:'SUNDAY', dataName:'sun'},
+        {id: 1, itemName:'MONDAY', dataName:'mon'},
+        {id: 2, itemName:'TUESDAY', dataName:'tue'},
+        {id: 3, itemName:'WEDNESDAY', dataName:'wed'},
+        {id: 4, itemName:'THURSDAY', dataName:'thu'},
+        {id: 5, itemName:'FRIDAY', dataName:'fri'},
+        {id: 6, itemName:'SATUARDAY', dataName:'sat'}
+    ];
+    monthsOfYear=[
+        {id: 1, itemName:'JANUARY', dataName:'jan'},
+        {id: 2, itemName:'FEBRUARY', dataName:'feb'},
+        {id: 3, itemName:'MARCH', dataName:'mar'},
+        {id: 4, itemName:'APRIL', dataName:'apr'},
+        {id: 5, itemName:'MAY', dataName:'may'},
+        {id: 6, itemName:'JUNE', dataName:'jun'},
+        {id: 7, itemName:'JULY', dataName:'jul'},
+        {id: 8, itemName:'AUGUST', dataName:'aug'},
+        {id: 9, itemName:'SEPTEMBER', dataName:'sep'},
+        {id: 10, itemName:'OCTOBER', dataName:'oct'},
+        {id: 11, itemName:'NOVEMBER', dataName:'nov'},
+        {id: 12, itemName:'DECEMBER', dataName:'dec'}
+    ];
+    multiSelectSettings = {
+        text: 'Select Values',
+        selectAllText: 'Select All',
+        unSelectAllText: 'UnSelect All',
+        enableSearchFilter: true,
+        classes: "resizemultiselect",
+        disabled: false,
+        badgeShowLimit: 1
+    };
+    basicExampleSettings: any = {};
+    scheduleTime : boolean = false;
+    constructor(
+        private eventManager: JhiEventManager,
+       // private jobsService: JobsService,
+        private jobDetailsService: JobDetailsService,
+        private notificationsService: NotificationsService,
+        private router: Router,
+        private route: ActivatedRoute,
+        private commonService: CommonService,
+        private $sessionStorage: SessionStorageService
+    ) {
+        
+       // this.currentFrequency.type = "ONETIME";
+        for(var i=1;i<31;i++){
+            this.daysOfMonth.push({id: i, itemName: i.toString(), dataName: i.toString()});
+        };
+            this.daysOfMonth.push({id: i, itemName: 'L',dataName: 'L'});
+        
+    }
+    
+    ngOnInit() {
+        this.jobDetailsService.getUserInfo();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height + 105) + 'px'
+        });
+        this.routeSub = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "jobs-new") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+            
+            // Get job schedule types
+            this.jobDetailsService.getLookupValues('SCHEDULE_TYPES').subscribe((res: LookUpCode[]) => {
+                this.schedulerTypes = res;
+                if (this.schedulerTypes && this.schedulerTypes.length > 0) {
+                    this.schedulerTypes.forEach(item => {
+                        this.freqTypeMeanings[item.lookUpCode] = item.meaning;
+                    })
+                }
+                
+                // Get programs list
+                this.jobDetailsService.programsListByTenantId().subscribe((res) => {
+                    this.programsList = res;
+                /* this.jobDetailsService.getProgramsList().subscribe((res: any) => {
+                    this.programsList = res; */
+//                    console.log(JSON.stringify(res));
+                    // Get job details by ID
+                    if (params['id']) {
+                        this.jobDetailsService.getJobDetailsById(params['id']).subscribe((jobRes: Jobs) => {
+                            if (jobRes.frequencies && jobRes.frequencies.length > 0) {
+                                this.selectedFrequencies = jobRes.frequencies;
+                                this.selectedFrequencies.forEach(freq => {
+                                    if(freq.type == 'ONDEMAND')
+                                    {
+                                        this.hideScheduleOpt = true;
+                                    }
+                                    freq.typeMeaning = this.freqTypeMeanings[freq.type];
+                                    if (url.endsWith('edit')) {
+                                        switch (freq.type) {
+                                            case 'WEEKLY':
+                                                let tempWeeks = [];
+                                                freq.weekDay.forEach(weekDaySel => {
+                                                    this.daysOfWeek.forEach(weekDaySrc => {
+                                                        if (weekDaySel == weekDaySrc.dataName) {
+                                                            tempWeeks.push(weekDaySrc);
+                                                        }
+                                                    })
+                                                })
+                                                freq.weekDay = tempWeeks;
+                                                break;
+
+                                            case 'MONTHLY':
+                                                let tempMonthDays = [];
+                                                freq.day.forEach(daySel => {
+                                                    this.daysOfMonth.forEach(daySrc => {
+                                                        if (daySel == daySrc.dataName) {
+                                                            tempMonthDays.push(daySrc);
+                                                        }
+                                                    })
+                                                })
+                                                freq.day = tempMonthDays;
+
+                                                let tempMonths = [];
+                                                freq.month.forEach(monthSel => {
+                                                    this.monthsOfYear.forEach(monthSrc => {
+                                                        if (monthSel == monthSrc.dataName) {
+                                                            tempMonths.push(monthSrc);
+                                                        }
+                                                    })
+                                                })
+                                                freq.month = tempMonths;
+                                                break;
+                                        }
+                                    }
+                                })
+                            }
+
+                            this.jobs = jobRes;
+                            this.minEndDate = new Date(this.jobs.scheStartDate.getTime() + (60 * 60 * 24 * 1000)); //to restrict min date for end date
+                            if (this.jobs.maxConsecutiveFails > 0) {
+                                this.allowConcFails = true;
+                            }
+                            this.selectedParameters =  this.jobs.parameters;
+//                            this.programSelected(this.jobs.programId);
+//                            this.programsList.forEach(item => {
+//                                if (item.programId === this.jobs.programId) {
+//                                    this.selectedParameters = item.parametersSet;
+//                                    this.selectedParameters.forEach(item2 => {
+//                                        
+//                                        this.jobs.parameters.forEach(item3=>{
+//                                            let ind : number =0;
+//                                            item3.valuesList.forEach(valueListObj=>{
+//                                                /*valueListObj['id'] = ind; 
+//                                                valueListObj['itemName'] =  valueListObj['id'];
+//                                                valueListObj['dataName'] = valueListObj[ item3['showValue']];*/
+//                                            });
+//                                            if(item3.paramId == item2.paramId)
+//                                                item2.selectedValue = item3.selectedValue;
+//                                        })  
+//                                    })
+//                                }
+//                            })
+//                            this.jobs.parameters.forEach(item => {
+//                                this.selectedParameters.forEach(itemSel => {
+//                                    itemSel.selectedValue = item.selectedValue;
+//                                })
+//                            });
+                        });
+                        if (url.endsWith('edit')) {
+                            this.isEdit = true;
+
+                        } else {
+                            this.isViewOnly = true;
+                        }
+                    }
+                    else {
+                        this.jobs.jobStatus = true;
+                        this.currentFrequency.type = 'ONDEMAND';
+                        this.isCreateNew = true;    
+                        this.minStartdate = new Date(Date.now());
+                        this.minStartdate = new Date(this.minStartdate.getTime() + (1000 * 60 * 60 * 24));
+                        this.minStartdate .setDate(this.minStartdate.getDate() -1 );
+                        console.log('min start date'+this.minStartdate);
+                        //focus on first input field
+                        $('#jobName').focus();
+                        this.jobDetailsService.getLookupValues('SCHEDULE_TYPES').subscribe((res: LookUpCode[]) => {
+                            this.schedulerTypes = res;
+                            if (this.schedulerTypes && this.schedulerTypes.length > 0) {
+                                this.schedulerTypes.forEach(item => {
+                                    this.freqTypeMeanings[item.lookUpCode] = item.meaning;
+                                })
+                            }
+                        })
+                    }
+                });
+            })
+        });
+    }
+    
+    ngOnDestroy() {
+        
+    }
+    
+    saveJob(){
+        this.jobs.parameters=[];
+        this.selectedParameters.forEach((item) => {
+            this.jobs.parameters.push(Object.assign({}, item));
+          });
+          this.jobs.parameters.forEach(item=>{
+            if(item.dependency)
+            {
+                if(item.selectedValue && item.selectedValue.length>0)
+                {
+                    let concateVal : any;
+                    let i : number =0;
+                    item.selectedValue.forEach(value=>{
+                        if(i == 0)
+                        {
+                            concateVal =   value.pId;
+                        }
+                        else
+                            {
+                            
+                        concateVal = concateVal+ ','+ value.pId;
+                        }
+                      i=i+1;
+                    });
+                    item.selectedValue = null;
+                    item.selectedValue = concateVal;
+                }
+            }
+        });
+        
+        let finalFrequencies=[];
+        this.saveFrequency(this.currentFrequency);
+        if (this.selectedFrequencies.length < 1) {
+            this.notificationsService.alert(
+                'Sorry!',
+                'Please select atleast one Frequency.'
+            )
+            return;
+        }
+        this.selectedFrequencies.forEach(item => {
+            switch(item.type){
+                case 'ONETIME':
+                let tempMon=[];
+                tempMon.push((item.date.getMonth()+1).toString());
+                let tempD=[];
+                tempD.push((item.date.getDate()).toString());
+                finalFrequencies.push({
+                    id: item.id,
+                    type: item.type,
+                    occurance: item.occurance,
+                    month: tempMon,
+                    day: tempD,
+                    hours: item.time.getHours(),
+                    minutes: item.time.getMinutes(),
+                    date: item.date,
+                    time: item.time.toString().substring(16,24)
+                });
+                break;
+                case 'MINUTES':
+                finalFrequencies.push({
+                    id: item.id,
+                    type: item.type,
+                    occurance: item.occurance,
+                    minutes:item.occurance
+                });
+                break;
+                case 'HOURLY':
+                finalFrequencies.push({
+                    id: item.id,
+                    type: item.type,
+                    occurance: item.occurance,
+                    hours:item.occurance,
+                    minutes:0
+                });
+                break;
+                case 'DAILY':
+                finalFrequencies.push({
+                    id: item.id,
+                    type: item.type,
+                    hours: item.time.getHours(),
+                    minutes: item.time.getMinutes(),
+                    time: item.time.toString().substring(16,24)
+                });
+                
+                break;
+                case 'WEEKLY':
+                let tempWeeks=[];
+                    item.weekDay.forEach(day=>{
+                        tempWeeks.push(day.dataName);
+                    });
+                finalFrequencies.push({
+                    id: item.id,
+                    type: item.type,
+                    weekDay: tempWeeks,
+                    hours: item.time.getHours(),
+                    minutes: item.time.getMinutes(),
+                    time: item.time.toString().substring(16,24)
+                });
+                break;
+                case 'MONTHLY':
+                let tempMonths=[];
+                    item.month.forEach(month=>{
+                        tempMonths.push(month.dataName);
+                    });
+                let tempDays=[];
+                    item.day.forEach(days=>{
+                        tempDays.push(days.dataName);
+                    });
+                finalFrequencies.push({
+                    id: item.id,
+                    type: item.type,
+                    month: tempMonths,
+                    day: tempDays,
+                    hours: item.time.getHours(),
+                    minutes: item.time.getMinutes(),
+                    time: item.time.toString().substring(16,24)
+                });
+                break;
+                default:
+                    finalFrequencies.push({
+                        id: item.id,
+                        type: item.type
+                    });
+                break;
+            }
+        })
+        this.jobs.frequencies=finalFrequencies;
+        
+        let fnlObj = jQuery.extend(true, {}, this.jobs);
+//        fnlObj.parameters.forEach(item=>{
+//            item.valuesList=[];
+//        });
+            console.log(JSON.stringify(fnlObj));
+       this.jobDetailsService.postJobDetails(fnlObj).subscribe((res:any)=>{
+        
+           let savedResponse : any ;
+           savedResponse = res.json();
+           console.log('savedResponse :' + JSON.stringify(savedResponse));
+           if(savedResponse)
+           {
+               if(savedResponse[0] && savedResponse[0].taskName === 'Job save')
+               {
+                   if(savedResponse[1].taskName === 'Schedulers Save')
+                   {
+                       if(savedResponse[2].taskName === 'Initiate Job' && savedResponse[2].taskStatus === 'Success')
+                       {
+                           this.notificationsService.success(
+                           'Process initiated successfully',
+                           ''
+                       )
+                            this.router.navigate(['/jobs', {outlets: {'content': ['schedulars-list']}}]);
+                       }
+                       else   if(savedResponse[2].taskName === 'Initiate Job' && savedResponse[2].taskStatus === 'Failure')
+                           {
+                           this.notificationsService.info(
+                                   'Process saved but initiation failed! Try again.',
+                                   ''
+                               );
+                               this.router.navigate(['/jobs', {outlets: {'content': ['schedulars-list']}}]);
+                           }
+                   }
+                   else
+                       {
+                       this.notificationsService.error(
+                   'Oops...!',
+                   'Scheduler not saved! Try again.'
+               )
+               this.router.navigate(['/jobs', {outlets: {'content': ['schedulars-list']}}]);
+                   }
+               }
+               else
+                   {
+                   this.notificationsService.error(
+                   'Oops...!',
+                   'Process not saved! Try again.'
+               )
+                   
+               }
+           }
+           else
+           {
+              this.notificationsService.error(
+                   'Oops...!',
+                   'Process not saved! Try again.'
+               ) 
+           }
+           
+
+ //          if(res.status === 200 && res.json() && res.json().length > 0){
+              
+//               res.json().forEach(item => {
+//                   if (item.length > 1) {
+//                       this.notificationsService.success(
+//                           'Success!',
+//                           'Scheduler started successfully! with id: ' + item
+//                       )
+//                   } else {
+//                       this.notificationsService.error(
+//                           'Oops...!',
+//                           'Scheduler not saved! Try again.'
+//                       )
+//                   }
+//              })
+               
+//               this.router.navigate(['/jobs', {outlets: {'content': ['schedulars-list']}}]);
+//              // this.router.navigate(['/jobs', {outlets: {'content': ['jobs-list']}}]);
+//           }else
+//          {
+//              this.notificationsService.error(
+//                   'Oops...!',
+//                   'Schedulers not saved! Try again.'
+//               )
+//           }
+       })
+    }
+    
+    frequencyChanged(frequency: string){
+        this.currentFrequency.occurance = 1;
+    }
+    
+    saveFrequency(currentFrequency:Frequencies){
+        var freq= Object.assign(new Frequencies(),currentFrequency);
+        freq.typeMeaning = this.freqTypeMeanings[freq.type];
+        if(freq.type=='ONDEMAND'){
+            this.hideScheduleOpt=true;
+        }
+        if(this.selectedFrequencies.length<1){
+            for(var i=0; i<this.schedulerTypes.length; i++){
+                if (this.schedulerTypes[i].lookUpCode == 'ONDEMAND') {
+                    this.ondemandFreq = jQuery.extend(true, {}, this.schedulerTypes[i]);
+                    this.schedulerTypes.splice(i,1);
+                }
+            }
+            this.selectedFrequencies.push(freq);
+        }
+        
+       // this.currentFrequency=new Frequencies();
+       // this.currentFrequency.type = this.schedulerTypes[0].lookUpCode;
+    }
+
+    programSelected(programId: number){
+        if(programId && this.programsList){
+                let emptyList :Parameters[] =[new Parameters()];
+                this.selectedParameters =emptyList;
+            this.programsList.forEach(item => {
+                if(item.programId === programId){
+                  
+                    this.selectedParameters = item.parametersSet;
+                    this.selectedParameters.forEach(item2=>{
+                  /*      let ind: number =0;
+                    if(item2.valuesList)
+                        item2.valuesList.forEach(valueListObj=>{
+                            valueListObj['id'] = ind; 
+                            valueListObj['itemName'] =  valueListObj[item2['showValue']];
+                            valueListObj['dataName'] = valueListObj[ item2['showValue']];
+                            ind = ind+1;
+                        });
+                     */
+                        item2.selectedValue=null;
+                        if(item2.dependency != null)
+                            {
+                            item2.valuesList=[];
+                            }
+//                        please uncomment after changing parameter values selection from input container to md-select
+//                        item2.selectedValue = item2.valuesList[0];
+                    })
+                }
+            })
+        }
+    }
+
+    getDayOfWeek(date:Date) {
+        var dayOfWeek = date.getDay();    
+        return isNaN(dayOfWeek) ? null : ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'][dayOfWeek];
+    }
+
+    checkJobName(jobName: string){
+        if(!jobName || jobName.length < 1)
+            return;
+        this.jobDetailsService.checkJobNameAvailable(jobName).subscribe((res:number)=>{
+            if (res > 0) {
+                if (this.jobs.id == res) {
+                    return;
+                } else {
+                    this.duplicateJobName = true;
+//                    this.jobs.jobName = '';
+//                    this.notificationsService.error('Oops...!', 'Sorry, Job name is not available.');
+                }
+            }
+        });
+    }
+    
+    startDateChange(startDate: Date){
+        this.minEndDate = new Date(startDate.getTime() + (60*60*24*1000));
+        if(this.jobs.scheEndDate < startDate){
+            this.jobs.scheEndDate=null;
+            this.notificationsService.error('Oops...!','Please update end date also.');
+        }
+        if (startDate < new Date()) {
+            this.schedulerMidDate = new Date();
+        } else {
+            this.schedulerMidDate = startDate;
+        }
+        for(var i=0; i<this.selectedFrequencies.length;i++){
+            if(this.selectedFrequencies[i].date<startDate){
+                this.selectedFrequencies[i].date=null;
+                this.notificationsService.error('Sorry...!','Please re update date for '+this.selectedFrequencies[i].type+' at S.No = '+(i+1).toString());
+            }
+        }
+    }
+
+    endDateChange(endDate: Date){
+        if(this.currentFrequency.date>endDate){
+            this.currentFrequency.date = null;
+            this.notificationsService.error('Oops...!','Please re select frequency date');
+        }
+        for(var i=0; i<this.selectedFrequencies.length;i++){
+            if(this.selectedFrequencies[i].date>endDate){
+                this.selectedFrequencies[i].date=null;
+                this.notificationsService.error('Sorry...!','Please re update date for '+this.selectedFrequencies[i].type+' at S.No = '+(i+1).toString());
+            }
+        }
+    }
+ 
+    freqDateChange(freqDate: Date){
+        if(this.jobs.scheStartDate === undefined || this.jobs.scheStartDate === null){
+            this.currentFrequency.date=null;
+            this.notificationsService.error('Oops...!', 'Please select Job Start Date first.');
+        }
+    }
+
+    removeThisFrequency(i: number){
+        if ( this.selectedFrequencies.length<2) {
+            this.hideScheduleOpt=false;
+            if(this.selectedFrequencies[i].type == 'ONDEMAND'){
+                this.schedulerTypes.forEach(item=>{
+                    if(item.lookUpCode == 'ONDEMAND'){
+                        this.ondemandFreq = jQuery.extend(true, {}, item);
+                    }
+                })
+            }
+            this.schedulerTypes.push(this.ondemandFreq);
+        }
+        this.selectedFrequencies.splice(i,1);
+    }
+    appendValues(i,item : any)
+    {
+        console.log('item has value'+JSON.stringify(item));
+        if(this.selectedParameters[i].selectedValue)
+        this.selectedParameters[i].selectedValue = item.id;
+        else
+            this.selectedParameters[i + 1].selectedValue = item.id;
+    }
+    getvaluesList(i)
+    {
+        console.log('filter based on dependency with i at '+i+'=>'+'paramname--'+this.selectedParameters[i].paramName);
+        //if next param exists, based on the dependency of that param, call api with dependency id, parameter id, 
+        //progParamSetId, dependencyId
+         
+        if(this.selectedParameters[i+1] && this.selectedParameters[i+1].dependency != null)
+        {
+            if ( this.selectedParameters[i + 1].paramId != null ) {
+                 this.selectedParameters[i + 1].valuesList = null;
+                 this.selectedParameters[i + 1].selectedValue=null;
+                //add value parameter
+                console.log(' jQuery.type(obj);'+ jQuery.type(this.selectedParameters[i].selectedValue));
+                if( jQuery.type(this.selectedParameters[i].selectedValue) == 'string')
+                {
+                    this.selectedParameters[i + 1].valuesList =[];
+
+                    this.jobDetailsService.getValueListBasedOnDependency( this.selectedParameters[i + 1].paramId, this.selectedParameters[i].selectedValue  ).subscribe(( res: any ) => {
+                        this.selectedParameters[i + 1].valuesList =res;
+                         let ind : number=0;
+                        this.selectedParameters[i + 1].valuesList.forEach(value=>{
+                            /*
+                            */
+                            value['itemName']=  value[this.selectedParameters[i + 1]['showValue']];
+                           console.log('selected val pid'+value[this.selectedParameters[i + 1]['bindValue']]);
+                            value['pId'] =value[this.selectedParameters[i + 1]['bindValue']];
+                           
+                        });
+                        
+                       
+                         this.selectedParameters[i + 1].valuesList.forEach(value=>{
+                              value['id'] =ind;
+                               ind = ind+1;
+                         });
+                        if( this.selectedParameters[i + 1].valuesList)
+                        {
+                          console.log('this.selectedParameters[i + 1].valuesList'+JSON.stringify(this.selectedParameters[i + 1].valuesList  ));
+                            if(this.selectedParameters[i + 1].valuesList.length == 0)
+                            this.selectedParameters[i + 1].valuesList=null;
+                        }
+                });
+
+                }
+                else if(jQuery.type(this.selectedParameters[i].selectedValue) == 'array')
+                {
+                    if(this.selectedParameters[i].selectedValue && this.selectedParameters[i].selectedValue.length > 0 )
+                {
+                    let vals = [];
+                    this.selectedParameters[i].selectedValue.forEach(selVal=>{
+                        vals.push(selVal[this.selectedParameters[i].bindValue]);
+                    });
+                    this.selectedParameters[i + 1].valuesList =[];
+                    this.jobDetailsService.getValueListBasedOnDependency( this.selectedParameters[i + 1].paramId,vals ).subscribe(( res: any ) => {
+                        this.selectedParameters[i + 1].valuesList =res;
+                        console.log('this.selectedParameters[i + 1].valuesList'+JSON.stringify(this.selectedParameters[i + 1].valuesList));
+                         let ind : number=0;
+                        this.selectedParameters[i + 1].valuesList.forEach(value=>{
+                            /*
+                            */
+                            value['itemName']=  value[this.selectedParameters[i + 1]['showValue']];
+                           console.log('selected val pid'+value[this.selectedParameters[i + 1]['bindValue']]);
+                            value['pId'] =value[this.selectedParameters[i + 1]['bindValue']];
+                           
+                        });
+                        
+                       
+                         this.selectedParameters[i + 1].valuesList.forEach(value=>{
+                              value['id'] =ind;
+                               ind = ind+1;
+                         });
+                        if( this.selectedParameters[i + 1].valuesList)
+                        {
+                          console.log('this.selectedParameters[i + 1].valuesList'+JSON.stringify(this.selectedParameters[i + 1].valuesList  ));
+                            if(this.selectedParameters[i + 1].valuesList.length == 0)
+                            this.selectedParameters[i + 1].valuesList=null;
+                        }
+                });
+
+                }
+                }
+
+            }
+        }
+        //this.selectedParameters[i].valuesList =  
+    }
+     /**
+     * Author : Shobha
+     * @param jobId
+     */
+    killJob(jobId)
+    {
+        console.log('job id to kill is '+jobId);
+        this.jobDetailsService.killJob(jobId).subscribe((res: any) => {
+            let resp :  any = res;
+            if(resp)
+                {
+                this.notificationsService.info(
+                        '',
+                        'Job killed'
+                )
+                }
+            else
+                {
+                this.notificationsService.error(
+                        '',
+                        'Failed Killing Job'
+                )
+                }
+        });
+    }
+ 
+    selectValue(selectedValue,i)
+    {
+        if(this.selectedParameters && this.selectedParameters[i+1] && this.selectedParameters[i+1].dependency && this.selectedParameters[i+1].dependency != null)
+        {
+            this.getvaluesList(i);
+        }
+    }
+    deselectValue(selectedValue,i)
+    {
+        if(this.selectedParameters && this.selectedParameters[i+1] && this.selectedParameters[i+1].dependency && this.selectedParameters[i+1].dependency != null)
+        {
+            this.getvaluesList(i);
+        }
+    }
+    blockSpecialChar(e,jobName1) {
+        var k = (e.which) ? e.which : e.keyCode;
+        
+        if ((k > 64 && k < 91)) {
+            return true;
+        }
+        else if (k > 96 && k < 123)
+            return true;
+        else if (k == 8)
+            return true;
+        else if (k > 47 && k < 57) {
+            if(jobName1.selectionStart != 0)
+            {
+                return true;
+            }
+            else{
+                this.notificationsService.info('Numbers at first place not allowed', '');
+                return false;
+            }
+        }
+
+        else {
+            this.notificationsService.info('Special chararcters not allowed', '');
+            return false;
+        }
+    }
+        clearScheduleValues()
+        {
+            
+            this.selectedFrequencies=[];
+            this.currentFrequency = new Frequencies();
+            this.currentFrequency.type = 'ONDEMAND';
+        }
+        changeFrequency(frequency)
+        {
+            this.clearScheduleValues();
+            this.currentFrequency = new Frequencies();
+            this.currentFrequency.type=frequency;
+        }
+
+        closeGoBack() {
+            if (this.breadCrumb[0] && this.breadCrumb[0].parent == '/jobs' && this.breadCrumb[0].url.split('/').length == 4) {
+                this.router.navigate([this.breadCrumb[0].parent, {outlets: {'content': [this.breadCrumb[0].url.split('/')[0]]+'/'+[this.breadCrumb[0].url.split('/')[1]]+'/'+[this.breadCrumb[0].url.split('/')[2]]+'/'+this.breadCrumb[0].url.split('/')[3]}}]);
+            } else {
+                this.router.navigate(['/jobs', { outlets: { 'content': 'jobs-list' } }]);
+            }
+        }
+}

@@ -1,0 +1,243 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Response } from '@angular/http';
+import { ActivatedRoute,ActivatedRouteSnapshot, Router } from '@angular/router';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager,  JhiPaginationUtil } from 'ng-jhipster';
+import { RuleGroup } from './rule-group.model';
+import { RuleGroupService } from './rule-group.service';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { SelectItem } from 'primeng/primeng';
+import {PageEvent} from '@angular/material';
+import { CommonService } from '../common.service';
+import { NavigationEnd } from '@angular/router';
+import {routerTransition} from '../../layouts/main/route.transition';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+
+declare var $: any;
+declare var jQuery: any;
+@Component({
+    selector: 'jhi-rule-group',
+    templateUrl: './rule-group.component.html',
+    animations: [routerTransition]
+})
+export class RuleGroupComponent implements OnInit, OnDestroy {
+    gb:any;
+    ruleGroups: RuleGroup[];
+    selectedTab : any;
+    routeSub: any;
+    currentAccount: any;
+    eventSubscriber: Subscription;
+    currentSearch: string;
+    itemsPerPage: any;
+    routeData: any;
+    page: any;
+    predicate: any;
+    previousPage: any;
+    reverse: any;
+    columnOptions: SelectItem[]; 
+    ruleGroupLength:any;
+     TemplatesHeight:any;
+    length: number;
+    pageSize: number;
+    pageSizeOptions = [5, 10, 25, 100];
+    pageEvent: PageEvent = new PageEvent();
+    ruleGroupColumns = [
+                    /*   { field: 'name', header: 'Group Name', width: '280px', align: 'left' },*/
+                      { field: 'meaning', header: 'Rule Purpose', width: '100px', align: 'center' }
+                     /*  { field: 'startDate ', header: 'Start Date', width: '150px', align: 'left' },
+                       { field: 'endDate', header: 'End Date', width: '100px', align: 'center' }*/
+                     
+                   /*    { field: 'status', header: 'Status', width: '100px', align: 'left' }*/
+                     ];
+    sideBarData:any=[];
+    searchWord : any;
+    constructor(
+        private ruleGroupService: RuleGroupService,
+        private eventManager: JhiEventManager,
+        private activatedRoute: ActivatedRoute,
+        private principal: Principal,
+        private paginationUtil: JhiPaginationUtil,
+        private paginationConfig: PaginationConfig,
+        private cs: CommonService,
+        private router: Router
+    ) {
+        this.pageSize = ITEMS_PER_PAGE;
+        this.pageEvent.pageIndex = 0;
+        this.pageEvent.pageSize = this.pageSize;
+//    this.notificationOptions = notificationOptions;
+    this.routeData = this.activatedRoute.data.subscribe(data => {
+      this.page = data['pagingParams'].page;
+      this.previousPage = data['pagingParams'].page;
+      this.reverse = data['pagingParams'].ascending;
+      this.predicate = data['pagingParams'].predicate;
+      this.columnOptions = [];
+      for (let i = 0; i < this.ruleGroupColumns.length; i++) {
+          this.columnOptions.push({ label: this.ruleGroupColumns[i].header, value: this.ruleGroupColumns[i] });
+        }
+    });
+        this.currentSearch = activatedRoute.snapshot.params['search'] ? activatedRoute.snapshot.params['search'] : '';
+    }
+  
+    loadAll(rulePurpose) {
+        
+        if (this.currentSearch) {
+            this.ruleGroupService.search({
+                query: this.currentSearch,
+                }).subscribe(
+                    (res: Response) => this.ruleGroups = res.json(),
+                    (res: Response) => this.onError(res.json())
+                );
+            return;
+       }
+        //console.log('this.pageEvent.pageIndex+1,this.pageEvent.pageSize'+this.pageEvent.pageIndex+'=>'+this.pageEvent.pageSize);
+        if(rulePurpose === undefined || !rulePurpose)
+        {
+            rulePurpose = null;
+            if ( this.sideBarData && this.sideBarData[this.selectedTab] && this.sideBarData[this.selectedTab].rulePurpose )
+                rulePurpose = this.sideBarData[this.selectedTab].rulePurpose;
+            }
+        this.ruleGroupService.fetchRuleGroupsWithMeaningByTenant(this.pageEvent.pageIndex+1,this.pageEvent.pageSize,rulePurpose).subscribe(
+            (res: any) => {
+                this.ruleGroups = res.json();
+              //  console.log(' this.ruleGroups '+JSON.stringify( this.ruleGroups ));
+                 this.length= +res.headers.get('x-count');
+                var unique = this.ruleGroups.filter(function(elem, index, self) {
+                    return index == self.indexOf(elem);
+                })
+                
+                
+                this.ruleGroupService.fetchSideBarData('rulePurpose').subscribe(        
+            (res:Response)=>{
+                this.sideBarData= res;
+                let ind = 0;
+                if(!rulePurpose)
+                    {
+                    
+                    }
+                else
+                    {
+                    this.sideBarData.forEach(sideBarObj=>{
+                        if(rulePurpose.toLowerCase() === sideBarObj.rulePurpose.toLowerCase())
+                            {
+                            this.selectedTab = ind;
+                            }
+                        ind = ind +1;
+                    });
+                    }
+               
+                
+            });
+                //this.currentSearch = '';
+            },
+            (res: Response) => this.onError(res.json())
+        );
+    }
+    setPageSizeOptions(setPageSizeOptionsInput: string) {
+        this.pageSizeOptions = setPageSizeOptionsInput.split(',').map(str => +str);
+      }
+    search (query) {
+        if (!query) {
+            return this.clear();
+        }
+        this.currentSearch = query;
+        this.loadAll('All');
+    }
+
+    clear() {
+        this.currentSearch = '';
+        this.loadAll('All');
+    }
+    ngOnInit() {
+        let url = this.activatedRoute.snapshot.url.map(segment => segment.path).join('/');
+        
+        this.routeSub = this.activatedRoute.params.subscribe( params => {
+            if (params['rulePurpose']) {
+                this.loadAll(params['rulePurpose']);
+            }
+            else
+                {
+                this.loadAll('All');
+                console.log('doesnot contain rule purpose');
+                }
+            });
+        this.TemplatesHeight = (this.cs.screensize().height - 370) + 'px';
+        
+        this.principal.identity().then((account) => {
+            this.currentAccount = account;
+        });
+        this.registerChangeInRuleGroups();
+        $(".search-icon-body").click(function() {
+            if ( $( ".ftlSearch md-input-container" ).hasClass( "hidethis" ) ) {
+                $( ".ftlSearch md-input-container" ).removeClass( "hidethis" );
+                $( ".ftlSearch md-input-container" ).addClass( "show-this" );
+            } else if ( $( ".ftlSearch md-input-container" ).hasClass( "show-this" ) ) {
+                var value = $( '.ftlSearch md-input-container .mySearchBox' ).filter( function() {
+                    return this.value != '';
+                } );
+                if ( value.length <= 0 ) { // zero-length string
+                    $( ".ftlSearch md-input-container" ).removeClass( "show-this" );
+                    $( ".ftlSearch md-input-container" ).addClass( "hidethis" );
+                }
+            } else {
+                $( ".ftlSearch md-input-container" ).addClass( "show-this" );
+            }
+        } );
+        $(".ftlSearch md-input-container .mySearchBox").blur(function() {
+            var value = $('.ftlSearch md-input-container .mySearchBox').filter(function () {
+                return this.value != '';
+            });
+            if(value.length<=0) { // zero-length string
+                $( ".ftlSearch md-input-container" ).removeClass( "show-this" );
+                $( ".ftlSearch md-input-container" ).addClass( "hidethis" );
+            }
+       });
+    }
+
+    ngOnDestroy() {
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    trackId (index: number, item: RuleGroup) {
+        return item.id;
+    }
+
+
+
+    registerChangeInRuleGroups() {
+        this.eventSubscriber = this.eventManager.subscribe('ruleGroupListModification', (response) => this.loadAll('All'));
+    }
+
+
+    private onError (error) {
+       // this.alertService.error(error.message, null, null);
+    }
+   /* loadContent(rulePurpose)
+    {
+        //[routerLink]="['/rule-group', {outlets: {'content': 'All'}}]"
+        this.router.navigate(['/rule-group', { outlets: {'content': rulePurpose} }]);
+    }*/
+     loadContent(e) {
+        console.log(e);
+        this.selectedTab = e.index;
+        let rulePurpose = this.sideBarData[e.index].rulePurpose;
+        this.router.navigate(['/rule-group', { outlets: {'content': [rulePurpose]+'/list'} }]);
+    }
+     searchData()
+     {
+         console.log('searchWord'+this.searchWord);
+         let rulePurpose = this.sideBarData[this.selectedTab].rulePurpose;
+         this.ruleGroupService.searchKeys(this.pageEvent.pageIndex+1,this.pageEvent.pageSize,this.searchWord,rulePurpose).subscribe(        
+                 (res:any)=>{
+                     this.ruleGroups =res._body;
+                     console.log(' this.ruleGroups after search'+JSON.stringify( this.ruleGroups));
+                 });
+     }
+     setRuleGroup()
+     {
+         if(this.sideBarData[this.selectedTab] && this.sideBarData[this.selectedTab].rulePurpose )
+         this.ruleGroupService.routerRuleGroupType = this.sideBarData[this.selectedTab].rulePurpose.toUpperCase();
+     }
+}

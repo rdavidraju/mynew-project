@@ -1,0 +1,517 @@
+<div class="container-fluid component-body file-templates jeBatchView journalsView">
+    <div class="botom-dotted-blue-border component-title">
+        <div class="col-md-6 col-sm-6 col-xs-6  pageTitle" style="padding-left:0px;">
+            <h3>Journal Batches</h3>
+        </div>
+        <div class="col-md-6 col-sm-6 col-xs-6 ftlSearch">
+            <button style="font-size:16px;margin-top:10px;" class="pull-right" md-icon-button *ngIf="isVisibleA" (click)="toggleSB()"
+                mdTooltip="Toggle Query"><i  class="material-icons">keyboard_arrow_up</i></button>
+            <button style="font-size:16px;margin-top:10px;" class="pull-right" md-icon-button *ngIf="!isVisibleA" (click)="toggleSB()"
+                mdTooltip="Toggle Query"><i  class="material-icons">keyboard_arrow_down</i></button>
+            <!-- <button md-icon-button class="pull-right search-icon-body" mdTooltip="Search">
+				<md-icon>search</md-icon>
+			</button>
+            <md-input-container class="pull-right hidethis">
+                <input class="mySearchBox" mdInput #gb placeholder="What're we looking for?">
+            </md-input-container> -->
+        </div>
+    </div>
+    <!-- <md-card> -->
+
+    <div><!--  style="padding: 5px 0;"  -->
+    <!-- <horizontal-split-pane primary-component-minsize="25" primary-component-initialratio="0.2" [primary-component-toggled-off]="!isVisibleA"> -->
+        <!--   <div class="split-pane-content-primary" style="padding: 5px 0;">   -->
+            <md-card class="jeQueryBlock" id="queryBlock" [ngStyle]="{'height': noBatcheTemplate === true ? '100px' : '170px' }"><!-- height: 170px;overflow: hidden;transition: 0.5s all ease-in; -->
+                <div class="upper recon-query-window">
+                    <div class="col-md-12" style="display:flex;flex-wrap:wrap;padding-bottom: 5px;padding-top: 8px;">
+                        <div class="col-md-4 col-sm-12 col-xs-12">
+                            <md-select placeholder="JE Templates" name="jeTemplate" [(ngModel)]="journalsHeaderDataView.jeTempId" [ngClass]="{'color-black' : isViewOnly}">
+                                <md-option value=0 (click)="noBatcheTemplate = false;fetchLedgerAndPeriodList('JournalBatches');" *ngIf="journalsHeaderData && journalsHeaderData.length>1">All</md-option>
+                                <md-option *ngFor="let col of journalsHeaderData" [value]="col.id" (click)="noBatcheTemplate = false;fetchLedgerAndPeriodList(col.templateName,col.id,col);">
+                                    {{ col.templateName }}
+                                </md-option>
+                            </md-select>
+                        </div>
+                        <div class="col-md-4 col-sm-12 col-xs-12" *ngIf="!noBatcheTemplate">
+                            <md-select placeholder="Ledger" name="ledger" [(ngModel)]="journalsHeaderDataView.jeLedger" [ngClass]="{'color-black' : isViewOnly}">
+                                <md-option value="ALL" *ngIf="ledgersList && ledgersList.length>1">All</md-option>
+                                <md-option *ngFor="let col of ledgersList" [value]="col">
+                                    {{ col }}
+                                </md-option>
+                            </md-select>
+                        </div>
+
+                        <div class="col-md-4 col-sm-12 col-xs-12" *ngIf="!noBatcheTemplate">
+                            <md-select placeholder="Period" name="period" [(ngModel)]="journalsHeaderDataView.jePeriod" [ngClass]="{'color-black' : isViewOnly}">
+                                <md-option value="ALL" *ngIf="periodsList && periodsList.length>1">All</md-option>
+                                <md-option *ngFor="let col of periodsList" [value]="col">
+                                    {{ col }}
+                                </md-option>
+                            </md-select>
+                        </div>
+                    </div>
+                    <div class="col-md-12" style="display:flex;flex-wrap:wrap;" *ngIf="!noBatcheTemplate">
+                        <div class="col-md-4 col-sm-12 col-xs-12" style="padding-top:15px;">
+                            <div>Date Range :</div>
+                            <div>
+                                <md-radio-group class="example-radio-group" [(ngModel)]="selectedDateRange">
+                                    <md-radio-button value="7 Days" (change)="isCustomRange = false;">
+                                        <span style="font-size:14px;">7Days</span>
+                                    </md-radio-button>
+                                    <md-radio-button value="15 Days" (change)="isCustomRange = false;">
+                                        <span style="font-size:14px;">15Days</span>
+                                    </md-radio-button>
+                                    <md-radio-button value="30 Days" (change)="isCustomRange = false;">
+                                        <span style="font-size:14px;">30Days</span>
+                                    </md-radio-button>
+                                    <md-radio-button value="custom" (change)="isCustomRange = true;">
+                                        <span style="font-size:14px;">Custom</span>
+                                    </md-radio-button>
+                                </md-radio-group>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-sm-12 col-xs-12" *ngIf="isCustomRange" style="padding-top:15px;">
+                            <md-form-field> <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+                                    [disabled]="isViewOnly" [(ngModel)]="journalsHeaderDataView.startDate" name="startDate" required>
+                                <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #stpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                        <div class="col-md-4 col-sm-12 col-xs-12" *ngIf="isCustomRange" style="padding-top:15px;">
+                            <md-form-field> <input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="journalsHeaderDataView.startDate"
+                                    [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="journalsHeaderDataView.endDate"
+                                    name="endDate">
+                                <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                                <md-datepicker #edpicker></md-datepicker>
+                            </md-form-field>
+                        </div>
+                    </div>
+                    <div class="col-md-12 go-button" style="text-align: right; padding-bottom: 6px;" *ngIf="journalsHeaderDataView.jeTempId">
+                        <button *ngIf="journalsHeaderBatchDetails.length>0" md-raised-button (click)="dt.exportCSV()()">Clear</button>
+                        <button md-raised-button (click)="fetchBatchDetailedList()" *ngIf="!noBatcheTemplate">Go</button>
+                        <button md-raised-button *ngIf="noBatcheTemplate" (click)="postJETemp();">Post JE</button>
+                    </div>
+                </div>
+            </md-card>
+        <!-- </div> -->
+    <!-- </horizontal-split-pane> -->
+    </div>
+    <div class="col-md-12 go-button jeBatchView" style="text-align: right;">
+
+        <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJEBatchTemp();">Excel Download</button> -->
+        <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length">Pdf Download</button> -->
+        <button md-icon-button *ngIf="journalsHeaderBatchDetails.length" (click)="viewFullScreen();" mdTooltip="Full Screen"><i  class="material-icons">fullscreen</i></button>
+        <i *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJEBatchTemp();" mdTooltip="Excel Download" class="fa fa-file-excel-o hand"
+            aria-hidden="true" style="font-size: 17px;position: relative;top: 2px;"></i>
+    </div>
+    <div *ngIf="journalsHeaderBatchDetails.length>0" style="margin-top: -20px;">
+        <div style="text-align:right" class="show-hide-class">
+            <p-multiSelect [options]="columnOptions" [(ngModel)]="journalsTableColumns"></p-multiSelect>
+        </div>
+        <p-dataTable  #dt [value]="journalsHeaderBatchDetails" selectionMode="multiple" reorderableColumns="true" resizableColumns="true"
+            columnResizeMode="expand" scrollable="true" scrollHeight="400px" [(selection)]="mySelectedRows" [responsive]="true"
+            [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="15" [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]"
+            (onRowSelect)="onRowSelect($event)">
+            <p-column field="templateName" header="Template Name" [style]="{'width':'150px'}" styleClass="left" [sortable]="false">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    {{row[col.field]}}
+                </ng-template>
+            </p-column>
+            <p-column field="batchName" header="Batch Name" [style]="{'width':'250px'}" styleClass="left" [sortable]="false">
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    {{row[col.field]}}
+                </ng-template>
+            </p-column>
+            <p-column field="batchDate" header="Batch Date" [style]="{'width':'110px'}" styleClass="left" [sortable]="false">
+                <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field] | date:'mediumDate'}}
+                </ng-template>
+            </p-column>
+            <p-column *ngFor="let col of journalsTableColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+                [header]="col.header" [sortable]="false">
+            </p-column>
+        </p-dataTable>
+        <md-paginator *ngIf="journalsHeaderBatchLength>0" [length]="journalsHeaderBatchLength" [pageSize]="itemsPerPage1" [pageSizeOptions]="pageSizeOptions"
+            [pageIndex]="page1" (page)="onPaginateChange1($event)">
+        </md-paginator>
+        <!-- *ngIf="journalsHeaderBatchLength>itemsPerPage1"  -->
+    </div>
+    <div id="myDiv">
+        <md-card *ngIf="showJEDetails">
+            <div class="col-md-12" style="padding-top: 7px;display:flex;">
+                <div class="col-md-6" style="margin-top: auto;margin-bottom: auto;">
+                    <h5>JE Header Details</h5>
+                </div>
+                <div class="col-md-6" style="text-align: right;">
+                    <popover-content #myPopover title="Reverse Batch" placement="left" [animation]="true" [closeOnClickOutside]="false" [popoverCloseOnMouseOutside]="false">
+                        <div class="col-md-12" style="display: flex;">
+                            <div class="col-md-6">Batch Name :</div>
+                            <div *ngIf="selectedBatch" class="col-md-6">{{selectedBatch.batchName}}</div>
+                        </div>
+                        <div class="col-md-12" style="display: flex;">
+                            <div class="col-md-6" style="white-space:nowrap;margin-top: auto;margin-bottom: auto;">Select Reverse Type :</div>
+                            <div class="col-md-6" style="margin-top: 29px;">
+                                <!-- <md-select placeholder="" name="reverseType" [(ngModel)]="reverseType" [ngClass]="{'color-black' : isViewOnly}">
+                        <md-option value="switch">Switch Dr/Cr</md-option>
+                        <md-option value="change">Change Sign</md-option>
+                    </md-select> -->
+                                <md-radio-group [(ngModel)]="reverseType">
+                                    <md-radio-button value="switch">Switch Dr/Cr</md-radio-button>
+                                    <md-radio-button value="change">Change Sign</md-radio-button>
+                                </md-radio-group>
+                            </div>
+                        </div>
+                        <div style="padding: 13px 2px 5px 5px;">
+                            <button md-button style="float: right;" *ngIf="reverseType" (click)="reverseFunctionality();myPopover.hide();">Ok</button>
+                            <button md-button style="float: right;" (click)="myPopover.hide();reverseType='';">Cancel</button>
+                        </div>
+                    </popover-content>
+                    <button md-raised-button (click)="rePostBatch();" *ngIf="showReverseButton && journalsHeaderBatchDetails.length">Re-Post JE</button>
+                    <button md-raised-button [popover]="myPopover" (click)="reverseBatch();reverseType=''" *ngIf="showReverseButton && journalsHeaderBatchDetails.length">Reverse</button>
+                    <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJETemp();">Excel Download</button> -->
+                    <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length">Pdf Download</button> -->
+                    <i *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJETemp();" mdTooltip="Excel Download" class="fa fa-file-excel-o hand"
+                        aria-hidden="true" style="font-size: 17px;position: relative;top: 2px;"></i>
+                    <button md-icon-button *ngIf="journalsHeaderBatchDetails.length" (click)="viewFullScreenJEDetails();" mdTooltip="Full Screen"><i  class="material-icons">fullscreen</i></button>
+                </div>
+            </div>
+            <div style="padding: 10px 10px 10px 10px">
+                <div class="row">
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.batchName" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Batch Name"
+                                name="batchName">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.glDate" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="GL Date"
+                                name="glDate">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.source" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Source"
+                                name="source">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.conversionType" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Conversion Type"
+                                name="conversionType">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.ledger" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Ledger"
+                                name="ledger">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.period" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Period"
+                                name="period">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group">
+                        <md-input-container class="example-full-width">
+                            <input mdInput [(ngModel)]="journalslevelDetails.category" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Category"
+                                name="category">
+                        </md-input-container>
+                    </div>
+                    <div class="col-md-3 col-xs-6 form-group" style="display: block;">
+                        <!-- <md-select placeholder="Journal Level" name="jeLevel" [(ngModel)]="journalLevel" [ngClass]="{'color-black' : isViewOnly}"
+                        (change)="fetchJournalLevel(journalLevel);">
+                        <md-option value="summary">Summary</md-option>
+                        <md-option value="details">Detail</md-option>
+                    </md-select> -->
+                        <div style="font-size: 14px;color: #757575;margin-top: -5px;">Journal Level</div>
+                        <md-radio-group [(ngModel)]="journalLevel" (change)="fetchJournalLevel(journalLevel);">
+                            <md-radio-button value="summary">Summary</md-radio-button>
+                            <md-radio-button value="details">Detail</md-radio-button>
+                        </md-radio-group>
+                    </div>
+                    <!-- Journal Generation Level -->
+                </div>
+        </md-card>
+        </div>
+        <md-card *ngIf="showJEDetails" style="margin-top: 12px;">
+            <div style="padding: 10px;">
+                <h5 style="margin-bottom: -9px;">JE Line Details</h5>
+                <div *ngIf="journalslevelDetails" style="width: 99%;">
+                    <div style="text-align:right" class="show-hide-class">
+                        <p-multiSelect [options]="columnOptions1" [(ngModel)]="journalsViewColumns"></p-multiSelect>
+                    </div>
+                    <p-dataTable [value]="journalslevelDetails.jelineDetailsList" selectionMode="multiple" reorderableColumns="true" scrollable="true"
+                        scrollHeight="500px" [(selection)]="mySelectedRows3" [responsive]="true" [headerCheckboxToggleAllPages]="true">
+                        <!-- resizableColumns="true" columnResizeMode="expand" -->
+                        <!-- <p-column field="line" header="Line" [style]="{'width':'50px'}" styleClass="left" [sortable]="true">
+                            <ng-template let-col let-row="rowData" pTemplate="body">
+                                {{row[col.field]}}
+                            </ng-template>
+                        </p-column>  -->
+                        <p-column *ngFor="let col of journalsViewColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+                            [header]="col.header" [sortable]="false">
+                        </p-column>
+                        <p-column header="" styleClass="left" [sortable]="false" [style]="{'width':'50px'}" *ngIf="journalLevel == 'summary'">
+                            <ng-template let-col let-row="rowData" pTemplate="body">
+                                <button md-icon-button aria-hidden="true" mdTooltip="Details" (click)="showJeLineDetails(row);">
+                                    <md-icon style="margin-top: -7px;">more_vert</md-icon>
+                                </button>
+                            </ng-template>
+                        </p-column>
+                    </p-dataTable>
+                    <md-paginator *ngIf="journalslevelDetailsLength>0" [length]="journalslevelDetailsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+                        [pageIndex]="page" (page)="onPaginateChange($event)">
+                    </md-paginator>
+                    <!-- *ngIf="journalslevelDetailsLength>itemsPerPage" -->
+                </div>
+            </div>
+        </md-card>
+    </div>
+    <!-- Dialog to JE Line Details View -->
+    <div class="dnd-usermgmt" *ngIf="jeDetailsViewDialog">
+        <div class="jeLevelDetails">
+            <p-dialog header="JE Line Detail Views" [(visible)]="jeDetailsViewDialog" [resizable]="true" [responsive]="true" [dismissableMask]="true">
+                <div *ngIf="journalslevelDetails" style="width: 99%;">
+                    <div style="text-align:right" class="show-hide-class">
+                        <p-multiSelect [options]="columnOptions2" [(ngModel)]="journalsDrillDownViewColumns"></p-multiSelect>
+                    </div>
+                    <p-dataTable [value]="jeDetailsViewList" selectionMode="multiple" reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+                        scrollable="true" scrollHeight="200px" [(selection)]="mySelectedRows2" [responsive]="true" [headerCheckboxToggleAllPages]="true"
+                        [globalFilter]="gb" #dt [rows]="15" [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]">
+                        <p-column *ngFor="let col of journalsDrillDownViewColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+                            [header]="col.header" [sortable]="false">
+                        </p-column>
+                    </p-dataTable>
+                </div>
+                 <!-- <p-footer>
+                    <button md-raised-button (click)="jeDetailsViewDialog = false">Close</button>
+                </p-footer>  -->
+            </p-dialog>
+        </div>
+    </div>
+    <p-sidebar [(visible)]="visibleFullScreenBatchDetails" [fullScreen]="true" [baseZIndex]="10000" [blockScroll]="true" [blockScroll]="false">
+        <div class="row botom-dotted-blue-border component-title">
+            <div class="col-md-6 pageTitle" style="padding-left: 0px !important;">
+                <h2>Journal Batches</h2>
+            </div>
+        </div>
+        <div class="col-md-12 go-button jeBatchView" style="text-align: right;top: 10px;">
+            <i *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJEBatchTemp();" mdTooltip="Excel Download" class="fa fa-file-excel-o hand"
+                style="font-size: 17px;position: relative;top: 2px;" aria-hidden="true"></i>
+            <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJEBatchTemp();">Excel Download</button> -->
+            <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length">Pdf Download</button> -->
+            <!-- <button md-icon-button *ngIf="journalsHeaderBatchDetails.length" (click)="viewFullScreen();" mdTooltip="Exit Full Screen"><i  class="material-icons">fullscreen_exit</i></button> -->
+        </div>
+        <div *ngIf="journalsHeaderBatchDetails.length>0" style="width: 99%;">
+            <div style="text-align:right" class="show-hide-class">
+                <p-multiSelect [options]="columnOptions" [(ngModel)]="journalsTableColumns"></p-multiSelect>
+            </div>
+            <p-dataTable [value]="journalsHeaderBatchDetails" selectionMode="multiple" reorderableColumns="true" resizableColumns="true"
+                columnResizeMode="expand" scrollable="true" scrollHeight={{batchTableHeight}} [(selection)]="mySelectedRows"
+                [responsive]="true" [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="15" [paginator]="false"
+                [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]" (onRowSelect)="onRowSelect($event)">
+                <p-column field="templateName" header="Template Name" [style]="{'width':'150px'}" styleClass="left" [sortable]="false">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        {{row[col.field]}}
+                    </ng-template>
+                </p-column>
+                <p-column field="batchName" header="Batch Name" [style]="{'width':'250px'}" styleClass="left" [sortable]="false">
+                    <ng-template let-col let-row="rowData" pTemplate="body">
+                        {{row[col.field]}}
+                    </ng-template>
+                </p-column>
+                <p-column field="batchDate" header="Batch Date" [style]="{'width':'110px'}" styleClass="left" [sortable]="false">
+                    <ng-template let-col let-row="rowData" pTemplate="body">{{row[col.field] | date:'mediumDate'}}
+                    </ng-template>
+                </p-column>
+                <p-column *ngFor="let col of journalsTableColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+                    [header]="col.header" [sortable]="false">
+                </p-column>
+            </p-dataTable>
+            <md-paginator *ngIf="journalsHeaderBatchLength>0" [length]="journalsHeaderBatchLength" [pageSize]="itemsPerPage1" [pageSizeOptions]="pageSizeOptions"
+                [pageIndex]="page1" (page)="onPaginateChange1($event)">
+            </md-paginator>
+        </div>
+        <!-- <br>
+            <div>
+                <h5>JE Line Details</h5>
+                <div *ngIf="journalslevelDetails" style="width: 99%;">
+                    <div style="text-align:right" class="show-hide-class">
+                        <p-multiSelect [options]="columnOptions1" [(ngModel)]="journalsViewColumns"></p-multiSelect>
+                    </div>
+                    <p-dataTable [value]="journalslevelDetails.jelineDetailsList" selectionMode="multiple" reorderableColumns="true" resizableColumns="true"
+                        columnResizeMode="expand" scrollable="true" scrollHeight="500px" [(selection)]="mySelectedRows1" [responsive]="true"
+                        [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="15" [paginator]="false" [pageLinks]="3"
+                        [rowsPerPageOptions]="[5,10,20,50]">
+                        <p-column *ngFor="let col of journalsViewColumns" [style]="{'width':col.width,'text-align':col.align}"  [field]="col.field" [header]="col.header" [sortable]="true">
+                        </p-column>
+                        <p-column header="" styleClass="left" [sortable]="false" [style]="{'width':'50px'}" *ngIf="journalLevel == 'summary'">
+                            <ng-template let-col let-row="rowData" pTemplate="body">
+                                <button md-icon-button aria-hidden="true" mdTooltip="Details" (click)="showJeLineDetails(row);">
+                                    <md-icon style="margin-top: -7px;">more_vert</md-icon>
+                                </button>
+                            </ng-template>
+                        </p-column>
+                    </p-dataTable>
+                    <md-paginator [length]="journalslevelDetailsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions" [pageIndex]="page"
+                        (page)="onPaginateChange($event)">
+                    </md-paginator>
+                </div>
+
+                <div class="dnd-usermgmt">
+                    <div class="target-data">
+                        <p-dialog header="JE Line Detail Views" [(visible)]="jeDetailsViewDialog" [resizable]="true" [responsive]="true" [dismissableMask]="true">
+                            <div *ngIf="journalslevelDetails" style="width: 99%;">
+                                <div style="text-align:right" class="show-hide-class">
+                                    <p-multiSelect [options]="columnOptions2" [(ngModel)]="journalsDrillDownViewColumns"></p-multiSelect>
+                                </div>
+                                <p-dataTable [value]="jeDetailsViewList" selectionMode="multiple" reorderableColumns="true" resizableColumns="true"
+                                    columnResizeMode="expand" scrollable="true" scrollHeight="400px" [(selection)]="mySelectedRows2" [responsive]="true"
+                                    [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="15" [paginator]="false" [pageLinks]="3"
+                                    [rowsPerPageOptions]="[5,10,20,50]">
+                                    <p-column *ngFor="let col of journalsDrillDownViewColumns" styleClass="left" [field]="col.field" [header]="col.header" [sortable]="true">
+                                    </p-column>
+                                </p-dataTable>
+                            </div>
+                            <p-footer>
+                                <button md-raised-button (click)="jeDetailsViewDialog = false">Close</button>
+                            </p-footer>
+                        </p-dialog>
+                    </div>
+                </div>
+            </div> -->
+    </p-sidebar>
+    <p-sidebar [(visible)]="visibleFullScreenJEDetails" [fullScreen]="true" [baseZIndex]="10000" [blockScroll]="true" [blockScroll]="false">
+        <div class="row botom-dotted-blue-border component-title">
+            <div class="col-md-6 pageTitle" style="padding-left: 0px !important;">
+                <h2>Journal Batches</h2>
+            </div>
+        </div>
+        <md-card style="margin-top: 10px;" class="row jeFullscreen">
+            <div class="col-md-12" style="padding-top: 7px;display:flex;">
+                <div class="col-md-6" style="margin-top: auto;margin-bottom: auto;">
+                    <h5>JE Header Details</h5>
+                </div>
+                <div class="col-md-6 jeBatchDetailView" style="text-align: right;">
+                    <popover-content #myPopover0 title="Reverse Batch" placement="left" [animation]="true" [closeOnClickOutside]="false" [popoverCloseOnMouseOutside]="false">
+                        <div class="col-md-12" style="display: flex;">
+                            <div class="col-md-6">Batch Name :</div>
+                            <div *ngIf="selectedBatch" class="col-md-6">{{selectedBatch.batchName}}</div>
+                        </div>
+                        <div class="col-md-12" style="display: flex;">
+                            <div class="col-md-6" style="white-space:nowrap;margin-top: auto;margin-bottom: auto;">Select Reverse Type :</div>
+                            <div class="col-md-6" style="margin-top: 29px;">
+                                <!-- <md-select placeholder="" name="reverseType" [(ngModel)]="reverseType" [ngClass]="{'color-black' : isViewOnly}">
+                            <md-option value="switch">Switch Dr/Cr</md-option>
+                            <md-option value="change">Change Sign</md-option>
+                        </md-select> -->
+                                <md-radio-group [(ngModel)]="reverseType">
+                                    <md-radio-button value="switch">Switch Dr/Cr</md-radio-button>
+                                    <md-radio-button value="change">Change Sign</md-radio-button>
+                                </md-radio-group>
+                            </div>
+                        </div>
+                        <div style="padding: 13px 2px 5px 5px;">
+                            <button md-button style="float: right;" *ngIf="reverseType" (click)="reverseFunctionality();myPopover0.hide();">Ok</button>
+                            <button md-button style="float: right;" (click)="myPopover0.hide();reverseType='';">Cancel</button>
+                        </div>
+                    </popover-content>
+                    <button md-raised-button (click)="rePostBatch();" *ngIf="showReverseButton && journalsHeaderBatchDetails.length">Re-Post JE</button>
+                    <button md-raised-button [popover]="myPopover0" (click)="reverseBatch();reverseType=''" *ngIf="showReverseButton">Reverse</button>
+                    <i *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJETemp();" mdTooltip="Excel Download" class="fa fa-file-excel-o hand"
+                        aria-hidden="true" style="font-size: 17px;position: relative;top: 2px;"></i>
+                    <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length" (click)="downloadJETemp();">Excel Download</button> -->
+                    <!-- <button md-raised-button *ngIf="journalsHeaderBatchDetails.length">Pdf Download</button> -->
+                    <!-- <button md-icon-button *ngIf="journalsHeaderBatchDetails.length" (click)="viewFullScreenJEDetails();" mdTooltip="Exit Full Screen"><i  class="material-icons">fullscreen_exit</i></button> -->
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.batchName" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Batch Name"
+                            name="batchName">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.glDate" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="GL Date"
+                            name="glDate">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.source" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Source"
+                            name="source">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.conversionType" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Conversion Type"
+                            name="conversionType">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.ledger" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Ledger"
+                            name="ledger">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.period" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Period"
+                            name="period">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group">
+                    <md-input-container class="example-full-width">
+                        <input mdInput [(ngModel)]="journalslevelDetails.category" [ngClass]="{'color-black' : isViewOnly}" disabled placeholder="Category"
+                            name="category">
+                    </md-input-container>
+                </div>
+                <div class="col-md-3 col-xs-6 form-group" style="display:block;">
+                    <!-- <md-select placeholder="Journal Level" name="jeLevel" [(ngModel)]="journalLevel" [ngClass]="{'color-black' : isViewOnly}"
+                        (change)="fetchJournalLevel(journalLevel);">
+                        <md-option value="summary">Summary</md-option>
+                        <md-option value="details">Detail</md-option>
+                    </md-select> -->
+                    <div style="font-size: 14px;color: #757575;margin-top: -5px;">Journal Level</div>
+                        <md-radio-group [(ngModel)]="journalLevel" (change)="fetchJournalLevel(journalLevel);">
+                            <md-radio-button value="summary">Summary</md-radio-button>
+                            <md-radio-button value="details">Detail</md-radio-button>
+                        </md-radio-group>
+                </div>
+                <!-- Journal Generation Level -->
+            </div>
+        </md-card>
+        <md-card *ngIf="showJEDetails" style="margin-top: 12px;" class="row">
+            <div style="padding: 5px 8px 5px 9px;">
+                <h5 style="margin-bottom: -9px;">JE Line Details</h5>
+                <div *ngIf="journalslevelDetails" style="width: 99%;">
+                    <div style="text-align:right" class="show-hide-class">
+                        <p-multiSelect [options]="columnOptions1" [(ngModel)]="journalsViewColumns"></p-multiSelect>
+                    </div>
+                    <p-dataTable [value]="journalslevelDetails.jelineDetailsList" selectionMode="multiple" reorderableColumns="true" scrollable="true"
+                        scrollHeight={{TemplatesHeight}} [(selection)]="mySelectedRows3" [responsive]="true" [headerCheckboxToggleAllPages]="true"
+                        [globalFilter]="gb" #dt [rows]="15" [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]">
+                        <p-column *ngFor="let col of journalsViewColumns" [style]="{'width':col.width,'text-align':col.align}" [field]="col.field"
+                            [header]="col.header" [sortable]="false">
+                        </p-column>
+                        <p-column header="" styleClass="left" [sortable]="false" [style]="{'width':'50px'}" *ngIf="journalLevel == 'summary'">
+                            <ng-template let-col let-row="rowData" pTemplate="body">
+                                <button md-icon-button aria-hidden="true" mdTooltip="Details" (click)="showJeLineDetails(row);">
+                                        <md-icon style="margin-top: -7px;">more_vert</md-icon>
+                                    </button>
+                            </ng-template>
+                        </p-column>
+                    </p-dataTable>
+                    <md-paginator *ngIf="journalslevelDetailsLength>0" [length]="journalslevelDetailsLength" [pageSize]="itemsPerPage" [pageSizeOptions]="pageSizeOptions"
+                        [pageIndex]="page" (page)="onPaginateChange($event)">
+                    </md-paginator>
+                </div>
+            </div>
+        </md-card>
+    </p-sidebar>
+
+
+</div>

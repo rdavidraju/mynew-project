@@ -1,0 +1,231 @@
+import { Injectable } from '@angular/core';
+import { Http, Response, URLSearchParams, BaseRequestOptions } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { Reconcile,customFilters } from './reconcile.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class ReconcileService {
+
+    private resourceUrl = 'agreeapplication/api/reconciles';
+    private resourceSearchUrl = 'agreeapplication/api/_search/reconciles';
+    private reconcileURL = 'agreeapplication/api/reconcileData';
+    private reconciledDataByYearURL = 'agreeapplication/api/reconciledDataByYear';
+    private reconciliationResultURL = 'agreeapplication/api/getReconciliationCountAndAmount';
+    public apiHost: string = '../jsonfolder/reconciledata.json';
+    private getRecordsForReconcileURL = 'agreeapplication/api/getReconciliationDataByViewId';
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private customFilterRecordsURL = 'agreeapplication/api/getRecDataWithCustomFilter';
+    private reconciliationResultPostURL = 'agreeapplication/api/postManualReconciliationData';
+    private unreconciliationResultPostURL = 'agreeapplication/api/processManualUnReconciliationData';
+    private reconcileSideBarDataURL = 'agreeapplication/api/getReconViewColumnValueSet';
+    private columnHeadersURL = 'agreeapplication/api/getReconColumnAlignmentInfo';
+    //private reconcileDataUrl = "reconcile/reconcile-data.json";
+    public  ENABLE_RULE_BLOCK: boolean =false;
+
+    constructor(private http: Http, private dateUtils: JhiDateUtils,
+    private $sessionStorage: SessionStorageService) { }
+    getYearlyReconcileData(year:any):Observable<ResponseWrapper>{
+        return this.http.get(`${'agreeapplication/api/reconciledYearlyData'}/${year}`)
+                .map((res:any)=> this.convertResponse(res));
+    }
+
+    create(reconcile: Reconcile): Observable<Reconcile> {
+        const copy = this.convert(reconcile);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(reconcile: Reconcile): Observable<Reconcile> {
+        const copy = this.convert(reconcile);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<Reconcile> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.transactionDate = this.dateUtils
+            .convertLocalDateFromServer(entity.transactionDate);
+    }
+
+    private convert(reconcile: Reconcile): Reconcile {
+        const copy: Reconcile = Object.assign({}, reconcile);
+        copy.transactionDate = this.dateUtils
+            .convertLocalDateToServer(reconcile.transactionDate);
+        return copy;
+    }
+
+    
+
+    fetchGroupedDataByYear(year : any):Observable<Response>
+    {
+        console.log('fetch by year'+year);
+       return this.http.get(this.reconciledDataByYearURL+'?year='+year);
+    }
+
+    fetchGroupedData(queryInput : string,columns : any):Observable<Response>
+   {
+        console.log('input query in service is:'+queryInput+'columns:'+columns);
+       return this.http.get("http://localhost:8080/agreeapplication/api/groupedData"+'?query='+queryInput+'&columns='+columns);
+    }
+
+    
+     reconcileList() :Observable<Response>
+    {
+         return this.http.get(this.apiHost).map((res: Response)=>{
+            let jsonResponse = res.json();
+            console.log('reconcile data from service :' + JSON.stringify(jsonResponse));
+            return jsonResponse;
+            
+        });
+    
+    } 
+
+    reconciliationData(ruleGroupId:any):Observable<Response>
+    {
+        return this.http.get(this.reconciliationResultURL+'?tenantId='+this.UserData.tenantId+'&groupId='+ruleGroupId).map((res:Response)=>{
+            return res.json();
+    });
+    }
+
+    fetchAllReconciledRecords(dataViewId:any,sourceOrTarget:any,groupId:number,page:number,per_page:number):Observable<Response>
+    {
+       
+        return this.http.get(this.getRecordsForReconcileURL+'?tenantId='+this.UserData.tenantId+'&dataViewId='
+        +dataViewId+'&sourceOrTarget='+sourceOrTarget+'&groupId='+groupId+'&page='+page+'&size='+per_page)
+            .map((res:Response) => {
+                 return res.json();
+            });
+    };
+
+    customFilterSearch(data: any): Observable<ResponseWrapper> {
+        data.tenantId = this.UserData.tenantId;
+        let copy: customFilters = Object.assign({}, data);
+            return this.http.post(this.customFilterRecordsURL, copy).map((res: Response) => {
+                return res.json();
+            }); 
+    };
+
+    getHeaderColumns(groupId:number,dataViewId:number,sourceOrTarget:any):Observable<Response>
+    {
+       
+        return this.http.get(this.columnHeadersURL+'?tenantId='+this.UserData.tenantId+'&groupId='+groupId+'&viewId='
+        +dataViewId+'&sourceOrTarget='+sourceOrTarget)
+            .map((res:Response) => {
+                 return res.json();
+            });
+    };
+
+    reconcileRecordsPost(data: any): Observable<ResponseWrapper> {
+        console.log('data service '+JSON.stringify(data));
+            return this.http.post(this.reconciliationResultPostURL+'?tenantId='+this.UserData.tenantId+'&userId='+this.UserData.id,data).map((res: Response) => {
+                return res.json();
+            }); 
+    };
+    
+    fetchRecordsBasedOnStatus(dataViewId:any,sourceOrTarget:any,status:any,groupId:number,page:number,per_page:number):Observable<Response>
+    {
+       
+        return this.http.get(this.getRecordsForReconcileURL+'?tenantId='+this.UserData.tenantId+'&dataViewId='
+        +dataViewId+'&sourceOrTarget='+sourceOrTarget+'&status='+status+'&groupId='+groupId+'&page='+page+'&size='+per_page)
+            .map((res:Response) => {
+                 return res.json();
+            });
+    };
+    
+    fetchSidebarData(dataViewId:any,groupId:number,sourceOrTarget:any):Observable<Response>
+    {
+       
+        return this.http.get(this.reconcileSideBarDataURL+'?tenantId='+this.UserData.tenantId+'&viewId='
+        +dataViewId+'&groupId='+groupId+'&sourceOrTarget='+sourceOrTarget)
+            .map((res:Response) => {
+                 return res.json();
+            });
+    };
+
+    fetchSidebarDataBasedOnStatus(dataViewId:any,groupId:number,sourceOrTarget:any,status:any):Observable<Response>
+    {
+       
+        return this.http.get(this.reconcileSideBarDataURL+'?tenantId='+this.UserData.tenantId+'&viewId='
+        +dataViewId+'&groupId='+groupId+'&sourceOrTarget='+sourceOrTarget+'&status='+status)
+            .map((res:Response) => {
+                 return res.json();
+            });
+    };
+
+
+    manualUnreconciliation(data: number[]): Observable<ResponseWrapper> {
+        console.log('data service '+JSON.stringify(data));
+            return this.http.post(this.unreconciliationResultPostURL+'?tenantId='+this.UserData.tenantId,data).map((res: Response) => {
+                return res.json();;
+            }); 
+    };
+    
+    
+    // updateDataViewCol(data: any): Observable<Response> {
+    //     console.log('data service '+JSON.stringify(data));
+    //     let copy: DataViewsColumns = Object.assign({}, data);
+    //     copy.creationDate = this.dateUtils.toDate(data.creationDate);
+    //     copy.lastUpdatedDate = this.dateUtils.toDate(data.lastUpdatedDate);
+    //     console.log('data service '+JSON.stringify(data));
+    //     if(data.id != null){
+    //         console.log('inside update :');
+    //         return this.http.post(`${this.postDataViewColumnUrl}?userId=${this.UserData.id}`, copy).map((res: Response) => {
+    //             return res.json();
+    //         });
+    //     }else{
+    //         console.log('inside creation :');
+    //         return this.http.post(`${this.postDataViewColumnUrl}?userId=${this.UserData.id}`, copy).map((res: Response) => {
+    //             return res.json();
+    //         });    
+    //     }
+    // }
+   
+    
+    /* public reconcileList(): Observable<any> {
+        return this.http.get('./reconcile-data.json').map((response: Response) => {
+                console.log("mock data" + response.json());
+                return response.json();
+            }
+            )
+        } */
+         /* return this.http.get("./reconcile-data.json")
+                         .map((res:any) => res.json()); */
+                         
+
+     
+}

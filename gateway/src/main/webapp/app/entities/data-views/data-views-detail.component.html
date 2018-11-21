@@ -1,0 +1,626 @@
+<div style="height: 100%; width: 100%" class="data-views-component header-tabs-styles" *ngIf="loadDocument">
+	<div class="component-title">
+		<div class="col-lg-8">
+			<h4>
+				<span *ngIf="!dataViews?.dataViewDispName">Data View {{isCreateNew ? 'Creation' : 'Detail'}}</span>
+				<span *ngIf="dataViews?.dataViewDispName">
+					<span>Data View: </span>
+					<span style="color:black">{{dataViews?.dataViewDispName}}</span>
+				</span>
+			</h4>
+		</div>
+		<div class="col-lg-4">
+			<div class="pull-right">
+				<button *ngIf="!isViewOnly && f.valid && !duplicateViewName && viewRelation != 'UNION' && !hideSaveButton"
+				 md-icon-button mdTooltip="Save Data View" (click)="saveDataViews();">
+					<md-icon>save</md-icon>
+				</button>
+				<button *ngIf="!isViewOnly && f.valid && !duplicateViewName && viewRelation=='UNION' && !hideSaveButton"
+				 md-icon-button mdTooltip="Save Data View" (click)="saveDataViewsU();">
+					<md-icon>save</md-icon>
+				</button>
+				<button *ngIf="!isViewOnly && !f.valid || duplicateViewName" md-icon-button mdTooltip="Fill mandatory fields"
+				 (click)="validationMsg()">
+					<md-icon>save</md-icon>
+				</button>
+				<button *ngIf="isViewOnly && !this.isCopy" md-icon-button (click)="enableCopy()" [mdTooltip]="'Copy '+dataViews?.dataViewDispName">
+					<md-icon>content_copy</md-icon>
+				</button>
+				<div *ngIf="isViewOnly">
+					<button md-icon-button (click)="showView($event,dataViews);" mdTooltip="Preview Data" *jhiHasAnyAuthority="['DATA_SRC_PREVIEW']">
+						<md-icon>pageview</md-icon>
+					</button>
+				</div>
+				<div *jhiHasAnyAuthority="['DATA_SRC_EDIT']">
+					<button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/data-views', {outlets: {'content': [dataViews.id]+'/edit'}}]">
+						<md-icon>mode_edit</md-icon>
+					</button>
+				</div>
+				<button *ngIf="isEdit || isCopy" md-icon-button mdTooltip="Close" [routerLink]="['/data-views', { outlets: {'content': ['All']+'/list'} }]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isCreateNew" md-icon-button mdTooltip="Close" [routerLink]="['/data-views', { outlets: {'content': ['All']+'/list'} }]">
+					<md-icon>clear</md-icon>
+				</button>
+				<button *ngIf="isViewOnly" md-icon-button mdTooltip="View List" [routerLink]="['/data-views', { outlets: {'content': ['All']+'/list'} }]">
+					<md-icon>clear</md-icon>
+				</button>
+			</div>
+		</div>
+	</div>
+	<div class="component-body">
+		<form novalidate #f="ngForm" style="padding-top:10px;">
+			<div class="row m-0">
+				<div class="col-md-3" style="display: inline-block;">
+					<div class="mat-c-input-wrapper">
+						<md-input-container class="example-full-width ">
+							<input mdInput [(ngModel)]="dataViews.dataViewDispName" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							 placeholder="Name" (blur)="checkViewName(dataViews?.dataViewDispName, dataViews.id)" name="displayName"
+							 required #displayName="ngModel" (ngModelChange)="duplicateViewName = ''"> </md-input-container>
+					</div>
+					<div style="margin-top:0.4rem" class="help-block errorFont" *ngIf="duplicateViewName">{{duplicateViewName}}</div>
+				</div>
+				<div class="col-md-3">
+					<div class="mat-c-input-wrapper">
+						<md-input-container class="example-full-width">
+							<input mdInput [(ngModel)]="dataViews.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							 placeholder="Description" name="description" #description="ngModel"> </md-input-container>
+					</div>
+				</div>
+
+				<div [ngClass]="!isCreateNew ? 'col-md-2' : 'col-md-3'">
+					<div class="mat-c-input-wrapper">
+						<md-form-field> <input mdInput [mdDatepicker]="stpicker" placeholder="Start Date" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="!isCreateNew && !isCopy" [min]="currentDate" [(ngModel)]="dataViews.startDate" name="startDate" required>
+							<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="isCreateNew"></md-datepicker-toggle>
+							<md-datepicker #stpicker></md-datepicker>
+						</md-form-field>
+					</div>
+				</div>
+
+				<div [ngClass]="!isCreateNew ? 'col-md-2' : 'col-md-3'" *ngIf="dataViews.startDate">
+					<div class="mat-c-input-wrapper">
+						<md-input-container *ngIf="dataViews.endDate == '-'">
+							<input mdInput [(ngModel)]="dataViews.endDate" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+							 placeholder="End Date" name="endDate">
+						</md-input-container>
+						<md-form-field *ngIf="dataViews.endDate != '-'">
+							<input mdInput [mdDatepicker]="edpicker" placeholder="End Date" [min]="dataViews.startDate" [ngClass]="{'color-black' : isViewOnly}"
+							 [disabled]="isViewOnly" [(ngModel)]="dataViews.endDate" name="endDate">
+							<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+							<md-datepicker #edpicker></md-datepicker>
+						</md-form-field>
+					</div>
+				</div>
+				<div class="col-md-2" *ngIf="!isCreateNew">
+					<div class="mat-c-select-wrapper">
+						<md-select placeholder="Status" [(ngModel)]="dataViews.enabledFlag" name="status" [disabled]="isViewOnly || isCopy"
+						 required style="width:100%;">
+							<md-option *ngFor="let sts of statuses" [(value)]="sts.code">{{ sts.value }}</md-option>
+						</md-select>
+					</div>
+				</div>
+				<md-accordion multi="true" class="dv-mt-expansion">
+					<md-expansion-panel expanded="true" [disabled]="true">
+						<md-expansion-panel-header>
+							<md-panel-title>Setup</md-panel-title>
+						</md-expansion-panel-header>
+						<div *ngIf="isCreateNew || isCopy" class="row" style="margin:0;" [ngStyle]="{'margin-bottom': isCopy ? '1rem' : ''}">
+							<div class="col-md-4" style="padding:0" [style.margin-right]="selItems.length==1 ? '1rem' : ''">
+								<!-- style="font-size: 16px;" *ngIf="selItems.length>0" -->
+								<div class="col-md-12" class="multi-select-placeholder">
+									<div class="ms-label">
+										<p>Select Template/Data View</p>
+									</div>
+									<angular2-multiselect (click)="multiselectClick('.template-dropdown')" [settings]="limitSelectionSettings"
+									 [data]="dropdownList" [(ngModel)]="selItems" (onSelect)="clearViewConfOnTemplSel(selItems, $event, 'select')"
+									 (onSelectAll)="clearViewConfOnTemplSel(selItems)" (onDeSelect)="clearViewConfOnTemplSel(selItems, $event, 'deselect')"
+									 (onDeSelectAll)="clearViewConfOnTemplSel(selItems)" name="selItems" required>
+									</angular2-multiselect>
+								</div>
+							</div>
+							<div class="col-md-4 display-flex" *ngIf="selItems.length>1" style="padding:0">
+								<div class="col-md-12 radio-pad-r flex-align-center" style="align-self:flex-end;">
+									<div>
+										<label for="viewRelation" style="display:block">Select Source Relation</label>
+										<md-radio-group [(ngModel)]="sourceRelation" name="sourceRelation" required [disabled]="disblRelation || custFxDialog"
+										 (change)="clearViewConfirmation(sourceRelation);" id="viewRelation" #viewRelationVar>
+											<md-radio-button *ngFor="let viewRelation of viewRelations" [value]="viewRelation.lookUpCode">
+												{{viewRelation.meaning}}
+											</md-radio-button>
+										</md-radio-group>
+									</div>
+								</div>
+							</div>
+							<div class="col-md-4 display-flex" *ngIf="viewRelation == 'JOIN' && selItems.length>1" style="padding:0">
+								<div class="col-md-12 radio-pad-r flex-align-center" style="align-self:flex-end">
+									<div>
+										<label style="display:block">Select Based Template :</label>
+										<md-radio-group [(ngModel)]="basedTemplate" name="basedTemplate" required #basedTemplRadio>
+											<md-radio-button *ngFor="let obj of selectedTemplates;" [value]="obj">
+												{{obj.itemName}}
+											</md-radio-button>
+										</md-radio-group>
+									</div>
+								</div>
+							</div>
+
+							<div class="col-md-4" *ngIf="(isCopy && disColDrpDwn) || (colField || basedTemplate) && (viewRelation != 'UNION' && selItems.length>0)"
+							 [ngStyle]="{'padding': selItems.length > 1 ? '0' : ''}">
+								<div class="multi-select-placeholder">
+									<div class="ms-label">
+										<p>Select Column</p>
+									</div>
+									<angular2-multiselect (click)="multiselectClick('.columns-dropdown')" [data]="dropDownColumnList" [(ngModel)]="selectedColumns"
+									 [settings]="basicExampleSettings" (onSelect)="onColumnSelect(selectedColumns, $event)" (onDeSelect)="OnColumnDeSelect(selectedColumns, $event)"
+									 (onSelectAll)="onColumnSelect(selectedColumns, $event)" (onDeSelectAll)="OnColumnDeSelect(selectedColumns, $event)"
+									 name="selectedColumns" required> </angular2-multiselect>
+								</div>
+							</div>
+						</div>
+						<div [ngClass]="isCreateNew ? 'pull-right' : 'mat-cus-actions'" *jhiHasAnyAuthority="['DATA_SRC_CREATE','DATA_SRC_LINE_EDIT']">
+							<button *ngIf="(viewRelation == 'UNION' && selItems.length>1) || (dataViews.viewRelation == 'UNION') && !isEdit"
+							 md-icon-button mdTooltip="Add Column" (click)="addUnionColumn();buttonFunction = false;">
+								<md-icon>add</md-icon>
+							</button>
+						</div>
+						<div class="col-md-12" *ngIf="sourceCols.length && (viewRelation == 'UNION' && selItems.length>1) || (dataViews.viewRelation == 'UNION')"
+						 style="position:static">
+							<div class="table-responsive union-table" style="overflow-y:hidden;">
+								<table class="table theme-table">
+									<thead class="tableheader">
+										<tr>
+											<th style="text-transform: none;" *ngFor="let selTempl of selectedTemplates">
+												<div class="v-c-h-c">
+													<span>{{selTempl.dataName}}*</span>
+													<i style="font-size:15px;padding-left: 0.5rem" class="material-icons hand" *ngIf="custFxDialog" mdTooltip="{{'Copy ' + selTempl.dataName}}"
+													(click)="copyColumn(selTempl, 'dataName')">content_copy</i>
+												</div>
+											</th>
+											<th class="text-nowrap">Display Name <span>*</span></th>
+											<th class="text-nowrap">Data Type <span>*</span></th>
+											<th>Qualifier</th>
+											<th class="text-center">Group By</th>
+											<th></th>
+										</tr>
+									</thead>
+									<tbody class="text-nowrap">
+										<tr *ngFor="let col of unionColumnsList;let i = index;" id="hideIconTable" [ngClass]="{'active': col.columnEdit && !isCreateNew}">
+											<ng-container *ngIf="col.src">
+												<td *ngFor="let sourceCol of sourceCols; let j = index" style="width:200px;">
+													<div class="display-flex">
+														<md-select class="md-no-placeholder" [(ngModel)]="col.src[j]" style="padding-top: 0px;width: 200px;"
+														 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" [disabled]="(!isCopy || custFxDialog) && (col.id || custFxDialog)"
+														 required [compareWith]="tempLinesComWith" #templSel
+														 [materialFilter]="templSel" [materialFilterModel]="templSearchModel" [materialFilterInput]="templSearchInput">
+															<input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="col.templSearch[j]" [ngModelOptions]="{standalone: true}" #templSearchModel="ngModel" #templSearchInput>
+															<md-option *ngFor="let item of sourceCol | searchFilter:col.templSearch[j]" [value]="item" [disabled]="item.isDisabled && item.refDvColumn != 'customFunction'"
+															(click)="showFxDialog(col.src[j], i, j)">
+																<div class="display-flex" *ngIf="item.refDvColumn == 'customFunction'">
+																	<span>Custom Function</span>
+																	<i class="fa fa-sum"></i>
+																</div>
+																<div *ngIf="item.refDvColumn != 'customFunction'">{{ item.columnName }}</div>
+															</md-option>
+														</md-select>
+														<i id="showIcon" style="font-size:15px;margin:auto 0;padding-left:10px;" class="material-icons hand"
+														 *ngIf="col.src[j] && col.src[j].refDvColumn != 'customFunction' && col.src[j].refDvColumn != 'none' && custFxDialog"
+														 mdTooltip="{{'Copy ' + col.src[j].columnHeader}}" (click)="copyColumn(col.src[j])">content_copy</i>
+														<div *ngIf="isViewOnly && col.src[j] && col.src[j].excelexpressioninputUnion && !col.columnEdit" class="hand"
+														 style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 15px; visibility: visible; margin-top: 8px;padding-left: 20px;"
+														 popoverTitle="Expression Formed For - {{col.columnName}}" popover="{{col.src[j].excelexpressioninputUnion}}"
+														 [popoverOnHover]="true" popoverPlacement="top" [popoverCloseOnMouseOutside]="true">
+															<b>fx</b>
+														</div>
+														<div *ngIf="col.id && col.src[j] && col.src[j].excelexpressioninputUnion && col.columnEdit">
+															<button md-icon-button mdTooltip="Change Function" (click)="showFxDialog(col.src[j], i, j)">
+																<md-icon>functions</md-icon>
+															</button>
+														</div>
+													</div>
+												</td>
+											</ng-container>
+											<td class="mat-input-table" style="width:200px;">
+												<div class="topmargin-10" *ngIf="!isCopy && !col.columnEdit">{{col.columnName}}</div>
+												<div *ngIf="isCopy || col.columnEdit" class="mat-c-input-wrapper">
+													<md-input-container>
+														<input mdInput autofocus [(ngModel)]="col.columnName" [ngModelOptions]="{standalone: true}" required
+														 (blur)="checkTempColumnName(col.columnName, i)">
+													</md-input-container>
+												</div>
+											</td>
+											<td style="width:200px;">
+												<div>
+													<md-select class="md-no-placeholder" [(ngModel)]="col.colDataType" style="padding-top: 0px;width: 200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" [disabled]="!col.columnEdit && !isCopy"
+													 required>
+														<md-option *ngFor="let colDataType of dataTypeList" [value]="colDataType.lookUpCode" (click)="showQualifier(colDataType.lookUpCode, i);">
+															{{ colDataType.meaning }} </md-option>
+													</md-select>
+												</div>
+											</td>
+											<td style="width:200px;">
+												<div>
+													<md-select class="md-no-placeholder" [(ngModel)]="col.qualifier" style="padding-top: 0px;width:200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" [disabled]="!col.columnEdit && !isCopy || !col.colDataType"
+													 (change)="qualifierChange(col.qualifier, i, unionColumnsList)">
+														<md-option value=""></md-option>
+														<md-option *ngFor="let qualifier of qualifierList1[i]" [value]="qualifier.lookUpCode"> {{
+															qualifier.meaning
+															}} </md-option>
+													</md-select>
+												</div>
+											</td>
+											<td class="text-center" style="width:200px;">
+												<div *ngIf="(col.colDataType == 'VARCHAR')">
+													<md-checkbox *ngIf="!col.columnEdit && !isCopy" [ngModelOptions]="{standalone: true}" [checked]="col.groupBy"
+													 [disabled]="!col.columnEdit"></md-checkbox>
+													<md-checkbox *ngIf="col.columnEdit || isCopy" [ngModelOptions]="{standalone: true}" [(ngModel)]="col.groupBy"
+													 (change)="groupByChange(col)"></md-checkbox>
+												</div>
+											</td>
+											<td>
+												<div class="display-flex mat-sml-btn" id="showIcon" [ngClass]="col.columnEdit ? 'edit-mode' : ''" *ngIf="!isEdit">
+													<div *jhiHasAnyAuthority="['DATA_SRC_CREATE','DATA_SRC_LINE_DELETE']">
+														<button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" deleteConfirmation (deleteIt)="deleteUnionColumn(col);">
+															<md-icon>delete</md-icon>
+														</button>
+														<button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew || isCopy" (click)="deleteUnionColumnNew(col,i);">
+															<md-icon>delete</md-icon>
+														</button>
+													</div>
+													<button md-icon-button class="pull-right color-green" *ngIf="!isCopy && col.columnEdit && !newData && col.colDataType && col.columnName && !isCreateNew"
+													 style="font-size: 24px;" aria-hidden="true" (click)="updateUnionColumnData(col,i);addRowIcon = true; buttonFunction=true;"
+													 mdTooltip="Save">
+														<md-icon>save</md-icon>
+													</button>
+													<div *jhiHasAnyAuthority="['DATA_SRC_CREATE','DATA_SRC_LINE_EDIT']">
+														<button md-icon-button *ngIf="!isCopy && !col.columnEdit && buttonFunction && !isCreateNew" (click)="col.columnEdit = true; addRowIcon = false;buttonFunction = false;"
+														 mdTooltip="Edit">
+															<md-icon>mode_edit</md-icon>
+														</button>
+													</div>
+													<button md-icon-button class="pull-right color-gray" *ngIf="!isCopy && col.columnEdit && !newData && !isCreateNew"
+													 (click)="col.columnEdit = false;addRowIcon = true;cancelUnionColumnChanges(i);buttonFunction=true;" style="font-size: 24px;"
+													 mdTooltip="Cancel">
+														<md-icon>clear</md-icon>
+													</button>
+												</div>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+						<div [ngClass]="isCreateNew ? 'pull-right' : 'mat-cus-actions'" *ngIf="(selItems.length == 1 && (dataViewsColumnsList.length >0)) || (selItems.length == 2 && viewRelation != 'UNION' && (dataViewsColumnsList.length > 0)) || (dataViews.viewRelation != 'UNION'  && dataViews.conditions != null) || dataViews.viewRelation == undefined && dataViews.conditions != null">
+							<div *ngIf="!isEdit">
+								<button md-icon-button *ngIf="showSelectedCol" mdTooltip="Add Column" (click)="addColumn();buttonFunction = false;">
+									<md-icon>add</md-icon>
+								</button>
+								<button md-icon-button *ngIf="showSelectedCol" mdTooltip="Apply Filter" (click)="applyFilter()">
+									<md-icon>filter_list</md-icon>
+								</button>
+							</div>
+						</div>
+						<div class="col-md-12  col-xs-12" *ngIf="(selItems.length == 1 && (dataViewsColumnsList.length > 0)) || (selItems.length == 2 && viewRelation != 'UNION' && (dataViewsColumnsList.length > 0)) || (dataViews.viewRelation != 'UNION'  && dataViews.conditions != null) || dataViews.viewRelation == undefined && dataViews.conditions != null"
+						 style="padding:0;clear:both;">
+							<div class="table-responsive data-view-creation single-join-table" *ngIf="showSelectedCol">
+								<table id="selectedColumnTable" class="table theme-table">
+									<thead class="tableheader">
+										<tr>
+											<th>Template Name</th>
+											<th>Column Name</th>
+											<th class="text-nowrap">Display Name <span>*</span></th>
+											<th class="text-nowrap">Data Type <span>*</span></th>
+											<th>Qualifier</th>
+											<th class="text-center">Group By</th>
+											<th *ngIf="filter">Select Operation</th>
+											<th *ngIf="filter">Value</th>
+											<th></th>
+										</tr>
+									</thead>
+									<tbody class="text-nowrap">
+										<tr *ngFor="let col of dataViewsColumnsList;let i = index;" id="hideIconTable" [ngClass]="{'active': col.columnEdit && !isCreateNew}">
+											<td style="width:200px;">
+												<div class="align-items-center">
+													<div *ngIf="col.id">{{col.sourceName}}</div>
+													<md-select [(ngModel)]="col.refDvName" [disabled]="!col.columnEdit || dispCopyIcon" style="padding-top: 0;width:200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" #sourceName="ngModel"
+													 *ngIf="(col.columnEdit && !isCreateNew && !col.id && !col.formula && !isCopy)">
+														<md-option *ngFor="let col of sourceTemplate" [value]="col.refDvName" (click)="displayColumns(col.refDvName,i);">
+															{{ col.sourceName }} </md-option>
+													</md-select>
+													<i id="showIcon" style="font-size:15px;padding-left:10px;" class="material-icons hand"
+													 mdTooltip="Copy" *ngIf="col.refDvName && dispCopyIcon" (click)="copyColumn(col, 'source')">content_copy</i>
+												</div>
+											</td>
+											<td style="width: 200px;">
+												<div class="align-items-center">
+													<div *ngIf="col.id">{{col.columnHeader}}</div>
+													<md-select [(ngModel)]="col.refDvColumn" [disabled]="!col.columnEdit" style="padding-top: 0;width:200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" #columnHeader="ngModel"
+													 *ngIf="col.columnEdit && !isCreateNew && !col.id && col.refDvName && !isCopy">
+														<md-option *ngFor="let col of sourceColumns1" [value]="col.refDvColumn" (click)="setColumnName(col,i);">
+															{{ col.columnHeader }} </md-option>
+													</md-select>
+													<i id="showIcon" style="font-size:15px;padding-left:10px;" class="material-icons hand"
+													 mdTooltip="Copy" *ngIf="col.columnHeader && dispCopyIcon" (click)="copyColumn(col)">content_copy</i>
+												</div>
+											</td>
+											<td class="mat-input-table" style="width:200px;">
+												<div *ngIf="!isCopy && !col.columnEdit">{{col.columnName}}</div>
+												<div *ngIf="isCopy || col.columnEdit" class="mat-c-input-wrapper">
+													<md-input-container>
+														<input autofocus mdInput autofocus [(ngModel)]="col.columnName" #columnHeader="ngModel" [ngModelOptions]="{standalone: true}"
+														 required (blur)="checkTempColumnName(col.columnName, i)">
+													</md-input-container>
+												</div>
+											</td>
+
+											<td style="width: 200px">
+												<div *ngIf="!isCopy && !col.columnEdit">{{ col.colDataTypeMeaning }}</div>
+												<div>
+													<md-select [(ngModel)]="col.colDataType" class="md-no-placeholder" style="padding-top: 0;width:200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" #colDataType="ngModel" *ngIf="isCopy || col.columnEdit"
+													 [ngModelOptions]="{standalone: true}" required>
+														<md-option *ngFor="let colDataType of dataTypeList" [value]="colDataType.lookUpCode" (click)="showOperator(colDataType.lookUpCode, i);showQualifier(colDataType.lookUpCode, i);col.colValue = '';">
+															{{ colDataType.meaning }} </md-option>
+													</md-select>
+												</div>
+											</td>
+											<td style="width: 200px">
+												<div>
+													<md-select [(ngModel)]="col.qualifier" style="padding-top: 0;width:200px;" [ngClass]="{'color-black' : isViewOnly}"
+													 [ngModelOptions]="{standalone: true}" #qualifier="ngModel" [disabled]="!isCopy && !col.columnEdit || col.colDataType == 'INTEGER' || col.colDataType == 'BOOLEAN' || !col.colDataType"
+													 (change)="qualifierChange(col.qualifier, i, dataViewsColumnsList)">
+														<md-option value=""></md-option>
+														<md-option *ngFor="let qualifier of qualifierList1[i];" [value]="qualifier.lookUpCode">
+															{{ qualifier.meaning }} </md-option>
+													</md-select>
+												</div>
+											</td>
+											<td class="text-center" style="width:200px;">
+												<div *ngIf="(col.colDataType == 'VARCHAR')">
+													<md-checkbox *ngIf="!col.columnEdit && !isCopy" [ngModelOptions]="{standalone: true}" [checked]="col.groupBy"
+													 [disabled]="!col.columnEdit"></md-checkbox>
+													<md-checkbox *ngIf="col.columnEdit || isCopy" [ngModelOptions]="{standalone: true}" [(ngModel)]="col.groupBy"
+													 (change)="groupByChange(col)"></md-checkbox>
+												</div>
+
+											</td>
+											<td *ngIf="filter" style="width: 200px">
+												<div>
+													<md-select [(ngModel)]="col.operator" [disabled]="!col.columnEdit" style="padding-top: 0;width:200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" *ngIf="!col.columnEdit && !isCopy"
+													 #operator="ngModel">
+														<md-option *ngFor="let operator of operatorsList" [value]="operator.lookUpCode"> {{ operator.meaning }}
+														</md-option>
+													</md-select>
+													<md-select [(ngModel)]="col.operator" *ngIf="col.columnEdit || isCopy" style="padding-top: 0;width: 200px;"
+													 [ngClass]="{'color-black' : isViewOnly}" [ngModelOptions]="{standalone: true}" #operator="ngModel">
+														<md-option [value]='' (click)="col.colValue = ''"></md-option>
+														<md-option *ngFor="let operator of operatorsList[i] ;" [value]="operator.lookUpCode"> {{ operator.meaning }} </md-option>
+													</md-select>
+												</div>
+											</td>
+											<td *ngIf="filter" style="width:200px;">
+												<div *ngIf="!col.columnEdit && !isCopy">{{col.colValue}}</div>
+												<div class="mat-input-table mat-c-input-wrapper" *ngIf="col.columnEdit || isCopy" style="display: grid;min-width: 120px;">
+													<md-input-container>
+														<input mdInput [(ngModel)]="col.colValue" [ngModelOptions]="{standalone: true}" [disabled]="!col.operator"
+														 required [pattern]="col.operator == 'BETWEEN' ? '^.+,.+$' : ''" #operatorVal="ngModel">
+													</md-input-container>
+													<span mdTooltip="Please enter value based on selected operator" matTooltipShowDelay="1000"
+													style="font-size:10px !important;" class="help-block errorFont" *ngIf="col.operator && !col.colValue">Please enter value based on selected operator</span>
+													<span mdTooltip="Must contain 2 values seperated by comma(,)" matTooltipShowDelay="1000"
+													style="font-size:10px !important;" class="help-block errorFont" *ngIf="operatorVal.errors?.pattern">Must contain 2 values seperated by comma(,)</span>
+												</div>
+											</td>
+											<td style="vertical-align:middle;" class="mat-sml-btn">
+												<div class="display-flex" id="showIcon" [ngClass]="col.columnEdit ? 'edit-mode' : ''" *ngIf="!isEdit">
+													<div *ngIf="col.formula" style="color: green; font-style: italic; font-family: cursive; font-weight: normal; font-size: 20px; visibility: visible;"
+													 popoverTitle="Expression Formed For - {{col.columnName}}" popover="{{col.formula}}" popoverPlacement="left"
+													 [popoverOnHover]="true" [popoverCloseOnMouseOutside]="true">
+														<b>fx</b>
+													</div>
+													<button md-icon-button class="pull-right color-green" *ngIf="!isCreateNew && !isCopy && col.columnEdit && f.valid && !newData && col.colDataType &&( (col.columnName && col.formula) || (col.columnHeader && col.columnName)|| (col.refDvName && col.refDvColumn))"
+													 style="font-size: 24px;" aria-hidden="true" (click)="updateColumnData(col);addRowIcon = true;buttonFunction=true;"
+													 mdTooltip="Save">
+														<md-icon>save</md-icon>
+													</button>
+													<button md-icon-button class="pull-right color-gray" *ngIf="!isCreateNew && !isCopy && col.columnEdit && !f.valid && !newData"
+													 style="font-size: 24px;" aria-hidden="true" (click)="validationMsg()" mdTooltip="Fill Mandatory Fields">
+														<md-icon>save</md-icon>
+													</button>
+													<div *jhiHasAnyAuthority="['DATA_SRC_CREATE','DATA_SRC_LINE_EDIT']">
+														<button md-icon-button *ngIf="!isCreateNew && !isCopy && !col.columnEdit && buttonFunction" (click)="col.columnEdit = true; addRowIcon = false;listOperatorFun();buttonFunction = false"
+														 mdTooltip="Edit">
+															<md-icon>mode_edit</md-icon>
+														</button>
+													</div>
+													<div *jhiHasAnyAuthority="['DATA_SRC_CREATE','DATA_SRC_LINE_DELETE']">
+														<button md-icon-button mdTooltip="Delete" *ngIf="!col.columnEdit && isViewOnly" deleteConfirmation (deleteIt)="deleteColumn(col);">
+															<md-icon>delete</md-icon>
+														</button>
+														<button md-icon-button mdTooltip="Delete" *ngIf="isCreateNew || isCopy" (click)="deleteColumnNew(col,i);">
+															<md-icon>delete</md-icon>
+														</button>
+													</div>
+													<button md-icon-button [popover]="myPopover" *ngIf="(!isViewOnly || col.columnEdit) && !col.refDvName"
+													 mdTooltip="Build Expression" (click)="dispCopyIcon = true">
+														<md-icon>functions</md-icon>
+													</button>
+													<button md-icon-button class="pull-right color-gray" *ngIf="!isCreateNew && !isCopy && col.columnEdit && !newData"
+													 (click)="col.columnEdit = false;addRowIcon = true;cancelColumnChanges(i);buttonFunction=true;" style="font-size: 24px;"
+													 mdTooltip="Cancel">
+														<md-icon>clear</md-icon>
+													</button>
+
+												</div>
+												<div>
+													<popover-content #myPopover title="Build Expression" placement="left" [animation]="true"
+													 [closeOnClickOutside]="false" [popoverCloseOnMouseOutside]="false">
+														<div style="display: flex;">
+															<label class="control-label" style="font-size: 16px; padding-top: 10px;">Select Function:
+															</label>
+															<md-select [(ngModel)]="col.excelexpression" style="width:230px;" [ngClass]="{'color-black' : isViewOnly}"
+															 name="excelexpression{{i}}" #excelexpression="ngModel">
+																<md-option *ngFor="let excelexpression of excelFunctions " [value]="excelexpression.lookUpCode" (click)="showExcelFunction(excelexpression.lookUpCode, i,excelexpression.description);myPopover.show()">
+																	{{ excelexpression.meaning }} </md-option>
+															</md-select>
+														</div>
+														<div *ngIf="col.formula && !col.excelexpression" class="data-view-query-build">
+															<textarea mdInput [(ngModel)]="col.formula" name="formula_{{i}}" mdTooltip="{{col.formula}}">
+
+
+
+															</textarea>
+														</div>
+														<div *ngIf="col.excelexpression" class="data-view-query-build">
+															<textarea mdInput [(ngModel)]="col.excelexpressioninput" name="excelexpressioninput_{{i}}" mdTooltip="{{col.excelexpressioninput}}">
+
+
+
+															</textarea>
+														</div>
+														<small class="form-text text-danger" *ngIf="isCustFxErrorSinJoin">{{isCustFxErrorSinJoin}}</small>
+														<div *ngIf="col.excelexpression" style="padding-top: 10px;">Eg: {{col.excelexpressionExample}}
+														</div>
+														<div>
+															<button md-icon-button class="pull-right color-gray" (click)="myPopover.hide();dispCopyIcon=false"
+															 mdTooltip="Cancel">
+																<md-icon>clear</md-icon>
+															</button>
+															<button *ngIf="(!isCreateNew && col.excelexpression) ||  (col.excelexpressioninput || col.formula)"
+															 md-icon-button class="pull-right color-green ripple" aria-hidden="true" (click)="saveExpression(col.excelexpressioninput, i, col.formula, myPopover);"
+															 mdTooltip="Save">
+																<md-icon>done</md-icon>
+															</button>
+														</div>
+
+													</popover-content>
+												</div>
+											</td>
+										</tr>
+									</tbody>
+								</table>
+							</div>
+						</div>
+					</md-expansion-panel>
+					<md-expansion-panel *ngIf="(selItems.length == 2 && selectedColumns.length>0) || (selItems.length == 2 && viewRelation != 'UNION' && selectedColumns.length>0) || (dataViews.viewRelation == 'JOIN') && (dataViewsColumnsList.length)"
+					 expanded="true" [disabled]="true">
+						<md-expansion-panel-header>
+							<md-panel-title>Conditions</md-panel-title>
+						</md-expansion-panel-header>
+						<div class="row" id="hideIconTable" style="margin:0;">
+							<div class="col-lg-3 col-md-3 col-sm-3 col-xs-3">
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+									<md-select [placeholder]="sourceName1" style="margin-left: 0px !important;margin-top: 0px !important;"
+									 [(ngModel)]="dataViews.source" [disabled]="!isCreateNew && !conditionEdit && !newData && !isCopy" [ngClass]="{'color-black' : isViewOnly}"
+									 name="source" required #cond1Sel [materialFilter]="cond1Sel"
+									 [materialFilterModel]="cond1SearchModel" [materialFilterInput]="cond1SearchInput">
+									 <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="cond1Search" [ngModelOptions]="{standalone: true}" #cond1SearchModel="ngModel" #cond1SearchInput>
+										<md-option *ngFor="let source of conditionList1 | searchFilter:cond1Search" [value]="source.id" (click)="sourceCall(source);">
+											{{ source.columnHeader }} </md-option>
+									</md-select>
+								</div>
+							</div>
+							<div class="col-lg-2 col-md-2 col-sm-2 col-xs-2">
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+									<md-select placeholder="Operator" style="margin-left: 0px !important;margin-top: 0px !important;" [(ngModel)]="conditionOperatorss"
+									 [disabled]="!isCreateNew && !conditionEdit && !newData && !isCopy" [ngClass]="{'color-black' : isViewOnly}"
+									 name="operatorss" required>
+										<md-option *ngFor="let oper of operatorss" [value]="oper.value">{{oper.meaning}}</md-option>
+									</md-select>
+								</div>
+							</div>
+							<div class="col-lg-3 col-md-3 col-sm-3 col-xs-3">
+								<div class="col-lg-12 col-md-12 col-sm-12 col-xs-12">
+									<md-select [placeholder]="sourceName2" style="margin-left: 0px !important;margin-top: 0px !important;"
+									 [(ngModel)]="dataViews.target" [disabled]="!isCreateNew && !conditionEdit && !newData && !isCopy" [ngClass]="{'color-black' : isViewOnly}"
+									 name="target" required #cond2Sel [materialFilter]="cond2Sel"
+									 [materialFilterModel]="cond2SearchModel" [materialFilterInput]="cond2SearchInput">
+									 <input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="cond2Search" [ngModelOptions]="{standalone: true}" #cond2SearchModel="ngModel" #cond2SearchInput>
+										<md-option *ngFor="let target of conditionList2 | searchFilter:cond2Search" [value]="target.id" (click)="targetCall(target);">
+											{{ target.columnHeader }} </md-option>
+									</md-select>
+								</div>
+							</div>
+							<div class="col-lg-2 col-md-2 col-sm-2 col-xs-2" *ngIf="!newData && !isCopy && !isEdit">
+								<div class="display-flex" id="showIcon">
+									<button md-icon-button class="pull-right color-green" *ngIf="conditionEdit" style="font-size: 24px;"
+									 aria-hidden="true" (click)="updateConditions();conditionEdit = false;" mdTooltip="Update Conditions">
+										<md-icon>save</md-icon>
+									</button>
+									<button md-icon-button *ngIf="!isCreateNew && !conditionEdit" (click)="conditionEdit = true;" mdTooltip="Edit">
+										<md-icon>mode_edit</md-icon>
+									</button>
+									<button md-icon-button class="pull-right color-gray" *ngIf="conditionEdit" (click)="conditionEdit = false;cancelConditionChanges()"
+									 style="font-size: 24px;" mdTooltip="Cancel">
+										<md-icon>clear</md-icon>
+									</button>
+								</div>
+							</div>
+						</div>
+					</md-expansion-panel>
+				</md-accordion>
+		</form>
+	</div>
+</div>
+
+<p-dialog header="Custom Function" [(visible)]="custFxDialog" [width]="400" styleClass="dv-cus-fx" [resizable]="false"
+ [closeOnEscape]="false" [closable]="false">
+	<md-select *ngIf="custFxDialogData" placeholder="Select Function" [(ngModel)]="custFxDialogData.selFx" required
+	 (change)="showExcelUnionFunction(custFxDialogData)" [compareWith]="lookUpComWith">
+		<md-option *ngFor="let excelexpression of excelFunctions" [value]="excelexpression">{{ excelexpression.meaning }}
+		</md-option>
+	</md-select>
+	<div class="data-view-query-build" style="margin: 10px 0;" *ngIf="custFxDialogData?.selFx">
+		<textarea mdInput [(ngModel)]="custFxDialogData.selFx.excelexpressioninputUnion" required spellcheck="false"
+		 (ngModelChange)="isCustFxError = ''"></textarea>
+	</div>
+	<small class="form-text text-danger" *ngIf="isCustFxError">{{isCustFxError}}</small>
+	<div style="display:block;color:gray" *ngIf="custFxDialogData?.selFx?.lookUpCode">
+		<div>Eg:</div>
+		<div style="word-break: break-word;">{{custFxDialogData.selFx.description}}</div>
+	</div>
+	<p-footer>
+		<button *ngIf="custFxDialogData?.selFx?.excelexpressioninputUnion || (!isCreateNew && custFxDialogData?.selFx?.lookUpCode)"
+		 md-icon-button (click)="insertUnionExpression();" mdTooltip="Save">
+			<md-icon>done</md-icon>
+		</button>
+		<button md-icon-button class="color-gray" (click)="clearUnionFunction();" mdTooltip="Cancel">
+			<md-icon>clear</md-icon>
+		</button>
+	</p-footer>
+</p-dialog>
+
+<div class="dataViewDisplay">
+	<p-dialog header="{{selectedViewName}} - View" [(visible)]="display" [resizable]="false">
+		<p-header>
+			<button md-icon-button (click)="physicalViewExport('csv')" *ngIf="viewsList.length" mdTooltip="Export to CSV">
+				<i class="rec-font-csv"></i>
+			</button>
+			<button md-icon-button (click)="physicalViewExport('excel')" *ngIf="viewsList.length" mdTooltip="Export to Excel">
+				<i class="fa fa-file-excel-o"></i>
+			</button>
+		</p-header>
+		<div style="text-align:right">
+			<p-multiSelect [options]="viewColumnOptions" [(ngModel)]="viewTableColumns" title="Show/Hide Columns"></p-multiSelect>
+		</div>
+		<div class="list-table">
+			<p-dataTable [value]="viewsList" selectionMode="multiple" reorderableColumns="true" resizableColumns="true"
+			 columnResizeMode="expand" scrollable="true" [responsive]="true" [headerCheckboxToggleAllPages]="true" #dt [rows]="15"
+			 [paginator]="false" [pageLinks]="3" [rowsPerPageOptions]="[5,10,20,50]" scrollHeight="calc(100vh - 350px)">
+				<p-column *ngFor="let cols of viewTableColumns" styleClass="left" [style]="{'text-align':cols.align, 'width': '300px'}"
+				 [field]="cols.field" [header]="cols.header" [sortable]="true">
+				</p-column>
+			</p-dataTable>
+		</div>
+		<p-footer>
+			<md-paginator [length]="selectedViewRecordsLength" [pageSize]="viewitemsPerPage" [pageSizeOptions]="pageSizeOptions"
+			 [pageIndex]="page1" (page)="onPaginateChangeView($event)">
+			</md-paginator>
+		</p-footer>
+	</p-dialog>
+</div>

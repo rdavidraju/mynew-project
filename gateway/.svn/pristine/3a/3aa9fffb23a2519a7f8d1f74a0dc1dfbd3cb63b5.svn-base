@@ -1,0 +1,316 @@
+<div style="height: 100%; width: 100%">
+	<vertical-split-pane primary-component-minsize="50" primary-component-initialratio="0.2" [primary-component-toggled-off]="isVisibleA">
+		<div *jhiHasAnyAuthority="['SRC_CONNECTION_VIEW','SRC_CONNECTION_EDIT']">
+			<div id="sticky" class="leftpane split-pane-content-primary" *ngIf="!isCreateNew" style="min-height: calc(100vh - 130px);">
+				<connection-side-bar></connection-side-bar>
+			</div>
+		</div>
+		<div class="split-pane-content-secondary rightpane">
+
+			<div class="component-body">
+				<div class="botom-dotted-blue-border component-title">
+
+					<!-- <div *ngIf="isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle pageListTitle">
+						<h4 class="pageListTitle">New Connection</h4>
+					</div>
+					<div *ngIf="!isCreateNew" class="col-lg-8 col-md-8 col-sm-8 col-xs-8 pageTitle">
+						<h4 *ngIf="!isCreateNew">{{sourceConnectionDetails.name}}</h4>
+					</div> -->
+					<div class="col-md-8">
+						<!-- <h4 class="pageListTitle">Create New Template</h4> -->
+						<!-- <button md-icon-button class="hand" mdTooltip="Toggle Sidebar" (click)="toggleSB()" *ngIf="!isCreateNew">
+							<span class="fa fa-bars hand ripple sbclose"></span>
+						</button> -->
+						<h4>{{!isCreateNew ? sourceConnectionDetails?.name : 'Create New Connector'}}</h4>
+					</div>
+					<div class="col-lg-4 col-md-4 col-sm-4 col-xs-4">
+						<div class="float-right">
+							<button *ngIf="!isViewOnly && f.valid && !duplicateConName  " md-icon-button class="pull-right color-green" aria-hidden="true"
+							 mdTooltip="Save Source Connector" (click)="saveSourceConnection()">
+								<md-icon>save</md-icon>
+							</button>
+							<button md-icon-button mdTooltip="Edit Connection"  *ngIf="isViewOnly" [routerLink]="['/source-connection-details', {outlets: {'content': [sourceConnectionDetails.idForDisplay]+'/edit'}}]">
+								<md-icon>edit</md-icon>
+							</button>
+							<!-- <button *ngIf=" hideSaveButton" md-icon-button class="pull-right color-gray" aria-hidden="true"
+						mdTooltip="Test for connection">
+					   <md-icon>save</md-icon>
+				   </button> -->
+							<button *ngIf="!isViewOnly && (!f.valid  || duplicateConName)" md-icon-button class="pull-right color-gray" aria-hidden="true"
+							 mdTooltip="Fill mandatory fields" (click)="validationMsg()">
+								<md-icon>save</md-icon>
+							</button>
+
+							<!-- <div *jhiHasAnyAuthority="['SRC_CONNECTION_COPY']">
+						<button *ngIf="isViewOnly" md-icon-button mdTooltip="Copy" [routerLink]="['/source-connection-details', {outlets: {'content': [sourceConnectionDetails.idForDisplay]+'/copyedit'}}]">
+							<md-icon >content_copy</md-icon>
+						</button>
+						</div>
+						<div *jhiHasAnyAuthority="['SRC_CONNECTION_EDIT']">
+						<button *ngIf="isViewOnly" md-icon-button mdTooltip="Edit" [routerLink]="['/source-connection-details', {outlets: {'content': [sourceConnectionDetails.idForDisplay]+'/edit'}}]">
+							<md-icon >mode_edit</md-icon>
+						</button> 
+						</div>-->
+							<button *ngIf="!isViewOnly" md-icon-button class="pull-right color-gray" mdTooltip="Close" (click)="close()">
+								<md-icon>clear</md-icon>
+							</button>
+							<!-- <button *ngIf="isCreateNew" md-icon-button class="pull-right color-gray" mdTooltip="Close" [routerLink]="['/source-connection-details', {outlets: {'content': ['source-connection-detailst']}}]">
+							<md-icon>clear</md-icon>
+						</button> -->
+							<button *ngIf="isViewOnly" md-icon-button mdTooltip="View List" [routerLink]="['/source-connection-details', {outlets: {'content': ['source-connection-detailst']}}]">
+								<md-icon>clear</md-icon>
+							</button>
+						</div>
+					</div>
+				</div>
+
+				<form novalidate #f="ngForm">
+
+					<div class="row leftmargin-20" style="padding-top: 10px;margin: 0px 0px !important;">
+						<div class="col-md-3" style="display: inline-block;">
+							<md-input-container>
+								<input mdInput [(ngModel)]="sourceConnectionDetails.name" [ngClass]="{'color-black' : isViewOnly}" id="name" [disabled]="isViewOnly"
+								 placeholder="Connector Name" (ngModelChange)="checkConnectionName($event)" name="name" #name="ngModel" required>
+								<!-- <span class="help-block errorFont" *ngIf="!name.valid && name.touched">This field is required.</span> -->
+							</md-input-container>
+							<p class="help-block errorFont validation-error" *ngIf="duplicateConName">Connector already exists.</p>
+							<p class="help-block errorFont validation-error" *ngIf="f.hasError('required', 'name') && submitted">Connector name is required.</p>
+						</div>
+						<div class="col-md-3">
+							<md-input-container>
+								<input mdInput [(ngModel)]="sourceConnectionDetails.description" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+								 placeholder="Description" name="description" #description="ngModel">
+								<!-- <span class="help-block errorFont" *ngIf="!description.valid && description.touched">This field is required.</span> -->
+							</md-input-container>
+						</div>
+						<div class="col-md-2 date-field-size" >
+							<md-form-field>
+								<input mdInput [mdDatepicker]="stpicker" placeholder="From" [min]="today" required (dateChange)="startDateChange=true;startDateChanged(sourceConnectionDetails.startDate);"
+								 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [(ngModel)]="sourceConnectionDetails.startDate"
+								 name="startDate" required>
+								<md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+								<md-datepicker #stpicker></md-datepicker>
+							</md-form-field>
+							<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', 'startDate') && submitted">Start date is required.</p>
+						</div>
+						<div class="col-md-2 date-field-size" *ngIf="sourceConnectionDetails.startDate">
+							<md-form-field>
+								<input mdInput [mdDatepicker]="edpicker" placeholder="To" [min]="sourceConnectionDetails.startDate" (dateChange)="endDateChange=true;"
+								 [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" (keydown)="disableEndDate($event.keyCode)" [(ngModel)]="sourceConnectionDetails.endDate"
+								 name="endDate">
+								<md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+								<md-datepicker #edpicker [disabled]="statusToggleMsg"></md-datepicker>
+							</md-form-field>
+						</div>
+						<div class="col-md-1" *ngIf="isEdit && !copyConnection" style="padding-top: 24px;">
+							<md-slide-toggle class="example-margin" color="primary" [disabled]="(!isEdit) || ( isEdit && this.sourceConnectionDetails.activeProfileCnt >0)"
+							 [(ngModel)]="sourceConnectionDetails.enabledFlag" name="status"></md-slide-toggle>
+							<span *ngIf="sourceConnectionDetails.enabledFlag">Active</span>
+							<span *ngIf="!sourceConnectionDetails.enabledFlag">Inactive</span>
+						</div>
+						<div class="col-md-1" *ngIf="isViewOnly">
+								<md-input-container class="example-full-width">
+										<input mdInput placeholder="Status" [(ngModel)]="sourceConnectionDetails.status" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" name="status" 
+										required #source="ngModel">
+									 </md-input-container>
+							<!-- <span class="badge badge-success" *ngIf="sourceConnectionDetails.enabledFlag">Active</span>
+							<span class="badge badge-warning" *ngIf="!sourceConnectionDetails.enabledFlag">Inactive</span> -->
+						</div>
+					</div>
+					<div class="setups-accordian" style="padding-top:12px">
+						<md-accordion>
+							<md-expansion-panel expanded="true">
+								<md-expansion-panel-header>
+									<md-panel-title>
+										Details
+										
+									</md-panel-title>
+									<p *ngIf="statusToggleMsg" class="pull-right" style="color:red !important;padding-right:15px">
+											Connector cannot be inactivated or end dated, as it has been assigned to one or more profiles.
+										</p>
+								</md-expansion-panel-header>
+								<div class="row md-accordian-row-padding">
+									<div class="col-md-3 col-sm-3 col-xs-4">
+											
+										<!-- <md-select [disabled]="isViewOnly" placeholder="Connector Type" (change)="getDisplayColumns1()" [(ngModel)]="sourceConnectionDetails.connectionType"
+										 name="connectionType" #connectionType="ngModel" required>
+											<md-option size="50" *ngFor="let connectionType of connectionTypesList | orderBy : 'connectionTypeMeaning'" [value]="connectionType.connectionTypeCode">{{connectionType.connectionTypeMeaning}}</md-option>
+										</md-select> -->
+
+										<md-select  [(ngModel)]="sourceConnectionDetails.connectionType" placeholder="Connector Type" (change)="getDisplayColumns1()"  [materialFilter]="connectionType" #connectionType name="connectionType"
+										[disabled]="isViewOnly" [materialFilterModel]="connectionTypeSearchModel"[materialFilterInput]="connectionTypeSearchInput" required  [ngClass]="{'color-black' : isViewOnly}">
+										<input type="text" class="material-filter" placeholder="Search..." [(ngModel)]="connectionTypeSearch" name="connectionTypeSearch" #connectionTypeSearchModel="ngModel"
+										#connectionTypeSearchInput>
+										<md-option *ngFor="let connectionType of connectionTypesList | orderBy : 'connectionTypeMeaning' | searchFilter:connectionTypeSearch" [value]="connectionType.connectionTypeCode" >{{connectionType.connectionTypeMeaning}}</md-option>
+										</md-select>
+										<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', 'connectionType') && submitted">Connector type is required.</p>
+									</div>
+								</div>
+
+								<div class="row">
+								
+									<ng-template ngFor let-myObj [ngForOf]="finalCols" let-i="index">
+										<div [ngClass]="{'col-md-5':myObj.code == 'accessToken', 'col-md-3' : myObj.code != 'accessToken'}"  *ngIf="myObj.meaning != 'Port'">
+											<div style="margin-top: 3.7%;">
+												<p *ngIf="myObj.code == 'accessToken' && ((!isViewOnly && !submitted)  || (isViewOnly))">{{myObj.meaning}}</p>
+
+												<textarea class="sc-text-area" mdInput [(ngModel)]="myObj.value" [name]="myObj.meaning" [disabled]="isViewOnly" placeholder="myObj.meaning"
+												 required ngModel *ngIf="(myObj.code == 'accessToken')" [placeholder]="myObj.meaning">
+													</textarea>
+												<md-input-container class="example-full-width" *ngIf="(myObj.code != 'accessToken' && (myObj.meaning != 'Password') && (myObj.meaning != 'Port'))">
+													<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning" [(ngModel)]="myObj.value"
+													 class="inputHeight" [name]="myObj.meaning" required ngModel>
+												</md-input-container>
+
+												<md-input-container class="example-full-width" *ngIf=" myObj.code != 'accessToken' && myObj.meaning == 'Password'">
+													<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning" [(ngModel)]="myObj.value"
+													 class="inputHeight" [name]="myObj.meaning" required type="password" #input ngModel>
+													<i *ngIf="myObj.meaning == 'Password' && !isView && !isViewOnly" class="fa fa-eye hand" (click)="showPassword(input)" mdTooltip="View Password">
+													</i>
+													<i *ngIf="myObj.meaning == 'Password' && isView" class="fa fa-eye-slash hand" (click)="showPassword(input)" mdTooltip="Hide Password">
+													</i>
+												</md-input-container>
+												<!-- <md-input-container class="example-full-width" *ngIf="myObj.code != 'accessToken' && myObj.meaning == 'Port'">
+														<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning" (keypress)="keyHandlerCount($event.keyCode)"
+														 [(ngModel)]="myObj.value" class="inputHeight" maxlength="4" [max]="9999" [name]="myObj.meaning" required type="number"
+														 #input ngModel>
+													</md-input-container> -->
+												<p class="help-block errorFont validation-error" *ngIf="f.hasError('required', myObj.meaning) && submitted">{{myObj.meaning}} is required.</p>
+											</div>
+										</div>
+										<div class="col-md-2" *ngIf=" myObj.meaning == 'Port'">
+											<div style="margin-top: 3.7%;">
+												<md-input-container class="example-full-width" *ngIf="myObj.code != 'accessToken' && myObj.meaning == 'Port'">
+													<input mdInput [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly" [placeholder]="myObj.meaning" (keypress)="keyHandlerCount($event.keyCode)"
+													 [(ngModel)]="myObj.value" class="inputHeight" maxlength="4" [max]="9999" [name]="myObj.meaning" required type="number"
+													 #input ngModel>
+												</md-input-container>
+												<p class="help-block errorFont validation-error"  *ngIf="f.hasError('required', myObj.meaning) && submitted">{{myObj.meaning}} is required.</p>
+											</div>
+										</div>
+									</ng-template>
+
+
+									<div class="col-md-1"></div>
+									<div class="col-md-1">
+
+									</div>
+									<!-- <i class="fas fa-bity hand" style="font-size: 24px" aria-hidden="true"  (click)="testConnection()" ></i> -->
+								</div>
+							</md-expansion-panel>
+						</md-accordion>
+					</div>
+					<!-- <div class="setups-form-last-accordian">
+							
+							<div class="setups-accordian template-to-prof-acc" *ngIf="isViewOnly"> -->
+						<!-- <div class="setups-accordian template-to-prof-acc" *ngIf="(isViewOnly && sourceProfileList && sourceProfileList.length>0)||(!isViewOnly)"> -->
+						<!-- <md-accordion *ngIf="!hideProfile">
+							<md-expansion-panel expanded="true" [disabled]="true">
+								<md-expansion-panel-header>
+									<md-panel-title>
+										Associate Profile
+
+									</md-panel-title>
+								</md-expansion-panel-header>
+								<form novalidate> -->
+										<div class="setups-accordian" style="padding-top: 10px;"  *ngIf="isViewOnly">
+												<div class="connection-in-profiles">
+													<span style="padding-top:6px;padding-left:7px">
+															Associate Profile
+													</span>
+												</div>
+										<div class=" col-md-8  table-header-backgrounds hover-row table-header-styles" >
+											<span *ngIf="!sourceProfileList || sourceProfileList.length<=0">No Profiles associated.</span>
+											<table class="table" style="margin-top: 8px;margin-left: 11px" *ngIf="sourceProfileList && sourceProfileList.length>0">
+												<thead class="tableheader" style="background-color : rgba(0, 0, 0, 0.04) !important;">
+													<th>Profile Name</th>
+													<th> Profile Description</th>
+													<th>Profile Status</th>
+												</thead>
+												<tbody>
+													<tr *ngFor="let myObj of sourceProfileList; let i=index;">
+														<td>
+															<span class="hand" style="font-weight:bold" (click)="sourceConnectionDetailsService.conToProf=sourceConnectionDetails.idForDisplay" *ngIf="isViewOnly"
+															 [routerLink]="['/source-profiles', {outlets: {'content': [myObj.idForDisplay]+'/details'}}]">
+																<b>{{myObj.sourceProfileName}}</b></span>
+														</td>
+														<td>
+															{{myObj.description}}
+														</td>
+														<td>
+																<i *ngIf="myObj.enabledFlag == true" class="material-icons" mdTooltip="Active">check_circle</i>
+																<i *ngIf="myObj.enabledFlag == false" class="material-icons" aria-hidden="true" mdTooltip="InActive">error</i>
+															
+															<!-- <span class="badge badge-danger hand" *ngIf="myObj.enabledFlag == false && myObj.sourceProfileName">In Active</span>
+															<span class="badge badge-success hand" *ngIf="myObj.enabledFlag == true && myObj.sourceProfileName">Active</span>
+														</td> -->
+													</tr>
+												</tbody>
+											</table>
+										</div>
+										</div>
+									<!-- <div class="row" style="padding-top:5px;margin-top:11px;height:28px">
+										<div class="col-md-3" style="background-color: #f5f5f5">
+										<p style="font-weight:bold;padding-top:5px">	Profile Name</p>
+										</div>
+										<div class="col-md-3" style="background-color: #f5f5f5">
+										<p  style="font-weight:bold;padding-top:5px">	Profile Description</p>
+										</div>
+										<div class="col-md-2" style="background-color: #f5f5f5">
+											<p  style="font-weight:bold;padding-top:5px">Status</p>
+										</div>
+										<div class="col-md-2">
+											<button md-icon-button class="color-yellow-green pull-right" mdTooltip="Add Profile" (click)="addProfileRow();false" *ngIf="!isViewOnly && sourceProfiles"
+											 style="left: -37px;">
+												<md-icon>exposure_plus_1</md-icon>
+											</button>
+										</div>
+									</div>
+									<ng-template ngFor let-myObj [ngForOf]="sourceProfileList" let-i="index">
+										<div class="row highlight-rows" [ngStyle]="{'padding-top':(i==0) ? '11px' : ''}">
+											<div class="col-md-3">
+													<span class="hand" (click)="sourceConnectionDetailsService.conToProf=sourceConnectionDetails.idForDisplay"   *ngIf="isViewOnly"
+													[routerLink]="['/source-profiles', {outlets: {'content': [myObj.idForDisplay]+'/details'}}]">
+													<b>{{myObj.sourceProfileName}}</b></span>
+											
+												<md-select *ngIf="!isViewOnly" class="example-full-width " style="margin-left: -6px !important;margin-top: -13px !important;"
+												 (change)="selectedAssociateProfile()" [(ngModel)]="myObj.sourceProfileName" [ngClass]="{'color-black' : isViewOnly}"
+												 name="sourceProfileName_{{i}}" #sourceProfileName="ngModel">
+													<perfect-scrollbar style="max-height: 200px;" *ngIf="!eligibleProfile">
+														<md-option value="" (click)="myObj.description='';myObj.enabledFlag='';"></md-option>
+														<md-option size="50" *ngFor="let myObj of sourceProfiles; let j=index;" [value]="myObj.sourceProfileName" (click)="selectedProfile(myObj, i);">{{myObj.sourceProfileName}}</md-option>
+													</perfect-scrollbar>
+													<md-option class="create-connection-divider" [value]="-1" *ngIf="eligibleProfile">No Eligible Profiles Create New</md-option>
+													<md-option class="create-connection-divider" [value]="-1" *ngIf="!eligibleProfile">Create New</md-option>
+												</md-select>
+											</div>
+											<div class="col-md-3">
+												{{myObj.description}}
+											</div>
+											<div class="col-md-2">
+												<span class="badge badge-danger hand" *ngIf="myObj.enabledFlag == false && myObj.sourceProfileName">In Active</span>
+												<span class="badge badge-success hand" *ngIf="myObj.enabledFlag == true && myObj.sourceProfileName">Active</span>
+											</div>
+											<div class="col-md-1">
+												<button md-icon-button *ngIf="!isViewOnly" mdTooltip="delete" (click)="deleteColumn(i);">
+													<md-icon>delete</md-icon>
+												</button>
+											</div>
+
+										</div>
+									</ng-template> -->
+
+								<!-- </form>
+							</md-expansion-panel>
+						</md-accordion> -->
+					<!-- </div>
+					</div> -->
+				</form>
+			</div>
+
+
+
+		</div>
+	</vertical-split-pane>
+
+</div>

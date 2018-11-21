@@ -1,0 +1,104 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+
+import { LookUpCode } from './look-up-code.model';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+@Injectable()
+export class LookUpCodeService {
+
+    private resourceUrl = 'agreeapplication/api/look-up-codes';
+    private resourceSearchUrl = 'agreeapplication/api/_search/look-up-codes';
+    private LookUpCodesByLookUpMeanings='agreeapplication/api/lookup-codes';//@PathVariable lookUpmeaning,tenantId
+    private UserData = this.$sessionStorage.retrieve('userData');
+    
+    constructor(private http: Http, private dateUtils: JhiDateUtils,private $sessionStorage: SessionStorageService) { }
+
+    create(lookUpCode: LookUpCode): Observable<LookUpCode> {
+        const copy = this.convert(lookUpCode);
+        return this.http.post(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    update(lookUpCode: LookUpCode): Observable<LookUpCode> {
+        const copy = this.convert(lookUpCode);
+        return this.http.put(this.resourceUrl, copy).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    find(id: number): Observable<LookUpCode> {
+        return this.http.get(`${this.resourceUrl}/${id}`).map((res: Response) => {
+            const jsonResponse = res.json();
+            this.convertItemFromServer(jsonResponse);
+            return jsonResponse;
+        });
+    }
+
+    query(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceUrl, options)
+            .map((res: Response) => this.convertResponse(res));
+    }
+
+    delete(id: number): Observable<Response> {
+        return this.http.delete(`${this.resourceUrl}/${id}`);
+    }
+
+    search(req?: any): Observable<ResponseWrapper> {
+        const options = createRequestOption(req);
+        return this.http.get(this.resourceSearchUrl, options)
+            .map((res: any) => this.convertResponse(res));
+    }
+
+    private convertResponse(res: Response): ResponseWrapper {
+        const jsonResponse = res.json();
+        for (let i = 0; i < jsonResponse.length; i++) {
+            this.convertItemFromServer(jsonResponse[i]);
+        }
+        return new ResponseWrapper(res.headers, jsonResponse, res.status);
+    }
+
+    private convertItemFromServer(entity: any) {
+        entity.activeStartDate = this.dateUtils
+            .convertLocalDateFromServer(entity.activeStartDate);
+        entity.activeEndDate = this.dateUtils
+            .convertLocalDateFromServer(entity.activeEndDate);
+        entity.creationDate = this.dateUtils
+            .convertDateTimeFromServer(entity.creationDate);
+        entity.lastUpdatedDate = this.dateUtils
+            .convertDateTimeFromServer(entity.lastUpdatedDate);
+    }
+
+    private convert(lookUpCode: LookUpCode): LookUpCode {
+        const copy: LookUpCode = Object.assign({}, lookUpCode);
+        copy.activeStartDate = this.dateUtils
+            .convertLocalDateToServer(lookUpCode.activeStartDate);
+        copy.activeEndDate = this.dateUtils
+            .convertLocalDateToServer(lookUpCode.activeEndDate);
+
+        copy.creationDate = this.dateUtils.toDate(lookUpCode.creationDate);
+
+        copy.lastUpdatedDate = this.dateUtils.toDate(lookUpCode.lastUpdatedDate);
+        return copy;
+    }
+    /**
+     * Author : Shobha
+     * @param lookUpType
+     */
+     fetchLookUpsByLookUpType(lookUpType : any): Observable<Response>
+     {
+         //console.log('lookUpType'+lookUpType);
+         return this.http.get( `${this.LookUpCodesByLookUpMeanings}/${lookUpType}/${this.UserData.tenantId}`).map(( res: Response ) => {
+             let jsonResponse = res.json();
+            return jsonResponse;
+         } );
+     }
+}

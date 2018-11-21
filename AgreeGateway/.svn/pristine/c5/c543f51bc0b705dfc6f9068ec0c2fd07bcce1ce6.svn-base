@@ -1,0 +1,428 @@
+import { Component, OnInit, OnDestroy, OnChanges, Input, AfterViewInit, Inject } from '@angular/core';
+import { Response } from '@angular/http';
+import { ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs/Rx';
+import { JhiEventManager, JhiParseLinks, JhiPaginationUtil, JhiLanguageService, JhiAlertService  } from 'ng-jhipster';
+import { ITEMS_PER_PAGE, Principal } from '../../shared';
+import { User, UserService } from '../../shared';
+import { PaginationConfig } from '../../blocks/config/uib-pagination.config';
+import { Router, NavigationEnd } from '@angular/router';
+import { FormGroup, FormControl, Validators } from '@angular/forms';
+import { SelectItem, MultiSelectModule } from 'primeng/primeng';
+import { NgbDatepickerConfig, NgbDateStruct } from '@ng-bootstrap/ng-bootstrap';
+import { NotificationsService } from 'angular2-notifications-lite';
+import { JhiDateUtils } from 'ng-jhipster';
+import { AngularMultiSelectModule } from 'angular2-multiselect-dropdown/angular2-multiselect-dropdown';
+import { CommonService } from '../../entities/common.service';
+import { Functionality, FunctionalityBreadCrumbTitles } from './functionality.model';
+import { RolesService, Roles } from '../roles';
+import { FunctionalityService } from './functionality.service';
+import { MdDialog, MdDialogRef, MD_DIALOG_DATA } from '@angular/material';
+import 'jquery';
+import 'jquery-ui-bundle/jquery-ui.min.js';
+declare var $: any;
+declare var jQuery: any;
+
+@Component({
+    selector: 'functionality-modal',
+    templateUrl: 'functionality-modal.html',
+})
+export class FunctionalityModalDialog {
+    constructor(
+        public dialogRef: MdDialogRef<FunctionalityModalDialog>,
+        public dialog: MdDialog,
+        @Inject(MD_DIALOG_DATA) public data: any) { }
+
+    onNoClick(): void {
+        this.dialogRef.close();
+    }
+
+
+}
+
+@Component({
+    selector: 'jhi-functionality-detail',
+    templateUrl: './functionality-detail.component.html'
+})
+export class FunctionalityDetailComponent implements OnInit, OnDestroy {
+
+    functionality = new Functionality();
+    private subscription: Subscription;
+    private eventSubscriber: Subscription;
+    isCreateNew: boolean = false;
+    isEdit: boolean = false;
+    isViewOnly: boolean = false;
+    routeSub: any;
+    presentPath: any;
+    presentUrl: any;
+    rolesSelected = [];
+    tagRole: string = 'Yes';
+    tagRole1: string = 'No';
+    unassignedRole = [];
+    selectedRole = [];
+    display: boolean = false;
+    roleTagged = [];
+    curFuncRoleList = [];
+    allRoles:any;
+    displayTaggedRoles: boolean = false;
+    isVisibleA: boolean = false;
+    dndRole: any = false;
+    moreRole: any = false;
+
+    constructor(
+        private userService: UserService,
+        private parseLinks: JhiParseLinks,
+        private paginationUtil: JhiPaginationUtil,
+        private jhiLanguageService: JhiLanguageService,
+        private alertService: JhiAlertService,
+        private principal: Principal,
+        private paginationConfig: PaginationConfig,
+        private router: Router,
+        private config: NgbDatepickerConfig,
+        private notificationsService: NotificationsService,
+        private dateUtils: JhiDateUtils,
+        private commonService: CommonService,
+        private eventManager: JhiEventManager,
+        private functionalityService: FunctionalityService,
+        private route: ActivatedRoute,
+        public dialog: MdDialog,
+        private rolesService: RolesService,
+    ) {
+        this.config.minDate = { year: 1950, month: 1, day: 1 };
+        this.config.maxDate = { year: 2099, month: 12, day: 31 };
+    }
+
+    ngOnInit() {
+        this.commonService.screensize();
+        $(".split-example").css({
+            'height': 'auto',
+            'min-height': (this.commonService.screensize().height - 161) + 'px'
+        });
+        /* this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['login']);
+        }); */
+
+        //Get Functionality With Roles
+        this.getFuncWithRoles();
+    }
+
+    /**Get Functionality detail with Roles */
+    getFuncWithRoles(){
+        this.subscription = this.route.params.subscribe(params => {
+            let url = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentUrl = this.route.snapshot.url.map(segment => segment.path).join('/');
+            this.presentPath = this.route.snapshot.url;
+            if (this.presentPath == "roles") {
+                $('.component-title').removeClass('margin-left-22');
+            } else {
+                $('.component-title').addClass('margin-left-22');
+            }
+
+            if (params['id']) {
+                this.functionalityService.getFuncDetByIdWithRoles(params['id']).subscribe((res) => {
+                        this.functionality = res;
+                        this.functionality.funcStartDate = this.dateUtils.convertLocalDateFromServer(this.functionality.funcStartDate);
+                        this.functionality.funcEndDate = this.dateUtils.convertLocalDateFromServer(this.functionality.funcEndDate);
+                        this.curFuncRoleList = this.functionality.funcRoles;
+                        // console.log('this.functionality: ' + JSON.stringify(this.functionality));
+                        for(let i=0; i<this.curFuncRoleList.length; i++){
+                            this.curFuncRoleList[i].startDate = this.dateUtils.convertLocalDateFromServer(this.curFuncRoleList[i].startDate);
+                            this.curFuncRoleList[i].endDate = this.dateUtils.convertLocalDateFromServer(this.curFuncRoleList[i].endDate);
+                        }
+                        this.isCreateNew = false;
+                        if (url.endsWith('edit')) {
+                            this.isEdit = true;
+                            //Focus on Element
+                            $('#funcName').focus();
+                        } else {
+                            this.isViewOnly = true;
+                        }
+                    }
+                );
+            } else {
+                this.isVisibleA = true;
+                this.isCreateNew = true;
+                //Focus on Element
+                $('#funcName').focus();
+            }
+        });
+    }
+
+    /* Function to display validition message */
+    validationMsg() {
+        this.notificationsService.error(
+            'Warning!',
+            'Fill Mandatory Fields'
+        )
+    }
+
+    /* Function to save functionality */
+    saveFunctionality(){
+        let link: any = '';
+        if(this.functionality.id == undefined || null){
+            //If New Functionality//
+            if(this.rolesSelected.length > 0){
+                //roleid storing in other variable for post
+                for(let i=0;i<this.rolesSelected.length;i++){
+                    this.rolesSelected[i].roleId = this.rolesSelected[i].id;
+                }
+
+                this.functionality.funcRoles = this.rolesSelected;
+                //If Roles tagged to Functionality//
+                this.functionality.funcActiveFlag = true;
+                // console.log('this.functionality: ' + JSON.stringify(this.functionality));
+                this.functionalityService.postFuncDetWithRoles(this.functionality).subscribe((functionality) => {
+                    this.notificationsService.success(
+                        'Success!',
+                        'Successfully Created Functionality'
+                    );
+                    
+                    if (functionality.id) {
+                        link = ['/functionality', { outlets: { 'content': functionality.id + '/details' } }];
+                        if (this.isEdit) {
+                            this.isEdit = false;
+                        }
+                        if (this.isCreateNew) {
+                            this.isCreateNew = false;
+                        }
+                        this.isViewOnly = true;
+                        this.router.navigate(link);
+                    }
+        
+                });
+            }else{
+                //Else Roles not tagged to Functionality
+                this.openDialog();
+            }
+        }else{
+            // console.log('this.functionality: ' + JSON.stringify(this.functionality));
+            this.functionality.funcRoles = [];
+            this.functionality.activeInd = this.functionality.funcActiveFlag;
+            this.functionality.startDate = this.functionality.funcStartDate
+            this.functionality.endDate = this.functionality.funcEndDate
+            console.log('this.functionality' + JSON.stringify(this.functionality));
+            this.functionalityService.update(this.functionality).subscribe((functionality) => {
+                this.notificationsService.success(
+                    'Success!',
+                    'Successfully Updated Functionality'
+                );
+
+                link = ['/functionality', { outlets: { 'content': functionality.id + '/details' } }];
+                if (this.isEdit) {
+                    this.isEdit = false;
+                }
+                if (this.isCreateNew) {
+                    this.isCreateNew = false;
+                }
+                this.isViewOnly = true;
+                this.router.navigate(link);
+            });
+        }
+    }
+
+
+    openDialog(): void {
+        let dialogRef = this.dialog.open(FunctionalityModalDialog, {
+            width: '400px',
+            data: { tagRole: this.tagRole, tagRole1: this.tagRole1 }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            // console.log('The dialog was closed' + result);
+            if (result == 'Yes') {
+                // Open Dialog - Show Drag and Drop
+                this.tagRoles();
+            } else if(result == 'No'){
+                //Close Dialog - Save Functionality Without Tagging Roles
+                this.saveFunctionalityWithoutRole();
+            }
+        });
+    }
+
+    /** Get All Roles*/
+    getAllRoles() {
+        this.rolesService.fetchAllRolesByTenantId().subscribe((res: Roles)=>{
+                this.allRoles = res
+                //Filter Assigned and Unassigned Functionalities
+                this.allRoles.forEach(role => {
+                    role.startDate = this.dateUtils
+                        .convertLocalDateFromServer(role.startDate);
+                    role.endDate = this.dateUtils
+                        .convertLocalDateFromServer(role.endDate);
+                    let occured: boolean = false;
+                    this.curFuncRoleList.forEach(assignedRole => {
+                        if (role.id === assignedRole.roleId) {
+                            occured = true;
+                        }
+                    });
+                    if (occured) {
+
+                    }
+                    else {
+                        this.unassignedRole.push(role);
+                    }
+                });
+
+            });
+    }
+
+
+    /**
+     * Saving Functionality Without Tagging Roles After Selected 'No Thanks' From Dialog
+     */
+    saveFunctionalityWithoutRole(){
+        let link: any = '';
+        this.functionality.funcRoles = [];
+        this.functionality.funcActiveFlag = true;
+/*         this.functionality.funcStartDate = this.datepipe.transform(this.functionality.funcStartDate, 'yyyy-MM-dd');
+        this.functionality.funcEndDate = this.datepipe.transform(this.functionality.funcEndDate, 'yyyy-MM-dd');
+        this.functionality.funcStartDate = this.dateUtils.convertLocalDateToServer(this.functionality.funcStartDate);
+        this.functionality.funcEndDate = this.dateUtils.convertLocalDateToServer(this.functionality.funcEndDate); */
+        console.log('this.functionality: ' + JSON.stringify(this.functionality));
+        this.functionalityService.postFuncDetWithRoles(this.functionality).subscribe((functionality) => {
+            this.notificationsService.success(
+                'Success!',
+                'Functionality Successfully Created'
+            );
+            
+            if (functionality.id) {
+                link = ['/functionality', { outlets: { 'content': functionality.id + '/details' } }];
+                if (this.isEdit) {
+                    this.isEdit = false;
+                }
+                if (this.isCreateNew) {
+                    this.isCreateNew = false;
+                }
+                this.isViewOnly = true;
+                this.router.navigate(link);
+            }
+
+        });
+    }
+
+    //Confirm After Selecting Roles//
+    confirmRoles(){
+        this.rolesSelected = [];
+        // console.log(this.selectedRole);
+        this.selectedRole.forEach(element => {
+            this.rolesSelected.push(element);
+        });
+        if(this.isCreateNew == true){
+            this.displayTaggedRoles = true;
+        }
+    }
+
+    toggleSB() {
+        if(!this.isVisibleA){
+           this.isVisibleA = true;
+           $('.split-example .left-component').addClass('visible');
+        } else {
+            this.isVisibleA = false;
+            $('.split-example .left-component').addClass('visible');
+        }
+    }
+
+    /**Cancel changes in Roles assignment */
+    cancelEdit(){
+        this.getFuncWithRoles();
+    }
+
+    /**Delete Role assignment/tagged role */
+    deleteFuncRole(roleTagged){
+        // console.log(JSON.stringify(roleTagged));
+        this.functionalityService.deleteRoleAssignmentById(roleTagged.assigmentId).subscribe((res: any)=>{
+            this.notificationsService.success(
+                'Success!',
+                roleTagged.roleName + ' Successfully Deleted'
+            );
+            this.getFuncWithRoles();
+        });
+    }
+
+    /**Tag New Roles by filtering existing*/
+    tagRoles(){
+        this.unassignedRole = [];
+        this.selectedRole=[];
+        this.getAllRoles();
+        this.display = true;
+    }
+
+    /**Update individual Roles assignment*/
+    updateFuncRole(funcRole){
+        funcRole.id = funcRole.assigmentId;
+        funcRole.functionId = this.functionality.id;
+        // console.log('funcRole\n' + JSON.stringify(funcRole));
+        this.functionalityService.updateRoleAssignment(funcRole).subscribe((res: any)=>{
+            this.notificationsService.success(
+                'Success!',
+                funcRole.roleName + ' Successfully Updated'
+            );
+            this.getFuncWithRoles();
+        });
+    }
+
+    /**Assign More Roles */
+    addMoreRole(){
+        for(let i=0;i<this.selectedRole.length;i++){
+            this.selectedRole[i].roleId = this.selectedRole[i].id;
+        }
+        this.functionality.funcRoles = this.selectedRole;
+        // console.log('this.functionality:\n' + JSON.stringify(this.functionality));
+        this.functionalityService.postFuncDetWithRoles(this.functionality).subscribe((res: any)=>{
+            this.notificationsService.success(
+                'Success!',
+                this.selectedRole.length + ' New Roles Assigned Successfully'
+            );
+            this.display = false;
+            this.getFuncWithRoles();
+        });
+    }
+
+
+
+
+
+
+
+      /*   load(login) {
+        this.userService.find(login).subscribe((user) => {
+            this.user = user;
+        });
+    } */
+
+    ngOnDestroy() {
+        /* this.subscription.unsubscribe(); */
+    }
+
+}
+
+/*     ngOnInit() {
+        this.subscription = this.route.params.subscribe((params) => {
+            this.load(params['id']);
+        });
+        this.registerChangeInFunctionalities();
+    }
+
+    load(id) {
+        this.functionalityService.find(id).subscribe((functionality) => {
+            this.functionality = functionality;
+        });
+    }
+    previousState() {
+        window.history.back();
+    }
+
+    ngOnDestroy() {
+        this.subscription.unsubscribe();
+        this.eventManager.destroy(this.eventSubscriber);
+    }
+
+    registerChangeInFunctionalities() {
+        this.eventSubscriber = this.eventManager.subscribe(
+            'functionalityListModification',
+            (response) => this.load(this.functionality.id)
+        );
+    }
+}
+ */

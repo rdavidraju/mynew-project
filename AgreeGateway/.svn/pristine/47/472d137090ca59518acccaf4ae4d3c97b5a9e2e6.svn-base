@@ -1,0 +1,167 @@
+import { Injectable } from '@angular/core';
+import { Http, Response } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+
+@Injectable()
+export class NavBarService {
+    
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private schedulersListUrl = 'agreeapplication/api/getAllSchedulersList';
+    private notificationListUrl = 'agreeapplication/api/getNotificationsDataByUserId';
+    private notificationisViewedUrl = 'agreeapplication/api/updateIsViewedAsTrue?notificationsId=';
+    private getCountsForDashBoardUrl = 'agreeapplication/api/getCountsForDashBoard';
+    /* private getAgingWiseAnalysisForDashBoardQueryUrl = 'agreeapplication/api/AgingWiseAnalysisForDashBoardQuery'; */
+    private getAgingWiseAnalysisForDashBoardQueryUrl = 'agreeapplication/api/reconciliationAndAccoutingAgingWiseAnalysisForDashBoard'; /* recon and accounted */
+    private getAgingAnalsisForUnReconciliationUrl = 'agreeapplication/api/getAgingAnalsisForUnReconciliation';
+    private getSummaryInfoForReconciliationUrl = "agreeapplication/api/getSummaryInfoForReconciliation";
+    private getSummaryInfoForAccountedUrl = "agreeapplication/api/getSummaryInfoForAccounted";
+    private getNotificationDetailsUrl = 'agreeapplication/api/getNotificationsDataByUserIdAndTenantId';
+    private getAgingAnalsisForAccountingSummaryUrl = "agreeapplication/api/getAgingAnalsisForAccountingSummary";
+    private getEachDayAnalysisForAProcessUrl = "agreeapplication/api/getEachDayAnalysisForAProcess";
+    private getprocessessByTenantIdUrl = "agreeapplication/api/processessByTenantId";
+    private getExtractionDataUrl = "agreeapplication/api/getAgingAnalysisExtraction";
+    private getTransformationDataUrl = "agreeapplication/api/getAgingAnalysisForTransformation";
+    //processessByTenantId?tenantId=7
+    //api/getCountsForDashBoard?process=tst&tenantId=9&days=30
+    //Notification List Global Variable
+    public notificationlist: any;
+
+    constructor(
+        private http: Http,
+        private dateUtils: JhiDateUtils,
+        private $sessionStorage: SessionStorageService
+    ) { }
+    
+    getSchedulersList(page: number, pageSize: number, userData: any){
+        return this.http.get( `${this.schedulersListUrl}/?page=${page}&per_page=${pageSize}&tenantId=${userData.tenantId}&userId=${userData.id}` ).map(( res: Response ) =>{
+            return res;
+        });
+     }
+    
+    getprocessessList(userData: any){
+        return this.http.get( `${this.getprocessessByTenantIdUrl}?tenantId=${userData.tenantId}` ).map(( res: Response ) =>{
+            return res.json();
+        });
+    }
+
+     getNotificationList(userData: any){
+         if(userData != undefined){
+            return this.http.get(`${this.notificationListUrl}/?tenantId=${userData.tenantId}&userId=${userData.id}`).map((res: Response)=>{
+                const jsonResponse = res.json();
+                return jsonResponse; 
+            });
+         }
+     }
+
+     notificationisViewed(isViewed){
+        return this.http.post(this.notificationisViewedUrl, isViewed).map((res: Response)=>{
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+     }
+
+     /* service to display  getCountsForDashBoardUrl*/
+    fetchCountsForDashBoard(processId,userDetails,obj){
+        console.log('date obj for ETL data in service ::' + JSON.stringify(obj));
+        console.log('processId for ETL data in service ::' + processId);
+        if(userDetails != undefined){
+            console.log('this.UserData.tenantId ' + userDetails.tenantId);
+            return this.http.post(this.getCountsForDashBoardUrl + '?processId='+ processId+'&tenantId='+userDetails.tenantId,obj).map((res: Response) => {
+                console.log('res ' + res);
+                const jsonResponse = res.json();
+                return jsonResponse;
+            });  
+        }
+    }
+    /* service to fetch Unreconciled Analysis */
+    fetchUnReconAnalysis(obj){
+        return this.http.post(this.getAgingAnalsisForUnReconciliationUrl,obj).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    /* service to fetch Not Accounted Analysis Data */
+    fetchNotAccountedDataAnalysis(obj){
+        return this.http.post(this.getAgingAnalsisForAccountingSummaryUrl,obj).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+
+    /* service to fetch eachday analysis */
+    fetchEachDayAnalysis(processId,obj){
+        console.log('proid ' + processId);
+        console.log('obj ' + JSON.stringify(obj));
+        return this.http.post(this.getEachDayAnalysisForAProcessUrl+'?processId='+processId,obj).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    
+     fetchCountsForDashBoardRecon(obj,processId){
+        console.log('date obj for reconciliation data in service ::' + JSON.stringify(obj));
+        console.log('processId for reconciliation data in service ::' + processId);
+            return this.http.post(this.getSummaryInfoForReconciliationUrl + '?processId='+processId,obj).map((res: Response) => {
+                console.log('res ' + res);
+                const jsonResponse = res.json();
+                return jsonResponse;
+            });
+    } 
+        
+    fetchCountsForDashBoardAccounted(obj,processId){
+        console.log('date obj for accounting data in service ::' + JSON.stringify(obj));
+        console.log('process id for accounting data in service ::' + processId);
+            return this.http.post(this.getSummaryInfoForAccountedUrl + '?processId='+processId,obj).map((res: Response) => {
+                console.log('res ' + res);
+                const jsonResponse = res.json();
+                return jsonResponse;
+            });
+    }
+
+    /* service to get  */
+    getAgingWiseAnalysis(obj:any) {
+        console.log('obj for aging analysis ::' + JSON.stringify(obj));
+        return this.http.post(`${this.getAgingWiseAnalysisForDashBoardQueryUrl}`, obj).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    } 
+
+    /* Service to get notification details in dashboard */
+   // getNotificationsDataByUserIdAndTenantId?tenantId=9&userId=9&module=All&day=last7days
+    fetchNotificationDetailsForDashBoard(userDetails,module,day){
+        /* console.log('userDetails ' + JSON.stringify(userDetails));
+        console.log('module ' + module + ' day ' + day); */
+        if(userDetails != undefined){
+            console.log('this.UserData.tenantId ' + userDetails.tenantId);
+            return this.http.get(this.getNotificationDetailsUrl + '?tenantId='+userDetails.tenantId+'&userId='+userDetails.id+'&module='+module+'&day=' + day).map((res: Response) => {
+                //console.log('userDetails res ' + JSON.stringify(res.json()));
+                const jsonResponse = res.json();
+                return jsonResponse;
+            });  
+        }
+    }
+
+    /* private getExtractionDataUrl = "agreeapplication/api/getAgingAnalysisExtraction";
+    private getTransformationDataUrl = "agreeapplication/api/getAgingAnalysisForTransformation"; */
+    /* Service to fetch Extraction Data */
+    getExtractionAnalysis(obj:any) {
+        console.log('obj for getExtractionAnalysis ::' + JSON.stringify(obj));
+        return this.http.post(`${this.getExtractionDataUrl}`, obj).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+    
+    /* Service to fetch Transformation Data */
+    getTransformationAnalysis(obj:any) {
+        console.log('obj for getTransformationDataUrl ::' + JSON.stringify(obj));
+        return this.http.post(`${this.getTransformationDataUrl}`, obj).map((res: Response) => {
+            const jsonResponse = res.json();
+            return jsonResponse;
+        });
+    }
+}

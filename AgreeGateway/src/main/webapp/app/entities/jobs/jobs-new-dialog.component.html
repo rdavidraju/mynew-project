@@ -1,0 +1,165 @@
+<!-- HEADER -->
+<div class="jobs-header">
+    <h5>Job Creation</h5>
+</div>
+
+<!-- MAIN CONTENT -->
+<form #f="ngForm">
+    <div class="jobs-new-dialog">
+        <div class="display-flex" style="padding-bottom:5px">
+            <div class="col-md-6">
+                <!-- PROGRAM NAME -->
+                <md-select [(ngModel)]="jobs.programId" name="programId" (change)="programSelected(jobs.programId, $event)" [ngClass]="{'color-black' : isViewOnly}"
+                    [disabled]="isViewOnly" placeholder="Program" required>
+                    <md-option *ngFor="let program of programsList" [value]="program.id">{{program.prgmName}}</md-option>
+                </md-select>
+            </div>
+
+            <div class="col-md-6">
+                <!-- JOB NAME -->
+                <md-input-container>
+                    <input mdInput [(ngModel)]="jobs.jobName" (blur)="checkJobName(jobs.jobName)" #jobName1 (keypress)="blockSpecialChar($event,jobName1);"
+                        (paste)="blockSpecialChar($event,jobName1)" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        placeholder="Job Name" name="jobName" id="jobName" (ngModelChange)="duplicateJobName = false;" required
+                        [readonly]="!jobs.programId">
+                </md-input-container>
+                <span class="help-block errorFont" *ngIf="duplicateJobName">Job name already exists.</span>
+            </div>
+            <i style="margin-top: 20px;" [ngStyle]="{'pointer-events': !jobs.programId ? 'none' : 'unset'}" class="material-icons float-right hand"
+                [mdTooltip]="showOptional ? 'Hide Optional' : 'Show Optional'" (click)="showOptional = !showOptional">more_vert</i>
+        </div>
+
+        <div *ngIf="showOptional" class="row" style="margin: 0;padding-bottom: 5px;">
+            <div class="col-md-4">
+                <!-- START DATE -->
+                <md-form-field>
+                    <input mdInput placeholder="Start Date" [mdDatepicker]="stpicker" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        [(ngModel)]="stDate" name="stDate" required [readonly]="!jobs.programId">
+                    <md-datepicker-toggle mdSuffix [for]="stpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                    <md-datepicker #stpicker></md-datepicker>
+                </md-form-field>
+            </div>
+            <div class="col-md-4">
+                <!-- START TIME -->
+                <md-input-container class="open-cust-time-picker">
+                    <input mdInput [(ngModel)]="stTime" name="stTime" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        placeholder="Time" required [readonly]="!jobs.programId" (focus)="showTimePicker('stCustTimePick')" (blur)="hideTimePicker()" spellcheck="false" pattern="(1[0-2]|0[1-9])\:[0-5]\d[AaPp][Mm]">
+                </md-input-container>
+                <div *ngIf="stCustTimePick" class="cust-time-picker">
+                    <perfect-scrollbar style="max-height:150px">
+                        <ul>
+                            <li *ngFor="let time of timeArr" class="hand" (click)="selectTime(time, 'stTime')">{{time}}</li>
+                        </ul>
+                    </perfect-scrollbar>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <!-- DESCRIPTION -->
+                <md-input-container>
+                    <input mdInput [(ngModel)]="jobs.jobDesc" placeholder="Job Description" name="jobDesc" id="jobDesc" [ngClass]="{'color-black' : isViewOnly}"
+                        [disabled]="isViewOnly" [readonly]="!jobs.programId">
+                </md-input-container>
+            </div>
+        </div>
+
+        <div class="slidedown">
+            <label class="labelHead" *ngIf="jobsParameters">Parameters</label>
+            <div class="row" style="margin:0" *ngIf="jobsParameters">
+                <!-- FIELDS BASED ON PROGRAM -->
+                <div *ngFor="let selParm of jobsParameters;let i = index;" [class]="(i == 0) || (i > 0 && jobsParameters[i-1]?.selectedValue) ? 'col-md-6 pb5Px' : ''">
+                    <md-input-container *ngIf="((i<=0 && !selParm.dependency && selParm.valuesList?.length<=0)  || (i>0 && !selParm.dependency && selParm.valuesList?.length<=0 && jobsParameters[i-1]?.selectedValue && jobsParameters[i-1]?.selectedValue.length > 0 && selParm.paramName.toLowerCase().indexOf('imme') == -1))">
+                        <input mdInput [(ngModel)]="selParm.selectedValue"  [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                        [ngModelOptions]="{standalone: true}"   [placeholder]="selParm.paramName" [required]="selParm.mandatory">
+                    </md-input-container>
+                    <md-select *ngIf="((i<=0 && !selParm.dependency && selParm.valuesList?.length>0) || (i>0 && !selParm.dependency && selParm.valuesList?.length>0 && jobsParameters[i-1]?.selectedValue))" [placeholder]="selParm.paramName" [ngClass]="{'color-black' : isViewOnly}"
+                        [(ngModel)]="selParm.selectedValue"  [ngModelOptions]="{standalone: true}" [disabled]="isViewOnly" [required]="selParm.mandatory" (change)="getvaluesList(i)">
+                        <md-option *ngFor="let item of selParm.valuesList" [value]="item[selParm.bindValue]">{{item[selParm.showValue]}}</md-option>
+                    </md-select>
+                    <md-select  *ngIf="((i<=0 && selParm.dependency && selParm.valuesList?.length>0) || (i > 0 && selParm.dependency && selParm.valuesList?.length>0 && jobsParameters[i-1]?.selectedValue))" [placeholder]="selParm.paramName" [ngClass]="{'color-black' : isViewOnly}"
+                        [(ngModel)]="selParm.selectedValue"  [ngModelOptions]="{standalone: true}" [disabled]="isViewOnly" [required]="selParm.mandatory" multiple (change)="getvaluesList(i)">
+                        <md-option *ngFor="let item of selParm.valuesList;let j = index" (click)="toggleCheck(i,j)" [value]="item[selParm.bindValue]" [disabled]="j > 0 && selParm.selectedValue && selParm.valuesList[0][selParm.showValue] == selParm.selectedValue[0]">{{item[selParm.showValue]}}</md-option>
+                    </md-select>
+                    <!-- CHECKBOX IN PARAMETERS -->
+                    <md-checkbox class="chbox-sm" *ngIf="selParm.paramName.toLowerCase().indexOf('imme') !== -1 && (i>0 && jobsParameters[i-1]?.selectedValue)" [(ngModel)]="selParm.selectedValue" name="TransformImmediately">Transform Immediately</md-checkbox>
+                </div>
+                <!-- RUN NOW -->
+                <md-checkbox *ngIf="jobsParameters[0]?.selectedValue" class="chbox-sm" style="padding-left: 5px;" [(ngModel)]="jobs.runNow" name="runNow" (change)="runNowF()">Run Now</md-checkbox>
+            </div>
+        </div>
+
+        <label *ngIf="!jobs.runNow" class="labelHead">Schedule</label>
+        <div class="radio-sm-btn" id="occurence" *ngIf="!jobs.runNow" style="padding-top: 10px;">
+                <md-radio-group [(ngModel)]="selOcrnceType" (change)="occurenceChange('radio')" name="selOcrnceType">
+                    <md-radio-button *ngFor="let occurenceTypes of occurenceTypes" [value]="occurenceTypes">{{occurenceTypes}}</md-radio-button>
+                </md-radio-group>
+                <div class="display-flex" style="flex-wrap: wrap;" [ngStyle]="{'justify-content': jobs.occurence == 'WEEKLY'  && selOcrnceType == 'Schedule' ? 'space-between' : 'unset'}">
+                    <div class="col-md-3" *ngIf="selOcrnceType == 'Schedule'" style="padding-left: 0;">
+                        <md-select placeholder="Occurence" [ngClass]="{'color-black' : isViewOnly}" [(ngModel)]="jobs.occurence" name="occurence"
+                            [disabled]="isViewOnly" required (change)="occurenceChange('select')">
+                            <md-option *ngFor="let col of occurence" [value]="col.lookUpCode">{{col.meaning}}</md-option>
+                        </md-select>
+                    </div>
+                    <div class="display-flex" *ngIf="jobs.occurence == 'MONTHLY'" style="margin:auto">
+                        <div *ngFor="let month of monthly" class="occurnc-circle" [ngClass]="month.value ? 'occ-active' : ''" [mdTooltip]="month.name"
+                            (click)="selMonthF(month)">{{month.disValue}}</div>
+                    </div>
+                    <md-form-field *ngIf="selOcrnceType == 'Initiate At' || jobs.occurence == 'MONTHLY'" class="col-md-3" [ngStyle]="{'padding':jobs.occurence == 'MONTHLY'?'5px':''}">
+                        <input mdInput placeholder="Date" [mdDatepicker]="datepicker" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                            [(ngModel)]="initiateDate" name="initiateDate">
+                        <md-datepicker-toggle mdSuffix [for]="datepicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #datepicker></md-datepicker>
+                    </md-form-field>
+                    <div class="display-flex" *ngIf="jobs.occurence == 'WEEKLY'">
+                        <div *ngFor="let week of weekly" class="occurnc-circle" [ngClass]="week.value ? 'occ-active' : ''" [mdTooltip]="week.name"
+                            (click)="selWeekF(week)">{{week.disValue}}</div>
+                    </div>
+                    <div class="display-flex" [ngClass]="jobs.occurence != 'MONTHLY' ? 'col-md-4' : ''" [style.padding]="jobs.occurence=='MONTHLY'?'5px':'' ">
+                        <label for="time" class="flex-self-end" style="padding-right:10px">at</label>
+                        <md-input-container id="time" class="open-cust-time-picker">
+                            <input mdInput [(ngModel)]="initiatetime" name="time" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                placeholder="Time" required (focus)="showTimePicker('custTimePick')" (blur)="hideTimePicker()" pattern="(1[0-2]|0[1-9])\:[0-5]\d[AaPp][Mm]">
+                        </md-input-container>
+                        <div *ngIf="custTimePick" class="cust-time-picker" [style.bottom]="jobs.occurence == 'MONTHLY' ? '130px' : '30px'">
+                            <perfect-scrollbar style="max-height:150px">
+                                <ul>
+                                    <li *ngFor="let time of timeArr" class="hand" (click)="selectTime(time, 'initiatetime')">{{time}}</li>
+                                </ul>
+                            </perfect-scrollbar>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row" style="margin:0px;margin-top: 10px;" *ngIf="selOcrnceType == 'Schedule'  && !jobs.runNow">
+                <md-checkbox class="flex-self-end mat-chbox-pt5x chbox-sm" [(ngModel)]="jobs.neverEnd" name="neverEnd" (change)="neverEnd()">Never End</md-checkbox>
+                <div *ngIf="!jobs.neverEnd" class="row col-md-8">
+                    <md-form-field class="col-md-4">
+                        <input mdInput placeholder="End Date" [mdDatepicker]="edpicker" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                            [(ngModel)]="edDate" name="edDate">
+                        <md-datepicker-toggle mdSuffix [for]="edpicker" *ngIf="!isViewOnly"></md-datepicker-toggle>
+                        <md-datepicker #edpicker></md-datepicker>
+                    </md-form-field>
+                    <div class="col-md-4">
+                        <md-input-container class="open-cust-time-picker">
+                            <input mdInput [(ngModel)]="edTime" name="edTime" [ngClass]="{'color-black' : isViewOnly}" [disabled]="isViewOnly"
+                                placeholder="Time" (focus)="showTimePicker('edCustTimePick')" (blur)="hideTimePicker()" pattern="(1[0-2]|0[1-9])\:[0-5]\d[AaPp][Mm]">
+                        </md-input-container>
+                        
+                        <div *ngIf="edCustTimePick" class="cust-time-picker" style="bottom:50px;">
+                            <perfect-scrollbar style="max-height:150px">
+                                <ul>
+                                    <li *ngFor="let time of timeArr" class="hand" (click)="selectTime(time, 'edTime')">{{time}}</li>
+                                </ul>
+                            </perfect-scrollbar>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    </div>
+</form>
+
+<!-- FOOTER -->
+<div [ngClass]="jobsParameters && jobsParameters[0]?.valuesList.length > 0 ? 'jobs-dialog-footer' : 'abs-bt-r8-20px'">
+    <button md-raised-button (click)="submit()" [disabled]="!f.valid || jobsParameters && !jobsParameters[0]?.selectedValue || isSubmitting">Submit</button>
+    <button md-raised-button (click)="onNoClick()" [disabled]="isSubmitting">Cancel</button>
+</div>

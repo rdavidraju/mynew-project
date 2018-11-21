@@ -1,0 +1,282 @@
+import { Injectable } from '@angular/core';
+import { Http, Response,Headers,RequestOptions, URLSearchParams, BaseRequestOptions } from '@angular/http';
+import { Observable } from 'rxjs/Rx';
+import { JhiDateUtils } from 'ng-jhipster';
+import { ResponseWrapper, createRequestOption } from '../../shared';
+import { SessionStorageService } from 'ng2-webstorage';
+@Injectable()
+export class DataManagementWqService {
+    private UserData = this.$sessionStorage.retrieve('userData');
+    private holdFileTemplateUrl = 'agreeapplication/api/holdTemplate';
+    private fetchBatchHedersUrl ='agreeapplication/api/batchHeader';
+    private batchDetailsUrl = 'agreeapplication/api/batchDetailsByBatchId';
+    private holdBatchDetailUrl ='agreeapplication/api/holdBatchDetail';
+    private releaseBatchDetailHoldUrl ='agreeapplication/api/releaseHoldForBatchDetail';
+    private holdBatchUrl ='agreeapplication/api/holdBatch';
+    private releaseBatchHoldUrl ='agreeapplication/api/releaseHoldForBatch';
+    private readAndExtractCSVUrl = 'agreeapplication/api/findDelimiterAndFileExtension';
+    private fetchSchedulesByProfileOrTemplateUrl = 'agreeapplication/api/getjobAndSchedulerDetailsForDataMangmt';
+    private fetchDataMasterLinesbySrcFileHistInbUrl ='agreeapplication/api/dataMasterLinesBySrcFileInb';
+    private fetchDataStagingLinesbySrcFileHistInbUrl ='agreeapplication/api/dataStagingLinesBySrcFileInb';
+    private updateStagingRecordsUrl = 'agreeapplication/api/updateDataStagingRecords';
+    private matchTemplatesUrl = 'agreeapplication/api/fetchMatchedTemplatesByFileAndProfile';
+    private programListByTenantIdUrl ='agreeapplication/api/programListByTenantId';
+    public loadScheduleContent:boolean;
+    private unHoldFileTemplateUrl = 'agreeapplication/api/unHoldTemplate';
+    private proceedForExtractionUrl= 'agreeapplication/api/DropZoneTransformationForDropArea';
+    private proceedForExtractionWithFileIdUrl= 'agreeapplication/api/DropZoneTransformationForDropBoxAndDrive';
+    private extractionThruDriveUrl = 'agreeapplication/api/extractionThruDrive';
+    private deleteLinesUrl = 'agreeapplication/api/data-stagings';
+    private deleteAllLinesUrl = 'agreeapplication/api/deleteStagingRecords';
+    private searchUrl = 'agreeapplication/api/_search/batch-header';
+    private fetchIdentifiersIfMultipleUrl = 'agreeapplication/api/fetchIntermediateTablesByTemplateId';
+    public searchProfileData:any;
+    public reason :any;
+    public searchData:any;
+    public showMatchedTemplates:boolean =false;
+    loadCreateTemplateForm:boolean=false;
+    public matchedTemplates:any;
+    fileTemplatesList  = [];
+    
+    /**
+    * 
+    * @param http
+    * @param dateUtils
+    * @param $sessionStorage
+    */
+    constructor(private http: Http, private dateUtils: JhiDateUtils,
+            private $sessionStorage: SessionStorageService        
+    ) {
+        
+    }
+    search(req?: any): Observable<ResponseWrapper> {
+        let options = createRequestOption(req);
+        return this.http.get(this.searchUrl+'?tenantId='+this.UserData.tenantId+'&filterValue='+this.searchData, options)
+        .map((res: any) => this.convertResponse(res))
+        ;
+    }
+    unHoldTemplate(spaId): Observable<Response> {
+        const copy = null;
+        return this.http.put(this.unHoldFileTemplateUrl+'?spaId='+spaId +'&reason='+this.reason,copy).map((res: Response) => {
+            return res;
+        });
+    }
+    holdTemplate(spaId): Observable<Response> {
+        const copy = null;
+        return this.http.put(this.holdFileTemplateUrl+'?spaId='+spaId+'&reason='+this.reason,copy).map((res: Response) => {
+            return res;
+        });
+    }
+    fetchIdentifiersListIfMultiple(tempId,srcInbHistId,referenceTable) :Observable<Response> {
+        return this.http.get(this.fetchIdentifiersIfMultipleUrl + '?templateId=' + tempId +'&srcFileHistInbId='+srcInbHistId+'&referenceTable='+referenceTable).map((res: Response) => {
+            return res.json();
+        });
+    }
+    fetchBatchHeaders(sourceProfileId,srcProfAssId : any ,page: number, pageSize: number,status) :Observable<Response> {
+        if(srcProfAssId == undefined)
+        srcProfAssId='';
+        return this.http.get(this.fetchBatchHedersUrl + '?sourceProfileId=' + sourceProfileId+'&srcProfAssgnId='+srcProfAssId+'&page='+page+'&per_page='+pageSize+'&status='+status).map((res: Response) => {
+            return res.json();
+        });
+    }
+    fetchBatchDetailsById(page: number, pageSize: number,id) :Observable<Response> {
+        return this.http.get(this.batchDetailsUrl + '?batchId=' + id+'&page='+page+'&per_page='+pageSize).map((res: Response) => {
+            return res.json();
+        });
+    }
+    
+    holdBatch(batchId): Observable<Response> {
+        const copy = null;
+        return this.http.put(this.holdBatchUrl+'?batchId='+batchId+'&reason='+this.reason,copy).map((res: Response) => {
+            return res;
+        });
+    }
+    releaseBatchHold(batchId): Observable<Response> {
+        const copy = null;
+        return this.http.put(this.releaseBatchHoldUrl+'?batchId='+batchId+'&reason='+this.reason,copy).map((res: Response) => {
+            return res;
+        });
+    }
+    
+    holdBatchDetail(srcFileInbHistId): Observable<Response> {
+        const copy = null;
+        return this.http.put(this.holdBatchDetailUrl+'?srcFileInbHistId='+srcFileInbHistId+'&reason='+this.reason,copy).map((res: Response) => {
+            return res;
+        });
+    }
+    releaseBatchDetailHold(srcFileInbHistId): Observable<Response> {
+        const copy = null;
+        return this.http.put(this.releaseBatchDetailHoldUrl+'?srcFileInbHistId='+srcFileInbHistId+'&reason='+this.reason,copy).map((res: Response) => {
+            return res;
+        });
+    }
+    samplefileUpload(files: any, skipStartRow: any, skipEndRow: any,rowIdentifier:any,delimiter: any): Observable<Response> {
+        let formData = new FormData();
+        formData.append('file', files);
+        formData.append('skipStartRow', skipStartRow);
+        formData.append('skipEndRow', skipEndRow);
+        formData.append('rowIdentifier', rowIdentifier);
+        formData.append('tenantId', '11');
+        if(!delimiter)
+        delimiter = '';
+          formData.append('delimiter', delimiter);
+        let headers = new Headers({});
+        let options = new RequestOptions({ headers });
+
+        return this.http.post(this.readAndExtractCSVUrl, formData, options).map((res: Response) => {
+            return res.json();
+        });
+    }
+    
+    fetchSchedulesByProfileOrTemplate(sourceProfileId,templateId) :Observable<Response> {
+        return this.http.get(this.fetchSchedulesByProfileOrTemplateUrl + '?profileId=' + sourceProfileId+'&templateId='+templateId+'&tenantId='+this.UserData.tenantId).map((res: Response) => {
+            return res.json();
+        });
+    }
+
+      private createRequestOption(req?: any): BaseRequestOptions {
+          let options: BaseRequestOptions = new BaseRequestOptions();
+          if (req) {
+              let params: URLSearchParams = new URLSearchParams();
+              params.set('page', req.page);
+              params.set('size', req.size);
+              if (req.sort) {
+                  params.paramsMap.set('sort', req.sort);
+              }
+              params.set('query', req.query);
+
+              options.search = params;
+          }
+          return options;
+      }
+      fetchDataMasterLinesBySrcFileInb(page: number, pageSize: number,sourceProfileId,templateId,srcFileHistInbId,interId) :Observable<Response> {
+          let intermediateId : any;
+          if(interId == null || interId === undefined || !interId)
+          {
+            intermediateId = '';
+          }
+          else
+          intermediateId  = interId;
+        return this.http.get(this.fetchDataMasterLinesbySrcFileHistInbUrl + '?sourceProfileId=' + sourceProfileId+'&page='+page+'&per_page='+pageSize+'&templateId='+templateId+
+        '&intermediateId='+intermediateId+'&srcFileHistInbId='+srcFileHistInbId).map((res: Response) => {
+            return res;
+        });
+    }
+      fetchDataStagingLinesBySrcFileInb(page: number, pageSize: number,sourceProfileId,templateId,srcFileHistInbId,linesStatusFilter) :Observable<Response> {
+          if(linesStatusFilter == 'All')
+              linesStatusFilter='';
+          return this.http.get(this.fetchDataStagingLinesbySrcFileHistInbUrl + '?sourceProfileId=' + sourceProfileId+'&page='+page+'&per_page='+pageSize+
+                  '&templateId=' +templateId+'&srcFileHistInbId='+srcFileHistInbId +'&recordStatus='+linesStatusFilter).map((res: Response) => {
+              return res;
+          });
+      }
+      updateStagingLines(linesToUpdate): Observable<any>
+      {
+         // let copy : any = Object.assign({},linesToUpdate);
+        // console.log('linesToUpdate'+JSON.stringify(linesToUpdate));
+      return this.http.put(this.updateStagingRecordsUrl, linesToUpdate).map((res: Response) => {
+          return res.json();
+      });
+      }
+      deleteStagingRecords(srcInbId): Observable<any>
+      {
+        return this.http.get('agreeapplication/api/moveFromStagingToMasterTable'+ '?srcFileInbHistId=' + srcInbId).map((res: Response) => {
+            return res.json();
+        });
+      }
+      matchTemplates(fileName,fileTemplatesDTOList ){
+          return this.http.get(this.matchTemplatesUrl + '?fileName=' + fileName+'&fileTemplatesDTOList='+JSON.stringify(fileTemplatesDTOList)).map((res: Response) => {
+              return res.json();
+          });
+      }
+      
+      fetchProgramList()
+      {
+          return this.http.get(this.programListByTenantIdUrl + '?tenantId='+this.UserData.tenantId).map((res: Response) => {
+              return res.json();
+          });
+      }
+      proceedForExtraction(spaId,file)
+      {
+          let formData = new FormData();
+          formData.append('file', file);
+          formData.append('tenantId', this.UserData.tenantId);
+          formData.append('userId', this.UserData.id);
+          formData.append('srcPrfAsmtlId', spaId);
+          let headers = new Headers({});
+          let options = new RequestOptions({ headers });
+
+          return this.http.post(this.proceedForExtractionUrl, formData, options).map((res: Response) => {
+             
+              return res;
+          });
+      }
+      proceedForExtractionWithFileId(spaId,accessToken,fileId)
+      {
+          let formData = new FormData();
+          formData.append('tenantId', this.UserData.tenantId);
+          formData.append('userId', this.UserData.id);
+          formData.append('srcPrfAsmtlId', spaId);
+          formData.append('accessToken', accessToken);
+          formData.append('fileId', fileId);
+          let headers = new Headers({});
+          let options = new RequestOptions({ headers });
+
+          return this.http.post(this.proceedForExtractionWithFileIdUrl, formData, options).map((res: Response) => {
+             
+              return res;
+          });
+      }
+      extractionThruDrive(spaId,fieldId)
+      {
+          return this.http.get(this.extractionThruDriveUrl+ '?fieldId='+fieldId).map((res: Response) => {
+              
+              return res;
+          });
+      }
+      
+      deleteLines(id): Observable<Response> {
+          return this.http.delete(`${this.deleteLinesUrl}/${id}`);
+       //   return this.http.delete(this.deleteLinesUrl+ '?stagingIds='+ids);
+      }
+      
+      deleteAllLines(srcFileInbHistId: number): Observable<Response> {
+          return this.http.delete(`${this.deleteAllLinesUrl}/${srcFileInbHistId}`);
+      }
+//      searchKeys(page: number, pageSize: number,filterValue:any,columnValue:any): Observable<Response> {
+//          let columnName : any;
+//          if(filterValue === undefined)
+//              filterValue =null;
+//          if(columnValue.toLowerCase() === 'all')
+//              {
+//                  columnValue = null;
+//                  columnName = null;
+//              }
+//          else
+//              {
+//                  columnName = 'rule_purpose';
+//              }
+//              
+//         // console.log('page'+page+'pageSize'+pageSize+'columnValue'+columnValue+'filterValue'+filterValue);//page=${page}&per_page=${pageSize}&
+//          return this.http.get(`${this.searchDataUrl}/?tenantId=${this.UserData.tenantId}&columnName=${columnName}&columnValue=${columnValue}&filterValue=${filterValue}`)
+//          .map((res: any) => this.convertResponse(res))
+//          ;
+//      }
+      private convertResponse(res: Response): ResponseWrapper {
+          const jsonResponse = res.json();
+          for (let i = 0; i < jsonResponse.length; i++) {
+              this.convertItemFromServer(jsonResponse[i]);
+          }
+          return new ResponseWrapper(res.headers, jsonResponse, res.status);
+      }
+      private convertItemFromServer(entity: any) {
+          entity.startDate = this.dateUtils
+              .convertLocalDateFromServer(entity.startDate);
+          entity.endDate = this.dateUtils
+              .convertLocalDateFromServer(entity.endDate);
+          entity.createdDate = this.dateUtils
+              .convertDateTimeFromServer(entity.createdDate);
+          entity.lastUpdatedDate = this.dateUtils
+              .convertDateTimeFromServer(entity.lastUpdatedDate);
+      }
+}

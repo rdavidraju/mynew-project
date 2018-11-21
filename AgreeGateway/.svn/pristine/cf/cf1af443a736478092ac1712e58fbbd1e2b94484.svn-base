@@ -1,0 +1,120 @@
+<div class="container-fluid component-body">
+        <div class="row botom-dotted-blue-border component-title margin-left-22">
+            <div class="col-md-6 pageTitle">
+                <h2>Jobs Schedulars Details</h2>
+            </div>
+            <div class="col-md-6 ftlSearch">
+                <button md-icon-button class="pull-right search-icon-body" mdTooltip="Search">
+                    <md-icon>search</md-icon>
+                </button>
+                <md-input-container class="pull-right hidethis">
+                <input class="mySearchBox" mdInput #gb placeholder="What're we looking for?"> </md-input-container>
+                <button class="pull-right md-36" md-icon-button [routerLink]="['/jobs', {outlets: { 'content': ['jobs-new']}}]" mdTooltip="Add New Job">
+				<md-icon>add</md-icon>
+			</button>
+            </div>
+        </div>
+        <div style="text-align: right" class="show-hide-class">
+			<p-multiSelect [options]="columnOptions" [(ngModel)]="schedulsTableColumns"></p-multiSelect>
+		</div>
+        <p-dataTable [value]="schedularsList" selectionMode="single" scrollable="true" scrollHeight="{{jobScheListsHeight}}" [(selection)]="selectedScheduls"
+        	reorderableColumns="true" resizableColumns="true" columnResizeMode="expand"
+            [responsive]="true" [headerCheckboxToggleAllPages]="true" [globalFilter]="gb" #dt [rows]="5"> 
+            <p-column field="oozieJobId" header="Job Id" styleClass="left" [style]="{'width':'400px'}"> 
+				<ng-template let-col let-row="rowData" pTemplate="body"> 
+					<!-- <span (mouseenter)="getScheduleActions(row, row['oozieJobId'])" (mouseleave)="resetmodal()" style="text-decoration: underline;">{{row[col.field]}}</span> -->
+					<span (click)="getScheduleActions(row, row['oozieJobId'])" 	 style="text-decoration: underline;">{{row[col.field]}}</span>
+				</ng-template> 
+			</p-column> 
+			<p-column field="jobName" header="Job Name" styleClass="left" [style]="{'width':'150px'}">
+				<ng-template let-col let-row="rowData" pTemplate="body"> 
+					<span>{{row[col.field]}}</span>
+				</ng-template> 
+			</p-column> 
+            <p-column *ngFor="let col of schedulsTableColumns" styleClass="left" [field]="col.field" [header]="col.header" [style]="{'width':'150px'}"> </p-column>
+            
+            <p-column field="startTime" header="Start Date & Time" styleClass="left" [style]="{'width':'150px'}">
+				<ng-template let-col let-row="rowData" pTemplate="body"> 
+					<span>{{row[col.field] | date:'medium'}}</span>
+				</ng-template> 
+			</p-column> 
+            <p-column field="endTime" header="End Date & Time" styleClass="left" [style]="{'width':'150px'}">
+				<ng-template let-col let-row="rowData" pTemplate="body"> 
+					<span>{{row[col.field] | date:'medium'}}</span>
+				</ng-template> 
+			</p-column> 
+            <p-column field="actions" header="Actions" styleClass="center" [style]="{'width':'100px'}"> 
+                <ng-template let-col let-row="rowData" pTemplate="body">
+                    <button *ngIf="row['status'] !== 'RUNNING'" md-icon-button aria-hidden="true" mdTooltip="Rerun this" mdTooltipPosition="above" (click)="rerunSchedule(row['oozieJobId'])">
+                        <md-icon style="color: gray">play_arrow</md-icon>
+                    </button>
+                    <button *ngIf="row['status'] === 'RUNNING' || row['status'] === 'READY'" md-icon-button aria-hidden="true" mdTooltip="Stop this" mdTooltipPosition="above" (click)="stopSchedule(row['oozieJobId'])">
+                        <md-icon style="color: gray">stop</md-icon>
+                    </button>
+                    <button *ngIf="row['status'] !== 'RUNNING'" md-icon-button aria-hidden="true" mdTooltip="Show Log" mdTooltipPosition="above" (click)="showScheduleLog(row['oozieJobId'])">
+                        <md-icon style="color: gray">event_note</md-icon>
+                    </button>
+                      <button  md-icon-button aria-hidden="true" mdTooltip="View Detail" mdTooltipPosition="above" [routerLink]="['/jobs', {outlets: {'content': [row['jobId']]+'/details'}}]"">
+                        <md-icon style="color: gray">more_horiz</md-icon>
+                    </button>
+                    
+                </ng-template> 
+            </p-column> 
+        </p-dataTable>
+        <md-paginator [length]="length"
+              [pageSize]="pageSize"
+              [pageSizeOptions]="pageSizeOptions"
+              (page)="pageEvent = $event; loadAllSchedulersList()">
+		</md-paginator>
+		<div class="jobs-section">
+		<p-dialog [header]="selSingleSchedule.schedulerName + ' Actions Log'"
+			[(visible)]="showActionsLog" [responsive]="true">
+			
+			<p-header>
+				<i class="material-icons hand pull-right"
+					(click)="getScheduleActions(selSingleSchedule, selSingleSchedule.oozieJobId)" mdTooltip="Refresh"
+					>refresh</i>
+				 </p-header>
+			
+			
+			<div class="table-responsive">
+				<table class="table">
+					<thead>
+						<tr>
+							<th>Action</th>
+							<th>Start Time</th>
+							<th>End Time</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody *ngFor="let action of schedulerActions">
+						<tr>
+							<td>{{action.actionName}}</td>
+							<td>{{action.startTime | date:'medium'}}</td>
+							<td>{{action.endTime | date:'medium'}}</td>
+							<td><i *ngIf="action.status === 'Success'"
+								style="color: gray" class="material-icons">check_circle</i> <i
+								*ngIf="action.status === 'Fail'" style="color: gray"
+								class="material-icons" aria-hidden="true">error</i></td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+
+
+
+
+
+		<!-- 
+		<p-dataTable [value]="schedulerActions">
+			        <p-column field="actionName" header="Action"></p-column>
+			        <p-column field="status" header="Status">
+			        	<ng-template let-col let-row="rowData" pTemplate="body"> 
+							<i *ngIf="row[col.field] === 'Success'" style="color: gray" class="material-icons">check_circle</i> 
+							<i *ngIf="row[col.field] === 'Fail'" style="color: gray" class="material-icons" aria-hidden="true">error</i> 
+						</ng-template> 
+			        </p-column>
+			    </p-dataTable> --> </p-dialog>
+	</div>
+    </div>
+    

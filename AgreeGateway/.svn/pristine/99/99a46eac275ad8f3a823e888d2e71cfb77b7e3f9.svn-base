@@ -1,0 +1,105 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { Response } from '@angular/http';
+
+import { Observable } from 'rxjs/Rx';
+import { NgbActiveModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { JhiEventManager, JhiAlertService } from 'ng-jhipster';
+
+import { JobDetails } from './job-details.model';
+import { JobDetailsPopupService } from './job-details-popup.service';
+import { JobDetailsService } from './job-details.service';
+
+@Component({
+    selector: 'jhi-job-details-dialog',
+    templateUrl: './job-details-dialog.component.html'
+})
+export class JobDetailsDialogComponent implements OnInit {
+
+    jobDetails: JobDetails;
+    isSaving: boolean;
+    startDateDp: any;
+    endDateDp: any;
+
+    constructor(
+        public activeModal: NgbActiveModal,
+        private alertService: JhiAlertService,
+        private jobDetailsService: JobDetailsService,
+        private eventManager: JhiEventManager
+    ) {
+    }
+
+    ngOnInit() {
+        this.isSaving = false;
+    }
+
+    clear() {
+        this.activeModal.dismiss('cancel');
+    }
+
+    save() {
+        this.isSaving = true;
+        if (this.jobDetails.id !== undefined) {
+            this.subscribeToSaveResponse(
+                this.jobDetailsService.update(this.jobDetails));
+        } else {
+            this.subscribeToSaveResponse(
+                this.jobDetailsService.create(this.jobDetails));
+        }
+    }
+
+    private subscribeToSaveResponse(result: Observable<JobDetails>) {
+        result.subscribe((res: JobDetails) =>
+            this.onSaveSuccess(res), (res: Response) => this.onSaveError(res));
+    }
+
+    private onSaveSuccess(result: JobDetails) {
+        this.eventManager.broadcast({ name: 'jobDetailsListModification', content: 'OK'});
+        this.isSaving = false;
+        this.activeModal.dismiss(result);
+    }
+
+    private onSaveError(error) {
+        try {
+            error.json();
+        } catch (exception) {
+            error.message = error.text();
+        }
+        this.isSaving = false;
+        this.onError(error);
+    }
+
+    private onError(error) {
+        this.alertService.error(error.message, null, null);
+    }
+}
+
+@Component({
+    selector: 'jhi-job-details-popup',
+    template: ''
+})
+export class JobDetailsPopupComponent implements OnInit, OnDestroy {
+
+    routeSub: any;
+
+    constructor(
+        private route: ActivatedRoute,
+        private jobDetailsPopupService: JobDetailsPopupService
+    ) {}
+
+    ngOnInit() {
+        this.routeSub = this.route.params.subscribe((params) => {
+            if ( params['id'] ) {
+                this.jobDetailsPopupService
+                    .open(JobDetailsDialogComponent as Component, params['id']);
+            } else {
+                this.jobDetailsPopupService
+                    .open(JobDetailsDialogComponent as Component);
+            }
+        });
+    }
+
+    ngOnDestroy() {
+        this.routeSub.unsubscribe();
+    }
+}
